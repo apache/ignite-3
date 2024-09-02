@@ -45,33 +45,34 @@ UUID = uuid.UUID
 
 
 def type_code_from_int(native: int):
-    match native:
-        case native_type_code.NIL:
-            return NIL
-        case native_type_code.BOOLEAN:
-            return BOOLEAN
-        case native_type_code.INT8 | native_type_code.INT16 | native_type_code.INT32 | native_type_code.INT64:
-            return INT
-        case native_type_code.FLOAT | native_type_code.DOUBLE:
-            return FLOAT
-        case native_type_code.DECIMAL | native_type_code.NUMBER:
-            return NUMBER
-        case native_type_code.DATE:
-            return DATE
-        case native_type_code.TIME:
-            return TIME
-        case native_type_code.DATETIME | native_type_code.TIMESTAMP:
-            return DATETIME
-        case native_type_code.UUID:
-            return UUID
-        case native_type_code.BITMASK:
-            return INT
-        case native_type_code.STRING:
-            return STRING
-        case native_type_code.BYTE_ARRAY:
-            return BINARY
-        case native_type_code.PERIOD | native_type_code.DURATION:
-            return DATETIME
+    if native == native_type_code.NIL:
+        return NIL
+    elif native == native_type_code.BOOLEAN:
+        return BOOLEAN
+    elif (native == native_type_code.INT8 or native == native_type_code.INT16
+          or native == native_type_code.INT32 or native == native_type_code.INT64):
+        return INT
+    elif native == native_type_code.FLOAT or native == native_type_code.DOUBLE:
+        return FLOAT
+    elif native == native_type_code.DECIMAL or native == native_type_code.NUMBER:
+        return NUMBER
+    elif native == native_type_code.DATE:
+        return DATE
+    elif native == native_type_code.TIME:
+        return TIME
+    elif native == native_type_code.DATETIME or native == native_type_code.TIMESTAMP:
+        return DATETIME
+    elif native == native_type_code.UUID:
+        return UUID
+    elif native == native_type_code.BITMASK:
+        return INT
+    elif native == native_type_code.STRING:
+        return STRING
+    elif native == native_type_code.BYTE_ARRAY:
+        return BINARY
+    elif native == native_type_code.PERIOD or native == native_type_code.DURATION:
+        return DATETIME
+    raise InterfaceError(f'Unsupported data type: {native}')
 
 
 class ColumnDescription:
