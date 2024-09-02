@@ -42,10 +42,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for a single upsert operation via KV API with a possibility to disable updates via RAFT and to storage.
  */
 @State(Scope.Benchmark)
-@Fork(0)
+@Fork(1)
 @Threads(1)
-@Warmup(iterations = 0, time = 1)
-@Measurement(iterations = 1, time = 1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
@@ -67,7 +67,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Setup
     public void setUp() {
-        //kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
+        kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
         for (int i = 1; i < 11; i++) {
             tuple.set("field" + i, FIELD_VAL);
         }
@@ -83,7 +83,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void upsert() {
-        //kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
+        kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
     }
 
     /**

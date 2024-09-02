@@ -354,6 +354,10 @@ public class StripedDisruptor<T extends INodeIdAware> {
             // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
 
             if (event.getEvtType() == SUBSCRIBE) {
+                if (endOfBatch) {
+                    consumeBatch(event.nodeId(), sequence);
+                }
+
                 if (event.getHandler() == null) {
                     subscribers.compute(event.nodeId(), (k, v) -> {
                         v.remove(event.getSrcType());
@@ -379,59 +383,25 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             } else {
                 //internalBatching(event, sequence);
-//                eventCache2.compute(event.nodeId(), (k, v) -> {
-//                    if (v == null) {
-//                        v = new ArrayList<>(10); // Use Avg batch size TODO.
-//                    }
-//
-//                    v.add(event);
-//
-//                    return v;
-//                });
-//
-//                if (endOfBatch) {
-//                    List<T> cached = eventCache2.get(event.nodeId());
-//
-//                                        if (cached.size() > 10) {
-//                                        LOG.info("Batch size > 10");
-//                                        }
-//
-//
-//
-//                    for (int i = 0; i < cached.size(); i++) {
-//                    T t =  cached.get(i);
-//
-//                    // assert t.nodeId().equals(event.nodeId());
-//
-//                    boolean endB = true;
-//
-//                    if (i < cached.size() - 1) {
-//                        T next = cached.get(i + 1);
-//
-//                        // Batch events of same class.
-//                        if (next.getClass().equals(t.getClass())) {
-//                            endB = false;
-//                        }
-//                    }
-//
-//                    EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(t.getSrcType());
-//
-//                    if (grpHandler != null) {
-//                        grpHandler.onEvent(t, sequence, endB);
-//                    }
-//                    }
-//
-//                    cached.clear();
-//
-//                }
+                eventCache2.compute(event.nodeId(), (k, v) -> {
+                    if (v == null) {
+                        v = new ArrayList<>(); // Use Avg batch size TODO.
+                    }
 
-                                EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(event.getSrcType());
+                    v.add(event);
 
-                                                    if (grpHandler != null) {
-                                                        grpHandler.onEvent(event, sequence, true);
-                                                    } else {
-                                                        LOG.error("DBG: NULL FOR " + event.getSrcType());
-                                                    }
+                    return v;
+                });
+
+                if (endOfBatch) {
+                     consumeBatch(event.nodeId(), sequence);
+                }
+
+//                                EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(event.getSrcType());
+//
+//                                                    if (grpHandler != null) {
+//                                                        grpHandler.onEvent(event, sequence, true);
+//                                                    }
 
             }
 
@@ -454,6 +424,37 @@ public class StripedDisruptor<T extends INodeIdAware> {
 //                eventCache.clear();
 //            }
         }
+
+        private void consumeBatch(NodeId nodeId, long sequence) throws Exception {
+            List<T> cached = eventCache2.get(nodeId);
+                            if (cached != null) {
+                                                for (int i = 0; i < cached.size(); i++) {
+                                                    T t = cached.get(i);
+
+                                                    // assert t.nodeId().equals(event.nodeId());
+
+                                                    boolean endB = true;
+
+                                                    if (i < cached.size() - 1) {
+                                                        T next = cached.get(i + 1);
+
+                                                        // Batch events of same class.
+                                                        if (next.getSrcType() == t.getSrcType()) {
+                                                            endB = false;
+                                                        }
+                                                    }
+
+                                                    EventHandler<T> grpHandler = subscribers.get(nodeId).get(t.getSrcType());
+
+                                                    if (grpHandler != null) {
+                                                        grpHandler.onEvent(t, sequence, endB);
+                                                    }
+                                                }
+
+                                                cached.clear();
+                                            }
+        }
+
 
         /**
          * Processes the event with intermediate cache to batch internally for each subscriber for the stripe.
