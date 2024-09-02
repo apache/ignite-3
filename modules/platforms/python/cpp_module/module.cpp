@@ -63,7 +63,7 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     return conn_obj;
 }
 
-static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         "address",
         "identity",
@@ -133,7 +133,7 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
 }
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction)(void*)connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
