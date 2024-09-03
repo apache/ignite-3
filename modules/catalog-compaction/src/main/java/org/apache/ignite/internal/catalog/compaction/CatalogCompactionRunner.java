@@ -344,7 +344,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
-                    Long globalMinimumRequiredTime = localMinimumRequiredTime;
+                    long globalMinimumRequiredTime = localMinimumRequiredTime == null
+                            ? HybridTimestamp.MIN_VALUE.longValue()
+                            : localMinimumRequiredTime;
+
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
                     Map<String, Map<Integer, BitSet>> remotePartitions = new HashMap<>();
 
@@ -354,7 +357,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         String nodeId = p.getFirst();
                         CatalogCompactionMinimumTimesResponse response = p.getSecond();
 
-                        if (globalMinimumRequiredTime == null || response.minimumRequiredTime() < globalMinimumRequiredTime) {
+                        if (response.minimumRequiredTime() < globalMinimumRequiredTime) {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
                         }
 
@@ -363,10 +366,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         }
 
                         remotePartitions.put(nodeId, availablePartitionListToMap(response.partitions()));
-                    }
-
-                    if (globalMinimumRequiredTime == null) {
-                        globalMinimumRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
                     }
 
                     return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime, remotePartitions);
