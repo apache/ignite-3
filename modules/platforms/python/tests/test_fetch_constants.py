@@ -17,7 +17,7 @@ import math
 import pytest
 
 import pyignite3
-from tests.util import start_cluster_gen, check_cluster_started, server_addresses_invalid, server_addresses_basic
+from tests.util import start_cluster_gen, check_cluster_started, server_addresses_basic
 
 
 @pytest.fixture(autouse=True)
