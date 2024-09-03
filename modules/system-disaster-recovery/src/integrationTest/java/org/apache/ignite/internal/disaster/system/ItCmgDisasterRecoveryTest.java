@@ -37,11 +37,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -254,15 +256,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         });
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
-        // This makes the CMG majority go away.
-        cluster.stopNode(0);
-
-        // Repair CMG with just node 1.
-        initiateCmgRepairVia(igniteImpl(1), 1);
-        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
-        waitTillCmgHasMajority(restartedIgniteImpl1);
-
-        migrate(0, 1);
+        breakAndRepairCmgMajorityInTwoNodeCluster();
 
         LogicalTopologySnapshot topologySnapshot = igniteImpl(1).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(0, topologySnapshot);
@@ -332,6 +326,38 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         });
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
+        breakAndRepairCmgMajorityInTwoNodeCluster();
+
+        // Second repair.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
+
+        // TODO: IGNITE-23096 - remove after the hang is fixed.
+        waitTillNodesRestartInProcess(0, 1);
+    }
+
+    @Test
+    void clientKeepsWorkingAfterCmgRepair() throws Exception {
+        cluster.startAndInit(2, paramsBuilder -> {
+            paramsBuilder.cmgNodeNames(nodeNames(0));
+            paramsBuilder.metaStorageNodeNames(nodeNames(1));
+        });
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        try (IgniteClient client = clientAgainstNode0()) {
+            client.sql().executeScript("CREATE TABLE TEST (ID INT PRIMARY KEY, VAL VARCHAR)");
+            KeyValueView<Integer, String> kvView = client.tables().table("TEST").keyValueView(Integer.class, String.class);
+
+            kvView.put(null, 1, "one");
+
+            breakAndRepairCmgMajorityInTwoNodeCluster();
+
+            assertThat(kvView.get(null, 1), is("one"));
+        }
+    }
+
+    private void breakAndRepairCmgMajorityInTwoNodeCluster() throws Exception {
         // This makes the CMG majority go away.
         cluster.stopNode(0);
 
@@ -342,13 +368,11 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Starting the node that did not see the repair.
         migrate(0, 1);
+    }
 
-        // Second repair.
-        initiateCmgRepairVia(igniteImpl(1), 1);
-        IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
-        waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(0, 1);
+    private IgniteClient clientAgainstNode0() {
+        return IgniteClient.builder()
+                .addresses(igniteImpl(0).clientAddress().host())
+                .build();
     }
 }

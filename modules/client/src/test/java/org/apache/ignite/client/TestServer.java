@@ -41,6 +41,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.DummyAuthenticationManager;
 import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
@@ -229,6 +230,7 @@ public class TestServer implements AutoCloseable {
                 .clusterName("Test Server")
                 .clusterId(clusterId)
                 .build();
+        ClusterInfo clusterInfo = new ClusterInfo(tag, List.of(tag.clusterId()));
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
@@ -237,7 +239,7 @@ public class TestServer implements AutoCloseable {
                 shouldDropConnection,
                 responseDelay,
                 clusterService,
-                tag,
+                clusterInfo,
                 metrics,
                 authenticationManager,
                 clock,
@@ -250,7 +252,7 @@ public class TestServer implements AutoCloseable {
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
-                        () -> CompletableFuture.completedFuture(tag),
+                        () -> CompletableFuture.completedFuture(clusterInfo),
                         mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,

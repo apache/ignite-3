@@ -40,11 +40,11 @@ import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
+import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -81,7 +81,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final IgniteComputeInternal compute;
 
     /** Cluster id. */
-    private final ClusterTag clusterTag;
+    private final ClusterInfo clusterInfo;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -112,7 +112,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param shouldDropConnection Connection drop condition.
      * @param responseDelay Response delay, in milliseconds.
      * @param clusterService Cluster service.
-     * @param clusterTag Cluster tag.
+     * @param clusterInfo Cluster info.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clock Clock.
@@ -125,7 +125,7 @@ public class TestClientHandlerModule implements IgniteComponent {
             Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
-            ClusterTag clusterTag,
+            ClusterInfo clusterInfo,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock,
@@ -141,7 +141,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.responseDelay = responseDelay;
         this.clusterService = clusterService;
         this.compute = (IgniteComputeInternal) ignite.compute();
-        this.clusterTag = clusterTag;
+        this.clusterInfo = clusterInfo;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clock = clock;
@@ -222,7 +222,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        CompletableFuture.completedFuture(clusterTag),
+                                        CompletableFuture.completedFuture(clusterInfo),
                                         metrics,
                                         authenticationManager,
                                         clockService,
