@@ -40,6 +40,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.StringUtils;
@@ -85,6 +87,33 @@ import org.junit.jupiter.api.function.Executable;
  */
 public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
+
+    private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
+
+    static {
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BOOLEAN, SqlTypeName.BOOLEAN);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.INT8, SqlTypeName.TINYINT);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.INT16, SqlTypeName.SMALLINT);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.INT32, SqlTypeName.INTEGER);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.INT64, SqlTypeName.BIGINT);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.FLOAT, SqlTypeName.REAL);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DOUBLE, SqlTypeName.DOUBLE);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DECIMAL, SqlTypeName.DECIMAL);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DATE, SqlTypeName.DATE);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.TIME, SqlTypeName.TIME);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DATETIME, SqlTypeName.TIMESTAMP);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.TIMESTAMP, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.STRING, SqlTypeName.VARCHAR);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BYTE_ARRAY, SqlTypeName.VARBINARY);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.NULL, SqlTypeName.NULL);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.ANY);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.PERIOD, null);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DURATION, null);
+
+        for (ColumnType value : ColumnType.values()) {
+            assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;
+        }
+    }
 
     /**
      * <em>Assert</em> that execution of the supplied {@code executable} throws
@@ -167,42 +196,22 @@ public class SqlTestUtils {
      * @return String representation of SQL type.
      */
     public static String toSqlType(ColumnType columnType) {
-        switch (columnType) {
-            case BOOLEAN:
-                return SqlTypeName.BOOLEAN.getName();
-            case INT8:
-                return SqlTypeName.TINYINT.getName();
-            case INT16:
-                return SqlTypeName.SMALLINT.getName();
-            case INT32:
-                return SqlTypeName.INTEGER.getName();
-            case INT64:
-                return SqlTypeName.BIGINT.getName();
-            case FLOAT:
-                return SqlTypeName.REAL.getName();
-            case DOUBLE:
-                return SqlTypeName.DOUBLE.getName();
-            case DECIMAL:
-                return SqlTypeName.DECIMAL.getName();
-            case DATE:
-                return SqlTypeName.DATE.getName();
-            case TIME:
-                return SqlTypeName.TIME.getName();
-            case DATETIME:
-                return SqlTypeName.TIMESTAMP.getName();
-            case TIMESTAMP:
-                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
-            case UUID:
-                return UuidType.NAME;
-            case STRING:
-                return SqlTypeName.VARCHAR.getName();
-            case BYTE_ARRAY:
-                return SqlTypeName.VARBINARY.getName();
-            case NULL:
-                return SqlTypeName.NULL.getName();
-            default:
-                throw new IllegalArgumentException("Unsupported type " + columnType);
+        SqlTypeName type = COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.get(columnType);
+
+        if (type == SqlTypeName.ANY) {
+            switch (columnType) {
+                case UUID:
+                    return UuidType.NAME;
+                default:
+                    throw new IllegalArgumentException("Unsupported type " + columnType);
+            }
         }
+
+        if (type == null) {
+            throw new IllegalArgumentException("Unsupported type " + columnType);
+        }
+
+        return type.getSpaceName();
     }
 
     /**
@@ -276,7 +285,7 @@ public class SqlTestUtils {
                 assert precision >= scale : "Scale of BigDecimal for SQL shouldn't be more than precision";
                 assert precision > 0 : "Precision of BigDecimal for SQL should be positive";
 
-                return IgniteTestUtils.randomBigDecimal(RND, scale, precision);
+                return IgniteTestUtils.randomBigDecimal(RND, precision, scale);
             case UUID:
                 return new UUID(RND.nextLong(), RND.nextLong());
             case DURATION:
@@ -320,6 +329,56 @@ public class SqlTestUtils {
         }
 
         return generateValueByType(type, precision, scale);
+    }
+
+    /**
+     * Generate value for given {@link NativeTypeSpec} based on given base number. Result of invocation always will be the same
+     * for the same pair of arguments.
+     *
+     * @param base Base value to generate result value.
+     * @param type Type to generate value.
+     * @return Generated value for given type.
+     */
+    public static Object generateStableValueByType(int base, NativeTypeSpec type) {
+        switch (type) {
+            case BOOLEAN:
+                return base % 2 == 0;
+            case INT8:
+                return (byte) base;
+            case INT16:
+                return (short) base;
+            case INT32:
+                return base;
+            case INT64:
+                return (long) base;
+            case FLOAT:
+                return (float) base + ((float) base / 1000);
+            case DOUBLE:
+                return (double) base + ((double) base / 1000);
+            case DECIMAL:
+                return BigDecimal.valueOf((double) base + ((double) base / 1000));
+            case UUID:
+                return new UUID(base, base);
+            case STRING:
+                return "str_" + base;
+            case BYTES:
+                return new byte[]{(byte) base, (byte) (base + 1), (byte) (base + 2)};
+            case DATE:
+                return LocalDate.of(2022, 01, 01).plusDays(base);
+            case TIME:
+                return LocalTime.of(0, 00, 00).plusSeconds(base);
+            case DATETIME:
+                return LocalDateTime.of(
+                        (LocalDate) generateStableValueByType(base, NativeTypeSpec.DATE),
+                        (LocalTime) generateStableValueByType(base, NativeTypeSpec.TIME)
+                );
+            case TIMESTAMP:
+                return ((LocalDateTime) generateStableValueByType(base, NativeTypeSpec.DATETIME))
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant();
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
     }
 
     /**
@@ -450,46 +509,13 @@ public class SqlTestUtils {
 
     /** Convert {@link ColumnType} to {@link SqlTypeName}. */
     public static SqlTypeName columnType2SqlTypeName(ColumnType columnType) {
-        switch (columnType) {
-            case NULL:
-                return SqlTypeName.NULL;
-            case BOOLEAN:
-                return SqlTypeName.BOOLEAN;
-            case INT8:
-                return SqlTypeName.TINYINT;
-            case INT16:
-                return SqlTypeName.SMALLINT;
-            case INT32:
-                return SqlTypeName.INTEGER;
-            case INT64:
-                return SqlTypeName.BIGINT;
-            case FLOAT:
-                return SqlTypeName.REAL;
-            case DOUBLE:
-                return SqlTypeName.DOUBLE;
-            case DECIMAL:
-                return SqlTypeName.DECIMAL;
-            case DATE:
-                return SqlTypeName.DATE;
-            case TIME:
-                return SqlTypeName.TIME;
-            case DATETIME:
-                return SqlTypeName.TIMESTAMP;
-            case TIMESTAMP:
-                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
-            case UUID:
-                return SqlTypeName.ANY;
-            case STRING:
-                return SqlTypeName.VARCHAR;
-            case BYTE_ARRAY:
-                return SqlTypeName.VARBINARY;
-            case PERIOD:
-                return SqlTypeName.INTERVAL_YEAR_MONTH;
-            case DURATION:
-                return SqlTypeName.INTERVAL_SECOND;
-            default:
-                throw new IllegalArgumentException("Unknown type " + columnType);
+        SqlTypeName type = COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.get(columnType);
+
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown type " + columnType);
         }
+
+        return type;
     }
 
     /**

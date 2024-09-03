@@ -86,7 +86,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
-        assertTrue(type0.startsWith(SqlTestUtils.toSqlType(type)));
+        // ToDo https://issues.apache.org/jira/browse/IGNITE-23130 Typeof for TIMESTAMP return not well formed name.
+        assertTrue(type0.replace('_', ' ').startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 

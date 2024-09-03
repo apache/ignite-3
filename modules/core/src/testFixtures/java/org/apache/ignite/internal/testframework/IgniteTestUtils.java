@@ -729,12 +729,11 @@ public final class IgniteTestUtils {
      * Returns random {@link BigDecimal} with given scale and precision.
      *
      * @param rnd Random generator.
-     * @param scale Scale of generating value.
      * @param precision Precision of generating value.
-     *
+     * @param scale Scale of generating value.
      * @return Random string.
      */
-    public static BigDecimal randomBigDecimal(Random rnd, int scale, int precision) {
+    public static BigDecimal randomBigDecimal(Random rnd, int precision, int scale) {
         BigInteger bd = IntStream.generate(() -> rnd.nextInt(9) + 1).limit(precision).mapToObj(BigInteger::valueOf)
                 .reduce((n1, n2) -> n1.multiply(BigInteger.TEN).add(n2)).get();
 
