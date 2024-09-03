@@ -253,7 +253,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         });
     }
 
-    private @Nullable LocalMinTime getMinLocalTime(HybridTimestamp lwm) {
+    private LocalMinTime getMinLocalTime(HybridTimestamp lwm) {
         Map<TablePartitionId, @Nullable Long> partitionStates = localMinTimeProvider.minTimePerPartition();
 
         // Find the minimum time among all partitions.
@@ -264,7 +264,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             if (state == null) {
                 LOG.debug("Partition state is missing [partition={}].", e.getKey());
-                return null;
+                return LocalMinTime.NOT_AVAILABLE;
             }
 
             partitionMinTime = Math.min(partitionMinTime, state);
@@ -288,11 +288,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
         LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
         LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
-        long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : HybridTimestamp.MIN_VALUE.longValue();
-
-        Map<Integer, BitSet> localPartitions = localMinRequiredTime != null
-                ? localMinRequiredTime.availablePartitions
-                : Collections.emptyMap();
+        long minTime = localMinRequiredTime.time;
+        Map<Integer, BitSet> localPartitions = localMinRequiredTime.availablePartitions;
 
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), minTime)
                 .thenComposeAsync(timeHolder -> {
@@ -622,26 +619,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
             HybridTimestamp lwm = lowWatermark;
-            Long minRequiredTime;
-            Map<Integer, BitSet> availablePartitions;
+            LocalMinTime minLocalTime;
+
             if (lwm != null) {
-                LocalMinTime minLocalTime = getMinLocalTime(lwm);
-                if (minLocalTime != null) {
-                    minRequiredTime = minLocalTime.time;
-                    availablePartitions = minLocalTime.availablePartitions;
-                } else {
-                    minRequiredTime = null;
-                    availablePartitions = Collections.emptyMap();
-                }
+                minLocalTime = getMinLocalTime(lwm);
             } else {
-                minRequiredTime = null;
-                availablePartitions = Collections.emptyMap();
+                // We do not have local min time yet. Reply with the absolute min time.
+                minLocalTime = LocalMinTime.NOT_AVAILABLE;
             }
 
-            // We do not have local min time yet. Reply with the absolute min time.
-            if (minRequiredTime == null) {
-                minRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
-            }
+            long minRequiredTime = minLocalTime.time;
+            Map<Integer, BitSet> availablePartitions = minLocalTime.availablePartitions;
 
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
@@ -686,6 +674,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private static class LocalMinTime {
+        private static final LocalMinTime NOT_AVAILABLE = new LocalMinTime(HybridTimestamp.MIN_VALUE.longValue(), Collections.emptyMap());
+
         final long time;
         final Map<Integer, BitSet> availablePartitions;
 
