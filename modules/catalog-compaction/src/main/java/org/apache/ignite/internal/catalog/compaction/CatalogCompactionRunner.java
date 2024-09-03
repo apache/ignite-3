@@ -455,24 +455,23 @@ public class CatalogCompactionRunner implements IgniteComponent {
     ) {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        ConcurrentHashMap<Integer, Integer> partitionsPerTable = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, Integer> numPartitionsPerTable = new ConcurrentHashMap<>();
 
         return CompletableFutures.allOf(catalog.tables().stream()
-                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, partitionsPerTable))
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, numPartitionsPerTable))
                 .collect(Collectors.toList())
         ).thenApply(ignore -> {
+            Map<Integer, BitSet> partitionsPerTable = new HashMap<>();
 
-            Map<Integer, BitSet> allParts = new HashMap<>();
-
-            for (Map.Entry<Integer, BitSet> local : localPartitions.entrySet()) {
-                Integer tableId = local.getKey();
-                BitSet localParts = local.getValue();
-                allParts.put(tableId, localParts);
+            for (Map.Entry<Integer, BitSet> localTable : localPartitions.entrySet()) {
+                Integer tableId = localTable.getKey();
+                BitSet localTablePartitions = localTable.getValue();
+                partitionsPerTable.put(tableId, localTablePartitions);
             }
 
             for (Map.Entry<String, Map<Integer, BitSet>> remote : remotePartitions.entrySet()) {
                 for (Map.Entry<Integer, BitSet> remoteTable : remote.getValue().entrySet()) {
-                    allParts.compute(remoteTable.getKey(), (k, v) -> {
+                    partitionsPerTable.compute(remoteTable.getKey(), (k, v) -> {
                         if (v == null) {
                             v = new BitSet();
                         }
@@ -482,12 +481,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }
             }
 
-            for (Map.Entry<Integer, Integer> table : partitionsPerTable.entrySet()) {
+            for (Map.Entry<Integer, Integer> table : numPartitionsPerTable.entrySet()) {
                 int tableId = table.getKey();
                 int partCount = table.getValue();
-                BitSet actualParts = allParts.get(tableId);
+                BitSet tablePartitions = partitionsPerTable.get(tableId);
 
-                if (actualParts == null || actualParts.cardinality() != partCount) {
+                if (tablePartitions == null || tablePartitions.cardinality() != partCount) {
                     return new Pair<>(false, required);
                 }
             }
