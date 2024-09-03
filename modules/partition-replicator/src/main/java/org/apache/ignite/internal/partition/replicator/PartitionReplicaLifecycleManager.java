@@ -269,8 +269,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> processZonesOnStart(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+        // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
+        // nevertheless everything works correctly.
+        // All components execute the synchronous part of startAsync sequentially and only when they all complete,
+        // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
+        // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
+        // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
+        // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
         int earliestCatalogVersion = catalogMgr.activeCatalogVersion(hybridTimestampToLong(lwm));
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22679
+
         int latestCatalogVersion = catalogMgr.latestCatalogVersion();
 
         var startedZones = new IntOpenHashSet();
