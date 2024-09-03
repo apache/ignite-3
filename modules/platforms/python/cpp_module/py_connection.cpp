@@ -110,7 +110,11 @@ int prepare_py_connection_type() {
 }
 
 int register_py_connection_type(PyObject* mod) {
-    return PyModule_AddObjectRef(mod, PY_CONNECTION_CLASS_NAME, (PyObject *)&py_connection_type);
+    auto res = PyModule_AddObject(mod, PY_CONNECTION_CLASS_NAME, (PyObject *)&py_connection_type);
+    if (res < 0) {
+        Py_DECREF((PyObject *)&py_connection_type);
+    }
+    return res;
 }
 
 py_connection *make_py_connection(std::unique_ptr<ignite::sql_environment> env,
