@@ -32,7 +32,7 @@ import org.apache.ignite.network.NetworkAddress;
  *
  * <p>IP addresses are returned as is (up to a format change).
  *
- * <p>Names are resolved. If a name is resolved to at least one addreess, all these addresses will be returned. If it resolves
+ * <p>Names are resolved. If a name is resolved to one or more addresses, all of them will be returned. If a name is resolved
  * to nothing, this name will not add anything to the output; no exception will be thrown in such case.
  *
  * <p>If among addresses to which a name is resolved there is a loopback address, only this address is contributed for this name.
