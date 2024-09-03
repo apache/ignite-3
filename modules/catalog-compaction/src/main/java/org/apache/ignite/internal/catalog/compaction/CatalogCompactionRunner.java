@@ -288,7 +288,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
         LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
-        Long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : null;
+        long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : HybridTimestamp.MIN_VALUE.longValue();
 
         Map<Integer, BitSet> localPartitions = localMinRequiredTime != null
                 ? localMinRequiredTime.availablePartitions
@@ -325,7 +325,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
             Collection<? extends ClusterNode> nodes,
-            @Nullable Long localMinimumRequiredTime
+            long localMinimumRequiredTime
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
         List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
@@ -344,10 +344,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
-                    long globalMinimumRequiredTime = localMinimumRequiredTime == null
-                            ? HybridTimestamp.MIN_VALUE.longValue()
-                            : localMinimumRequiredTime;
-
+                    long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
                     Map<String, Map<Integer, BitSet>> remotePartitions = new HashMap<>();
 
