@@ -222,7 +222,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        CompletableFuture.completedFuture(clusterInfo),
+                                        () -> clusterInfo,
                                         metrics,
                                         authenticationManager,
                                         clockService,

@@ -34,7 +34,6 @@ import java.net.SocketAddress;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -252,7 +251,7 @@ public class TestServer implements AutoCloseable {
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
-                        () -> CompletableFuture.completedFuture(clusterInfo),
+                        () -> clusterInfo,
                         mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,

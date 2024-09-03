@@ -23,7 +23,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -129,7 +128,7 @@ public class TestServer {
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
-                () -> CompletableFuture.completedFuture(new ClusterInfo(clusterTag, List.of(clusterTag.clusterId()))),
+                () -> new ClusterInfo(clusterTag, List.of(clusterTag.clusterId())),
                 mock(MetricManagerImpl.class),
                 metrics,
                 authenticationManager,

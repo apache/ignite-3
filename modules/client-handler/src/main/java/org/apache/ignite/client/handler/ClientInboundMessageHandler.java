@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -182,7 +183,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final CompletableFuture<ClusterInfo> clusterInfoFuture;
+    private final Supplier<ClusterInfo> clusterInfoSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -219,7 +220,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param configuration Configuration.
      * @param compute Compute.
      * @param clusterService Cluster.
-     * @param clusterInfoFuture Cluster info.
+     * @param clusterInfoSupplier Cluster info supplier.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
@@ -231,7 +232,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientConnectorView configuration,
             IgniteComputeInternal compute,
             ClusterService clusterService,
-            CompletableFuture<ClusterInfo> clusterInfoFuture,
+            Supplier<ClusterInfo> clusterInfoSupplier,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             ClockService clockService,
@@ -246,7 +247,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
-        assert clusterInfoFuture != null;
+        assert clusterInfoSupplier != null;
         assert metrics != null;
         assert authenticationManager != null;
         assert clockService != null;
@@ -260,7 +261,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.compute = compute;
         this.clusterService = clusterService;
         this.queryProcessor = processor;
-        this.clusterInfoFuture = clusterInfoFuture;
+        this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
@@ -418,7 +419,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packString(localMember.id());
         packer.packString(localMember.name());
 
-        ClusterInfo clusterInfo = clusterInfoFuture.join();
+        ClusterInfo clusterInfo = clusterInfoSupplier.get();
 
         // Cluster ID history, from the oldest to the newest (cluster ID can change during CMG/MG repair).
         packer.packInt(clusterInfo.idHistory().size());

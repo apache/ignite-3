@@ -85,7 +85,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteTransactionsImpl igniteTransactions;
 
     /** Cluster ID supplier. */
-    private final Supplier<CompletableFuture<ClusterInfo>> clusterInfoSupplier;
+    private final Supplier<ClusterInfo> clusterInfoSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -152,7 +152,7 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            Supplier<CompletableFuture<ClusterInfo>> clusterInfoSupplier,
+            Supplier<ClusterInfo> clusterInfoSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -275,7 +275,6 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
-        CompletableFuture<ClusterInfo> clusterInfo = clusterInfoSupplier.get();
         CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
@@ -309,8 +308,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                 ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                             }
 
-                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
-                                    configuration, clusterInfo, connectionId);
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, connectionId);
 
                             //noinspection TestOnlyProblems
                             handler = messageHandler;
@@ -371,11 +369,7 @@ public class ClientHandlerModule implements IgniteComponent {
         return result;
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(
-            ClientConnectorView configuration,
-            CompletableFuture<ClusterInfo> clusterInfo,
-            long connectionId
-    ) {
+    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
@@ -383,7 +377,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 configuration,
                 igniteCompute,
                 clusterService,
-                clusterInfo,
+                clusterInfoSupplier,
                 metrics,
                 authenticationManager,
                 clockService,

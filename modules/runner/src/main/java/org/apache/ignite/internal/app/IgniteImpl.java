@@ -72,6 +72,7 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -628,9 +629,10 @@ public class IgniteImpl implements Ignite {
         var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
         var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
 
+        SystemDisasterRecoveryStorage systemDisasterRecoveryStorage = new SystemDisasterRecoveryStorage(vaultMgr);
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
-                new SystemDisasterRecoveryStorage(vaultMgr),
+                systemDisasterRecoveryStorage,
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
@@ -1054,8 +1056,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> cmgMgr.clusterState()
-                        .thenApply(clusterState -> new ClusterInfo(clusterState.clusterTag(), clusterState.clusterIdHistory())),
+                () -> clusterInfo(systemDisasterRecoveryStorage),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1076,6 +1077,14 @@ public class IgniteImpl implements Ignite {
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
+    }
+
+    private static ClusterInfo clusterInfo(SystemDisasterRecoveryStorage systemDisasterRecoveryStorage) {
+        ClusterState clusterState = systemDisasterRecoveryStorage.readClusterState();
+
+        assert clusterState != null : "Cluster state cannot be null at the moment when a client connects";
+
+        return new ClusterInfo(clusterState.clusterTag(), clusterState.clusterIdHistory());
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
