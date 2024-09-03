@@ -188,7 +188,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         HybridTimestamp now = clockService.now();
         compactionRunner.onLowWatermarkChanged(now);
-        compactionRunner.triggerCompaction(now);
 
         assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
     }
