@@ -454,40 +454,30 @@ public class CatalogCompactionRunner implements IgniteComponent {
             Map<String, Map<Integer, BitSet>> remotePartitions
     ) {
         HybridTimestamp nowTs = clockService.now();
-        Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        ConcurrentHashMap<Integer, Integer> numPartitionsPerTable = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, CurrentPartitions> currentPartitionsPerNode = new ConcurrentHashMap<>();
 
         return CompletableFutures.allOf(catalog.tables().stream()
-                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, numPartitionsPerTable))
+                .map(table -> collectRequiredNodes(catalog, table, nowTs, currentPartitionsPerNode))
                 .collect(Collectors.toList())
         ).thenApply(ignore -> {
-            Map<Integer, BitSet> partitionsPerTable = new HashMap<>();
 
-            for (Map.Entry<Integer, BitSet> localTable : localPartitions.entrySet()) {
-                Integer tableId = localTable.getKey();
-                BitSet localTablePartitions = localTable.getValue();
-                partitionsPerTable.put(tableId, localTablePartitions);
-            }
+            Map<String, Map<Integer, BitSet>> all = new HashMap<>(remotePartitions);
+            all.put(localNodeName, localPartitions);
 
-            for (Map.Entry<String, Map<Integer, BitSet>> remote : remotePartitions.entrySet()) {
-                for (Map.Entry<Integer, BitSet> remoteTable : remote.getValue().entrySet()) {
-                    partitionsPerTable.compute(remoteTable.getKey(), (k, v) -> {
-                        if (v == null) {
-                            v = new BitSet();
-                        }
-                        v.or(remoteTable.getValue());
-                        return v;
-                    });
-                }
-            }
+            Set<String> required = currentPartitionsPerNode.keySet();
 
-            for (Map.Entry<Integer, Integer> table : numPartitionsPerTable.entrySet()) {
-                int tableId = table.getKey();
-                int partCount = table.getValue();
-                BitSet tablePartitions = partitionsPerTable.get(tableId);
+            for (Map.Entry<String, Map<Integer, BitSet>> node : all.entrySet()) {
+                String nodeId = node.getKey();
+                Map<Integer, BitSet> tables = node.getValue();
+                CurrentPartitions partitionsPerNode = currentPartitionsPerNode.get(nodeId);
 
-                if (tablePartitions == null || tablePartitions.cardinality() != partCount) {
+                if (partitionsPerNode == null) {
                     return new Pair<>(false, required);
+                } else {
+                    Map<Integer, BitSet> data = partitionsPerNode.data();
+                    if (!data.equals(tables)) {
+                        return new Pair<>(false, required);
+                    }
                 }
             }
 
@@ -498,9 +488,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
             CatalogTableDescriptor table,
-            Set<String> required,
             HybridTimestamp nowTs,
-            ConcurrentHashMap<Integer, Integer> partitionsPerTable
+            ConcurrentHashMap<String, CurrentPartitions> currentPartitionsPerNode
     ) {
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
@@ -514,8 +503,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
             replicationGroupIds.add(new TablePartitionId(table.id(), p));
         }
 
-        partitionsPerTable.put(table.id(), partitions);
-
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
                 .thenAccept(tokenizedAssignments -> {
                     assert tokenizedAssignments.size() == replicationGroupIds.size();
@@ -526,10 +513,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             throw new IllegalStateException("Cannot get assignments for table "
                                     + "[group=" + replicationGroupIds.get(p) + ']');
                         }
+                        int partitionId = p;
 
                         assignment.nodes().forEach(a -> {
                             String nodeId = a.consistentId();
-                            required.add(nodeId);
+                            CurrentPartitions partitionAtNode = currentPartitionsPerNode.computeIfAbsent(nodeId,
+                                    (k) -> new CurrentPartitions()
+                            );
+                            partitionAtNode.update(table.id(), partitionId);
                         });
                     }
                 });
@@ -693,6 +684,24 @@ public class CatalogCompactionRunner implements IgniteComponent {
             this.minRequiredTime = minRequiredTime;
             this.minActiveTxBeginTime = minActiveTxBeginTime;
             this.remotePartitions = remotePartitions;
+        }
+    }
+
+    private static class CurrentPartitions {
+        final Map<Integer, BitSet> partitions = new HashMap<>();
+
+        synchronized void update(int tableId, int p) {
+            partitions.compute(tableId, (k,v) -> {
+                if (v == null) {
+                    v = new BitSet();
+                }
+                v.set(p);
+                return v;
+            });
+        }
+
+        synchronized Map<Integer, BitSet> data() {
+            return partitions;
         }
     }
 
