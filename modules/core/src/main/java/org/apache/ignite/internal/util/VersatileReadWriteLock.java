@@ -346,9 +346,11 @@ public class VersatileReadWriteLock {
             throw new IllegalMonitorStateException();
         }
 
-        boolean b = STATE_VH.compareAndSet(this, state, state(false, readLocks));
-
-        assert b;
+        while (true) {
+            if (STATE_VH.compareAndSet(this, state, state(false, readLocks))) {
+                break;
+            }
+        }
 
         notifyWriteLockSolicitors();
         notifyReadLockSolicitors();

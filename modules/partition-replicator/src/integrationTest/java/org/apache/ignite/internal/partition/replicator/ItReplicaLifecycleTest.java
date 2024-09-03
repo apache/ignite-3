@@ -100,6 +100,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -209,7 +210,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23063")
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
@@ -613,7 +613,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23063")
     void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 1);
 
@@ -971,6 +970,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
+                    new SystemDisasterRecoveryStorage(vaultManager),
                     clusterService,
                     clusterInitializer,
                     raftManager,

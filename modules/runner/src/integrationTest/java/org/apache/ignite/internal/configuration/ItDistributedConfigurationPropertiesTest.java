@@ -53,6 +53,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -203,6 +204,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
+                    new SystemDisasterRecoveryStorage(vaultManager),
                     clusterService,
                     clusterInitializer,
                     raftManager,

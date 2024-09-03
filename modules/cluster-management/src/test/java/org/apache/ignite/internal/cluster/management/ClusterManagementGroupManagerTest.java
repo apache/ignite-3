@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -103,6 +104,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
 
         cmgManager = new ClusterManagementGroupManager(
                 vaultManager,
+                new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
                 clusterInitializer,
                 raftManager,
