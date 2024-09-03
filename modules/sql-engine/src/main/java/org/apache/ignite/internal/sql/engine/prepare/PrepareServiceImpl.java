@@ -737,7 +737,7 @@ public class PrepareServiceImpl implements PrepareService {
         );
     }
 
-    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, @Nullable Runnable action) {
+    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, @Nullable Runnable onTimeoutAction) {
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
@@ -747,8 +747,8 @@ public class PrepareServiceImpl implements PrepareService {
             // Otherwise the cache will keep a plan that can not be used anymore,
             // and we should allow another planning attempt with increased timeout.
             if (ctx.timeouted()) {
-                if (action != null) {
-                    action.run();
+                if (onTimeoutAction != null) {
+                    onTimeoutAction.run();
                 }
 
                 //noinspection ThrowInsideCatchBlockWhichIgnoresCaughtException
