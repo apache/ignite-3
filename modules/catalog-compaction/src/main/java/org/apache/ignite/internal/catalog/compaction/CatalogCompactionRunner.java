@@ -494,7 +494,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 int partCount = table.getValue();
                 BitSet actualParts = allParts.get(tableId);
 
-                if (actualParts.cardinality() != partCount) {
+                if (actualParts == null || actualParts.cardinality() != partCount) {
                     return new Pair<>(false, required);
                 }
             }
