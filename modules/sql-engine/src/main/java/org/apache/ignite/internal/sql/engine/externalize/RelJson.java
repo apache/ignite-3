@@ -875,8 +875,9 @@ class RelJson {
                     return rexBuilder.makeNullLiteral(type);
                 }
 
-                // Avoid different representation for exact number and approx type.
-                // Earlier BigDecimal representation protects from further conversion with custom representation context.
+                // RexBuilder can transform literal which holds exact numeric representation into E notation form.
+                // I.e. 100 can be presented like 1E2 which is also correct form but can differs from serialized plan notation.
+                // near "if" branch is only matters for fragments serialization\deserialization correctness check
                 if ((literal instanceof Long || literal instanceof Integer) && isApproximateNumeric(type)) {
                     literal = new BigDecimal(((Number) literal).longValue());
                 }
