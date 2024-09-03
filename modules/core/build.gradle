@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-api')
 
     testAnnotationProcessor libs.auto.service
+    testAnnotationProcessor libs.jmh.annotation.processor
 
     testImplementation libs.auto.service.annotations
     testImplementation libs.hamcrest.core
@@ -36,6 +37,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+    testImplementation libs.jmh.core
 
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor

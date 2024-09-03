@@ -78,6 +78,20 @@ public:
     const column_meta_vector *get_meta() override;
 
     /**
+     * Fetch next result row.
+     *
+     * @return Operation result.
+     */
+    sql_result fetch_next_row();
+
+    /**
+     * Get current row.
+     *
+     * @return  Row.
+     */
+    [[nodiscard]] const std::vector<primitive> &get_current_row() const { return m_cursor->get_row(); }
+
+    /**
      * Fetch next result row to application buffers.
      *
      * @param column_bindings Application buffers to put data to.

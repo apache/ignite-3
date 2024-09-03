@@ -175,6 +175,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(Node.Id); // Node id.
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
 
+            handshakeWriter.Write(1); // 1 cluster id.
             handshakeWriter.Write(ClusterId);
             handshakeWriter.Write(ClusterName);
 

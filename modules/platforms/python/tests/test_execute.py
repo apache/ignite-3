@@ -15,7 +15,7 @@
 import pytest
 
 import pyignite3
-from tests.util import start_cluster_gen, check_cluster_started, server_addresses_invalid, server_addresses_basic
+from tests.util import start_cluster_gen, check_cluster_started, server_addresses_basic
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +79,7 @@ def test_execute_sql_table_success():
                 assert cursor.description[2].precision == 3
 
             finally:
-                cursor.execute(f'drop table if exists {table_name}');
+                cursor.execute(f'drop table if exists {table_name}')
 
 
 def test_execute_update_rowcount():
@@ -96,4 +96,4 @@ def test_execute_update_rowcount():
                 assert cursor.rowcount == 6
 
             finally:
-                cursor.execute(f'drop table if exists {table_name}');
+                cursor.execute(f'drop table if exists {table_name}')

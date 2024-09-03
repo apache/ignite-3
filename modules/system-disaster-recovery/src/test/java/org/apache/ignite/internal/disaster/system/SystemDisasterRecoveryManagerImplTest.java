@@ -25,11 +25,14 @@ import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClu
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -56,9 +59,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
@@ -96,8 +96,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final String CLUSTER_NAME = "cluster";
 
-    private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
+    private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
+    private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
+    private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
     @WorkDirectory
     private Path workDir;
@@ -114,9 +115,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ServerRestarter restarter;
-
-    private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
-    private final ClusterStateStorageManager clusterStateStorageManager = new ClusterStateStorageManager(clusterStateStorage);
 
     private SystemDisasterRecoveryManagerImpl manager;
 
@@ -154,8 +152,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 topologyService,
                 messagingService,
                 vaultManager,
-                restarter,
-                clusterStateStorage
+                restarter
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
     }
@@ -167,12 +164,23 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void marksNodeInitialized() {
-        manager.markNodeInitialized();
+    void marksInitConfigApplied() {
+        manager.markInitConfigApplied();
 
-        VaultEntry entry = vaultManager.get(new ByteArray(NODE_INITIALIZED_VAULT_KEY));
+        VaultEntry entry = vaultManager.get(INIT_CONFIG_APPLIED_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
-        assertThat(entry.value(), is(new byte[]{1}));
+        assertThat(entry.value(), is(notNullValue()));
+    }
+
+    @Test
+    void savesClusterState() {
+        manager.saveClusterState(usualClusterState);
+
+        VaultEntry entry = vaultManager.get(CLUSTER_STATE_VAULT_KEY);
+        assertThat(entry, is(notNullValue()));
+
+        ClusterState savedState = fromBytes(entry.value());
+        assertThat(savedState, is(equalTo(usualClusterState)));
     }
 
     @Test
@@ -210,7 +218,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     void resetClusterRequiresClusterState() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        marksNodeInitialized();
+        markinitConfigApplied();
 
         ClusterResetException ex = assertWillThrow(
                 manager.resetCluster(List.of(thisNodeName)),
@@ -221,7 +229,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void resetClusterRequiresNodeToBeInitialized() {
+    void resetClusterRequiresInitConfigToBeApplied() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
         putClusterState();
 
@@ -230,15 +238,15 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 ClusterResetException.class,
                 10, SECONDS
         );
-        assertThat(ex.getMessage(), is("Node is not initialized and cannot serve as a cluster reset conductor."));
+        assertThat(ex.getMessage(), is("Initial configuration is not applied and cannot serve as a cluster reset conductor."));
     }
 
     private void putClusterState() {
-        clusterStateStorageManager.putClusterState(usualClusterState);
+        vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
     }
 
-    private void makeNodeInitialized() {
-        vaultManager.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[]{1});
+    private void markinitConfigApplied() {
+        vaultManager.put(INIT_CONFIG_APPLIED_VAULT_KEY, BYTE_EMPTY_ARRAY);
     }
 
     @Test
@@ -271,22 +279,21 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareNodeStateForClusterReset() {
-        makeNodeInitialized();
+        markinitConfigApplied();
         putClusterState();
     }
 
     private void assertThatResetClusterMessageIsAsExpected(ResetClusterMessage message) {
-        assertThatResetClusterMessageContentIsAsExpected(message, thisNodeName);
+        assertThatResetClusterMessageContentIsAsExpected(message);
     }
 
-    private void assertThatResetClusterMessageContentIsAsExpected(@Nullable ResetClusterMessage message, String expectedConductor) {
+    private void assertThatResetClusterMessageContentIsAsExpected(@Nullable ResetClusterMessage message) {
         assertThat(message, is(notNullValue()));
         assertThat(message.cmgNodes(), containsInAnyOrder(thisNodeName, node2.name()));
         assertThat(message.metaStorageNodes(), is(usualClusterState.metaStorageNodes()));
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
         assertThat(message.formerClusterIds(), contains(usualClusterState.clusterTag().clusterId()));
-        assertThat(message.conductor(), is(expectedConductor));
     }
 
     @Test
@@ -361,19 +368,19 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         NetworkMessageHandler handler = extractMessageHandler();
 
         ClusterNode conductor = fromSelf ? thisNode : node2;
-        handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 0L);
+        handler.onReceived(resetClusterMessageOn2Nodes(), conductor, 0L);
 
         waitTillResetClusterMessageGetsSavedToVault();
-        VaultEntry entry = vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY));
+        VaultEntry entry = vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
         ResetClusterMessage savedMessage = fromBytes(entry.value());
 
-        assertThatResetClusterMessageContentIsAsExpected(savedMessage, conductor.name());
+        assertThatResetClusterMessageContentIsAsExpected(savedMessage);
     }
 
     private void waitTillResetClusterMessageGetsSavedToVault() throws InterruptedException {
-        assertTrue(waitForCondition(() -> vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)) != null, 10_000));
+        assertTrue(waitForCondition(() -> vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY) != null, 10_000));
     }
 
     private NetworkMessageHandler extractMessageHandler() {
@@ -394,14 +401,13 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         return handler;
     }
 
-    private ResetClusterMessage resetClusterMessageOn2Nodes(String conductorName) {
+    private ResetClusterMessage resetClusterMessageOn2Nodes() {
         return messagesFactory.resetClusterMessage()
                 .cmgNodes(Set.of(thisNodeName, node2.name()))
                 .metaStorageNodes(usualClusterState.metaStorageNodes())
                 .clusterName(CLUSTER_NAME)
                 .clusterId(randomUUID())
                 .formerClusterIds(List.of(usualClusterState.clusterTag().clusterId()))
-                .conductor(conductorName)
                 .build();
     }
 
@@ -412,11 +418,11 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         NetworkMessageHandler handler = extractMessageHandler();
         ClusterNode conductor = thisNode;
 
-        handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 123L);
+        handler.onReceived(resetClusterMessageOn2Nodes(), conductor, 123L);
 
         InOrder inOrder = inOrder(messagingService, vaultManager);
 
-        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(RESET_CLUSTER_MESSAGE_VAULT_KEY), any());
         inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
 
         assertThat(messageCaptor.getValue(), instanceOf(SuccessResponseMessage.class));
@@ -429,13 +435,13 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         NetworkMessageHandler handler = extractMessageHandler();
         ClusterNode conductor = node2;
 
-        handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 123L);
+        handler.onReceived(resetClusterMessageOn2Nodes(), conductor, 123L);
 
         InOrder inOrder = inOrder(messagingService, vaultManager, restarter);
 
-        inOrder.verify(vaultManager).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
-        inOrder.verify(messagingService).respond(eq(conductor), messageCaptor.capture(), eq(123L));
-        inOrder.verify(restarter).initiateRestart();
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(RESET_CLUSTER_MESSAGE_VAULT_KEY), any());
+        inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
+        inOrder.verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
 
         assertThat(messageCaptor.getValue(), instanceOf(SuccessResponseMessage.class));
     }
@@ -444,7 +450,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     void initiatesRestartWhenGetsMessageFromOtherNode() throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
-        handler.onReceived(resetClusterMessageOn2Nodes(node2.name()), node2, 0L);
+        handler.onReceived(resetClusterMessageOn2Nodes(), node2, 0L);
 
         verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
 
@@ -456,11 +462,72 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     void doesNotInitiateRestartWhenGetsMessageFromSelf() throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
-        handler.onReceived(resetClusterMessageOn2Nodes(thisNodeName), thisNode, 0L);
+        handler.onReceived(resetClusterMessageOn2Nodes(), thisNode, 0L);
 
         verify(restarter, never()).initiateRestart();
 
         // Wait till it gets saved to Vault to avoid an attempt to write to it after the after-each method stops the Vault.
         waitTillResetClusterMessageGetsSavedToVault();
+    }
+
+    @Test
+    void migrateSendsMessagesToAllNodes() {
+        ClusterState newState = newClusterState();
+
+        ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
+
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong()))
+                .thenReturn(completedFuture(successResponseMessage));
+
+        assertThat(manager.migrate(newState), willCompleteSuccessfully());
+
+        verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToSelf = messageCaptor.getValue();
+        assertThatResetClusterMessageContentIsAsExpectedAfterMigrate(messageToSelf, newState);
+
+        verify(messagingService).invoke(eq(node2), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToOtherNewCmgNode = messageCaptor.getValue();
+        assertThatResetClusterMessageContentIsAsExpectedAfterMigrate(messageToOtherNewCmgNode, newState);
+
+        verify(messagingService).invoke(eq(node3), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToOtherNonCmgNode = messageCaptor.getValue();
+        assertThatResetClusterMessageContentIsAsExpectedAfterMigrate(messageToOtherNonCmgNode, newState);
+    }
+
+    private ClusterState newClusterState() {
+        return cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.of("node5"))
+                .metaStorageNodes(Set.of("node6"))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
+                .formerClusterIds(List.of(randomUUID(), randomUUID()))
+                .build();
+    }
+
+    private static void assertThatResetClusterMessageContentIsAsExpectedAfterMigrate(
+            ResetClusterMessage message,
+            ClusterState clusterState
+    ) {
+        assertThat(message, is(notNullValue()));
+
+        assertThat(message.cmgNodes(), is(clusterState.cmgNodes()));
+        assertThat(message.metaStorageNodes(), is(clusterState.metaStorageNodes()));
+        assertThat(message.clusterName(), is(clusterState.clusterTag().clusterName()));
+        assertThat(message.clusterId(), is(clusterState.clusterTag().clusterId()));
+        assertThat(message.formerClusterIds(), is(clusterState.formerClusterIds()));
+    }
+
+    @Test
+    void migrateInitiatesRestart() {
+        ClusterState newState = newClusterState();
+
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        respondSuccessfullyFrom(thisNode, node2);
+        respondWithExceptionFrom(node3);
+
+        assertThat(manager.migrate(newState), willCompleteSuccessfully());
+
+        verify(restarter).initiateRestart();
     }
 }
