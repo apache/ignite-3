@@ -45,14 +45,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -112,10 +110,6 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    private final CatalogService catalogService;
-
-    private final DistributionZoneManager distributionZoneManager;
-
     /** Unique table partition id. */
     private final ZonePartitionId zonePartitionId;
 
@@ -131,6 +125,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
 
+    /** Function that calculates assignments for zone's partition. */
+    private final BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
+
     /**
      * Constructs new listener.
      *
@@ -139,6 +136,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param busyLock Busy lock.
      * @param partitionMover Class that moves partition between nodes.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
+     * @param calculateAssignmentsFn Function that calculates assignments for zone's partition.
      */
     public ZoneRebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
@@ -146,16 +144,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
             ScheduledExecutorService rebalanceScheduler,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.zonePartitionId = zonePartitionId;
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
         this.rebalanceScheduler = rebalanceScheduler;
-        this.distributionZoneManager = distributionZoneManager;
-        this.catalogService = catalogService;
+        this.calculateAssignmentsFn = calculateAssignmentsFn;
     }
 
     /** {@inheritDoc} */
@@ -231,8 +227,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                             stable,
                             zonePartitionId,
                             metaStorageMgr,
-                            catalogService,
-                            distributionZoneManager
+                            calculateAssignmentsFn
                     );
                 } finally {
                     busyLock.leaveBusy();
@@ -307,12 +302,11 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /**
      * Updates stable value with the new applied assignment.
      */
-    static void doStableKeySwitch(
+    private static void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             ZonePartitionId zonePartitionId,
             MetaStorageManager metaStorageMgr,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(zonePartitionId);
@@ -331,16 +325,6 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     )
             ).get();
 
-            // TODO: IGNITE-22680 Find a better way to retrieve the catalog version.
-            int catalogVersion = catalogService.latestCatalogVersion();
-
-            Set<Assignment> calculatedAssignments = calculateZoneAssignments(
-                    zonePartitionId,
-                    catalogService,
-                    distributionZoneManager,
-                    catalogVersion
-            ).get();
-
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
@@ -356,6 +340,10 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
             }
+
+            // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp())
+                    .get();
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
@@ -483,8 +471,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         stableFromRaft,
                         zonePartitionId,
                         metaStorageMgr,
-                        catalogService,
-                        distributionZoneManager
+                        calculateAssignmentsFn
                 );
 
                 return;
@@ -624,28 +611,5 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         );
 
         return metaStorageMgr.invoke(resultingOperation).thenApply(unused -> null);
-    }
-
-    private static CompletableFuture<Set<Assignment>> calculateZoneAssignments(
-            ZonePartitionId zonePartitionId,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager,
-            int catalogVersion
-    ) {
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zonePartitionId.zoneId(), catalogVersion);
-
-        int zoneId = zonePartitionId.zoneId();
-
-        return distributionZoneManager.dataNodes(
-                zoneDescriptor.updateToken(),
-                catalogVersion,
-                zoneId
-        ).thenApply(dataNodes ->
-                AffinityUtils.calculateAssignmentForPartition(
-                        dataNodes,
-                        zonePartitionId.partitionId(),
-                        zoneDescriptor.replicas()
-                )
-        );
     }
 }

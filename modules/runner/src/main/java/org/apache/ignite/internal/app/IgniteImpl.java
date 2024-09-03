@@ -69,7 +69,6 @@ import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationCon
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
-import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -120,6 +119,11 @@ import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.disaster.system.ServerRestarter;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
@@ -417,6 +421,8 @@ public class IgniteImpl implements Ignite {
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager;
+
     private final IgniteTables publicTables;
     private final IgniteTransactions publicTransactions;
     private final IgniteSql publicSql;
@@ -446,6 +452,7 @@ public class IgniteImpl implements Ignite {
      */
     IgniteImpl(
             IgniteServer node,
+            ServerRestarter restarter,
             Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceProviderClassLoader,
@@ -515,7 +522,7 @@ public class IgniteImpl implements Ignite {
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), name);
 
-        clusterIdService = new ClusterIdService(clusterStateStorage);
+        clusterIdService = new ClusterIdService(vaultMgr);
 
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
                 criticalWorkersConfiguration,
@@ -541,6 +548,14 @@ public class IgniteImpl implements Ignite {
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureProcessor
+        );
+
+        systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
+                name,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                vaultMgr,
+                restarter
         );
 
         clock = new HybridClockImpl();
@@ -615,6 +630,7 @@ public class IgniteImpl implements Ignite {
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
+                new SystemDisasterRecoveryStorage(vaultMgr),
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
@@ -1192,6 +1208,7 @@ public class IgniteImpl implements Ignite {
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
                     clusterSvc,
+                    systemDisasterRecoveryManager,
                     restComponent,
                     partitionsLogStorageFactory,
                     msLogStorageFactory,
@@ -1233,6 +1250,8 @@ public class IgniteImpl implements Ignite {
         ComponentContext componentContext = new ComponentContext(joinExecutor);
 
         return cmgMgr.joinFuture()
+                .thenComposeAsync(unused -> cmgMgr.clusterState(), joinExecutor)
+                .thenAcceptAsync(systemDisasterRecoveryManager::saveClusterState, joinExecutor)
                 // Disable REST component during initialization.
                 .thenAcceptAsync(unused -> restComponent.disable(), joinExecutor)
                 .thenComposeAsync(unused -> {
@@ -1420,6 +1439,16 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
+    public VaultManager vault() {
+        return vaultMgr;
+    }
+
+    @TestOnly
+    public ClusterManagementGroupManager clusterManagementGroupManager() {
+        return cmgMgr;
+    }
+
+    @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
     }
@@ -1601,7 +1630,8 @@ public class IgniteImpl implements Ignite {
                                     clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
                                 }, startupExecutor);
                     }
-                }, startupExecutor);
+                }, startupExecutor)
+                .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
     /**
@@ -1749,4 +1779,9 @@ public class IgniteImpl implements Ignite {
         return replicaMgr;
     }
 
+    /** Returns disaster recovery manager for system groups. */
+    @TestOnly
+    public SystemDisasterRecoveryManager systemDisasterRecoveryManager() {
+        return systemDisasterRecoveryManager;
+    }
 }

@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.security.authentication.basic;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.ignite.internal.security.authentication.UserDetailsMatcher.username;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
-import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -36,33 +38,28 @@ class BasicAuthenticatorTest {
 
     @Test
     void authenticate() {
-        // when
-        UserDetails userDetails = authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password")).join();
-
-        // then
-        assertEquals("admin", userDetails.username());
+        assertThat(
+                authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password")),
+                willBe(username(is("admin")))
+        );
     }
 
     @Test
     void authenticateInvalidCredentials() {
-        // when
-        InvalidCredentialsException exception = assertThrows(InvalidCredentialsException.class, () -> {
-            authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "invalid"));
-        });
-
-        // then
-        assertEquals("Invalid credentials", exception.getMessage());
+        assertThat(
+                authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "invalid")),
+                willThrow(InvalidCredentialsException.class, "Invalid credentials")
+        );
     }
 
     @Test
     void authenticateUnsupportedAuthenticationType() {
-        // when
-        UnsupportedAuthenticationTypeException exception = assertThrows(
-                UnsupportedAuthenticationTypeException.class,
-                () -> authenticator.authenticateAsync(new AnonymousRequest())
+        assertThat(
+                authenticator.authenticateAsync(new AnonymousRequest()),
+                willThrow(
+                        UnsupportedAuthenticationTypeException.class,
+                        "Unsupported authentication type: " + AnonymousRequest.class.getName()
+                )
         );
-
-        // then
-        assertEquals("Unsupported authentication type: " + AnonymousRequest.class.getName(), exception.getMessage());
     }
 }

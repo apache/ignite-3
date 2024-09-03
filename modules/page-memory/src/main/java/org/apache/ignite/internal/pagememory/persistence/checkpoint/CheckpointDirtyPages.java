@@ -159,6 +159,14 @@ class CheckpointDirtyPages {
     }
 
     /**
+     * Returns a full list of {@link PersistentPageMemory} instances, for which there exist at least a single dirty partition in current
+     * checkpoint.
+     */
+    List<PersistentPageMemory> dirtyPageMemoryInstances() {
+        return this.dirtyPages.stream().map(p -> p.pageMemory).collect(toList());
+    }
+
+    /**
      * View of {@link CheckpointDirtyPages} in which all dirty page IDs will refer to the same {@link PersistentPageMemory} and contain the
      * same groupId and partitionId and increasing pageIdx.
      *

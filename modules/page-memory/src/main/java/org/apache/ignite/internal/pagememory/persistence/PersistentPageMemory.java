@@ -154,6 +154,12 @@ public class PersistentPageMemory implements PageMemory {
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
 
+    /**
+     * Threshold of the checkpoint buffer. We should start forcefully checkpointing its pages upon exceeding it. The value of {@code 2/3} is
+     * ported from {@code Ignite 2.x}.
+     */
+    private static final float CP_BUF_FILL_THRESHOLD = 2.0f / 3;
+
     /** Data region configuration view. */
     private final PersistentPageMemoryProfileView storageProfileView;
 
@@ -204,8 +210,7 @@ public class PersistentPageMemory implements PageMemory {
     private final AtomicReference<CheckpointUrgency> checkpointUrgency = new AtomicReference<>(NOT_REQUIRED);
 
     /** Checkpoint page pool, {@code null} if not {@link #start() started}. */
-    @Nullable
-    private volatile PagePool checkpointPool;
+    private volatile @Nullable PagePool checkpointPool;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -332,9 +337,16 @@ public class PersistentPageMemory implements PageMemory {
             this.segments = segments;
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Started page memory [memoryAllocated={}, pages={}, tableSize={}, replacementSize={}, checkpointBuffer={}]",
-                        readableSize(totalAllocated, false), pages, readableSize(totalTblSize, false),
-                        readableSize(totalReplSize, false), readableSize(checkpointBufferSize, false));
+                LOG.info(
+                        "Started page memory [profile='{}', memoryAllocated={}, pages={}, tableSize={}, replacementSize={},"
+                                + " checkpointBuffer={}]",
+                        storageProfileView.name(),
+                        readableSize(totalAllocated, false),
+                        pages,
+                        readableSize(totalTblSize, false),
+                        readableSize(totalReplSize, false),
+                        readableSize(checkpointBufferSize, false)
+                );
             }
         }
     }
@@ -1089,14 +1101,23 @@ public class PersistentPageMemory implements PageMemory {
 
         // Create a buffer copy if the page is scheduled for a checkpoint.
         if (isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
-            long tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
+            long tmpRelPtr;
 
-            if (tmpRelPtr == INVALID_REL_PTR) {
-                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+            PagePool checkpointPool = this.checkpointPool;
 
-                throw new IgniteInternalException(
-                        "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "
-                                + storageProfileView.name());
+            while (true) {
+                tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
+
+                if (tmpRelPtr != INVALID_REL_PTR) {
+                    break;
+                }
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-23106 Replace spin-wait with a proper wait.
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException ignore) {
+                    // No-op.
+                }
             }
 
             // Pin the page until checkpoint is not finished.
@@ -2084,5 +2105,19 @@ public class PersistentPageMemory implements PageMemory {
                 seg.checkpointPages = null;
             }
         }
+    }
+
+    /**
+     * Checks if the Checkpoint Buffer is currently close to exhaustion.
+     */
+    public boolean isCpBufferOverflowThresholdExceeded() {
+        assert started;
+
+        PagePool checkpointPool = this.checkpointPool;
+
+        //noinspection NumericCastThatLosesPrecision
+        int checkpointBufLimit = (int) (checkpointPool.pages() * CP_BUF_FILL_THRESHOLD);
+
+        return checkpointPool.size() > checkpointBufLimit;
     }
 }

@@ -299,7 +299,11 @@ int prepare_py_cursor_type() {
 }
 
 int register_py_cursor_type(PyObject* mod) {
-    return PyModule_AddObjectRef(mod, PY_CURSOR_CLASS_NAME, (PyObject *)&py_cursor_type);
+    auto res = PyModule_AddObject(mod, PY_CURSOR_CLASS_NAME, (PyObject *)&py_cursor_type);
+    if (res < 0) {
+        Py_DECREF((PyObject *)&py_cursor_type);
+    }
+    return res;
 }
 
 py_cursor *make_py_cursor(std::unique_ptr<ignite::sql_statement> stmt) {

@@ -217,7 +217,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     Set<Assignment> stable = createAssignments(configuration);
 
-                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr);
+                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr, calculateAssignmentsFn);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -291,10 +291,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /**
      * Updates stable value with the new applied assignment.
      */
-    private void doStableKeySwitch(
+    private static void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
-            MetaStorageManager metaStorageMgr
+            MetaStorageManager metaStorageMgr,
+            BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
@@ -332,7 +333,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId, pendingAssignments.timestamp()).get();
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId, pendingAssignments.timestamp())
+                    .get();
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
@@ -459,7 +461,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 doStableKeySwitch(
                         stableFromRaft,
                         tablePartitionId,
-                        metaStorageMgr
+                        metaStorageMgr,
+                        calculateAssignmentsFn
                 );
 
                 return;

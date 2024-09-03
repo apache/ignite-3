@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeNotStartedException;
 import org.apache.ignite.lang.NodeStartException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of embedded node.
@@ -108,7 +110,8 @@ public class IgniteServerImpl implements IgniteServer {
      *
      * <p>Guarded by {@link #restartOrShutdownMutex}.
      */
-    private CompletableFuture<Void> restartOrShutdownFuture = nullCompletedFuture();
+    @Nullable
+    private CompletableFuture<Void> restartOrShutdownFuture;
 
     /**
      * Gets set to {@code true} when the node is shut down. This disallows restarts.
@@ -248,11 +251,20 @@ public class IgniteServerImpl implements IgniteServer {
                 throw new NodeNotStartedException();
             }
 
-            throwIfNotJoined();
-
-            result = restartOrShutdownFuture.thenCompose(unused -> doRestartAsync(instance));
-            restartOrShutdownFuture = result;
+            result = chainRestartOrShutdownAction(() -> doRestartAsync(instance));
         }
+
+        return result;
+    }
+
+    /**
+     * This MUST be called under synchronization on {@link #restartOrShutdownMutex}.
+     */
+    private CompletableFuture<Void> chainRestartOrShutdownAction(Supplier<CompletableFuture<Void>> action) {
+        CompletableFuture<Void> result = (restartOrShutdownFuture == null ? nullCompletedFuture() : restartOrShutdownFuture)
+                .thenCompose(unused -> action.get());
+
+        restartOrShutdownFuture = result;
 
         return result;
     }
@@ -277,8 +289,7 @@ public class IgniteServerImpl implements IgniteServer {
         CompletableFuture<Void> result;
 
         synchronized (restartOrShutdownMutex) {
-            result = restartOrShutdownFuture.thenCompose(unused -> doShutdownAsync());
-            restartOrShutdownFuture = result;
+            result = chainRestartOrShutdownAction(this::doShutdownAsync);
 
             shutDown = true;
         }
@@ -329,7 +340,7 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private CompletableFuture<Void> doStartAsync() {
-        IgniteImpl instance = new IgniteImpl(this, configPath, workDir, classLoader, asyncContinuationExecutor);
+        IgniteImpl instance = new IgniteImpl(this, this::restartAsync, configPath, workDir, classLoader, asyncContinuationExecutor);
 
         ackBanner();
 
@@ -389,6 +400,29 @@ public class IgniteServerImpl implements IgniteServer {
             throw ExceptionUtils.sneakyThrow(unwrapCause(e));
         } catch (InterruptedException e) {
             throw ExceptionUtils.sneakyThrow(e);
+        }
+    }
+
+    /**
+     * Returns the underlying IgniteImpl even if the join was not completed.
+     */
+    @TestOnly
+    public IgniteImpl igniteImpl() {
+        IgniteImpl instance = ignite;
+        if (instance == null) {
+            throw new NodeNotStartedException();
+        }
+
+        return instance;
+    }
+
+    /**
+     * Returns future that gets completed when restart or shutdown is complete.
+     */
+    @TestOnly
+    public @Nullable CompletableFuture<Void> restartOrShutdownFuture() {
+        synchronized (restartOrShutdownMutex) {
+            return restartOrShutdownFuture;
         }
     }
 }

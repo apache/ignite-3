@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.cli.commands.configuration;
 
 
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +62,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 1000")
+                () -> assertOutputContains("idleSyncTimeInterval=1000")
         );
     }
 
@@ -79,8 +77,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Node configuration updated. "
-                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
+                () -> assertOutputContains("Node configuration updated. Restart the node to apply changes.")
         );
 
         // When read the updated cluster configuration
@@ -90,7 +87,9 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"netClusterNodes\" : [ \"localhost:3344\", \"localhost:3345\" ]")
+                () -> assertOutputContains("netClusterNodes=[\n"),
+                () -> assertOutputContains("\"localhost:3344\",\n"),
+                () -> assertOutputContains("\"localhost:3345\"\n")
         );
     }
 
@@ -114,7 +113,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 2000")
+                () -> assertOutputContains("idleSyncTimeInterval=2000")
         );
     }
 
@@ -221,12 +220,20 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     public void partialGet() {
+        execute("node", "config", "show", "--url", NODE_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputContains("clientConnector {")
+        );
+
         execute("node", "config", "show", "--url", NODE_URL, "ignite.network");
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"inbound\""),
-                () -> assertOutputDoesNotContain("\"node\"")
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputDoesNotContain("clientConnector {")
         );
     }
 }
