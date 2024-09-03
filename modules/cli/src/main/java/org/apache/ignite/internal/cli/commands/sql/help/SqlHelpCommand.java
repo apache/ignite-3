@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTI
 import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
-import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Style;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.ColorScheme;
@@ -102,14 +100,13 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
         }
     }
 
-    private static String sqlCommands() {
+    private String sqlCommands() {
         Set<String> topicsSet = new HashSet<>();
         List<String> topics = new ArrayList<>();
         for (IgniteSqlCommand command : IgniteSqlCommand.values()) {
             // Take each command only once.
             if (topicsSet.add(command.getTopic().toLowerCase())) {
-                // See picocli.CommandLine.Help.defaultColorScheme.
-                topics.add(ansi(Style.BOLD.mark("  " + command.getTopic())));
+                topics.add(colorScheme.commandText("  " + command.getTopic()).toString());
             }
         }
 
