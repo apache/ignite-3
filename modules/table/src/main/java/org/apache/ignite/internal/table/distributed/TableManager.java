@@ -418,7 +418,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Nullable
     private StreamerReceiverRunner streamerReceiverRunner;
 
-    private CompletableFuture<Void> readyToProcessTableStarts = new CompletableFuture<>();
+    private final CompletableFuture<Void> readyToProcessTableStarts = new CompletableFuture<>();
 
     private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
@@ -722,7 +722,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> nullCompletedFuture().thenCompose((ignored) -> {
+                (ignore, throwable) -> inBusyLock(busyLock, () -> supplyAsync(() -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     for (int i = 0; i < zoneDescriptor.partitions(); i++) {
@@ -732,7 +732,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
-                })));
+                }, ioExecutor).thenCompose(identity())));
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
 
@@ -785,7 +785,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Table.
      * @param partId Partition id.
      * @param zoneId Zone id.
-     * @return Future, which will complete when the table processor loaded to the zone replica.
      */
     private void preparePartitionResourcesAndLoadToZoneReplica(
             TableImpl table,
