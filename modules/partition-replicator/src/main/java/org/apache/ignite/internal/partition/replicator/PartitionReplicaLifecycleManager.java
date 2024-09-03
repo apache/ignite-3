@@ -455,8 +455,6 @@ public class PartitionReplicaLifecycleManager  extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             try {
-                CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
-
                 AtomicReference<Long> stamp = new AtomicReference<>(null);
 
                 return replicaMgr.startReplica(
@@ -484,7 +482,7 @@ public class PartitionReplicaLifecycleManager  extends
                             return fireEvent(
                                     LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
                                     new PartitionReplicaEventParameters(
-                                            new ZonePartitionId(zoneDescriptor.id(), replicaGrpId.partitionId())
+                                            new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
                                     )
                             );
                         })
