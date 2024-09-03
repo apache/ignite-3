@@ -215,7 +215,7 @@ static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
     }
 
     auto row = query0.get_current_row();
-    auto res_list = PyList_New(row.size());
+    auto res_list = PyTuple_New(row.size());
     if (!res_list) {
         PyErr_SetString(PyExc_RuntimeError, "Can not allocate a new list for the result set");
         return nullptr;
@@ -227,7 +227,7 @@ static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
             Py_DECREF(res_list);
             return nullptr;
         }
-        PyList_SetItem(res_list, i, py_column);
+        PyTuple_SetItem(res_list, i, py_column);
     }
 
     return res_list;

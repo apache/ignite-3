@@ -15,6 +15,7 @@
 import datetime
 import decimal
 import uuid
+from collections.abc import Sequence
 from typing import Optional, List, Any
 
 from pyignite3 import _pyignite3_extension
@@ -94,7 +95,6 @@ class Cursor:
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
 
-        # TODO: IGNITE-22741 Implement data fetching
         self.arraysize = 1
         self._description = None
 
@@ -192,7 +192,7 @@ class Cursor:
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
-    def fetchone(self) -> Optional[List[Optional[Any]]]:
+    def fetchone(self) -> Optional[Sequence[Optional[Any]]]:
         """
         Fetch the next row of a query result set, returning a single sequence, or None when no more data is available.
         An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
@@ -203,12 +203,36 @@ class Cursor:
 
         return self._py_cursor.fetchone()
 
-    def fetchmany(self):
+    def fetchmany(self, size: Optional[int] = None) -> Optional[Sequence[Sequence[Optional[Any]]]]:
+        """
+        Fetch the next set of rows of a query result, returning a sequence of sequences. An empty sequence is returned
+        when no more rows are available.
+
+        The number of rows to fetch per call is specified by the parameter. If it is not given, the cursor’s arraysize
+        determines the number of rows to be fetched. The method tries to fetch as many rows as indicated by the size
+        parameter. If this is not possible due to the specified number of rows not being available, fewer rows will be
+        returned.
+
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        if size is None:
+            size = self.arraysize
+
+        if size <= 0:
+            raise InterfaceError(f'Size parameter should be positive [size={size}]')
+
+        res = []
+        for i in range(size):
+            row = self.fetchone()
+            if row is None:
+                break
+            res.append(row)
+
+        return None if not res else res
 
     def fetchall(self):
         if self._py_cursor is None:
