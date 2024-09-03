@@ -16,6 +16,7 @@
  */
 
 #include <ignite/odbc/sql_statement.h>
+#include <ignite/odbc/query/data_query.h>
 
 #include <ignite/common/detail/config.h>
 
@@ -70,7 +71,7 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     };
 
     const char* query = nullptr;
-    // TODO IGNITE-22741 Support parameters
+    // TODO IGNITE-23126 Support parameters
     PyObject *params = nullptr;
 
     int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);
@@ -99,6 +100,137 @@ static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
         return PyLong_FromLong(-1);
 
     return PyLong_FromLong(long(query->affected_rows()));
+}
+
+static PyObject* primitive_to_pyobject(ignite::primitive value) {
+    using ignite::ignite_type;
+
+    if (value.is_null()) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    switch (value.get_type()) {
+        case ignite_type::STRING: {
+            auto &str_val = value.get<std::string>();
+            return PyUnicode_FromStringAndSize(str_val.c_str(), str_val.size());
+        }
+
+        case ignite_type::INT8: {
+            auto &i8_val =  value.get<std::int8_t>();
+            return PyLong_FromLong(long(i8_val));
+        }
+
+        case ignite_type::INT16: {
+            auto &i16_val =  value.get<std::int16_t>();
+            return PyLong_FromLong(long(i16_val));
+        }
+
+        case ignite_type::INT32: {
+            auto &i32_val =  value.get<std::int32_t>();
+            return PyLong_FromLong(long(i32_val));
+        }
+
+        case ignite_type::INT64: {
+            auto &i64_val =  value.get<std::int64_t>();
+            return PyLong_FromLongLong(i64_val);
+        }
+
+        case ignite_type::FLOAT: {
+            auto &float_val =  value.get<float>();
+            return PyFloat_FromDouble(float_val);
+        }
+
+        case ignite_type::DOUBLE: {
+            auto &double_val =  value.get<double>();
+            return PyFloat_FromDouble(double_val);
+        }
+
+        case ignite_type::BOOLEAN: {
+            auto &bool_val =  value.get<bool>();
+            if (bool_val) {
+                Py_RETURN_TRUE;
+            } else {
+                Py_RETURN_FALSE;
+            }
+        }
+
+        case ignite_type::BYTE_ARRAY: {
+            auto &blob_val =  value.get<std::vector<std::byte>>();
+            return PyBytes_FromStringAndSize((const char*)blob_val.data(), blob_val.size());
+        }
+
+        case ignite_type::UUID:
+        case ignite_type::DATE:
+        case ignite_type::TIMESTAMP:
+        case ignite_type::TIME:
+        case ignite_type::DATETIME:
+        case ignite_type::BITMASK:
+        case ignite_type::DECIMAL:
+        case ignite_type::PERIOD:
+        case ignite_type::DURATION:
+        case ignite_type::NUMBER:
+        default: {
+            // TODO: IGNITE-22745 Provide wider data types support
+            auto err_msg = "The type is not supported yet: " + std::to_string(int(value.get_type()));
+            PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+            return nullptr;
+        }
+    }
+}
+
+static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    auto query = self->m_statement->get_query();
+    if (!query) {
+        PyErr_SetString(PyExc_RuntimeError, "Query was not executed");
+        return nullptr;
+    }
+
+    if (query->get_type() != ignite::query_type::DATA) {
+        auto err_msg = "Unexpected query type: " + std::to_string(int(query->get_type()));
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return nullptr;
+    }
+
+    if (!query->is_data_available()) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    auto& query0 = static_cast<ignite::data_query&>(*query);
+    auto res = query0.fetch_next_row();
+    if (res == ignite::sql_result::AI_NO_DATA) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    if (!check_errors(*self->m_statement)) {
+        return nullptr;
+    }
+
+    auto row = query0.get_current_row();
+    auto res_list = PyTuple_New(row.size());
+    if (!res_list) {
+        PyErr_SetString(PyExc_RuntimeError, "Can not allocate a new list for the result set");
+        return nullptr;
+    }
+
+    for (std::size_t i = 0; i < row.size(); ++i) {
+        auto py_column = primitive_to_pyobject(row[i]);
+        if (!py_column) {
+            Py_DECREF(res_list);
+            return nullptr;
+        }
+        PyTuple_SetItem(res_list, i, py_column);
+    }
+
+    return res_list;
 }
 
 static PyObject* py_cursor_column_count(py_cursor* self, PyObject*)
@@ -273,9 +405,12 @@ static PyTypeObject py_cursor_type = {
 };
 
 static struct PyMethodDef py_cursor_methods[] = {
+    // Core methods
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
     {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
     {"rowcount", (PyCFunction)py_cursor_rowcount, METH_NOARGS, nullptr},
+    {"fetchone", (PyCFunction)py_cursor_fetchone, METH_NOARGS, nullptr},
+    // Column metadata retrieval methods
     {"column_count", (PyCFunction)py_cursor_column_count, METH_NOARGS, nullptr},
     {"column_name", (PyCFunction)py_cursor_column_name, METH_VARARGS, nullptr},
     {"column_type_code", (PyCFunction)py_cursor_column_type_code, METH_VARARGS, nullptr},
