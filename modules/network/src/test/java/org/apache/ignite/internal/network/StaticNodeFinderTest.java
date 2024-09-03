@@ -24,12 +24,9 @@ import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasSize;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -57,26 +54,32 @@ class StaticNodeFinderTest {
 
     @Test
     void resolvesLocalHostToJustOneAddress() throws Exception {
-        NodeFinder finder = new StaticNodeFinder(List.of(new NetworkAddress("localhost", 3001)));
+        Path hostsFilePath = writeHostsFile(Map.of(
+                "127.0.0.1", "localhost",
+                "172.24.0.2", "localhost"
+        ));
 
-        List<NetworkAddress> nodes = finder.findNodes();
+        List<NetworkAddress> foundAddresses = findAddressesWithOverriddenNameResolving(
+                List.of(new NetworkAddress("localhost", 3001)),
+                hostsFilePath
+        );
 
-        assertThat(nodes, hasSize(1));
-        InetAddress inetAddress = InetAddress.getByName(nodes.get(0).host());
-        assertTrue(inetAddress.isLoopbackAddress(), nodes.get(0).host() + " must be local");
+        assertThat(foundAddresses, contains(new NetworkAddress("127.0.0.1", 3001)));
+    }
+
+    private Path writeHostsFile(Map<String, String> ipToHostname) throws IOException {
+        Path hostsFilePath = workDir.resolve("hosts");
+        Files.writeString(hostsFilePath, hostsFileContent(ipToHostname));
+        return hostsFilePath;
     }
 
     @Test
     void resolvesNames() throws Exception {
-        Path hostsFilePath = workDir.resolve("hosts");
-        Files.writeString(
-                hostsFilePath,
-                hostsFileContent(Map.of(
-                        "1.2.3.4", "abc.def",
-                        "1.2.3.5", "abc.def",
-                        "4.3.2.1", "def.abc"
-                ))
-        );
+        Path hostsFilePath = writeHostsFile(Map.of(
+                "1.2.3.4", "abc.def",
+                "1.2.3.5", "abc.def",
+                "4.3.2.1", "def.abc"
+        ));
 
         List<NetworkAddress> foundAddresses = findAddressesWithOverriddenNameResolving(
                 List.of(new NetworkAddress("abc.def", 3001), new NetworkAddress("def.abc", 3002)),
@@ -95,8 +98,7 @@ class StaticNodeFinderTest {
 
     @Test
     void ignoresUnresolvableName() throws Exception {
-        Path hostsFilePath = workDir.resolve("hosts");
-        Files.writeString(hostsFilePath, hostsFileContent(Map.of("1.2.3.4", "abc.def")));
+        Path hostsFilePath = writeHostsFile(Map.of("1.2.3.4", "abc.def"));
 
         List<NetworkAddress> foundAddresses = findAddressesWithOverriddenNameResolving(
                 List.of(new NetworkAddress("abc.def", 3001), new NetworkAddress("def.abc", 3002)),
