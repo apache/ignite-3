@@ -701,7 +701,7 @@ public class PartitionReplicaLifecycleManager  extends
     /**
      * Check if the current node has local replica for this {@link ZonePartitionId}.
      *
-     * <p>Important: this method must be invoked alwaus under the according stamped lock.
+     * <p>Important: this method must be invoked always under the according stamped lock.
      *
      * @param zonePartitionId Zone partition id.
      * @return true if local replica exists, false otherwise.

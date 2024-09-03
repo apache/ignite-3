@@ -602,9 +602,12 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 1);
 
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 0), 10_000L));
+
         createTable(node, "test_zone", "test_table");
 
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 1), 10_000L));
 
