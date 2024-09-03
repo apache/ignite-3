@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Any
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -191,7 +191,7 @@ class Cursor:
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
-    def fetchone(self):
+    def fetchone(self) -> List[Optional[Any]]:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
