@@ -79,9 +79,10 @@ awaitility = "4.2.2"
 progressBar = "0.9.4"
 guava = "33.2.1-jre"
 jna = "5.14.0"
-tree-sitter = "0.22.5"
-tree-sitter-json = "0.21.0"
-tree-sitter-sql = "gh-pages"
+tree-sitter = "0.23.0"
+tree-sitter-json = "0.21.0a"
+tree-sitter-sql = "gh-pages-a"
+tree-sitter-hocon = "master-a"
 
 #Tools
 pmdTool = "6.55.0"
@@ -265,3 +266,4 @@ jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
 tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sitter" }
 tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
 tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }
+tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
