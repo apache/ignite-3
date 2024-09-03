@@ -380,7 +380,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         // This makes the CMG majority go away.
         cluster.stopNode(0);
 
-        // Now, dataNodes should have become [1, 2], but as there is no CMG leader, noone is able to trigger data nodes update.
+        // Now, dataNodes should have become [1, 2], but as there is no CMG leader, no one is able to trigger data nodes update.
 
         // Repair CMG with just node 1.
         initiateCmgRepairVia(igniteImpl(1), 1);
