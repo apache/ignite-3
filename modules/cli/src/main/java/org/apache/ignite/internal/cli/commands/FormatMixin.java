@@ -54,7 +54,7 @@ public class FormatMixin {
      *
      * @return Decorator.
      */
-     public Decorator<JsonString, TerminalOutput> decorator() {
+    public Decorator<JsonString, TerminalOutput> decorator() {
         if (format == Format.JSON) {
             return new JsonDecorator(isHighlightEnabled());
         }
