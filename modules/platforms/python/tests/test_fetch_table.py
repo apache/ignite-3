@@ -40,8 +40,8 @@ def check_row(i, row):
     assert row[2] == pytest.approx(i / 2.0)
 
 
-def test_fetch_table_empty():
-    table_name = test_fetch_table_empty.__name__
+def test_fetchone_table_empty():
+    table_name = test_fetchone_table_empty.__name__
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
             try:
@@ -55,8 +55,8 @@ def test_fetch_table_empty():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetch_table_many_rows():
-    table_name = test_fetch_table_many_rows.__name__
+def test_fetchone_table_many_rows():
+    table_name = test_fetchone_table_many_rows.__name__
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -76,8 +76,23 @@ def test_fetch_table_many_rows():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetch_table_many_rows_fetchmany():
-    table_name = test_fetch_table_many_rows.__name__
+def test_fetchmany_table_empty():
+    table_name = test_fetchmany_table_empty.__name__
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                cursor.execute(f'drop table if exists {table_name}')
+                cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
+                cursor.execute(f"select col1, id from {table_name}")
+                end = cursor.fetchmany(size=10)
+                assert end is None
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}')
+
+
+def test_fetchmany_table_many_rows():
+    table_name = test_fetchmany_table_many_rows.__name__
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -101,6 +116,75 @@ def test_fetch_table_many_rows_fetchmany():
                 assert len(rows13_14) == 2
                 for i in range(2):
                     check_row(i + 13, rows13_14[i])
+
+                end = cursor.fetchone()
+                assert end is None
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}')
+
+
+def test_fetchall_table_empty():
+    table_name = test_fetchmany_table_empty.__name__
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                cursor.execute(f'drop table if exists {table_name}')
+                cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
+                cursor.execute(f"select col1, id from {table_name}")
+                end = cursor.fetchall()
+                assert end is None
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}')
+
+
+def test_fetchall_table_many_rows():
+    table_name = test_fetchmany_table_many_rows.__name__
+    rows_num = 15
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                create_and_populate_test_table(cursor, rows_num, table_name)
+
+                cursor.arraysize = 5
+                cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+                rows_all = cursor.fetchall()
+                assert len(rows_all) == rows_num
+                for i in range(rows_num):
+                    check_row(i, rows_all[i])
+
+                end = cursor.fetchone()
+                assert end is None
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}')
+
+
+def test_fetch_mixed_table_many_rows():
+    table_name = test_fetch_mixed_table_many_rows.__name__
+    rows_num = 15
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                create_and_populate_test_table(cursor, rows_num, table_name)
+
+                cursor.arraysize = 5
+                cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+                rows0_4 = cursor.fetchmany()
+                assert len(rows0_4) == 5
+                for i in range(5):
+                    check_row(i, rows0_4[i])
+
+                row5 = cursor.fetchone()
+                check_row(5, row5)
+
+                rows_remaining = cursor.fetchall()
+                assert len(rows_remaining) == rows_num - 6
+                for i in range(rows_num - 6):
+                    check_row(i + 6, rows_remaining[i])
 
                 end = cursor.fetchone()
                 assert end is None

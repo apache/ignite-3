@@ -92,6 +92,7 @@ class Cursor:
     """
     Cursor class. Represents a single statement and holds the result of its execution.
     """
+
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
 
@@ -234,12 +235,22 @@ class Cursor:
 
         return None if not res else res
 
-    def fetchall(self):
+    def fetchall(self) -> Optional[Sequence[Sequence[Optional[Any]]]]:
+        """
+        Fetch all remaining rows of a query result, returning them as a sequence of sequences.
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        res = []
+        row = self.fetchone()
+        while row is not None:
+            res.append(row)
+            row = self.fetchone()
+
+        return None if not res else res
 
     def nextset(self):
         if self._py_cursor is None:
@@ -262,11 +273,11 @@ class Cursor:
         pass
 
 
-
 class Connection:
     """
     Connection class. Represents a single connection to the Ignite cluster.
     """
+
     def __init__(self):
         self._py_connection = None
 
