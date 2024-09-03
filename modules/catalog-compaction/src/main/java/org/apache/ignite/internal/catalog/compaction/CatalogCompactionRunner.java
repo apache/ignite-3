@@ -290,6 +290,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
         LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
         Long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : null;
 
+        Map<Integer, BitSet> localPartitions = localMinRequiredTime != null
+                ? localMinRequiredTime.availablePartitions
+                : Collections.emptyMap();
+
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), minTime)
                 .thenComposeAsync(timeHolder -> {
 
@@ -298,6 +302,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(minRequiredTime,
                             topologySnapshot,
+                            localPartitions,
                             timeHolder.remotePartitions
                     );
 
@@ -357,7 +362,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
 
-                        remotePartitions.put(nodeId, avaiblePartitionListToMap(response.partitions()));
+                        remotePartitions.put(nodeId, availablePartitionListToMap(response.partitions()));
                     }
 
                     if (globalMinimumRequiredTime == null) {
@@ -397,10 +402,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }, executor);
     }
 
-
     private CompletableFuture<Boolean> tryCompactCatalog(
             long minRequiredTime,
             LogicalTopologySnapshot topologySnapshot,
+            Map<Integer, BitSet> localPartitions,
             Map<String, Map<Integer, BitSet>> remotePartitions
     ) {
         Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
@@ -419,7 +424,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             }
         }
 
-        return validatePartitions(catalog, remotePartitions)
+        return validatePartitions(catalog, localPartitions, remotePartitions)
                 .thenCompose(result -> {
                     if (!result.getFirst()) {
                         LOG.info("Catalog compaction aborted due to mismatching table partitions.");
@@ -452,26 +457,44 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private CompletableFuture<Pair<Boolean, Set<String>>> validatePartitions(
             Catalog catalog,
+            Map<Integer, BitSet> localPartitions,
             Map<String, Map<Integer, BitSet>> remotePartitions
     ) {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        Map<String, Map<Integer, BitSet>> actualPartitions = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, Integer> partitionsPerTable = new ConcurrentHashMap<>();
 
         return CompletableFutures.allOf(catalog.tables().stream()
-                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, actualPartitions))
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, partitionsPerTable))
                 .collect(Collectors.toList())
         ).thenApply(ignore -> {
 
-            // Compare partitions received from nodes (remotePartitions) with partitions retrieve
-            // from the placement driver.
+            Map<Integer, BitSet> allParts = new HashMap<>();
 
-            for (Map.Entry<String, Map<Integer, BitSet>> e : remotePartitions.entrySet()) {
-                String remoteId = e.getKey();
-                Map<Integer, BitSet> remoteParts = e.getValue();
-                Map<Integer, BitSet> actualParts = actualPartitions.get(remoteId);
+            for (Map.Entry<Integer, BitSet> local : localPartitions.entrySet()) {
+                Integer tableId = local.getKey();
+                BitSet localParts = local.getValue();
+                allParts.put(tableId, localParts);
+            }
 
-                if (!remoteParts.equals(actualParts)) {
+            for (Map.Entry<String, Map<Integer, BitSet>> remote : remotePartitions.entrySet()) {
+                for (Map.Entry<Integer, BitSet> remoteTable : remote.getValue().entrySet()) {
+                    allParts.compute(remoteTable.getKey(), (k, v) -> {
+                        if (v == null) {
+                            v = new BitSet();
+                        }
+                        v.or(remoteTable.getValue());
+                        return v;
+                    });
+                }
+            }
+
+            for (Map.Entry<Integer, Integer> table : partitionsPerTable.entrySet()) {
+                int tableId = table.getKey();
+                int partCount = table.getValue();
+                BitSet actualParts = allParts.get(tableId);
+
+                if (actualParts.cardinality() != partCount) {
                     return new Pair<>(false, required);
                 }
             }
@@ -485,7 +508,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             CatalogTableDescriptor table,
             Set<String> required,
             HybridTimestamp nowTs,
-            Map<String, Map<Integer, BitSet>> actualPartitions
+            ConcurrentHashMap<Integer, Integer> partitionsPerTable
     ) {
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
@@ -494,12 +517,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
         int partitions = zone.partitions();
 
         List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
-        BitSet bitSet = new BitSet();
 
         for (int p = 0; p < partitions; p++) {
             replicationGroupIds.add(new TablePartitionId(table.id(), p));
-            bitSet.set(p);
         }
+
+        partitionsPerTable.put(table.id(), partitions);
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
                 .thenAccept(tokenizedAssignments -> {
@@ -515,9 +538,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         assignment.nodes().forEach(a -> {
                             String nodeId = a.consistentId();
                             required.add(nodeId);
-
-                            Map<Integer, BitSet> nodeTables = actualPartitions.computeIfAbsent(nodeId, (k) -> new ConcurrentHashMap<>());
-                            nodeTables.put(table.id(), bitSet);
                         });
                     }
                 });
@@ -691,7 +711,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
-    private List<AvailablePartitionsMessage> availablePartitionsMessages(Map<Integer, BitSet> availablePartitions) {
+    private static List<AvailablePartitionsMessage> availablePartitionsMessages(Map<Integer, BitSet> availablePartitions) {
         return availablePartitions.entrySet().stream()
                 .map(e -> COMPACTION_MESSAGES_FACTORY.availablePartitionsMessage()
                         .tableId(e.getKey())
@@ -700,7 +720,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .collect(Collectors.toList());
     }
 
-    private static Map<Integer, BitSet> avaiblePartitionListToMap(List<AvailablePartitionsMessage> availablePartitions) {
+    private static Map<Integer, BitSet> availablePartitionListToMap(List<AvailablePartitionsMessage> availablePartitions) {
         return availablePartitions.stream()
                 .map(a -> Map.entry(a.tableId(), a.partitions()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
