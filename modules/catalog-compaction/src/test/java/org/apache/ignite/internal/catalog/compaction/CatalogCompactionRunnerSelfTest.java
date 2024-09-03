@@ -185,10 +185,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         // Nothing should be changed if previous catalog doesn't exists.
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
         compactionRunner = createRunner(NODE1, NODE1, (n) -> earliestCatalog.time());
-
-        HybridTimestamp now = clockService.now();
-        compactionRunner.onLowWatermarkChanged(now);
-
+        compactionRunner.triggerCompaction(clockService.now());
         assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
     }
 
@@ -369,10 +366,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
 
         // Do not set low watermark
-
-        HybridTimestamp now = clockService.now();
-        compactor.onLowWatermarkChanged(now);
-        compactor.triggerCompaction(now);
+        compactor.triggerCompaction(clockService.now());
 
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
 
@@ -525,9 +519,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     logicalNodes
             );
 
-            HybridTimestamp now = clockService.now();
-            compactor.onLowWatermarkChanged(now);
-            compactor.triggerCompaction(now);
+            compactor.triggerCompaction(clockService.now());
 
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
             waitForCondition(() -> catalogManager.earliestCatalogVersion() == catalog.version() - 1, 1_000);
@@ -550,7 +542,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, timeSupplier);
 
         HybridTimestamp now = clockService.now();
-        compactor.onLowWatermarkChanged(now);
         compactor.triggerCompaction(now);
 
         ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
@@ -586,7 +577,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
-        compactor.onLowWatermarkChanged(clockService.now());
         compactor.triggerCompaction(clockService.now());
 
         assertThat(compactor.lastRunFuture(), willThrow(ArithmeticException.class));
@@ -625,9 +615,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 }
         );
 
-        HybridTimestamp now = clockService.now();
-        compactor.onLowWatermarkChanged(now);
-        compactor.triggerCompaction(now);
+        compactor.triggerCompaction(clockService.now());
 
         messageBlockLatch.await();
 
