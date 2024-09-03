@@ -35,7 +35,7 @@ import org.apache.ignite.network.NetworkAddress;
  * <p>Names are resolved. If a name is resolved to one or more addresses, all of them will be returned. If a name is resolved
  * to nothing, this name will not add anything to the output; no exception will be thrown in such case.
  *
- * <p>If among addresses to which a name is resolved there is a loopback address, only this address is contributed for this name.
+ * <p>If a loopback address is among the resolved addresses, only this address is contributed for this name.
  */
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
