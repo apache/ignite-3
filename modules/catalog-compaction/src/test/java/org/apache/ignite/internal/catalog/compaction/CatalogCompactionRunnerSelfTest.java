@@ -452,7 +452,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             );
 
             HybridTimestamp now = clockService.now();
-            compactor.onLowWatermarkChanged(now);
             compactor.triggerCompaction(now);
 
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
@@ -484,9 +483,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             CompletableFuture<CompletableFuture<Void>> fut = IgniteTestUtils.runAsync(
                     () -> {
-                        HybridTimestamp now = clockService.now();
-                        compactor.onLowWatermarkChanged(now);
-                        compactor.triggerCompaction(now);
+                        compactor.triggerCompaction(clockService.now());
 
                         return compactor.lastRunFuture();
                     });
@@ -520,7 +517,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             );
 
             compactor.triggerCompaction(clockService.now());
-
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
             waitForCondition(() -> catalogManager.earliestCatalogVersion() == catalog.version() - 1, 1_000);
 

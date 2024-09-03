@@ -122,14 +122,14 @@ public class ClientCompute implements IgniteCompute {
                 return new ClientJobExecution<>(
                         ch,
                         doExecuteColocatedAsync(
-                        colocatedTarget.tableName(),
-                        colocatedTarget.key(),
-                        mapper,
-                        descriptor.units(),
-                        descriptor.jobClassName(),
-                        descriptor.options(),
-                        descriptor.argumentMarshaller(),
-                        arg
+                                colocatedTarget.tableName(),
+                                colocatedTarget.key(),
+                                mapper,
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                descriptor.argumentMarshaller(),
+                                arg
                         ),
                         descriptor.resultMarshaller());
             } else {
@@ -228,7 +228,14 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(taskDescriptor.units(), taskDescriptor.taskClassName(), arg, null));
+        return new ClientTaskExecution<>(
+                ch,
+                doExecuteMapReduceAsync(
+                        taskDescriptor.units(), taskDescriptor.taskClassName(), arg,
+                        taskDescriptor.splitJobArgumentMarshaller()
+                ),
+                taskDescriptor.reduceJobResultMarshaller()
+        );
     }
 
     @Override
@@ -236,14 +243,15 @@ public class ClientCompute implements IgniteCompute {
         return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
-    private <T> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
+    private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
             List<DeploymentUnit> units,
             String taskClassName,
             @Nullable T arg,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
+            @Nullable Marshaller<T, byte[]> argumentMarshaller
+    ) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
-                w -> packTask(w.out(), units, taskClassName, arg, marshaller),
+                w -> packTask(w.out(), units, taskClassName, arg, (Marshaller<Object, byte[]>) argumentMarshaller),
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,

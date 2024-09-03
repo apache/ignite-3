@@ -28,71 +28,10 @@
 #include <Python.h>
 
 
-PyObject* connect(PyObject* self, PyObject *args, PyObject* kwargs);
-
-static PyMethodDef methods[] = {
-    {"connect", (PyCFunction) connect, METH_VARARGS | METH_KEYWORDS, nullptr},
-    {nullptr, nullptr, 0, nullptr}       /* Sentinel */
-};
-
-static struct PyModuleDef module_def = {
-    PyModuleDef_HEAD_INIT,
-    MODULE_NAME,
-    nullptr,                /* m_doc */
-    -1,                     /* m_size */
-    methods,                /* m_methods */
-    nullptr,                /* m_slots */
-    nullptr,                /* m_traverse */
-    nullptr,                /* m_clear */
-    nullptr,                /* m_free */
-};
-
-PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
-    PyObject* mod;
-
-    mod = PyModule_Create(&module_def);
-    if (mod == nullptr)
-        return nullptr;
-
-    if (prepare_py_connection_type() || prepare_py_cursor_type())
-        return nullptr;
-
-    if (register_py_connection_type(mod) || register_py_cursor_type(mod))
-        return nullptr;
-
-    return mod;
-}
-
-bool check_errors(ignite::diagnosable& diag) {
-    auto &records = diag.get_diagnostic_records();
-    if (records.is_successful())
-        return true;
-
-    std::string err_msg;
-    switch (records.get_return_code()) {
-        case SQL_INVALID_HANDLE:
-            err_msg = "Invalid object handle";
-            break;
-
-        case SQL_NO_DATA:
-            err_msg = "No data available";
-            break;
-
-        case SQL_ERROR:
-            auto record = records.get_status_record(1);
-            err_msg = record.get_message_text();
-            break;
-    }
-
-    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
-    PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
-
-    return false;
-}
-
 static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn) {
-        auto pyignite3_mod = PyImport_ImportModule("pyignite3");
+    std::unique_ptr<ignite::sql_connection> conn)
+{
+    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
 
     if (!pyignite3_mod)
         return nullptr;
@@ -124,7 +63,7 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     return conn_obj;
 }
 
-static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         "address",
         "identity",
@@ -192,5 +131,67 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
 
     return make_connection(std::move(sql_env), std::move(sql_conn));
 }
+
+static PyMethodDef methods[] = {
+    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {nullptr, nullptr, 0, nullptr}       /* Sentinel */
+};
+
+static struct PyModuleDef module_def = {
+    PyModuleDef_HEAD_INIT,
+    MODULE_NAME,
+    nullptr,                /* m_doc */
+    -1,                     /* m_size */
+    methods,                /* m_methods */
+    nullptr,                /* m_slots */
+    nullptr,                /* m_traverse */
+    nullptr,                /* m_clear */
+    nullptr,                /* m_free */
+};
+
+PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
+    PyObject* mod;
+
+    mod = PyModule_Create(&module_def);
+    if (mod == nullptr)
+        return nullptr;
+
+    if (prepare_py_connection_type() || prepare_py_cursor_type())
+        return nullptr;
+
+    if (register_py_connection_type(mod) || register_py_cursor_type(mod))
+        return nullptr;
+
+    return mod;
+}
+
+bool check_errors(ignite::diagnosable& diag) {
+    auto &records = diag.get_diagnostic_records();
+    if (records.is_successful())
+        return true;
+
+    std::string err_msg;
+    switch (records.get_return_code()) {
+        case SQL_INVALID_HANDLE:
+            err_msg = "Invalid object handle";
+            break;
+
+        case SQL_NO_DATA:
+            err_msg = "No data available";
+            break;
+
+        case SQL_ERROR:
+            auto record = records.get_status_record(1);
+            err_msg = record.get_message_text();
+            break;
+    }
+
+    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
+    PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+
+    return false;
+}
+
+
 
 

@@ -237,47 +237,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
-    protected void checkTypeAssignment(
-            SqlValidatorScope sourceScope,
-            SqlValidatorTable table,
-            RelDataType sourceRowType,
-            RelDataType targetRowType,
-            SqlNode query
-    ) {
-        boolean coerced = false;
-
-        if (query instanceof SqlUpdate) {
-            SqlNodeList targetColumnList =
-                    requireNonNull(((SqlUpdate) query).getTargetColumnList());
-            int targetColumnCount = targetColumnList.size();
-            targetRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, targetRowType,
-                            targetColumnCount);
-            sourceRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType,
-                            targetColumnCount);
-        }
-
-        // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
-        // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
-        if (config().typeCoercionEnabled()) {
-            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
-                    sourceRowType, targetRowType, null)) {
-                if ((query.getKind() == SqlKind.INSERT || query.getKind() == SqlKind.UPDATE)
-                        && targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)
-                        && sourceRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
-                    coerced = getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
-                }
-            }
-        }
-
-        if (!coerced) {
-            doCheckTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void validateMerge(SqlMerge call) {
         super.validateMerge(call);
 

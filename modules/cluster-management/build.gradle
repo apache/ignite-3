@@ -41,6 +41,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
     implementation project(':ignite-configuration-root')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -51,6 +52,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-network'))
+    testImplementation project(':ignite-system-disaster-recovery')
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
@@ -62,6 +64,8 @@ dependencies {
     testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-security')
+    testFixturesImplementation project(':ignite-system-disaster-recovery-api')
+    testFixturesImplementation project(':ignite-system-disaster-recovery')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
@@ -77,6 +81,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
