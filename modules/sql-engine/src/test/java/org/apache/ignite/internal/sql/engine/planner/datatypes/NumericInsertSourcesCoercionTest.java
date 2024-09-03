@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -55,8 +56,11 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.first());
 
-        String value = generateLiteral(pair.second(), pair.first());
+        // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
+        // take it into consideration.
+        boolean closerToBound = pair.first().spec() == NativeTypeSpec.INT16;
 
+        String value = generateLiteral(pair.second(), closerToBound);
         assertPlan("INSERT INTO T VALUES(" + value + "," + value + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
     }
 

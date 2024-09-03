@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -56,8 +57,11 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
-        Object val = generateLiteral(pair.second(), pair.first());
+        // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
+        // take it into consideration.
+        boolean closerToBound = pair.first().spec() == NativeTypeSpec.INT16;
 
+        String val = generateLiteral(pair.second(), closerToBound);
         assertPlan("UPDATE T SET c1=" + val, schema, modifyOperandMatcher(operandMatcher)::matches, List.of());
     }
 

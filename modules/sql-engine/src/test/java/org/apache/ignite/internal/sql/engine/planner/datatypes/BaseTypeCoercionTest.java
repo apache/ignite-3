@@ -230,28 +230,30 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
     }
 
     /**
-     * Generates SQL literal with a random value for given type.
+     * Generates SQL literal with a random value for given type take into account precision and scale for the passed param.
      *
      * @param type Type to generate literal value.
-     * @param auxiliaryType Type which can affect generating value for main type.
-     *
+     * @param closerToBoundForDecimal5 if {@code true} will generate random value in the upper half of positive values for DECIMAL
+     *         type with 5  digits in integer part of the number.
      * @return Generated value as string representation of a SQL literal.
      */
-    static String generateLiteral(NativeType type, NativeType auxiliaryType) {
+    static String generateLiteral(NativeType type, boolean closerToBoundForDecimal5) {
         Object val = SqlTestUtils.generateValueByType(type);
         // We have different behaviour of planner depending on value it can put CAST or not to do it.
         // So we will generate all values which more then Short.MAX_VALUE and CAST will be always putted.
-        if (auxiliaryType.spec() == NativeTypeSpec.INT16 && type.spec() == NativeTypeSpec.DECIMAL) {
+        if (closerToBoundForDecimal5 && type.spec() == NativeTypeSpec.DECIMAL) {
             DecimalNativeType t = ((DecimalNativeType) type);
             // for five-digit we can have value less or more then Short.MaX_VALUE.
             // To get rid of vagueness let's generate always bigger value.
             if (t.precision() - t.scale() == 5) {
                 BigDecimal bd = ((BigDecimal) val);
-                if (bd.intValue() < Short.MAX_VALUE) {
+                if (bd.signum() > 0 && bd.intValue() < Short.MAX_VALUE) {
                     val = bd.add(BigDecimal.valueOf(Short.MAX_VALUE));
+                } else if (bd.signum() < 0 && bd.intValue() > -Short.MAX_VALUE) {
+                    val = bd.subtract(BigDecimal.valueOf(Short.MAX_VALUE));
                 }
             }
         }
-        return SqlTestUtils.generateLiteral(val.toString(), type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val.toString(), type.spec().asColumnType());
     }
 }

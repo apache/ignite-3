@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -58,12 +60,14 @@ import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
@@ -207,7 +211,7 @@ public class SqlTestUtils {
      * @param type {@link NativeType} type to generate value.
      * @return Generated value for given type.
      */
-    public static Object generateValueByType(NativeType type) {
+    public static @Nullable Object generateValueByType(NativeType type) {
         int scale = 0;
         int precision = 0;
         if (type instanceof DecimalNativeType) {
@@ -219,7 +223,7 @@ public class SqlTestUtils {
             precision = ((VarlenNativeType) type).length();
         }
 
-        return generateValueByType(type.spec().asColumnType(), scale, precision);
+        return generateValueByType(type.spec().asColumnType(), precision, scale);
     }
 
     /**
@@ -228,8 +232,8 @@ public class SqlTestUtils {
      * @param type {@link RelDataType} type to generate value.
      * @return Generated value for given type.
      */
-    public static Object generateValueByType(RelDataType type) {
-        return generateValueByType(columnType(type), type.getScale(), type.getPrecision());
+    public static @Nullable Object generateValueByType(RelDataType type) {
+        return generateValueByType(columnType(type), type.getPrecision(), type.getScale());
     }
 
     /**
@@ -238,18 +242,19 @@ public class SqlTestUtils {
      * @param type SQL type to generate value related to the type.
      * @return Generated value for given SQL type.
      */
-    public static Object generateValueByType(ColumnType type, int scale, int precision) {
+    public static @Nullable Object generateValueByType(ColumnType type, int precision, int scale) {
+        int negativeOrPositive = RND.nextBoolean() ? -1 : 1;
         switch (type) {
             case BOOLEAN:
                 return RND.nextBoolean();
             case INT8:
-                return (byte) RND.nextInt(Byte.MAX_VALUE + 1);
+                return (byte) (RND.nextInt(Byte.MAX_VALUE + 1) * negativeOrPositive);
             case INT16:
-                return (short) RND.nextInt(Byte.MAX_VALUE + 1, Short.MAX_VALUE + 1);
+                return (short) (RND.nextInt(Byte.MAX_VALUE + 1, Short.MAX_VALUE + 1) * negativeOrPositive);
             case INT32:
-                return RND.nextInt(Short.MAX_VALUE + 1, Integer.MAX_VALUE) + 1;
+                return (RND.nextInt(Short.MAX_VALUE + 1, Integer.MAX_VALUE) + 1) * negativeOrPositive;
             case INT64:
-                return RND.nextLong(Integer.MAX_VALUE + 1, Long.MAX_VALUE) + 1;
+                return (RND.nextLong(Integer.MAX_VALUE + 1L, Long.MAX_VALUE) + 1) * negativeOrPositive;
             case FLOAT:
                 // copy-paste from JDK 21 jdk.internal.util.random.RandomSupport.boundedNextFloat(java.util.random.RandomGenerator, float)
                 float bound = Float.MAX_VALUE;
@@ -258,9 +263,9 @@ public class SqlTestUtils {
                 if (r >= bound) {
                     r = Math.nextDown(bound);
                 }
-                return r;
+                return r * negativeOrPositive;
             case DOUBLE:
-                return RND.nextDouble(Float.MAX_VALUE + Double.MIN_NORMAL, Double.MAX_VALUE);
+                return RND.nextDouble(Float.MAX_VALUE + Double.MIN_NORMAL, Double.MAX_VALUE) * negativeOrPositive;
             case STRING:
                 return IgniteTestUtils.randomString(RND, precision);
             case BYTE_ARRAY:
@@ -268,25 +273,27 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                BigDecimal b = IgniteTestUtils.randomBigDecimal(RND, scale, precision);
-                return b;
+                assert precision >= scale : "Scale of BigDecimal for SQL shouldn't be more than precision";
+                assert precision > 0 : "Precision of BigDecimal for SQL should be positive";
+
+                return IgniteTestUtils.randomBigDecimal(RND, scale, precision);
             case UUID:
                 return new UUID(RND.nextLong(), RND.nextLong());
             case DURATION:
                 return Duration.ofNanos(RND.nextLong());
             case DATETIME:
                 return LocalDateTime.of(
-                        (LocalDate) generateValueByType(ColumnType.DATE, scale, precision),
-                        (LocalTime) generateValueByType(ColumnType.TIME, scale, precision)
+                        (LocalDate) generateValueByType(ColumnType.DATE, precision, scale),
+                        (LocalTime) generateValueByType(ColumnType.TIME, precision, scale)
                 );
             case TIMESTAMP:
                 return Instant.from(
-                        ZonedDateTime.of((LocalDateTime) generateValueByType(ColumnType.DATETIME, scale, precision),
+                        ZonedDateTime.of((LocalDateTime) generateValueByType(ColumnType.DATETIME, precision, scale),
                                 ZoneId.systemDefault()));
             case DATE:
                 return LocalDate.of(1900 + RND.nextInt(1000), 1 + RND.nextInt(12), 1 + RND.nextInt(28));
             case TIME:
-                return IgniteTestUtils.randomTime(RND, scale);
+                return IgniteTestUtils.randomTime(RND, precision);
             case PERIOD:
                 return Period.of(RND.nextInt(200), RND.nextInt(200), RND.nextInt(200));
             default:
@@ -295,20 +302,60 @@ public class SqlTestUtils {
     }
 
     /**
+     * Generate random value for given {@link ColumnType}. For precision and scale will be used maximums precisions and scale in SQL type
+     * system, except for byte arrays and decimals, to decrease generated values.
+     *
+     * @param type SQL type to generate value related to the type.
+     * @return Generated value for given SQL type.
+     */
+    public static @Nullable Object generateValueByTypeWithMaxScalePrecisionForSql(ColumnType type) {
+        SqlTypeName sqlTypeName = columnType2SqlTypeName(type);
+        int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
+        int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
+
+        // To prevent generate too big values.
+        if (type == ColumnType.BYTE_ARRAY || type == ColumnType.DECIMAL) {
+            precision = 7_000;
+            scale = precision / 2;
+        }
+
+        return generateValueByType(type, precision, scale);
+    }
+
+    /**
      * Makes SQL literal for given value with a given type.
      *
      * @param value Value to present as SQL literal.
      * @param type Type of value to generate literal.
-     *
      * @return String representation of value as a SQL literal.
      */
-    public static String generateLiteral(String value, ColumnType type) {
+    public static String makeLiteral(String value, ColumnType type) {
+        if (value == null) {
+            return "NULL";
+        }
+
         switch (type) {
             case DECIMAL:
-                String literal = "DECIMAL '" + value + "' ";
-                return literal;
+                return "DECIMAL '" + value + "'";
+            case TIME:
+                return "TIME '" + value + "'";
+            case DATE:
+                return "DATE '" + value + "'";
+            case TIMESTAMP:
+                return "TIMESTAMP WITH LOCAL TIME ZONE '" + value + "'";
+            case STRING:
+                return "'" + value + "'";
+            case DATETIME:
+                return "TIMESTAMP '" + value + "'";
+            case BYTE_ARRAY:
+                return "X'" + StringUtils.toHexString(value.getBytes(StandardCharsets.UTF_8)) + "'";
+            case NULL:
+            case UUID:
+            case PERIOD:
+            case DURATION:
+                throw new IllegalArgumentException("The type " + type + " isn't supported right now");
             default:
-                return String.valueOf(value);
+                return value;
         }
     }
 
@@ -337,7 +384,7 @@ public class SqlTestUtils {
     }
 
     /** Generates literal or value expression using specified column type and value. */
-    public static RexNode generateLiteralOrValueExpr(ColumnType type, Object value) {
+    public static RexNode generateLiteralOrValueExpr(ColumnType type, @Nullable Object value) {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory typeFactory = Commons.typeFactory();
 
@@ -355,42 +402,43 @@ public class SqlTestUtils {
             case INT64:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
             case FLOAT:
-                BigDecimal valueValue = new BigDecimal(value.toString());
+                BigDecimal valueValue = new BigDecimal(requireNonNull(value).toString());
                 return rexBuilder.makeLiteral(valueValue, typeFactory.createSqlType(SqlTypeName.REAL));
             case DOUBLE:
-                BigDecimal doubleValue = new BigDecimal(value.toString());
+                BigDecimal doubleValue = new BigDecimal(requireNonNull(value).toString());
                 return rexBuilder.makeLiteral(doubleValue, typeFactory.createSqlType(SqlTypeName.DOUBLE));
             case DECIMAL:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
             case DATE:
                 LocalDate localDate = (LocalDate) value;
-                int epochDay = (int) localDate.toEpochDay();
+                int epochDay = (int) requireNonNull(localDate).toEpochDay();
 
                 return rexBuilder.makeDateLiteral(DateString.fromDaysSinceEpoch(epochDay));
             case TIME:
                 LocalTime time = (LocalTime) value;
-                int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
+                int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(requireNonNull(time).toNanoOfDay());
 
                 return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 6);
             case DATETIME:
                 LocalDateTime localDateTime = (LocalDateTime) value;
-                Instant instant1 = localDateTime.toInstant(ZoneOffset.UTC);
+                Instant instant1 = requireNonNull(localDateTime).toInstant(ZoneOffset.UTC);
                 TimestampString timestampString = TimestampString.fromMillisSinceEpoch(instant1.toEpochMilli());
 
                 return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 6);
             case TIMESTAMP:
                 Instant instant = (Instant) value;
 
-                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 6);
+                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(requireNonNull(instant).toEpochMilli()), 6);
             case UUID:
-                RexLiteral uuidStr = rexBuilder.makeLiteral(value.toString(), typeFactory.createSqlType(SqlTypeName.VARCHAR));
+                RexLiteral uuidStr = rexBuilder.makeLiteral(requireNonNull(value).toString(),
+                        typeFactory.createSqlType(SqlTypeName.VARCHAR));
                 IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
 
                 return rexBuilder.makeCast(uuidType, uuidStr);
             case STRING:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
             case BYTE_ARRAY:
-                byte[] bytes = (byte[]) value;
+                byte[] bytes = requireNonNull((byte[]) value);
                 ByteString byteStr = new ByteString(bytes);
                 return rexBuilder.makeLiteral(byteStr, typeFactory.createSqlType(SqlTypeName.VARBINARY));
             case PERIOD:
@@ -449,8 +497,8 @@ public class SqlTestUtils {
      *
      * @param query SQL query to execute.
      * @param sql Session on which to execute.
-     * @param transaction Transaction in which to execute the update, or {@code null} if the update should
-     *     be executed in an implicit transaction.
+     * @param transaction Transaction in which to execute the update, or {@code null} if the update should be executed in an
+     *         implicit transaction.
      */
     public static void executeUpdate(String query, IgniteSql sql, @Nullable Transaction transaction) {
         try (ResultSet<?> ignored = sql.execute(transaction, query)) {

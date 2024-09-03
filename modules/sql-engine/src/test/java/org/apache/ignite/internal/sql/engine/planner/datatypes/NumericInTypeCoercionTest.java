@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -2211,8 +2212,8 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
     }
 
     /**
-     * This test ensures that {@link #inOperandsDynamicParamsRhs()} doesn't miss any type pair from {@link NumericPair}.
-     */
+    * This test ensures that {@link #inOperandsDynamicParamsRhs()} doesn't miss any type pair from {@link NumericPair}.
+    */
     @Test
     void inOperandsDynamicParamsRhsIncludeAllPairs() {
         checkIncludesAllNumericTypePairs(inOperandsDynamicParamsRhs());
@@ -2234,7 +2235,11 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                         .build()
         );
 
-        String value = "(" + generateLiteral(numericPair.second(), numericPair.first()) + ")";
+        // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
+        // take it into consideration.
+        boolean closerToBound = numericPair.first().spec() == NativeTypeSpec.INT16;
+
+        String value = "(" + generateLiteral(numericPair.second(), closerToBound) + ")";
 
         Predicate<IgniteTableScan> matcher = checkPlan(first, second);
         assertPlan("SELECT c1 FROM T1 WHERE c1 IN " + value, schema, matcher);

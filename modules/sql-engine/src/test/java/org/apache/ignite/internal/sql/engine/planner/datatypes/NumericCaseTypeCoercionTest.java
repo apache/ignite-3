@@ -117,6 +117,7 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
     private static String prevResult = "";
 
     // It is necessary to have a guarantee that two values in a row will be different.
+    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
     private static String generateLiteralWithNoRepetition(NativeType type) {
         String val;
         do {
@@ -124,7 +125,7 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
         } while (val.equals(prevResult));
         prevResult = val;
 
-        return SqlTestUtils.generateLiteral(val, type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 
     static Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {

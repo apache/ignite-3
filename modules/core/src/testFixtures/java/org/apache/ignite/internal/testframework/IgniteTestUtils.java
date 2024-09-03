@@ -735,13 +735,13 @@ public final class IgniteTestUtils {
      * @return Random string.
      */
     public static BigDecimal randomBigDecimal(Random rnd, int scale, int precision) {
-        assert precision >= scale;
-        assert precision > 0;
-
         BigInteger bd = IntStream.generate(() -> rnd.nextInt(9) + 1).limit(precision).mapToObj(BigInteger::valueOf)
                 .reduce((n1, n2) -> n1.multiply(BigInteger.TEN).add(n2)).get();
 
         BigDecimal res = new BigDecimal(bd).divide(BigDecimal.TEN.pow(scale));
+        if (rnd.nextBoolean()) {
+            res = res.negate();
+        }
 
         assert res.precision() == precision;
         assert res.scale() == scale;
@@ -750,20 +750,20 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns random {@link LocalTime} with given scale.
+     * Returns random {@link LocalTime} with given precision.
      *
      * @param rnd Random generator.
-     * @param scale Scale of generating value. Scale can be between 0 and 9 includes both bounds.
-     * @return Random string.
+     * @param precision Precision of generating value. Precision can be between 0 and 9 includes both bounds.
+     * @return Random {@link LocalTime} with given precision.
      */
-    public static LocalTime randomTime(Random rnd, int scale) {
-        assert scale <= 9 && scale >= 0;
+    public static LocalTime randomTime(Random rnd, int precision) {
+        assert precision >= 0 && precision <= 9 : "Valid precision for time should belong to a range [0:9]";
 
         LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60));
 
-        long nanos = (scale > 0) ? 1 : 0;
+        long nanos = (precision > 0) ? 1 : 0;
         for (int i = 1; i < 9; i++) {
-            nanos = nanos * 10 + (i + 1) * (i < scale ? 1 : 0);
+            nanos = nanos * 10 + (i + 1) * (i < precision ? 1 : 0);
         }
 
         return time.plusNanos(nanos);

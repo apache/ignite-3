@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -722,13 +723,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "type={0}, literals={1}")
     @MethodSource("rowSourceTestArgs")
     public void testRowSource(ColumnType columnType, boolean literalsOnly) {
-        long seed = System.nanoTime();
+        Object val = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(columnType);
 
-        log.info("Seed: " + seed);
-
-        Object val1 = SqlTestUtils.generateValueByType(columnType, 9, 9);
-        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val1);
-        assertTrue(expr1 instanceof RexLiteral);
+        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val);
+        assertInstanceOf(RexLiteral.class, expr1);
 
         Object val2 = literalsOnly ? 1 : UUID.randomUUID();
         RexNode expr2 = SqlTestUtils.generateLiteralOrValueExpr(literalsOnly ? ColumnType.INT32 : ColumnType.UUID, val2);
@@ -745,7 +743,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         } else if (columnType == ColumnType.DOUBLE) {
             expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).doubleValue();
         } else {
-            expected = val1 == null ? null : TypeUtils.toInternal(val1, val1.getClass());
+            expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
         }
 
         assertEquals(Arrays.asList(expected, val2), Arrays.asList(actual));
