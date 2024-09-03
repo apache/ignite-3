@@ -71,7 +71,7 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     };
 
     const char* query = nullptr;
-    // TODO IGNITE-22741 Support parameters
+    // TODO IGNITE-23126 Support parameters
     PyObject *params = nullptr;
 
     int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);

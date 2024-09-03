@@ -183,3 +183,6 @@ def test_fetch_constant_int_bool_string():
             assert data[0] == 42
             assert data[1] is True
             assert data[2] == 'Test string'
+
+            nothing = cursor.fetchone()
+            assert nothing is None

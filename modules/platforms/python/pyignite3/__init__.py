@@ -170,6 +170,7 @@ class Cursor:
 
     def _update_description(self):
         """
+        Internal method.
         Update column description for the current cursor. To be called after query execution.
         """
         self._description = []
@@ -191,11 +192,15 @@ class Cursor:
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
-    def fetchone(self) -> List[Optional[Any]]:
+    def fetchone(self) -> Optional[List[Optional[Any]]]:
+        """
+        Fetch the next row of a query result set, returning a single sequence, or None when no more data is available.
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
         return self._py_cursor.fetchone()
 
     def fetchmany(self):
@@ -227,11 +232,11 @@ class Cursor:
         raise NotSupportedError('Operation is not supported')
 
     def setoutputsize(self, *args):
-        if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+        """
+        This operation does nothing currently.
+        """
+        pass
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
 
 
 class Connection:
