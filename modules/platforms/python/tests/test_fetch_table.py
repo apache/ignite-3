@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import math
-
 import pytest
 
 import pyignite3
@@ -67,5 +65,3 @@ def test_fetch_table_many_rows():
 
             finally:
                 cursor.execute(f'drop table if exists {table_name}')
-
-
