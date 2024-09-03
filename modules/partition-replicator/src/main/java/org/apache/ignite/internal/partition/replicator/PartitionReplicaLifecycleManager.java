@@ -70,6 +70,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -456,8 +457,7 @@ public class PartitionReplicaLifecycleManager  extends
             try {
                 CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
 
-                // if [null], lock wasn't acquired because of exceptions.
-                Long[] stamp = new Long[]{ null };
+                AtomicReference<Long> stamp = new AtomicReference<>(null);
 
                 return replicaMgr.startReplica(
                                 replicaGrpId,
@@ -474,7 +474,7 @@ public class PartitionReplicaLifecycleManager  extends
                                     lock = new StampedLock();
                                 }
 
-                                stamp[0] = lock.writeLock();
+                                stamp.set(lock.writeLock());
 
                                 return lock;
                             });
@@ -489,8 +489,8 @@ public class PartitionReplicaLifecycleManager  extends
                             );
                         })
                         .whenComplete((unused, throwable) -> {
-                            if (stamp[0] != null) {
-                                zonePartitionsLocks.get(zoneId).unlockWrite(stamp[0]);
+                            if (stamp.get() != null) {
+                                zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get());
                             }
                         })
                         .thenApply(unused -> false);
