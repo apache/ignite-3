@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
@@ -68,7 +69,7 @@ public class StaticNodeFinder implements NodeFinder {
             inetAddresses = InetAddress.getAllByName(host);
         } catch (UnknownHostException e) {
             LOG.warn("Cannot resolve {}", host);
-            return new String[0];
+            return ArrayUtils.STRING_EMPTY_ARRAY;
         }
 
         String[] addresses = new String[inetAddresses.length];
