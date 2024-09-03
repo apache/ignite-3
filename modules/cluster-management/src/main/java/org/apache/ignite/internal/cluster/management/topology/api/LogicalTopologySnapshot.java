@@ -36,7 +36,7 @@ import org.jetbrains.annotations.TestOnly;
 public class LogicalTopologySnapshot implements Serializable {
     private static final long serialVersionUID = 0L;
 
-    /** Version that first topology snapshot will have. */
+    /** Version that first topology snapshot in history will have. */
     public static final long FIRST_VERSION = 1;
 
     /** Initial 'topology' for an empty cluster (before any node has joined). */
