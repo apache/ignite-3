@@ -489,15 +489,6 @@ public class Cluster {
     }
 
     /**
-     * Returns indexes of nodes that are started and not stopped..
-     */
-    public Stream<Integer> runningNodeIndexes() {
-        return IntStream.range(0, nodes.size())
-                .filter(index -> node(index) != null)
-                .boxed();
-    }
-
-    /**
      * Shuts down the cluster by stopping all its nodes.
      */
     public void shutdown() {
