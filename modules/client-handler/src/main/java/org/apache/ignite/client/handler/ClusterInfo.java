@@ -33,7 +33,7 @@ public class ClusterInfo {
      */
     public ClusterInfo(ClusterTag tag, List<UUID> idHistory) {
         this.tag = tag;
-        this.idHistory = List.copyOf(idHistory);
+        this.idHistory = idHistory;
     }
 
     /** Returns cluster name. */
