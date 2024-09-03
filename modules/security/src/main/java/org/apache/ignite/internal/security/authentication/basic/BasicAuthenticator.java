@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -46,7 +47,7 @@ public class BasicAuthenticator implements Authenticator {
      */
     public BasicAuthenticator(String providerName, List<BasicUser> users) {
         this.providerName = providerName;
-        this.users = users.stream().collect(Collectors.toMap(BasicUser::name, identity()));
+        this.users = users.stream().collect(Collectors.toMap(user -> user.name().toLowerCase(Locale.US), identity()));
     }
 
     @Override
@@ -57,10 +58,11 @@ public class BasicAuthenticator implements Authenticator {
             ));
         }
 
-        Object requestUsername = authenticationRequest.getIdentity();
-        Object requestPassword = authenticationRequest.getSecret();
+        String requestUsername = (String) authenticationRequest.getIdentity();
+        String requestPassword = (String) authenticationRequest.getSecret();
 
-        BasicUser basicUser = users.get(requestUsername);
+        BasicUser basicUser = users.get(requestUsername.toLowerCase());
+
         if (basicUser != null) {
             if (basicUser.password().equals(requestPassword)) {
                 return completedFuture(new UserDetails(basicUser.name(), providerName));
