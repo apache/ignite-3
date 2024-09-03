@@ -346,7 +346,7 @@ public class ItTxTestCluster {
 
         clusterServices = new ConcurrentHashMap<>(nodes);
 
-        nodeFinder.findNodes().parallelStream()
+        localAddresses.parallelStream()
                 .forEach(addr -> {
                     ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
                     cluster.add(svc);
