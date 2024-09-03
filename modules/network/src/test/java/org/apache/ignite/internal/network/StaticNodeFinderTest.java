@@ -156,19 +156,15 @@ class StaticNodeFinderTest {
                 .collect(joining("\n"));
     }
 
-    private static String stdoutString(Process process) {
+    private static String stdoutString(Process process) throws IOException {
         try (InputStream stdout = process.getInputStream()) {
             return new String(stdout.readAllBytes(), UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
-    private static String stderrString(Process process) {
+    private static String stderrString(Process process) throws IOException {
         try (InputStream stderr = process.getErrorStream()) {
             return new String(stderr.readAllBytes(), UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }
