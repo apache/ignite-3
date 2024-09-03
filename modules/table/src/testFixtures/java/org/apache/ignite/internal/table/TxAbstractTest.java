@@ -330,12 +330,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected boolean assertPartitionsSame(TableViewInternal table, int partId) {
         long storageIdx = 0;
 
-        Map<String, Loza> raftServers = txTestCluster.raftServers();
-        if (raftServers == null) {
-            return true;
-        }
-
-        for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
+        for (Map.Entry<String, Loza> entry : txTestCluster.raftServers().entrySet()) {
             Loza svc = entry.getValue();
 
             var server = (JraftServerImpl) svc.server();
