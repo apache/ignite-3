@@ -37,11 +37,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.table.KeyValueView;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -53,11 +56,8 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void repairWhenCmgWas1Node() throws Exception {
-        cluster.startAndInit(3, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-            // Node with index 2 will host neither of voting sets.
-        });
+        // Node with index 2 will host neither of voting sets.
+        startAndInitCluster(3, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
         UUID originalClusterId = clusterState(igniteImpl(0)).clusterTag().clusterId();
@@ -80,6 +80,13 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertResetClusterMessageIsNotPresentAt(restartedIgniteImpl1);
         assertResetClusterMessageIsNotPresentAt(waitTillNodeRestartsInternally(2));
+    }
+
+    private void startAndInitCluster(int nodeCount, int[] cmgNodeIndexes, int[] metastorageNodeIndexes) {
+        cluster.startAndInit(nodeCount, paramsBuilder -> {
+            paramsBuilder.cmgNodeNames(nodeNames(cmgNodeIndexes));
+            paramsBuilder.metaStorageNodeNames(nodeNames(metastorageNodeIndexes));
+        });
     }
 
     private void waitTillClusterStateIsSavedToVaultOnConductor(int nodeIndex) throws InterruptedException {
@@ -139,11 +146,8 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void repairWhenCmgWas3Nodes() throws Exception {
-        cluster.startAndInit(6, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0, 1, 2));
-            paramsBuilder.metaStorageNodeNames(nodeNames(2, 3, 4));
-            // Node with index 5 will host neither of voting sets.
-        });
+        // Node with index 5 will host neither of voting sets.
+        startAndInitCluster(6, new int[]{0, 1, 2}, new int[]{2, 3, 4});
         waitTillClusterStateIsSavedToVaultOnConductor(2);
 
         // Stop the majority of CMG.
@@ -170,10 +174,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void repairedClusterCanJoinBlankNodes() throws Exception {
-        cluster.startAndInit(2, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-        });
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
         cluster.stopNode(0);
@@ -196,11 +197,8 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void repairIsPossibleWhenAllNodesWaitForCmgMajorityOnJoin() throws Exception {
-        cluster.startAndInit(3, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-            // Node with index 2 will host neither of voting sets.
-        });
+        // Node with index 2 will host neither of voting sets.
+        startAndInitCluster(3, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
         cluster.stopNode(0);
@@ -223,10 +221,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodesThatSawNoReparationHaveSeparatePhysicalTopologies() throws Exception {
-        cluster.startAndInit(2, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-        });
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
         // This makes the CMG majority go away.
@@ -248,21 +243,10 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void migratesNodesThatSawNoReparationToNewCluster() throws Exception {
-        cluster.startAndInit(2, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-        });
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
-        // This makes the CMG majority go away.
-        cluster.stopNode(0);
-
-        // Repair CMG with just node 1.
-        initiateCmgRepairVia(igniteImpl(1), 1);
-        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
-        waitTillCmgHasMajority(restartedIgniteImpl1);
-
-        migrate(0, 1);
+        breakAndRepairCmgMajorityInTwoNodeCluster();
 
         LogicalTopologySnapshot topologySnapshot = igniteImpl(1).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(0, topologySnapshot);
@@ -292,10 +276,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
-        cluster.startAndInit(5, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0, 1, 2));
-            paramsBuilder.metaStorageNodeNames(nodeNames(2, 3, 4));
-        });
+        startAndInitCluster(5, new int[]{0, 1, 2}, new int[]{2, 3, 4});
         waitTillClusterStateIsSavedToVaultOnConductor(2);
 
         // Stop the majority of CMG.
@@ -326,12 +307,54 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void repeatedRepairWorks() throws Exception {
-        cluster.startAndInit(2, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(0));
-            paramsBuilder.metaStorageNodeNames(nodeNames(1));
-        });
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
+        breakAndRepairCmgMajorityInTwoNodeCluster();
+
+        // Second repair.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
+
+        // TODO: IGNITE-23096 - remove after the hang is fixed.
+        waitTillNodesRestartInProcess(0, 1);
+    }
+
+    @Test
+    void embeddedApiKeepsWorkingAfterCmgRepair() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        Ignite ignite1 = node(1);
+        ignite1.sql().executeScript("CREATE TABLE TEST (ID INT PRIMARY KEY, VAL VARCHAR)");
+        KeyValueView<Integer, String> kvView = ignite1.tables().table("TEST").keyValueView(Integer.class, String.class);
+
+        kvView.put(null, 1, "one");
+
+        breakAndRepairCmgMajorityInTwoNodeCluster();
+
+        assertThat(kvView.get(null, 1), is("one"));
+    }
+
+    @Test
+    void clientKeepsWorkingAfterCmgRepair() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        try (IgniteClient client = clientAgainstNode0()) {
+            client.sql().executeScript("CREATE TABLE TEST (ID INT PRIMARY KEY, VAL VARCHAR)");
+            KeyValueView<Integer, String> kvView = client.tables().table("TEST").keyValueView(Integer.class, String.class);
+
+            kvView.put(null, 1, "one");
+
+            breakAndRepairCmgMajorityInTwoNodeCluster();
+
+            assertThat(kvView.get(null, 1), is("one"));
+        }
+    }
+
+    private void breakAndRepairCmgMajorityInTwoNodeCluster() throws Exception {
         // This makes the CMG majority go away.
         cluster.stopNode(0);
 
@@ -342,13 +365,11 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Starting the node that did not see the repair.
         migrate(0, 1);
+    }
 
-        // Second repair.
-        initiateCmgRepairVia(igniteImpl(1), 1);
-        IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
-        waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(0, 1);
+    private IgniteClient clientAgainstNode0() {
+        return IgniteClient.builder()
+                .addresses(igniteImpl(0).clientAddress().host())
+                .build();
     }
 }
