@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -102,7 +103,6 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -183,7 +183,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final CompletableFuture<ClusterTag> clusterTag;
+    private final Supplier<ClusterInfo> clusterInfoSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -220,7 +220,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param configuration Configuration.
      * @param compute Compute.
      * @param clusterService Cluster.
-     * @param clusterTag Cluster tag.
+     * @param clusterInfoSupplier Cluster info supplier.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
@@ -232,7 +232,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientConnectorView configuration,
             IgniteComputeInternal compute,
             ClusterService clusterService,
-            CompletableFuture<ClusterTag> clusterTag,
+            Supplier<ClusterInfo> clusterInfoSupplier,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             ClockService clockService,
@@ -247,7 +247,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
-        assert clusterTag != null;
+        assert clusterInfoSupplier != null;
         assert metrics != null;
         assert authenticationManager != null;
         assert clockService != null;
@@ -261,7 +261,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.compute = compute;
         this.clusterService = clusterService;
         this.queryProcessor = processor;
-        this.clusterTag = clusterTag;
+        this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
@@ -419,15 +419,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packString(localMember.id());
         packer.packString(localMember.name());
 
-        ClusterTag tag = clusterTag.join();
+        ClusterInfo clusterInfo = clusterInfoSupplier.get();
 
         // Cluster ID history, from the oldest to the newest (cluster ID can change during CMG/MG repair).
-        // TODO IGNITE-22883 Send all cluster IDs to thin client on connection
-        packer.packInt(1);
-        packer.packUuid(tag.clusterId());
+        packer.packInt(clusterInfo.idHistory().size());
+        for (UUID clusterId : clusterInfo.idHistory()) {
+            packer.packUuid(clusterId);
+        }
 
         // Cluster name never changes.
-        packer.packString(tag.clusterName());
+        packer.packString(clusterInfo.name());
 
         packer.packLong(observableTimestamp(null));
 

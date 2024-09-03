@@ -46,7 +46,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,10 +61,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -70,6 +74,7 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -112,6 +117,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -124,7 +130,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -143,6 +149,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -585,6 +592,36 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 3);
+
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 1);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 0), 10_000L));
+
+        createTable(node, "test_zone", "test_table");
+
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 1), 10_000L));
+
+        alterZone(node.catalogManager, "test_zone", 3);
+
+        assertTrue(waitForCondition(
+                () -> IntStream.range(0, 3).allMatch(i -> assertTableListenersCount(getNode(i), zoneId, 1)),
+                30_000L
+        ));
+    }
+
+    @Test
     void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -986,7 +1023,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
-            KeyValueStorage keyValueStorage = new SimpleInMemoryKeyValueStorage(name);
+            KeyValueStorage keyValueStorage =
+                    new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorageTestKeyValue"), failureProcessor);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -1353,5 +1391,31 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private static boolean skipMetaStorageInvoke(Collection<Operation> ops, String prefix) {
         return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).startsWith(prefix));
+    }
+
+    private static Path resolveDir(Path workDir, String dirName) {
+        Path newDirPath = workDir.resolve(dirName);
+
+        try {
+            return Files.createDirectories(newDirPath);
+        } catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+    }
+
+    private boolean assertTableListenersCount(Node node, int zoneId, int count) {
+        try {
+            CompletableFuture<Replica> replicaFut = node.replicaManager.replica(new ZonePartitionId(zoneId, 0));
+
+            if (replicaFut == null) {
+                return false;
+            }
+
+            Replica replica = replicaFut.get(1, TimeUnit.SECONDS);
+
+            return replica != null && (((ZonePartitionReplicaListener) replica.listener()).tableReplicaListeners().size() == count);
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -82,7 +82,7 @@ class CMakeBuild(build_ext):
         for ext in self.extensions:
             ext_dir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
             cfg = 'Release'
-            ext_file = os.path.splitext(self.get_ext_filename(self.get_ext_fullname(ext.name)))[0]
+            ext_file = os.path.splitext(os.path.basename(self.get_ext_filename(ext.name)))[0]
 
             cmake_args = [
                 f'-DCMAKE_BUILD_TYPE={cfg}',

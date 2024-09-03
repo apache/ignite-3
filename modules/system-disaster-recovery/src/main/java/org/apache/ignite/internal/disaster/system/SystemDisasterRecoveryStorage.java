@@ -53,7 +53,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
         vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
     }
 
-    @Nullable ClusterState readClusterState() {
+    /** Reads cluster state. */
+    public @Nullable ClusterState readClusterState() {
         return readFromVault(CLUSTER_STATE_VAULT_KEY);
     }
 

@@ -219,7 +219,7 @@ public class ItTxTestCluster {
 
     private ReplicaService clientReplicaSvc;
 
-    protected Map<String, Loza> raftServers;
+    protected Map<String, Loza> raftServers = new HashMap<>();
 
     protected Map<String, ReplicaManager> replicaManagers;
 
@@ -347,7 +347,7 @@ public class ItTxTestCluster {
 
         clusterServices = new ConcurrentHashMap<>(nodes);
 
-        nodeFinder.findNodes().parallelStream()
+        localAddresses.parallelStream()
                 .forEach(addr -> {
                     ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
                     cluster.add(svc);
@@ -929,35 +929,33 @@ public class ItTxTestCluster {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
 
-        if (raftServers != null) {
-            for (Entry<String, Loza> entry : raftServers.entrySet()) {
-                Loza rs = entry.getValue();
+        for (Entry<String, Loza> entry : raftServers.entrySet()) {
+            Loza rs = entry.getValue();
 
-                ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
+            ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-                CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
-                        .map(grp -> {
-                            try {
-                                return replicaMgr.stopReplica(grp);
-                            } catch (NodeStoppingException e) {
-                                throw new AssertionError(e);
-                            }
-                        })
-                        .toArray(CompletableFuture[]::new);
+            CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
+                    .map(grp -> {
+                        try {
+                            return replicaMgr.stopReplica(grp);
+                        } catch (NodeStoppingException e) {
+                            throw new AssertionError(e);
+                        }
+                    })
+                    .toArray(CompletableFuture[]::new);
 
-                assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
+            assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-                rs.localNodes().parallelStream().forEach(nodeId -> {
-                    try {
-                        rs.stopRaftNode(nodeId);
-                    } catch (NodeStoppingException e) {
-                        throw new AssertionError(e);
-                    }
-                });
+            rs.localNodes().parallelStream().forEach(nodeId -> {
+                try {
+                    rs.stopRaftNode(nodeId);
+                } catch (NodeStoppingException e) {
+                    throw new AssertionError(e);
+                }
+            });
 
-                assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-                assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-            }
+            assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (logStorageFactories != null) {

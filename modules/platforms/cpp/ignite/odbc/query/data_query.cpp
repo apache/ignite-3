@@ -138,7 +138,7 @@ const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
     return nullptr;
 }
 
-sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
+sql_result data_query::fetch_next_row() {
     if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
@@ -166,6 +166,15 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
 
     if (!m_cursor->has_data())
         return sql_result::AI_NO_DATA;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
+    auto res = fetch_next_row();
+    if (res != ignite::sql_result::AI_SUCCESS && res != ignite::sql_result::AI_SUCCESS_WITH_INFO) {
+        return res;
+    }
 
     auto row = m_cursor->get_row();
     assert(!row.empty());
