@@ -691,7 +691,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         final Map<Integer, BitSet> partitions = new HashMap<>();
 
         synchronized void update(int tableId, int p) {
-            partitions.compute(tableId, (k,v) -> {
+            partitions.compute(tableId, (k, v) -> {
                 if (v == null) {
                     v = new BitSet();
                 }
