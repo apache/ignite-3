@@ -1244,8 +1244,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
-                    assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
+                    // Replica can be stopped because of restart unconditionally. We always know that in this case it's going to be
+                    // started again, and no other replica can become primary and receive updates earlier than the lease expires.
+                    assert context.replicaState != ReplicaState.STOPPED || context.restarting
+                            : "Unexpected primary replica state STOPPED [groupId=" + groupId
+                                + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
+                                + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(groupId, parameters.startTime());
 
@@ -1345,6 +1349,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         synchronized (context) {
                             if (partitionStarted) {
                                 context.replicaState = ReplicaState.ASSIGNED;
+                                context.restarting = false;
                             } else {
                                 context.replicaState = ReplicaState.STOPPED;
                                 replicaContexts.remove(groupId);
@@ -1439,6 +1444,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return true;
                     }));
 
+            if (reason == WeakReplicaStopReason.RESTART) {
+                context.restarting = true;
+            }
+
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
@@ -1494,8 +1503,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * Whether the replica is reserved to serve as a primary even if it is not included into assignments. If it is {@code} true,
          * then {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} transfers {@link ReplicaState#ASSIGNED}
          * to {@link ReplicaState#PRIMARY_ONLY} instead of {@link ReplicaState#STOPPING}.
-         * Replica is reserved when it is primary and when it is in progress of lease negotiation. The negotiation moves this flag to
-         * {@code true}. Primary replica expiration or the election of different node as a leaseholder moves this flag to {@code false}.
+         * Replica is reserved when it is in progress of lease negotiation and stays reserved when it's primary. The negotiation moves
+         * this flag to {@code true}. Primary replica expiration or the election of different node as a leaseholder moves this flag
+         * to {@code false}.
          */
         boolean reservedForPrimary;
 
@@ -1510,6 +1520,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * assignments.
          */
         Supplier<CompletableFuture<Void>> deferredStopOperation;
+
+        /**
+         * This flag only becomes {@code true} when replica is stopped because of {@link WeakReplicaStopReason#RESTART}, and becomes
+         * {@code false} when replica start completes.
+         */
+        boolean restarting;
 
         ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
