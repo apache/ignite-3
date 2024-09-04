@@ -460,6 +460,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
                 if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}].", groupId);
+
                     stopLeaseProlongation(groupId, null);
                 }
 
@@ -548,8 +550,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param redirectNodeId Node consistent id to redirect.
      */
     private void stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
-        LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}, redirectNodeId={}]", groupId, redirectNodeId);
-
         msNodes.thenAccept(nodeIds -> {
             for (String nodeId : nodeIds) {
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
@@ -1254,11 +1254,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-                        context.unreserve();
-
-                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(groupId, context);
-                        }
+                        primaryUnreserveAndStopIfNeeded(parameters.groupId(), context);
                     }
                 }
             }
@@ -1276,17 +1272,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
-                            context.unreserve();
-
-                            if (context.replicaState == ReplicaState.STOPPING && context.deferredStopOperation != null) {
-                                executeDeferredReplicaStop(parameters.groupId(), context);
-                            }
+                            primaryUnreserveAndStopIfNeeded(parameters.groupId(), context);
                         }
                     }
                 }
             }
 
             return falseCompletedFuture();
+        }
+
+        private void primaryUnreserveAndStopIfNeeded(ReplicationGroupId groupId, ReplicaStateContext context) {
+            context.unreserve();
+
+            if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                executeDeferredReplicaStop(groupId, context);
+            }
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {
@@ -1393,7 +1393,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (state == ReplicaState.ASSIGNED) {
                         if (context.reservedForPrimary) {
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                            planDeferredReplicaStop(ReplicaState.PRIMARY_ONLY, context, stopOperation);
+                            planDeferredReplicaStop(context, stopOperation);
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1409,7 +1409,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
                         replicaManager.stopLeaseProlongation(groupId, null);
-                        return planDeferredReplicaStop(ReplicaState.STOPPING, context, stopOperation);
+                        return planDeferredReplicaStop(context, stopOperation);
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1449,11 +1449,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private static CompletableFuture<Void> planDeferredReplicaStop(
-                ReplicaState newState,
                 ReplicaStateContext context,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
-            context.replicaState = newState;
+            context.replicaState = ReplicaState.PRIMARY_ONLY;
             context.deferredStopOperation = deferredStopOperation;
             context.deferredStopOperationFuture = new CompletableFuture<>();
             return context.deferredStopOperationFuture;
