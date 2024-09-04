@@ -33,7 +33,10 @@ public class SharedLogStorageFactoryUtils {
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
-    /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation and fsync set to true. */
+    /**
+     * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
+     * LOGIT_STORAGE_ENABLED_PROPERTY and fsync set to true.
+     */
     @TestOnly
     public static LogStorageFactory create(String nodeName, Path logStoragePath) {
         return create("test", nodeName, logStoragePath, true);
