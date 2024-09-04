@@ -19,9 +19,9 @@ name: ignite3
 
 x-ignite-def:
   &ignite-def
-  image: apacheignite/ignite3:${IGNITE3_VERSION:-latest}
-  volumes:
-    - ./cluster.conf:/opt/ignite/etc/ignite-config.conf
+  image: ignite3-node
+  build:
+    dockerfile: node.Dockerfile
 
 services:
   node1:
