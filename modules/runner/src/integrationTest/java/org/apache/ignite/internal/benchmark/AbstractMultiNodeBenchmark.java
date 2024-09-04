@@ -71,9 +71,11 @@ public class AbstractMultiNodeBenchmark {
     protected static Ignite publicIgnite;
     protected static IgniteImpl igniteImpl;
 
-    //@Param({"false", "true"})
-    @Param({"false"})
+    @Param({"false", "true"})
     private boolean fsync;
+
+    @Param({"1"})
+    private int partitionCount;
 
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
@@ -202,7 +204,7 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync
+                + "  raft.fsync = " + fsync()
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -242,12 +244,16 @@ public class AbstractMultiNodeBenchmark {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
+    protected boolean fsync() {
+        return fsync;
+    }
+
     protected int nodes() {
         return 3;
     }
 
     protected int partitionCount() {
-        return CatalogUtils.DEFAULT_PARTITION_COUNT;
+        return partitionCount;
     }
 
     protected int replicaCount() {

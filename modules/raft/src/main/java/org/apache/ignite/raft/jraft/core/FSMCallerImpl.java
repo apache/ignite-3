@@ -253,7 +253,8 @@ public void setShutdownLatch(CountDownLatch shutdownLatch);
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller..." + this.taskQueue);
+        LOG.info("Shutting down FSMCaller...");
+
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
             this.shutdownLatch = latch;
