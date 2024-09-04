@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.stream.Stream;
-import org.apache.calcite.util.NumberUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
@@ -613,7 +612,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
             numbers.add(num);
 
             String query = "INSERT INTO numbers (id, int_col, dec10_2_col) VALUES(?, ?, ?)";
-            sql(query, i, NumberUtil.rescaleBigDecimal(num, 0).intValue(), num);
+            sql(query, i, num.setScale(0, RoundingMode.HALF_UP).intValue(), num);
         }
 
         BigDecimal avg = numbers.stream()
