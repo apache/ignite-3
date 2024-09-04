@@ -1244,9 +1244,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
-                    // Replica can be stopped because of restart unconditionally. We always know that in this case it's going to be
-                    // started again, and no other replica can become primary and receive updates earlier than the lease expires.
-                    assert context.replicaState != ReplicaState.STOPPED || context.restarting
+                    assert context.replicaState != ReplicaState.STOPPED
                             : "Unexpected primary replica state STOPPED [groupId=" + groupId
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
@@ -1259,7 +1257,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            stopReplica(groupId, context, context.deferredStopOperation, WeakReplicaStopReason.PRIMARY_EXPIRED);
+                            executeDeferredReplicaStop(groupId, context);
                         }
                     }
                 }
@@ -1279,6 +1277,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.unreserve();
+
+                            if (context.replicaState == ReplicaState.STOPPING && context.deferredStopOperation != null) {
+                                executeDeferredReplicaStop(parameters.groupId(), context);
+                            }
                         }
                     }
                 }
@@ -1349,7 +1351,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         synchronized (context) {
                             if (partitionStarted) {
                                 context.replicaState = ReplicaState.ASSIGNED;
-                                context.restarting = false;
                             } else {
                                 context.replicaState = ReplicaState.STOPPED;
                                 replicaContexts.remove(groupId);
@@ -1391,26 +1392,32 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
                         if (context.reservedForPrimary) {
-                            context.replicaState = ReplicaState.PRIMARY_ONLY;
-                            context.deferredStopOperation = stopOperation;
+                            // Intentionally do not return future here: it can freeze the handling of assignment changes.
+                            planDeferredReplicaStop(ReplicaState.PRIMARY_ONLY, context, stopOperation);
                         } else {
-                            return stopReplica(groupId, context, stopOperation, reason);
+                            return stopReplica(groupId, context, stopOperation);
                         }
                     } else if (state == ReplicaState.STARTING) {
-                        return stopReplica(groupId, context, stopOperation, reason);
+                        return stopReplica(groupId, context, stopOperation);
                     } else if (state == ReplicaState.STOPPED) {
                         // We need to stop replica and destroy storages anyway, because they can be already created.
                         // See TODO-s for IGNITE-19713
-                        return stopReplica(groupId, context, stopOperation, reason);
+                        return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 } else if (reason == WeakReplicaStopReason.RESTART) {
                     // Explicit restart: always stop.
-                    return stopReplica(groupId, context, stopOperation, reason);
+                    if (context.reservedForPrimary) {
+                        // If is primary, turning off the primary first.
+                        replicaManager.stopLeaseProlongation(groupId, null);
+                        return planDeferredReplicaStop(ReplicaState.STOPPING, context, stopOperation);
+                    } else {
+                        return stopReplica(groupId, context, stopOperation);
+                    }
                 } else {
                     assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
                     if (state == ReplicaState.PRIMARY_ONLY) {
-                        return stopReplica(groupId, context, stopOperation, reason);
+                        return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 }
 
@@ -1423,8 +1430,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         private CompletableFuture<Void> stopReplica(
                 ReplicationGroupId groupId,
                 ReplicaStateContext context,
-                Supplier<CompletableFuture<Void>> stopOperation,
-                WeakReplicaStopReason reason
+                Supplier<CompletableFuture<Void>> stopOperation
         ) {
             context.replicaState = ReplicaState.STOPPING;
             context.previousOperationFuture = context.previousOperationFuture
@@ -1432,11 +1438,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
                         synchronized (context) {
                             context.replicaState = ReplicaState.STOPPED;
-
-                            if (reason != WeakReplicaStopReason.RESTART) {
-                                // No need to remove the context while restarting, it can lead to the loss of reservation context.
-                                replicaContexts.remove(groupId);
-                            }
                         }
 
                         LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
@@ -1444,11 +1445,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return true;
                     }));
 
-            if (reason == WeakReplicaStopReason.RESTART) {
-                context.restarting = true;
-            }
-
             return context.previousOperationFuture.thenApply(v -> null);
+        }
+
+        private static CompletableFuture<Void> planDeferredReplicaStop(
+                ReplicaState newState,
+                ReplicaStateContext context,
+                Supplier<CompletableFuture<Void>> deferredStopOperation
+        ) {
+            context.replicaState = newState;
+            context.deferredStopOperation = deferredStopOperation;
+            context.deferredStopOperationFuture = new CompletableFuture<>();
+            return context.deferredStopOperationFuture;
+        }
+
+        private void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
+            assert context.deferredStopOperation != null : "Stop operation is not defined [groupId=" + groupId + "].";
+            assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
+
+            stopReplica(groupId, context, context.deferredStopOperation);
+            context.deferredStopOperationFuture.complete(null);
+            context.deferredStopOperation = null;
+            context.deferredStopOperationFuture = null;
         }
 
         /**
@@ -1519,13 +1537,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          * Deferred stop operation for replica that was reserved for becoming primary, but hasn't become primary and was excluded from
          * assignments.
          */
+        @Nullable
         Supplier<CompletableFuture<Void>> deferredStopOperation;
 
-        /**
-         * This flag only becomes {@code true} when replica is stopped because of {@link WeakReplicaStopReason#RESTART}, and becomes
-         * {@code false} when replica start completes.
-         */
-        boolean restarting;
+        /** Future for {@link #deferredStopOperation}. */
+        @Nullable
+        CompletableFuture<Void> deferredStopOperationFuture;
 
         ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;
