@@ -120,6 +120,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1254,7 +1255,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-                        primaryUnreserveAndStopIfNeeded(parameters.groupId(), context);
+                        context.unreserve();
+
+                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                            executeDeferredReplicaStop(groupId, context);
+                        }
                     }
                 }
             }
@@ -1272,21 +1277,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
-                            primaryUnreserveAndStopIfNeeded(parameters.groupId(), context);
+                            context.unreserve();
+
+                            if (context.replicaState == ReplicaState.STOPPING_FOR_RESTART) {
+                                executeDeferredReplicaStop(parameters.groupId(), context);
+                            }
                         }
                     }
                 }
             }
 
             return falseCompletedFuture();
-        }
-
-        private void primaryUnreserveAndStopIfNeeded(ReplicationGroupId groupId, ReplicaStateContext context) {
-            context.unreserve();
-
-            if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                executeDeferredReplicaStop(groupId, context);
-            }
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {
@@ -1313,7 +1314,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.debug("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
+                LOG.info("Weak replica start [grp={}, state={}, future={}].", groupId, state, context.previousOperationFuture);
 
                 if (state == ReplicaState.STOPPED || state == ReplicaState.STOPPING) {
                     return startReplica(groupId, context, startOperation);
@@ -1360,7 +1361,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         LOG.debug("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
 
                         return partitionStarted;
-                    }));
+                    }))
+                    .exceptionally(e -> {
+                        LOG.error("Replica start failed [groupId={}]", e, groupId);
+
+                        throw new CompletionException(e);
+                    });
 
             return context.previousOperationFuture;
         }
@@ -1386,14 +1392,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 ReplicaState state = context.replicaState;
 
-                LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
+                LOG.info("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
                         if (context.reservedForPrimary) {
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                            planDeferredReplicaStop(context, stopOperation);
+                            planDeferredReplicaStop(ReplicaState.PRIMARY_ONLY, context, stopOperation);
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1409,7 +1415,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
                         replicaManager.stopLeaseProlongation(groupId, null);
-                        return planDeferredReplicaStop(context, stopOperation);
+                        return planDeferredReplicaStop(ReplicaState.STOPPING_FOR_RESTART, context, stopOperation);
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1421,7 +1427,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
-                LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
@@ -1438,21 +1444,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
                         synchronized (context) {
                             context.replicaState = ReplicaState.STOPPED;
+                            context.deferredStopOperationFuture.complete(null);
+                            context.deferredStopOperation = null;
+                            context.deferredStopOperationFuture = null;
                         }
 
-                        LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                        LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                         return true;
-                    }));
+                    }))
+                    .exceptionally(e -> {
+                        LOG.error("Replica stop failed [groupId={}]", e, groupId);
+
+                        throw new CompletionException(e);
+                    });
 
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
         private static CompletableFuture<Void> planDeferredReplicaStop(
+                ReplicaState newState,
                 ReplicaStateContext context,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
-            context.replicaState = ReplicaState.PRIMARY_ONLY;
+            context.replicaState = newState;
             context.deferredStopOperation = deferredStopOperation;
             context.deferredStopOperationFuture = new CompletableFuture<>();
             return context.deferredStopOperationFuture;
@@ -1462,12 +1477,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             assert context.deferredStopOperation != null : "Stop operation is not defined [groupId=" + groupId + "].";
             assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
 
-            stopReplica(groupId, context, context.deferredStopOperation)
-                    .thenRun(() -> {
-                        context.deferredStopOperationFuture.complete(null);
-                        context.deferredStopOperation = null;
-                        context.deferredStopOperationFuture = null;
-                    });
+            stopReplica(groupId, context, context.deferredStopOperation);
         }
 
         /**
@@ -1490,7 +1500,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
-                } else {
+                } else if (state != ReplicaState.STOPPING_FOR_RESTART) {
                     context.reserve(leaseStartTime);
                 }
 
@@ -1618,6 +1628,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         /** Replica is stopping. */
         STOPPING,
+
+        STOPPING_FOR_RESTART,
 
         /** Replica is stopped. */
         STOPPED

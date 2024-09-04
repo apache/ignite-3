@@ -662,7 +662,8 @@ public class LeaseUpdater {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
-                            LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
+                                    grpId, lease.getStartTime(), sender, res);
                         }
                     });
                 }
