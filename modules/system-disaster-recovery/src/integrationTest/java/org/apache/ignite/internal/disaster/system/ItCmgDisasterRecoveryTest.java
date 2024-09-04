@@ -84,6 +84,10 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private void startAndInitCluster(int nodeCount, int[] cmgNodeIndexes, int[] metastorageNodeIndexes) {
+        // Pre-allocate this to make sure that for each pair of nodes, if they start almost at the same time, at least one is able to make
+        // an initial sync to another one.
+        cluster.overrideSeedsCount(10);
+
         cluster.startAndInit(nodeCount, paramsBuilder -> {
             paramsBuilder.cmgNodeNames(nodeNames(cmgNodeIndexes));
             paramsBuilder.metaStorageNodeNames(nodeNames(metastorageNodeIndexes));
@@ -432,7 +436,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
                         () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
                         SECONDS.toMillis(10)
                 ),
-                "Did not see data nodes to become " + List.of(expectedDataNodeIndexes) + " in time"
+                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time"
         );
     }
 
