@@ -45,8 +45,16 @@ class HighlighterTest {
         assertEquals(expected, result);
     }
 
+    private static Stream<Arguments> hoconTextInput() {
+        return Stream.of(
+                of("plain", "plain"),
+                of("{\"key\": \"val\"}", "{\"key\": \"val\"}"),
+                of("key=val", "key=val")
+        );
+    }
+
     @ParameterizedTest
-    @MethodSource("jsonTextInput")
+    @MethodSource("hoconTextInput")
     void hoconHighlight(String input, String expected) {
         String result = HoconAnsiHighlighter.highlight(input);
         assertEquals(expected, result);

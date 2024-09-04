@@ -31,7 +31,7 @@ import org.apache.ignite.internal.cli.decorators.HoconDecorator;
 import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Option;
 
-/** Mixin for json format option. */
+/** Mixin for config format option. */
 public class FormatMixin {
     private enum Format {
         JSON,
