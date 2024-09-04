@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
@@ -367,13 +368,13 @@ public class IgniteSqlFunctions {
         BigDecimal dec = convertToBigDecimal(value);
 
         if (scale > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         } else {
             int currentSignificantDigits = dec.precision() - dec.scale();
             int expectedSignificantDigits = precision - scale;
 
             if (currentSignificantDigits > expectedSignificantDigits) {
-                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                throw numericOverflowError(precision, scale);
             }
         }
 
@@ -393,7 +394,7 @@ public class IgniteSqlFunctions {
         int numPrecision = Math.min(num0.precision(), scale);
 
         if (numPrecision > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         }
 
         return num.setScale(scale, roundingMode);
@@ -414,6 +415,22 @@ public class IgniteSqlFunctions {
         }
 
         return dec;
+    }
+
+    private static SqlException numericOverflowError(int precision, int scale) {
+        String maxVal;
+
+        if (precision == scale) {
+            maxVal = "1";
+        } else {
+            maxVal = format("10^{}", precision - scale);
+        }
+
+        String detail = format("A field with precision {}, scale {} must round to an absolute value less than {}.",
+                precision, scale, maxVal
+        );
+
+        throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR + ". " + detail);
     }
 
     /** CAST(VARCHAR AS VARBINARY). */

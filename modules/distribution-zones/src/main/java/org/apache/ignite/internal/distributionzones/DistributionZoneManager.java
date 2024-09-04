@@ -268,7 +268,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            // TODO: IGNITE-22679 CatalogManagerImpl initializes versions in a separate thread, not safe to make this call directly.
+            // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
+            // nevertheless everything works correctly.
+            // All components execute the synchronous part of startAsync sequentially and only when they all complete,
+            // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
+            // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
+            // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
             return allOf(

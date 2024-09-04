@@ -30,6 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -93,6 +96,44 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void stopScheduler() {
         scheduler.shutdownNow();
+    }
+
+    @ParameterizedTest
+    @MethodSource("insertInvariants")
+    public void testOptimizedExecutionPath(String insertStatement, boolean applicable) {
+        PrepareService service = createPlannerService();
+
+        PrepareServiceImpl prepare = (PrepareServiceImpl) spy(service);
+
+        await(prepare.prepareAsync(
+                parse(insertStatement),
+                createContext()
+        ));
+
+        if (applicable) {
+            verify(prepare).prepareDmlOpt(any(), any(), any());
+        } else {
+            verify(prepare, never()).prepareDmlOpt(any(), any(), any());
+        }
+    }
+
+    private static Stream<Arguments> insertInvariants() {
+        return Stream.of(
+                Arguments.of("INSERT INTO t VALUES (1, 2)", true),
+                Arguments.of("INSERT INTO t VALUES (1, 2), (3, 4)", true),
+                Arguments.of("INSERT INTO t(A, C) VALUES (1, 2)", true),
+                Arguments.of("INSERT INTO t(C, A) VALUES (2, 1)", true),
+                Arguments.of("INSERT INTO t(C, A) VALUES ('2'::smallint, 1)", false),
+                Arguments.of("INSERT INTO t(C, A) VALUES (2, 1), (3, ?)", false),
+                Arguments.of("INSERT INTO t(C, A) SELECT t.C, t.A from t", false),
+                Arguments.of("INSERT INTO t VALUES (1, OCTET_LENGTH('TEST'))", false),
+                Arguments.of("INSERT INTO t VALUES (1, ?)", false),
+                Arguments.of("INSERT INTO t VALUES (?, 2)", false),
+                Arguments.of("INSERT INTO t VALUES (?, ?)", false),
+                Arguments.of("INSERT INTO t VALUES ((SELECT 1), 2)", false),
+                Arguments.of("INSERT INTO t SELECT t1.c1, t1.c2 FROM (SELECT 1, 2) as t1(c1, c2)", false),
+                Arguments.of("INSERT INTO t SELECT t1.c1, t1.c2 FROM (SELECT ?::int, ?::int) as t1(c1, c2)", false)
+        );
     }
 
     @Test
@@ -251,7 +292,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
 
         // Create a proxy.
-        IgniteTable spyTable = Mockito.spy(igniteTable);
+        IgniteTable spyTable = spy(igniteTable);
 
         // Override and slowdown a method, which is called by Planner, to emulate long planning.
         Mockito.doAnswer(inv -> {

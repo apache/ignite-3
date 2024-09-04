@@ -108,9 +108,8 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
         if (type.equals(NativeTypes.INT8) || type.equals(NativeTypes.INT16) || type.equals(NativeTypes.INT32)) {
             return SqlTestUtils.generateValueByType(increment % 2, type.spec().asColumnType());
         } else if (type.equals(NativeTypes.INT64)) {
-            // break serialization check otherwise, in: 9223372034707302160, out: 9.223372034707302E18
-            return (long) SqlTestUtils.generateValueByType(Integer.MAX_VALUE - ((increment % 2) * 10000),
-                    type.spec().asColumnType()) / 1000;
+            return SqlTestUtils.generateValueByType(Integer.MAX_VALUE - ((increment % 2) * 10000),
+                    type.spec().asColumnType());
         } else if (type.equals(NativeTypes.FLOAT)) {
             float res = (float) SqlTestUtils.generateValueByType(type.spec().asColumnType());
             if (increment % 2 == 1) {
