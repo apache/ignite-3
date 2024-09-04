@@ -655,8 +655,9 @@ public class LeaseUpdater {
 
             Lease lease = leaseTracker.getLease(grpId);
 
-            LOG.info("Received stopLeaseProlongationMessage 1 [groupId={}, class={}, sender={}, leaseholder={}, prolongable={}]",
-                    msg.groupId(), msg.getClass().getSimpleName(), sender, lease.getLeaseholder(), lease.isProlongable());
+            LOG.info("Received stopLeaseProlongationMessage 1 [groupId={}, class={}, sender={}, leaseholder={}, leaseStartTime={}, "
+                            + "prolongable={}, accepted={}]", msg.groupId(), msg.getClass().getSimpleName(), sender, lease.getLeaseholder(),
+                    lease.getStartTime(), lease.isProlongable(), lease.isAccepted());
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
