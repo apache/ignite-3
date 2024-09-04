@@ -1463,10 +1463,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             assert context.deferredStopOperation != null : "Stop operation is not defined [groupId=" + groupId + "].";
             assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
 
-            stopReplica(groupId, context, context.deferredStopOperation);
-            context.deferredStopOperationFuture.complete(null);
-            context.deferredStopOperation = null;
-            context.deferredStopOperationFuture = null;
+            stopReplica(groupId, context, context.deferredStopOperation)
+                    .thenRun(() -> {
+                        context.deferredStopOperationFuture.complete(null);
+                        context.deferredStopOperation = null;
+                        context.deferredStopOperationFuture = null;
+                    });
         }
 
         /**
