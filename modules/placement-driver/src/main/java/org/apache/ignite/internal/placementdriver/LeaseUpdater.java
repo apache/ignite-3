@@ -223,6 +223,10 @@ public class LeaseUpdater {
      * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
+        if (!lease.isAccepted()) {
+            leaseNegotiator.cancelAgreement(grpId);
+        }
+
         Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.cancelAgreement(grpId);
@@ -660,7 +664,7 @@ public class LeaseUpdater {
                     lease.getStartTime(), lease.isProlongable(), lease.isAccepted());
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
+                if (sender.equals(lease.getLeaseholder())) {
                     StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
 
                     LOG.info("Received stopLeaseProlongationMessage [groupId={}]", msg.groupId());

@@ -154,8 +154,6 @@ public class Lease implements ReplicaMeta {
      * @return Denied lease.
      */
     public Lease denyLease(String proposedCandidate) {
-        assert accepted : "The lease is not accepted: " + this;
-
         return new Lease(leaseholder, leaseholderId, startTime, expirationTime, false, true, proposedCandidate, replicationGroupId);
     }
 
