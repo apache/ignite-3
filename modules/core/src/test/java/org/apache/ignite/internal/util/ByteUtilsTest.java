@@ -38,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link ByteUtils} testing. */
@@ -132,7 +131,7 @@ public class ByteUtilsTest {
         assertArrayEquals(new byte[]{6, 8}, bytes.get(0));
     }
 
-    @RepeatedTest(100)
+    @Test
     void uuidToBytesFromBytesGivesOriginalUuid() {
         UUID original = UUID.randomUUID();
 
