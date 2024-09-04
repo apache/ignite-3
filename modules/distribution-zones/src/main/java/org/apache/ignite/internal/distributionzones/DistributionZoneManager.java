@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleDownTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleUpTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -615,24 +616,23 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             Set<LogicalNode> logicalTopology = newTopology.nodes();
 
-            Condition updateCondition;
+            Condition condition;
+            Update update;
 
             if (newTopology.version() == LogicalTopologySnapshot.FIRST_VERSION) {
                 // Very first start of the cluster, OR first topology version after a cluster reset, so we just
                 // initialize zonesLogicalTopologyVersionKey.
                 // We don't need to check whether clusterId is 'newer' as it's guaranteed that after a newer clusterId
                 // gets written to the Metastorage, we cannot send a Metastorage update switching it back to older clusterId.
-                updateCondition = notExists(zonesLogicalTopologyVersionKey())
+                condition = notExists(zonesLogicalTopologyVersionKey())
                         .or(value(zonesLogicalTopologyClusterIdKey()).ne(uuidToBytes(newTopology.clusterId())));
+                update = updateLogicalTopologyAndVersionAndClusterId(newTopology);
             } else {
-                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
+                condition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
+                update = updateLogicalTopologyAndVersion(newTopology);
             }
 
-            Iif iff = iif(
-                    updateCondition,
-                    updateLogicalTopologyAndVersionAndClusterId(newTopology),
-                    ops().yield(false)
-            );
+            Iif iff = iif(condition, update, ops().yield(false));
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {

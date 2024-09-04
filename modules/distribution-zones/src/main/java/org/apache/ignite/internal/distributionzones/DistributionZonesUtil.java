@@ -397,12 +397,29 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Updates logical topology, its version and (if this is an initial version) cluster ID values for zones.
+     * Updates logical topology and its version values for zones.
+     *
+     * @param logicalTopology Logical topology snapshot.
+     * @return Update command for the meta storage.
+     */
+    static Update updateLogicalTopologyAndVersion(LogicalTopologySnapshot logicalTopology) {
+        return updateLogicalTopologyAndVersionAndMaybeClusterId(logicalTopology, false);
+    }
+
+    /**
+     * Updates logical topology, its version and cluster ID values for zones.
      *
      * @param logicalTopology Logical topology snapshot.
      * @return Update command for the meta storage.
      */
     static Update updateLogicalTopologyAndVersionAndClusterId(LogicalTopologySnapshot logicalTopology) {
+        return updateLogicalTopologyAndVersionAndMaybeClusterId(logicalTopology, true);
+    }
+
+    private static Update updateLogicalTopologyAndVersionAndMaybeClusterId(
+            LogicalTopologySnapshot logicalTopology,
+            boolean updateClusterId
+    ) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.nodes().stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
@@ -411,7 +428,7 @@ public class DistributionZonesUtil {
 
         operations.add(put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(logicalTopology.version())));
         operations.add(put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg)));
-        if (logicalTopology.version() == LogicalTopologySnapshot.FIRST_VERSION) {
+        if (updateClusterId) {
             operations.add(put(zonesLogicalTopologyClusterIdKey(), uuidToBytes(logicalTopology.clusterId())));
         }
 
