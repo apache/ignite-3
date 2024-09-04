@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -659,13 +660,17 @@ public class LeaseUpdater {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
                     StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
 
-                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
-                        if (th != null) {
-                            LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
-                        } else {
-                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
-                                    grpId, lease.getStartTime(), sender, res);
-                        }
+                    supplyAsync(() -> {
+                        denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
+                            if (th != null) {
+                                LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
+                            } else {
+                                LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
+                                        grpId, lease.getStartTime(), sender, res);
+                            }
+                        });
+
+                        return null;
                     });
                 }
             } else {

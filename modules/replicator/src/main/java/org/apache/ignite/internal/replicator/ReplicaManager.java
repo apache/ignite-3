@@ -1427,7 +1427,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } // else: no-op.
                 }
 
-                LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                LOG.info("Weak replica stop (sync part) complete [grpId={}, state={}].", groupId, context.replicaState);
 
                 return nullCompletedFuture();
             }
