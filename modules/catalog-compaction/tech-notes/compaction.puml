@@ -7,7 +7,7 @@ database "Cluster node" as node
 activate crd
 
 crd -> node ++ : MinimumTimesRequest
-node -> node : obtain published min tx timestamps
+node -> node
 note right
   obtain previously published minimum
   tx begin time using RaftGroupStateProvider

@@ -8,7 +8,7 @@ queue replicas as replicas
 activate crd
 
 crd -> node ++ : MinimumTimesRequest
-node -> node : determine min tx time
+node -> node
 note right
   determine minimum begin time among all
   active RW transactions started locally using
@@ -19,13 +19,14 @@ node -> crd -- : MinimumTimesResponse
 crd -> crd : compute global minimum tx time
 
 crd -> node ++ : PrepareUpdateTxBeginTimeMessage
-node ->> node : send timestamp to local primary replicas
+node ->> node
 note right
   send local
   UpdateMinimumActiveTxBeginTimeReplicaRequest
+  to local primary replicas
 end note
 node ->> replicas : UpdateMinimumActiveTxBeginTimeCommand
-replicas ->> replicas : publish timestamp
+replicas ->> replicas
 note right
   publish timestamp when flushing
   of the partition data is completed
