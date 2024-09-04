@@ -1444,9 +1444,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .thenCompose(stopOperationFuture -> stopOperationFuture.thenApply(v -> {
                         synchronized (context) {
                             context.replicaState = ReplicaState.STOPPED;
-                            context.deferredStopOperationFuture.complete(null);
-                            context.deferredStopOperation = null;
-                            context.deferredStopOperationFuture = null;
                         }
 
                         LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
@@ -1477,7 +1474,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             assert context.deferredStopOperation != null : "Stop operation is not defined [groupId=" + groupId + "].";
             assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
 
-            stopReplica(groupId, context, context.deferredStopOperation);
+            stopReplica(groupId, context, context.deferredStopOperation).whenComplete((v, e) -> {
+                context.deferredStopOperationFuture.complete(null);
+                context.deferredStopOperation = null;
+                context.deferredStopOperationFuture = null;
+            });
         }
 
         /**
