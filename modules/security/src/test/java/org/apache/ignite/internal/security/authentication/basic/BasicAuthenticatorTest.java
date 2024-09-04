@@ -33,14 +33,23 @@ import org.junit.jupiter.api.Test;
 class BasicAuthenticatorTest {
     private final BasicAuthenticator authenticator = new BasicAuthenticator(
             "basic",
-            List.of(new BasicUser("admin", "password"))
+            List.of(new BasicUser("Admin", "password"),
+                    new BasicUser("user", "pwd"))
     );
 
     @Test
     void authenticate() {
         assertThat(
                 authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password")),
-                willBe(username(is("admin")))
+                willBe(username(is("Admin")))
+        );
+    }
+
+    @Test
+    void authenticateUpperCase() {
+        assertThat(
+                authenticator.authenticateAsync(new UsernamePasswordRequest("USER", "pwd")),
+                willBe(username(is("user")))
         );
     }
 

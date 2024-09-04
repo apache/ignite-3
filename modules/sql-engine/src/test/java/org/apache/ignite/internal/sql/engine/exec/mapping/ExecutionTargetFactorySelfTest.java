@@ -195,9 +195,9 @@ public class ExecutionTargetFactorySelfTest {
                 equalTo(NODE_SET));
         assertNotColocated(f.partitioned(assignmentFromPrimaries(NODE_SET)), f.partitioned(shuffle(assignmentFromPrimaries(NODE_SET))));
         assertNotColocated(f.partitioned(assignmentFromPrimaries(NODE_SUBSET)), f.partitioned(assignmentFromPrimaries(NODE_SET)),
-                "Partitioned targets with mot matching numbers of partitioned are not colocated");
+                "Partitioned targets with not matching numbers of partitions are not colocated");
         assertNotColocated(f.partitioned(assignmentFromPrimaries(NODE_SET)), f.partitioned(assignmentFromPrimaries(NODE_SUBSET)),
-                "Partitioned targets with mot matching numbers of partitioned are not colocated");
+                "Partitioned targets with not matching numbers of partitions are not colocated");
 
         assertNotColocated(f.partitioned(singleWithToken("node1", 1)), f.partitioned(singleWithToken("node1", 2)),
                 "Partitioned targets have different terms");

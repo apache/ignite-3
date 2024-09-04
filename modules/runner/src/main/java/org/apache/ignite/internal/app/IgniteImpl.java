@@ -57,6 +57,7 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -628,9 +629,10 @@ public class IgniteImpl implements Ignite {
         var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
         var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
 
+        SystemDisasterRecoveryStorage systemDisasterRecoveryStorage = new SystemDisasterRecoveryStorage(vaultMgr);
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
-                new SystemDisasterRecoveryStorage(vaultMgr),
+                systemDisasterRecoveryStorage,
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
@@ -1054,7 +1056,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> cmgMgr.clusterState().thenApply(ClusterState::clusterTag),
+                () -> clusterInfo(systemDisasterRecoveryStorage),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1075,6 +1077,14 @@ public class IgniteImpl implements Ignite {
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
+    }
+
+    private static ClusterInfo clusterInfo(SystemDisasterRecoveryStorage systemDisasterRecoveryStorage) {
+        ClusterState clusterState = systemDisasterRecoveryStorage.readClusterState();
+
+        assert clusterState != null : "Cluster state cannot be null at the moment when a client connects";
+
+        return new ClusterInfo(clusterState.clusterTag(), clusterState.clusterIdHistory());
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
