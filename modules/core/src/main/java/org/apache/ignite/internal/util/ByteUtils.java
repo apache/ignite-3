@@ -357,4 +357,14 @@ public class ByteUtils {
 
         return bytes;
     }
+
+    /**
+     * Converts a UUID back from bytes.
+     */
+    public static UUID bytesToUuid(byte[] bytes) {
+        long higher = bytesToLong(bytes, 0);
+        long lower = bytesToLong(bytes, Long.BYTES);
+
+        return new UUID(higher, lower);
+    }
 }
