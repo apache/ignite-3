@@ -267,7 +267,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareService service = createPlannerService(schema);
 
-        Object paramValue = SqlTestUtils.generateValueByType(nativeType.spec().asColumnType());
+        Object paramValue = SqlTestUtils.generateValueByType(nativeType);
 
         QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),

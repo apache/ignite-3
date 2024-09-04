@@ -40,12 +40,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -93,6 +88,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -321,48 +317,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         CMDS_MAP.clear();
     }
 
-    private static Object generateValueByType(int i, NativeTypeSpec type) {
-        switch (type) {
-            case BOOLEAN:
-                return i % 2 == 0;
-            case INT8:
-                return (byte) i;
-            case INT16:
-                return (short) i;
-            case INT32:
-                return i;
-            case INT64:
-                return (long) i;
-            case FLOAT:
-                return (float) i + ((float) i / 1000);
-            case DOUBLE:
-                return (double) i + ((double) i / 1000);
-            case DECIMAL:
-                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-            case UUID:
-                return new UUID(i, i);
-            case STRING:
-                return "str_" + i;
-            case BYTES:
-                return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i);
-            case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
-            case DATETIME:
-                return LocalDateTime.of(
-                        (LocalDate) generateValueByType(i, NativeTypeSpec.DATE),
-                        (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
-                );
-            case TIMESTAMP:
-                return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant();
-            default:
-                throw new IllegalStateException("Unexpected type: " + type);
-        }
-    }
-
     private static Stream<Arguments> twoColumnsParameters() {
         List<Arguments> args = new ArrayList<>();
 
@@ -458,8 +412,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {
         return Tuple.create()
                 .set("ID", 1L)
-                .set("ID0", generateValueByType(k, t0))
-                .set("ID1", generateValueByType(k, t1))
+                .set("ID0", SqlTestUtils.generateStableValueByType(k, t0))
+                .set("ID1", SqlTestUtils.generateStableValueByType(k, t1))
                 .set("VAL", 0L);
     }
 }

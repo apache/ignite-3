@@ -53,8 +53,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
     private static final NativeType DECIMAL_MAX_PREC = NativeTypes.decimalOf(MAX_DECIMAL_PRECISION, 0);
 
-    private static int increment;
-
     /** CASE operands from columns. */
     @ParameterizedTest
     @MethodSource("caseArgs")
@@ -78,8 +76,8 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
         List<Object> params = List.of(
-                generateValueByType(typePair.first()),
-                generateValueByType(typePair.second())
+                SqlTestUtils.generateValueByType(typePair.first()),
+                SqlTestUtils.generateValueByType(typePair.second())
         );
 
         assertPlan("SELECT CASE WHEN RAND_UUID() != RAND_UUID() THEN ? ELSE ? END FROM t", SCHEMA,
@@ -95,38 +93,25 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
         List<Object> params = List.of(
-                generateValueByType(typePair.first()), generateValueByType(typePair.second())
+                generateLiteralWithNoRepetition(typePair.first()), generateLiteralWithNoRepetition(typePair.second())
         );
 
         assertPlan(format("SELECT CASE WHEN RAND_UUID() != RAND_UUID() THEN {} ELSE {} END FROM t", params.get(0), params.get(1)),
                 SCHEMA, operandCaseMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
     }
 
-    private static Object generateValueByType(NativeType type) {
-        increment++;
+    private static String prevResult = "";
 
-        if (type.equals(NativeTypes.INT8) || type.equals(NativeTypes.INT16) || type.equals(NativeTypes.INT32)) {
-            return SqlTestUtils.generateValueByType(increment % 2, type.spec().asColumnType());
-        } else if (type.equals(NativeTypes.INT64)) {
-            return SqlTestUtils.generateValueByType(Integer.MAX_VALUE - ((increment % 2) * 10000),
-                    type.spec().asColumnType());
-        } else if (type.equals(NativeTypes.FLOAT)) {
-            float res = (float) SqlTestUtils.generateValueByType(type.spec().asColumnType());
-            if (increment % 2 == 1) {
-                // decrease exponent part
-                res /= 10;
-            }
-            return res;
-        } else if (type.equals(NativeTypes.DOUBLE)) {
-            double res = (double) SqlTestUtils.generateValueByType(type.spec().asColumnType());
-            if (increment % 2 == 1) {
-                // decrease exponent part
-                res /= 10;
-            }
-            return res;
-        } else {
-            return SqlTestUtils.generateValueByType(increment % 2, type.spec().asColumnType());
-        }
+    // It is necessary to have a guarantee that two values in a row will be different.
+    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
+    private static String generateLiteralWithNoRepetition(NativeType type) {
+        String val;
+        do {
+            val = SqlTestUtils.generateValueByType(type).toString();
+        } while (val.equals(prevResult));
+        prevResult = val;
+
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 
     static Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
@@ -174,40 +159,40 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.TINYINT_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -231,40 +216,40 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_1_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.SMALLINT_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -284,40 +269,40 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(NumericPair.INT_DECIMAL_1_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.INT_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.INT_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -333,40 +318,40 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT64))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT64))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_3_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT64))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_6_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_20_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
 
                 forTypePair(NumericPair.BIGINT_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -378,40 +363,40 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -423,28 +408,28 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -456,36 +441,36 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -497,32 +482,32 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -534,24 +519,24 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -563,20 +548,20 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -588,16 +573,16 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT32))
+                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_11_1)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_13_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -609,12 +594,12 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
@@ -626,8 +611,8 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_REAL)
                         .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
