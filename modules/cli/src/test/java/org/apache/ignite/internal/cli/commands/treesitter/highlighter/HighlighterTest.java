@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.of;
 
 import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -29,10 +28,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for the highlighting errors in JSON text. The colors itself are not tested.
  */
-class JsonAnsiHighlighterTest {
-    JsonAnsiHighlighter highlighter;
+class HighlighterTest {
 
-    private static Stream<Arguments> textInput() {
+    private static Stream<Arguments> jsonTextInput() {
         return Stream.of(
                 of("plain", "plain"),
                 of("{\"key\": \"val\"}", "{\"key\": \"val\"}"),
@@ -40,15 +38,25 @@ class JsonAnsiHighlighterTest {
         );
     }
 
-    @BeforeEach
-    void setUp() {
-        highlighter = new JsonAnsiHighlighter();
+    @ParameterizedTest
+    @MethodSource("jsonTextInput")
+    void jsonHighlight(String input, String expected) {
+        String result = JsonAnsiHighlighter.highlight(input);
+        assertEquals(expected, result);
+    }
+
+    private static Stream<Arguments> hoconTextInput() {
+        return Stream.of(
+                of("plain", "plain"),
+                of("{\"key\": \"val\"}", "{\"key\": \"val\"}"),
+                of("key=val", "key=val")
+        );
     }
 
     @ParameterizedTest
-    @MethodSource("textInput")
-    void testHighlight(String input, String expected) {
-        String result = highlighter.highlight(input);
+    @MethodSource("hoconTextInput")
+    void hoconHighlight(String input, String expected) {
+        String result = HoconAnsiHighlighter.highlight(input);
         assertEquals(expected, result);
     }
 }

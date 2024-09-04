@@ -291,5 +291,9 @@ public enum Options {
 
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
                 + "Case-sensitive, without quotes, all nodes if not set";
+
+        public static final String CONFIG_FORMAT_OPTION = "--format";
+
+        public static final String CONFIG_FORMAT_OPTION_DESC = "Output format. Valid values: ${COMPLETION-CANDIDATES}";
     }
 }
