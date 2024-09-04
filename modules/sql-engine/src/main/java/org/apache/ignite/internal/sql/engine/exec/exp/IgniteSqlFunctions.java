@@ -24,7 +24,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.util.TimeZone;
@@ -362,7 +361,7 @@ public class IgniteSqlFunctions {
      * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
      */
     public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, MathContext.DECIMAL64);
+        return sum.divide(cnt, s, roundingMode);
     }
 
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
