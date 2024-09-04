@@ -138,7 +138,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
-import org.apache.ignite.internal.partition.replicator.PartitionReplicaEventParameters;
+import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -656,7 +656,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
-    private CompletableFuture<Boolean> onZoneReplicaCreated(PartitionReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {
             return completedFuture(false);
         }
