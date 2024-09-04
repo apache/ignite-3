@@ -197,7 +197,7 @@ abstract class AbstractTarget implements ExecutionTarget {
 
     static ExecutionTarget colocate(PartitionedTarget partitioned, PartitionedTarget otherPartitioned) throws ColocationMappingException {
         if (partitioned.partitionsNodes.length != otherPartitioned.partitionsNodes.length) {
-            throw new ColocationMappingException("Partitioned targets with mot matching numbers of partitioned are not colocated");
+            throw new ColocationMappingException("Partitioned targets with not matching numbers of partitions are not colocated");
         }
 
         boolean changed = false;
