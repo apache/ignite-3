@@ -656,21 +656,18 @@ public class LeaseUpdater {
             Lease lease = leaseTracker.getLease(grpId);
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                LOG.info("Received stopLeaseProlongationMessage [groupId={}]", ((StopLeaseProlongationMessage) msg).groupId());
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
                     StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
 
-                    supplyAsync(() -> {
-                        denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
-                            if (th != null) {
-                                LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
-                            } else {
-                                LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
-                                        grpId, lease.getStartTime(), sender, res);
-                            }
-                        });
+                    LOG.info("Received stopLeaseProlongationMessage [groupId={}]", msg.groupId());
 
-                        return null;
+                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
+                        if (th != null) {
+                            LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
+                        } else {
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
+                                    grpId, lease.getStartTime(), sender, res);
+                        }
                     });
                 }
             } else {
