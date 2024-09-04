@@ -1,0 +1,34 @@
+@startuml
+title Replicas update process
+
+database Coordinator as crd
+database "Cluster node" as node
+queue replicas as replicas
+
+activate crd
+
+crd -> node ++ : MinimumTimesRequest
+node -> node : determine min tx time
+note right
+  determine minimum begin time among all
+  active RW transactions started locally using
+  ActiveLocalTxMinimumBeginTimeProvider
+end note
+node -> crd -- : MinimumTimesResponse
+
+crd -> crd : compute global minimum tx time
+
+crd -> node ++ : PrepareUpdateTxBeginTimeMessage
+node ->> node : send timestamp to local primary replicas
+note right
+  send local
+  UpdateMinimumActiveTxBeginTimeReplicaRequest
+end note
+node ->> replicas : UpdateMinimumActiveTxBeginTimeCommand
+replicas ->> replicas : publish timestamp
+note right
+  publish timestamp when flushing
+  of the partition data is completed
+end note
+
+@enduml
