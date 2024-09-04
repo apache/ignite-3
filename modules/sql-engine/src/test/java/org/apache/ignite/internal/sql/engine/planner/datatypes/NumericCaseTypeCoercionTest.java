@@ -34,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
