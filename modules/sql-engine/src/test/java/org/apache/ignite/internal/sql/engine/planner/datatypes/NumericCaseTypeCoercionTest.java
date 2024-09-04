@@ -93,19 +93,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // https://issues.apache.org/jira/browse/IGNITE-23088
-        // break serialization check otherwise, in: 9223372034707302160, out: 9.223372034707302E18
-        NativeTypeSpec firstType = typePair.second().spec();
-        // if approximate numeric
-        if (firstType == NativeTypeSpec.FLOAT || firstType == NativeTypeSpec.DOUBLE) {
-            NativeTypeSpec secondType = typePair.first().spec();
-            // if exact numeric
-            if (secondType == NativeTypeSpec.INT8 || secondType == NativeTypeSpec.INT16 || secondType == NativeTypeSpec.INT32
-                    || secondType == NativeTypeSpec.INT64) {
-                return;
-            }
-        }
-
         List<Object> params = List.of(
                 generateLiteralWithNoRepetition(typePair.first()), generateLiteralWithNoRepetition(typePair.second())
         );
