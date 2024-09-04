@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -855,6 +856,8 @@ public class ItTxTestCluster {
 
     private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
+            private final UUID clusterId = UUID.randomUUID();
+
             @Override
             public void addEventListener(LogicalTopologyEventListener listener) {
 
@@ -869,14 +872,18 @@ public class ItTxTestCluster {
             public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
                 return completedFuture(new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet())));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                ));
             }
 
             @Override
             public LogicalTopologySnapshot localLogicalTopology() {
                 return new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                );
             }
 
             @Override

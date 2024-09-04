@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -67,7 +69,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
 
-    private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage));
+    private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier(UUID.randomUUID())));
 
     private CmgRaftGroupListener listener;
 

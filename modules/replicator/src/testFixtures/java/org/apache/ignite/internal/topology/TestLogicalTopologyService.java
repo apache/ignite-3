@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -32,10 +33,12 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Test implementation of {@link LogicalTopologyService}.
  */
-public class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
+public class TestLogicalTopologyService implements LogicalTopologyService {
     private final ClusterService clusterService;
 
-    public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
+    private final UUID clusterId = UUID.randomUUID();
+
+    public TestLogicalTopologyService(ClusterService clusterService) {
         this.clusterService = clusterService;
     }
 
@@ -53,15 +56,18 @@ public class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
     public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
         return completedFuture(new LogicalTopologySnapshot(
                 1,
-                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
-        );
+                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                clusterId
+        ));
     }
 
     @Override
     public LogicalTopologySnapshot localLogicalTopology() {
         return new LogicalTopologySnapshot(
                 1,
-                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+                clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                clusterId
+        );
     }
 
     @Override
