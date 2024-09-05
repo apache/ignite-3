@@ -1222,11 +1222,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .collect(toSet());
     }
 
-    @TestOnly
-    public boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
-        return replicaStateManager.isReplicaPrimaryOnly(groupId);
-    }
-
     private static class ReplicaStateManager {
         private static final IgniteLogger LOG = Loggers.forClass(ReplicaStateManager.class);
 
