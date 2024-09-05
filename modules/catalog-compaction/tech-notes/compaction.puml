@@ -1,5 +1,5 @@
 @startuml
-title Catalog compaction process
+title Compaction process
 
 database Coordinator as crd
 database "Cluster node" as node
@@ -29,8 +29,8 @@ alt <font color="#880000">compaction aborted</font>
     All required nodes present in logical topology
     Timestamp was published on all replicas
     Distribution of replicas matches expected
-    There is no active rebalance related to the compacted version
-    There are no indices that are built
+    There is no active rebalance related to the compacted version (or below)
+    Calculated catalog version has no index that is still building
   end note
   crd -[#660000]> crd : <font color="#440000"> abort compaction
 else <font color="#006600">compaction successful</font>
