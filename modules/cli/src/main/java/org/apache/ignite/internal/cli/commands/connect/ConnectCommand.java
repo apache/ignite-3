@@ -76,6 +76,7 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
                 .url(nodeUrl.toString())
                 .username(connectOptions != null ? connectOptions.username() : null)
                 .password(connectOptions != null ? connectOptions.password() : null)
+                .checkClusterInit(true)
                 .build();
     }
 }

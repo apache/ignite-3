@@ -34,6 +34,7 @@ public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest
     @BeforeEach
     void connect() {
         execute("connect");
+
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10300" + System.lineSeparator()

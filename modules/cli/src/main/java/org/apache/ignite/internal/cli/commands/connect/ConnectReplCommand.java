@@ -66,6 +66,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
                 .url(nodeUrl)
                 .username(connectOptions != null ? connectOptions.username() : null)
                 .password(connectOptions != null ? connectOptions.password() : null)
+                .checkClusterInit(true)
                 .build();
     }
 }

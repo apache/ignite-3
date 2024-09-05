@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.call.connect;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
@@ -37,7 +36,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Call which store connection info and notify all listeners about successful connection to the Ignite 3 node.
  */
 @Singleton
-public class ConnectSuccessCall implements Call<SessionInfo, String> {
+public class ConnectSuccessCall {
 
     private final StateConfigProvider stateConfigProvider;
 
@@ -54,14 +53,22 @@ public class ConnectSuccessCall implements Call<SessionInfo, String> {
         this.clientFactory = clientFactory;
     }
 
-    @Override
-    public CallOutput<String> execute(SessionInfo sessionInfo) {
+    public CallOutput<String> execute(SessionInfo sessionInfo, boolean checkClusterInit) {
         stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), sessionInfo.nodeUrl());
 
         eventPublisher.publish(Events.connect(sessionInfo));
 
         MessageComponentBuilder builder = MessageUiComponent.builder()
                 .message("Connected to %s", UiElements.url(sessionInfo.nodeUrl()));
+
+        if (checkClusterInit) {
+            checkClusterInit(sessionInfo, builder);
+        }
+
+        return DefaultCallOutput.success(builder.build().render());
+    }
+
+    private void checkClusterInit(SessionInfo sessionInfo, MessageComponentBuilder builder) {
         try {
             new ClusterManagementApi(clientFactory.getClient(sessionInfo.nodeUrl())).clusterState();
         } catch (ApiException e) {
@@ -69,6 +76,5 @@ public class ConnectSuccessCall implements Call<SessionInfo, String> {
                 builder.hint("The cluster is not initialized. Run %s command to initialize it.", UiElements.command("cluster init"));
             }
         }
-        return DefaultCallOutput.success(builder.build().render());
     }
 }
