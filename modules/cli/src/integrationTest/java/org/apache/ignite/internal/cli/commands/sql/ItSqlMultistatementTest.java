@@ -88,7 +88,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3); delete from mytable;";
         String expectedOutput = "Updated 1 rows.\n"
                 + "Updated 2 rows.\n"
-                + "Updated 2 rows.";
+                + "Updated 3 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
 
