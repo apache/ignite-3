@@ -2875,7 +2875,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
             return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
-                LOG.info("Restarting partition [groupId=].", tablePartitionId);
                 Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
