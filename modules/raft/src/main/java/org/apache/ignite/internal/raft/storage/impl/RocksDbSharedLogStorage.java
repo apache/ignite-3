@@ -172,7 +172,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
-        this.writeOptions.setSync(raftOptions.isSync());
     }
 
     /**

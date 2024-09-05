@@ -408,8 +408,10 @@ public class ItTxTestCluster {
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
             LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    "test",
                     clusterService.nodeName(),
-                    partitionsWorkDir.resolve("log")
+                    partitionsWorkDir.resolve("log"),
+                    raftConfig.fsync().value()
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageFactory);
