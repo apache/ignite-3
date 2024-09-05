@@ -133,15 +133,15 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> resetCluster(List<String> proposedCmgConsistentIds) {
-        return resetCluster0(proposedCmgConsistentIds, null);
+        return resetClusterInternal(proposedCmgConsistentIds, null);
     }
 
     @Override
     public CompletableFuture<Void> resetClusterRepairingMetastorage(List<String> proposedCmgConsistentIds, int metastorageReplicationFactor) {
-        return resetCluster0(proposedCmgConsistentIds, metastorageReplicationFactor);
+        return resetClusterInternal(proposedCmgConsistentIds, metastorageReplicationFactor);
     }
 
-    private CompletableFuture<Void> resetCluster0(List<String> proposedCmgConsistentIds, @Nullable Integer metastorageReplicationFactor) {
+    private CompletableFuture<Void> resetClusterInternal(List<String> proposedCmgConsistentIds, @Nullable Integer metastorageReplicationFactor) {
         try {
             return doResetCluster(proposedCmgConsistentIds, metastorageReplicationFactor);
         } catch (ClusterResetException e) {
