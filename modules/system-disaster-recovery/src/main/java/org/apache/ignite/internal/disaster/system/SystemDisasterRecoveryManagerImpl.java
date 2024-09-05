@@ -253,7 +253,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             Collection<String> proposedCmgConsistentIds,
             ClusterState clusterState,
             @Nullable Integer metastorageReplicationFactor,
-            Collection<ClusterNode> nodesInTopology) {
+            Collection<ClusterNode> nodesInTopology
+    ) {
         List<UUID> formerClusterIds = new ArrayList<>(requireNonNullElse(clusterState.formerClusterIds(), new ArrayList<>()));
         formerClusterIds.add(clusterState.clusterTag().clusterId());
 
