@@ -100,6 +100,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
     private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
+    private static final String INITIAL_CONFIGURATION = "initial-config";
+
     @WorkDirectory
     private Path workDir;
 
@@ -135,7 +137,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
             .metaStorageNodes(Set.of(thisNodeName))
             .version(IgniteProductVersion.CURRENT_VERSION.toString())
             .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
-            .initialClusterConfiguration("initial-config")
+            .initialClusterConfiguration(INITIAL_CONFIGURATION)
             .build();
 
     private final SuccessResponseMessage successResponseMessage = cmgMessagesFactory.successResponseMessage().build();
@@ -295,7 +297,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
         assertThat(message.formerClusterIds(), contains(usualClusterState.clusterTag().clusterId()));
-        assertThat(message.initialClusterConfiguration(), is("initial-config"));
+        assertThat(message.initialClusterConfiguration(), is(INITIAL_CONFIGURATION));
     }
 
     @Test
@@ -410,7 +412,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 .clusterName(CLUSTER_NAME)
                 .clusterId(randomUUID())
                 .formerClusterIds(List.of(usualClusterState.clusterTag().clusterId()))
-                .initialClusterConfiguration("initial-config")
+                .initialClusterConfiguration(INITIAL_CONFIGURATION)
                 .build();
     }
 
@@ -505,7 +507,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
                 .formerClusterIds(List.of(randomUUID(), randomUUID()))
-                .initialClusterConfiguration("initial-config")
+                .initialClusterConfiguration(INITIAL_CONFIGURATION)
                 .build();
     }
 
