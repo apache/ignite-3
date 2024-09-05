@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Builder that covers attributes which is common among all types of indexes. */
 interface AbstractCreateIndexCommandBuilder<T extends AbstractIndexCommandBuilder<T>> extends AbstractIndexCommandBuilder<T> {
@@ -32,4 +33,10 @@ interface AbstractCreateIndexCommandBuilder<T extends AbstractIndexCommandBuilde
 
     /** List of the columns to index. There must be at least one column. */
     T columns(List<String> columns);
+
+    /** Initial status of the index. */
+    T status(CatalogIndexStatus status);
+
+    /** Flag indicating that this index has been created at the same time as its table. */
+    T isCreatedWithTable(boolean isCreatedWithTable);
 }

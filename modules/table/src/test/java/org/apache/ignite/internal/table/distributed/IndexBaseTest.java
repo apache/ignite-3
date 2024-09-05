@@ -112,7 +112,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                                 new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
                                 new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
                         ),
-                        true
+                        false
                 )
         );
 
@@ -130,7 +130,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                                 new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
                                 new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
                         ),
-                        false
+                        true
                 )
         );
 
@@ -148,7 +148,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                                 new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
                                 new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
                         ),
-                        false
+                        true
                 )
         );
 

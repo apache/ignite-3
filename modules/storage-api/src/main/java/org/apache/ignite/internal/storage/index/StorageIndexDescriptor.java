@@ -60,8 +60,11 @@ public interface StorageIndexDescriptor {
      */
     List<? extends StorageColumnDescriptor> columns();
 
-    /** Returns {@code true} for the primary index. */
-    boolean isPk();
+    /**
+     * Returns {@code true} if this index must be built by a background task and {@code false} if this index will be built when inserting
+     * data into its table.
+     */
+    boolean mustBeBuilt();
 
     /**
      * Creates an index description based on the catalog descriptors.

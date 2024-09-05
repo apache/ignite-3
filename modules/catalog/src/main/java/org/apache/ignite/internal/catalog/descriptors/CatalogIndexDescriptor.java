@@ -34,6 +34,9 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
+    /** Flag indicating that this index has been created at the same time as its table. */
+    private final boolean createdWithTable;
+
     CatalogIndexDescriptor(
             CatalogIndexDescriptorType indexType,
             int id,
@@ -41,13 +44,15 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            long causalityToken
+            long causalityToken,
+            boolean createdWithTable
     ) {
         super(id, Type.INDEX, name, causalityToken);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
+        this.createdWithTable = createdWithTable;
     }
 
     /** Gets table ID. */
@@ -68,6 +73,11 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Returns catalog index descriptor type. */
     public CatalogIndexDescriptorType indexType() {
         return indexType;
+    }
+
+    /** Returns a flag indicating that this index has been created at the same time as its table. */
+    public boolean isCreatedWithTable() {
+        return createdWithTable;
     }
 
     @Override

@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -173,7 +174,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
         when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
-        createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, pkColumn.type());
+        createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, true, pkColumn.type());
     }
 
     /**
@@ -204,7 +205,9 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     protected abstract D indexDescriptor(S index);
 
-    abstract CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes);
+    abstract CatalogIndexDescriptor createCatalogIndexDescriptor(
+            int tableId, int indexId, String indexName, boolean built, ColumnType... columnTypes
+    );
 
     /**
      * Tests the {@link IndexStorage#get} method.
@@ -391,6 +394,18 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         });
 
         assertEquals(newNextRowIdToBuild, newNextRowIdToBuild);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testInitialRowIdToBuild(boolean built) {
+        IndexStorage indexStorage = createIndexStorage(INDEX_NAME, built, ColumnType.INT32);
+
+        if (built) {
+            assertThat(indexStorage.getNextRowIdToBuild(), is(nullValue()));
+        } else {
+            assertThat(indexStorage.getNextRowIdToBuild(), is(initialRowIdToBuild(TEST_PARTITION)));
+        }
     }
 
     @Test

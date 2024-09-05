@@ -577,7 +577,7 @@ public class ItTxTestCluster {
      *
      * @param tableName Table name.
      * @param schemaDescriptor Schema descriptor.
-     * @return Groups map.
+     * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
         int tableId = globalCatalogId.getAndIncrement();
@@ -675,7 +675,6 @@ public class ItTxTestCluster {
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
-                when(pkIndexDescriptor.isPk()).thenReturn(true);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
                         schemaDescriptor.keyColumns().size(),
@@ -854,7 +853,7 @@ public class ItTxTestCluster {
         );
     }
 
-    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+    private static LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
             private final UUID clusterId = UUID.randomUUID();
 
@@ -912,7 +911,6 @@ public class ItTxTestCluster {
 
     /**
      * Shutdowns all cluster nodes after each test.
-     *
      */
     public void shutdownCluster() {
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());

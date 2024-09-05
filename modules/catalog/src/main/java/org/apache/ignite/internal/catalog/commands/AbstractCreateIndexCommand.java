@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
@@ -49,10 +50,22 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
     protected final List<String> columns;
 
+    protected final CatalogIndexStatus status;
+
+    protected final boolean isCreatedWithTable;
+
     private final boolean ifNotExists;
 
-    AbstractCreateIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
-            List<String> columns) throws CatalogValidationException {
+    AbstractCreateIndexCommand(
+            String schemaName,
+            String indexName,
+            boolean ifNotExists,
+            String tableName,
+            boolean unique,
+            List<String> columns,
+            CatalogIndexStatus status,
+            boolean isCreatedWithTable
+    ) throws CatalogValidationException {
         super(schemaName, indexName);
 
         validate(tableName, columns);
@@ -61,6 +74,8 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         this.tableName = tableName;
         this.unique = unique;
         this.columns = copyOrNull(columns);
+        this.status = status;
+        this.isCreatedWithTable = isCreatedWithTable;
     }
 
     public boolean ifNotExists() {
