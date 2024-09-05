@@ -563,7 +563,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @ValueSource(ints = {0, -1})
     void resetClusterWithMgRequiresPositiveMgReplicationFactor(int metastorageReplicationFactor) {
         ClusterResetException ex = assertWillThrow(
-                manager.resetCluster(List.of(thisNodeName), metastorageReplicationFactor),
+                manager.resetClusterRepairingMetastorage(List.of(thisNodeName), metastorageReplicationFactor),
                 ClusterResetException.class
         );
         assertThat(ex.getMessage(), is("Metastorage replication factor must be positive."));
@@ -574,7 +574,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
 
         ClusterResetException ex = assertWillThrow(
-                manager.resetCluster(List.of(thisNodeName), 2),
+                manager.resetClusterRepairingMetastorage(List.of(thisNodeName), 2),
                 ClusterResetException.class
         );
         assertThat(ex.getMessage(), is("Metastorage replication factor cannot exceed size of current physical topology (1)."));
@@ -590,7 +590,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         CMG_AND_METASTORAGE {
             @Override
             CompletableFuture<Void> resetCluster(SystemDisasterRecoveryManager manager, List<String> proposedCmgConsistentIds) {
-                return manager.resetCluster(proposedCmgConsistentIds, 1);
+                return manager.resetClusterRepairingMetastorage(proposedCmgConsistentIds, 1);
             }
         };
 
