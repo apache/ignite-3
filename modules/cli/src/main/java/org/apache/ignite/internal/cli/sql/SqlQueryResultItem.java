@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.sql;
 
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
 
 /**
- * Composite decorator for {@link SqlQueryResult}.
+ *  An object that represents a single item of the SQL query result.
  */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final boolean plain;
+interface SqlQueryResultItem<T> {
 
-    public SqlQueryResultDecorator(boolean plain) {
-        this.plain = plain;
-    }
+    /**
+     * Get the data of the item.
+     */
+    T getData();
 
-    @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(plain);
-    }
+    /**
+     * Get the decorator of the item.
+     *
+     * @param plain a flag for plain formatting.
+     */
+    Decorator getDecorator(boolean plain);
 }
