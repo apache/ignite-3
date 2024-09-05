@@ -599,37 +599,20 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22833")
-    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
-        CountDownLatch latch = new CountDownLatch(1);
-
-        AtomicBoolean reached = new AtomicBoolean();
-
-        catalogManager.listen(ZONE_CREATE, parameters ->  {
-            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            return CompletableFuture.runAsync(() -> {
-                try {
-                    Set<String> dataNodes = distributionZoneManager.dataNodes(
-                            params.causalityToken(),
-                            params.catalogVersion(),
-                            params.zoneDescriptor().id()
-                    ).get(TIMEOUT, MILLISECONDS);
-
-                    assertEquals(emptySet(), dataNodes);
-
-                    reached.set(true);
-                } catch (Exception e) {
-                    fail();
-                }
-            }).thenRun(latch::countDown).thenApply(ignored -> false);
-        });
-
-        blockDataNodesUpdatesInMetaStorage(latch);
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) throws Exception {
+        assertTrue(topology.getLogicalTopology().nodes().isEmpty());
+        assertTrue(distributionZoneManager.logicalTopology().isEmpty());
 
         createZone(ZONE_NAME, scaleUp, scaleDown, null);
 
-        assertTrue(reached.get());
+        assertTrue(topology.getLogicalTopology().nodes().isEmpty());
+        assertTrue(distributionZoneManager.logicalTopology().isEmpty());
+
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+
+        assertEquals(TWO_NODES, topology.getLogicalTopology().nodes());
+        assertTrue(waitForCondition(() -> distributionZoneManager.logicalTopology().size() == 2, 10_000));
     }
 
     /**
