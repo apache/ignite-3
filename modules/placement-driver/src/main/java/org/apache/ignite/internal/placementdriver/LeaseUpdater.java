@@ -41,7 +41,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -227,7 +226,7 @@ public class LeaseUpdater {
      * @param grpId Replication group id.
      * @param lease Lease to deny.
      * @param redirectProposal Consistent id of the cluster node proposed for redirection.
-     * @return Future completes true when the lease was denied to prolong, false if it does not exist anymore.
+     * @return Future completes true when the lease was denied to prolong, false if it does not exist anymore or is not accepted yet.
      */
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
         if (!lease.isAccepted()) {
@@ -238,11 +237,11 @@ public class LeaseUpdater {
                                 .findFirst()
                                 .orElse(lease);
 
-                        if (!msLease.isAccepted()) {
+                        if (msLease.isAccepted()) {
+                            return denyLease(grpId, msLease, redirectProposal);
+                        } else {
                             // Can't deny that.
                             return falseCompletedFuture();
-                        } else {
-                            return denyLease(grpId, msLease, redirectProposal);
                         }
                     });
         }
@@ -291,12 +290,11 @@ public class LeaseUpdater {
         return fut.thenApply(e -> {
             assert !e.tombstone() && !e.empty() && !(e.value() == null) : "Unexpected leases entry [entry=" + e + "].";
 
-            byte[] msLeasesBytes = e.value();
-            return LeaseBatch.fromBytes(ByteBuffer.wrap(msLeasesBytes).order(LITTLE_ENDIAN));
+            return LeaseBatch.fromBytes(ByteBuffer.wrap(e.value()).order(LITTLE_ENDIAN));
         });
     }
 
-    private IgniteBiTuple<List<Lease>, Boolean> replaceLeaseInCollection(Collection<Lease> leases, Lease newLease) {
+    private static IgniteBiTuple<List<Lease>, Boolean> replaceLeaseInCollection(Collection<Lease> leases, Lease newLease) {
         List<Lease> renewedLeases = new ArrayList<>();
         boolean replaced = false;
 

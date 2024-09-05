@@ -121,7 +121,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1294,7 +1293,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.unreserve();
 
-                            if (context.replicaState == ReplicaState.STOPPING_FOR_RESTART) {
+                            if (context.replicaState == ReplicaState.RESTART_PLANNED) {
                                 executeDeferredReplicaStop(parameters.groupId(), context);
                             }
                         }
@@ -1349,6 +1348,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     LOG.debug("Weak replica start complete [state={}].", context.replicaState);
 
                     return trueCompletedFuture();
+                } else if (state == ReplicaState.RESTART_PLANNED) {
+                    throw new AssertionError("Replica start cannot begin before stop on replica restart is completed [groupId="
+                            + groupId + "].");
                 } // else no-op.
 
                 throw new AssertionError("Replica start cannot begin while the replica is being started [groupId=" + groupId + "].");
@@ -1430,7 +1432,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
                         return replicaManager.stopLeaseProlongation(groupId, null, true)
-                                .thenCompose(unused -> planDeferredReplicaStop(ReplicaState.STOPPING_FOR_RESTART, context, stopOperation));
+                                .thenCompose(unused -> planDeferredReplicaStop(ReplicaState.RESTART_PLANNED, context, stopOperation));
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1441,6 +1443,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 }
+                // State #RESTART_PLANNED is also no-op because replica will be stopped within deferred operation.
 
                 LOG.info("Weak replica stop (sync part) complete [grpId={}, state={}].", groupId, context.replicaState);
 
@@ -1517,7 +1520,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
-                } else if (state != ReplicaState.STOPPING_FOR_RESTART) {
+                } else if (state != ReplicaState.RESTART_PLANNED) {
                     context.reserve(leaseStartTime);
                 }
 
@@ -1606,6 +1609,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *     <li>if {@link #PRIMARY_ONLY}: next state is {@link #ASSIGNED};</li>
      *     <li>if {@link #STOPPED} or {@link #STOPPING}: next state is {@link #STARTING}, replica is started after stop operation
      *         completes;</li>
+ *         <li>if {@link #RESTART_PLANNED}: produces {@link AssertionError} because replica should be stopped first;</li>
      *     <li>if {@link #STARTING}: produces {@link AssertionError}.</li>
      * </ul>
      * On {@link #weakStopReplica(ReplicationGroupId, WeakReplicaStopReason, Supplier)} the next state also depends on given
@@ -1616,6 +1620,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *         <li>if {@link #ASSIGNED}: when {@link ReplicaStateContext#reservedForPrimary} is {@code true} then the next state
      *             is {@link #PRIMARY_ONLY}, otherwise the replica is stopped, the next state is {@link #STOPPING};</li>
      *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
+     *         <li>if {@link #RESTART_PLANNED} no-op, because replica will be stopped within deferred operation;</li>
      *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
      *         <li>if {@link #STOPPED}: replica is stopped, see TODO-s for IGNITE-19713.</li>
      *     </ul>
@@ -1624,7 +1629,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *         <li>if {@link #PRIMARY_ONLY} replica is stopped, the next state is {@link #STOPPING}. Otherwise no-op.</li>
  *         </ul>
  *         <li>if {@link WeakReplicaStopReason#RESTART}: this is explicit manual replica restart for disaster recovery purposes,
-     *         replica is stopped, the next state is {@link #STOPPING}.</li>
+     *         replica is stopped. It happens immediately if it's <b>not</b> reserved as primary, the next state is {@link #STOPPING}. But
+     *         if if is reserved as primary, it asks the lease placement driver to stop the prolongation of lease, and is transferred
+     *         to the state {@link #RESTART_PLANNED}. When the lease is expired, the replica is stopped and transferred to
+     *         {@link #STOPPING} state.</li>
      * </ul>
      */
     private enum ReplicaState {
@@ -1643,10 +1651,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
          */
         PRIMARY_ONLY,
 
+        /**
+         * Replica is going to be restarted, this state means that it is primary and needs to wait for lease expiration first.
+         * After lease is expired, replica is stopped and transferred to {@link ReplicaState#STOPPING} state.
+         */
+        RESTART_PLANNED,
+
         /** Replica is stopping. */
         STOPPING,
-
-        STOPPING_FOR_RESTART,
 
         /** Replica is stopped. */
         STOPPED
