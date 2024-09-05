@@ -409,6 +409,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .metaStorageNodes(resetClusterMessage.metaStorageNodes())
                 .clusterName(resetClusterMessage.clusterName())
                 .clusterId(resetClusterMessage.clusterId())
+                .initialClusterConfiguration(resetClusterMessage.initialClusterConfiguration())
                 .build();
     }
 
