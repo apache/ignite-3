@@ -283,7 +283,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private void assertThatResetClusterMessageContentIsAsExpected(@Nullable ResetClusterMessage message, boolean mgRepair) {
         assertThat(message, is(notNullValue()));
         assertThat(message.newCmgNodes(), containsInAnyOrder(thisNodeName, node2.name()));
-        assertThat(message.oldMetaStorageNodes(), is(usualClusterState.metaStorageNodes()));
+        assertThat(message.currentMetaStorageNodes(), is(usualClusterState.metaStorageNodes()));
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
         assertThat(message.formerClusterIds(), contains(usualClusterState.clusterTag().clusterId()));
@@ -409,7 +409,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private ResetClusterMessage resetClusterMessageOn2Nodes(boolean mgRepair) {
         ResetClusterMessageBuilder builder = messagesFactory.resetClusterMessage()
                 .newCmgNodes(Set.of(thisNodeName, node2.name()))
-                .oldMetaStorageNodes(usualClusterState.metaStorageNodes())
+                .currentMetaStorageNodes(usualClusterState.metaStorageNodes())
                 .clusterName(CLUSTER_NAME)
                 .clusterId(randomUUID())
                 .formerClusterIds(List.of(usualClusterState.clusterTag().clusterId()));
@@ -540,7 +540,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(message, is(notNullValue()));
 
         assertThat(message.newCmgNodes(), is(clusterState.cmgNodes()));
-        assertThat(message.oldMetaStorageNodes(), is(clusterState.metaStorageNodes()));
+        assertThat(message.currentMetaStorageNodes(), is(clusterState.metaStorageNodes()));
         assertThat(message.clusterName(), is(clusterState.clusterTag().clusterName()));
         assertThat(message.clusterId(), is(clusterState.clusterTag().clusterId()));
         assertThat(message.formerClusterIds(), is(clusterState.formerClusterIds()));

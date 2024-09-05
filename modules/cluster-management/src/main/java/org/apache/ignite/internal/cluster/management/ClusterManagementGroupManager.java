@@ -406,7 +406,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CmgInitMessage cmgInitMessageFromResetClusterMessage(ResetClusterMessage resetClusterMessage) {
         return msgFactory.cmgInitMessage()
                 .cmgNodes(resetClusterMessage.newCmgNodes())
-                .metaStorageNodes(resetClusterMessage.oldMetaStorageNodes())
+                .metaStorageNodes(resetClusterMessage.currentMetaStorageNodes())
                 .clusterName(resetClusterMessage.clusterName())
                 .clusterId(resetClusterMessage.clusterId())
                 .build();

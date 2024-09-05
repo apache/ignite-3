@@ -36,9 +36,9 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
     Set<String> newCmgNodes();
 
     /**
-     * Consistent IDs of nodes that host the Meta Storage.
+     * Consistent IDs of nodes that currently host the Meta Storage.
      */
-    Set<String> oldMetaStorageNodes();
+    Set<String> currentMetaStorageNodes();
 
     /**
      * Name of the cluster that will be a part of the generated cluster tag.

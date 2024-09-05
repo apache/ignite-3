@@ -253,7 +253,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         ResetClusterMessageBuilder builder = messagesFactory.resetClusterMessage()
                 .newCmgNodes(new HashSet<>(proposedCmgConsistentIds))
-                .oldMetaStorageNodes(clusterState.metaStorageNodes())
+                .currentMetaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
                 .formerClusterIds(formerClusterIds);
@@ -333,7 +333,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         return messagesFactory.resetClusterMessage()
                 .newCmgNodes(clusterState.cmgNodes())
-                .oldMetaStorageNodes(clusterState.metaStorageNodes())
+                .currentMetaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(clusterState.clusterTag().clusterId())
                 .formerClusterIds(formerClusterIds)
