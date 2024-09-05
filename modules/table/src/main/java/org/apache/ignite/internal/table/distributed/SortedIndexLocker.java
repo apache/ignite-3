@@ -172,10 +172,14 @@ public class SortedIndexLocker implements IndexLocker {
 
         var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
-        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
-                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
-                        new Lock(nextLockKey, LockMode.IX, txId)
-                ));
+        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
+            LockMode modeToLock = shortLock.lockMode() == LockMode.S
+                    || shortLock.lockMode() == LockMode.X
+                    || shortLock.lockMode() == LockMode.SIX
+                    ? LockMode.X : LockMode.IX;
+            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
+                    .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
+        });
     }
 
     /** {@inheritDoc} */
