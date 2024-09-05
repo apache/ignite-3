@@ -78,6 +78,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -550,20 +551,34 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
      */
-    private void stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
-        msNodes.thenAccept(nodeIds -> {
+    private CompletableFuture<Void> stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
+        return stopLeaseProlongation(groupId, redirectNodeId, false);
+    }
+
+    /**
+     * Sends stop lease prolongation message to all participants of placement driver group.
+     *
+     * @param groupId Replication group id.
+     * @param redirectNodeId Node consistent id to redirect.
+     */
+    private CompletableFuture<Void> stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId, boolean waitForPrimary) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = waitForPrimary
+                ? placementDriver.awaitPrimaryReplica(groupId, clockService.now(), 120, TimeUnit.SECONDS)
+                : nullCompletedFuture();
+
+        return primaryReplicaFuture.thenCompose(unused -> msNodes.thenAccept(nodeIds -> {
             for (String nodeId : nodeIds) {
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
-                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several
+                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several times.
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)
                             .build());
                 }
             }
-        });
+        }));
     }
 
     private CompletableFuture<Replica> startReplicaInternal(
@@ -1414,8 +1429,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     // Explicit restart: always stop.
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
-                        replicaManager.stopLeaseProlongation(groupId, null);
-                        return planDeferredReplicaStop(ReplicaState.STOPPING_FOR_RESTART, context, stopOperation);
+                        return replicaManager.stopLeaseProlongation(groupId, null, true)
+                                .thenCompose(unused -> planDeferredReplicaStop(ReplicaState.STOPPING_FOR_RESTART, context, stopOperation));
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }

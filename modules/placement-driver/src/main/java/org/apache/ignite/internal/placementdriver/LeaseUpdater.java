@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.hash;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -26,7 +27,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -43,9 +47,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -220,13 +226,9 @@ public class LeaseUpdater {
      * @param grpId Replication group id.
      * @param lease Lease to deny.
      * @param redirectProposal Consistent id of the cluster node proposed for redirection.
-     * @return Future completes true when the lease will not prolong in the future, false otherwise.
+     * @return Future completes true when the lease was denied to prolong, false if it does not exist anymore.
      */
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
-        if (!lease.isAccepted()) {
-            leaseNegotiator.cancelAgreement(grpId);
-        }
-
         Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.cancelAgreement(grpId);
@@ -235,23 +237,58 @@ public class LeaseUpdater {
 
         Collection<Lease> leases = leasesCurrent.leaseByGroupId().values();
 
+        return denyLeaseImMetaStorage(deniedLease, leases, leasesCurrent.leasesBytes());
+    }
+
+    private CompletableFuture<Boolean> denyLeaseImMetaStorage(
+            Lease deniedLease,
+            Collection<Lease> currentLeases,
+            byte[] currentLeasesBytes
+    ) {
+        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
+
+        IgniteBiTuple<List<Lease>, Boolean> renewedLeasesTup = replaceLeaseInCollection(currentLeases, deniedLease);
+
+        if (!renewedLeasesTup.get2()) {
+            return falseCompletedFuture();
+        } else {
+            return msManager.invoke(
+                    or(notExists(key), value(key).eq(currentLeasesBytes)),
+                    put(key, new LeaseBatch(renewedLeasesTup.get1()).bytes()),
+                    noop()
+            ).thenCompose(res -> {
+                if (res) {
+                    return trueCompletedFuture();
+                } else {
+                    CompletableFuture<Entry> fut = msManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+                    return fut.thenCompose(e -> {
+                        assert !e.tombstone() && !e.empty() && !(e.value() == null) : "Unexpected leases entry [entry=" + e + "].";
+
+                        byte[] msLeasesBytes = e.value();
+                        LeaseBatch msLeases = LeaseBatch.fromBytes(ByteBuffer.wrap(msLeasesBytes).order(LITTLE_ENDIAN));
+
+                        return denyLeaseImMetaStorage(deniedLease, msLeases.leases(), msLeases.bytes());
+                    });
+                }
+            });
+        }
+    }
+
+    private IgniteBiTuple<List<Lease>, Boolean> replaceLeaseInCollection(Collection<Lease> leases, Lease newLease) {
         List<Lease> renewedLeases = new ArrayList<>();
+        boolean replaced = false;
 
         for (Lease ls : leases) {
-            if (ls.replicationGroupId().equals(grpId)) {
-                renewedLeases.add(deniedLease);
+            if (ls.replicationGroupId().equals(newLease.replicationGroupId()) && ls.getStartTime().equals(newLease.getStartTime())) {
+                renewedLeases.add(newLease);
+                replaced = true;
             } else {
                 renewedLeases.add(ls);
             }
         }
 
-        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
-
-        return msManager.invoke(
-                or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
-                put(key, new LeaseBatch(renewedLeases).bytes()),
-                noop()
-        );
+        return new IgniteBiTuple<>(renewedLeases, replaced);
     }
 
     /**
@@ -673,7 +710,7 @@ public class LeaseUpdater {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
-                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, deny={}]",
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, sender={}, denied={}]",
                                     grpId, lease.getStartTime(), sender, res);
                         }
                     });
