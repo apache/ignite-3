@@ -1419,8 +1419,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
                     if (state == ReplicaState.ASSIGNED) {
                         if (context.reservedForPrimary) {
+                            context.replicaState = ReplicaState.PRIMARY_ONLY;
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                            planDeferredReplicaStop(ReplicaState.PRIMARY_ONLY, context, stopOperation);
+                            planDeferredReplicaStop(context, stopOperation);
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1435,8 +1436,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     // Explicit restart: always stop.
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
+                        context.replicaState = ReplicaState.RESTART_PLANNED;
                         return replicaManager.stopLeaseProlongation(groupId, null, true)
-                                .thenCompose(unused -> planDeferredReplicaStop(ReplicaState.RESTART_PLANNED, context, stopOperation));
+                                .thenCompose(unused -> planDeferredReplicaStop(context, stopOperation));
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1482,11 +1484,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private static CompletableFuture<Void> planDeferredReplicaStop(
-                ReplicaState newState,
                 ReplicaStateContext context,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
-            context.replicaState = newState;
             context.deferredStopOperation = deferredStopOperation;
             context.deferredStopOperationFuture = new CompletableFuture<>();
             return context.deferredStopOperationFuture;
