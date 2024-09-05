@@ -591,6 +591,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
                 this::onZoneReplicaCreated
         );
+
+        partitionReplicaLifecycleManager.listen(
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                this::onZoneReplicaStopped
+        );
+
     }
 
     @Override
@@ -688,6 +694,40 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((unused) -> false);
         });
     }
+
+    private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
+        if (!PartitionReplicaLifecycleManager.ENABLED) {
+            return completedFuture(false);
+        }
+
+        return inBusyLockAsync(busyLock, () -> {
+            return supplyAsync(() -> {
+                List<CompletableFuture<?>> futs = new ArrayList<>();
+
+                Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+
+                zoneTables.forEach(table -> {
+                    closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
+
+                    /// KKK do we need update clients?
+
+                    TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
+
+                    partitionReplicaLifecycleManager.unloadTableListenerToZoneReplica(
+                            parameters.zonePartitionId(),
+                            new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId()));
+
+                    mvGc.removeStorage(tablePartitionId);
+
+                    futs.add(destroyPartitionStorages(tablePartitionId, table));
+                });
+
+                return allOf(futs.toArray(new CompletableFuture[]{}));
+            }, ioExecutor).thenCompose(identity());
+
+        }).thenApply((unused) -> false);
+    }
+
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {

@@ -1381,4 +1381,12 @@ public class PartitionReplicaLifecycleManager  extends
 
         ((ZonePartitionReplicaListener) replicaFut.join().listener()).addTableReplicaListener(tablePartitionId, createListener);
     }
+
+    public void unloadTableListenerToZoneReplica(ZonePartitionId zonePartitionId, TablePartitionId tablePartitionId) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(zonePartitionId);
+
+        assert replicaFut != null && replicaFut.isDone();
+
+        ((ZonePartitionReplicaListener) replicaFut.join().listener()).removeTableReplicaListener(tablePartitionId);
+    }
 }

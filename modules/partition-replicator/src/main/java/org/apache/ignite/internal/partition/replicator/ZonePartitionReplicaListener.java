@@ -122,6 +122,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }
 
+    public void removeTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
+        replicas.get(partitionId).onShutdown();
+
+        replicas.remove(partitionId);
+    }
+
+
     /**
      * Return table replicas listeners.
      *
