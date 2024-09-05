@@ -560,7 +560,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
      */
-    private CompletableFuture<Void> stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId, boolean waitForPrimary) {
+    private CompletableFuture<Void> stopLeaseProlongation(
+            ReplicationGroupId groupId,
+            @Nullable String redirectNodeId,
+            boolean waitForPrimary
+    ) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = waitForPrimary
                 ? placementDriver.awaitPrimaryReplica(groupId, clockService.now(), 120, TimeUnit.SECONDS)
                 : nullCompletedFuture();

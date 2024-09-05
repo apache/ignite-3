@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.hash;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
