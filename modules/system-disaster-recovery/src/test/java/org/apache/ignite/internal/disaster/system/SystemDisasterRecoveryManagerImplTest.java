@@ -194,7 +194,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 action.resetCluster(manager, List.of(thisNodeName, thisNodeName)),
                 ClusterResetException.class
         );
-        assertThat(ex.getMessage(), is("New CMG node consistentIds have repetitions: [node1, node1]."));
+        assertThat(ex.getMessage(), is("New CMG node names have repetitions: [node1, node1]."));
     }
 
     @ParameterizedTest

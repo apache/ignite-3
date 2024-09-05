@@ -132,44 +132,44 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     @Override
-    public CompletableFuture<Void> resetCluster(List<String> proposedCmgConsistentIds) {
-        return resetClusterInternal(proposedCmgConsistentIds, null);
+    public CompletableFuture<Void> resetCluster(List<String> proposedCmgNodeNames) {
+        return resetClusterInternal(proposedCmgNodeNames, null);
     }
 
     @Override
     public CompletableFuture<Void> resetClusterRepairingMetastorage(
-            List<String> proposedCmgConsistentIds,
+            List<String> proposedCmgNodeNames,
             int metastorageReplicationFactor
     ) {
-        return resetClusterInternal(proposedCmgConsistentIds, metastorageReplicationFactor);
+        return resetClusterInternal(proposedCmgNodeNames, metastorageReplicationFactor);
     }
 
     private CompletableFuture<Void> resetClusterInternal(
-            List<String> proposedCmgConsistentIds,
+            List<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
         try {
-            return doResetCluster(proposedCmgConsistentIds, metastorageReplicationFactor);
+            return doResetCluster(proposedCmgNodeNames, metastorageReplicationFactor);
         } catch (ClusterResetException e) {
             return failedFuture(e);
         }
     }
 
-    private CompletableFuture<Void> doResetCluster(List<String> proposedCmgConsistentIds, @Nullable Integer metastorageReplicationFactor) {
+    private CompletableFuture<Void> doResetCluster(List<String> proposedCmgNodeNames, @Nullable Integer metastorageReplicationFactor) {
         ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
 
-        ensureNoRepetitions(proposedCmgConsistentIds);
-        ensureContainsThisNodeName(proposedCmgConsistentIds);
+        ensureNoRepetitions(proposedCmgNodeNames);
+        ensureContainsThisNodeName(proposedCmgNodeNames);
 
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
-        ensureAllProposedCmgNodesAreInTopology(proposedCmgConsistentIds, nodesInTopology);
+        ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
         ensureReplicationFactorFitsTopologyIfGiven(metastorageReplicationFactor, nodesInTopology);
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
         ResetClusterMessage message = buildResetClusterMessageForReset(
-                proposedCmgConsistentIds,
+                proposedCmgNodeNames,
                 clusterState,
                 metastorageReplicationFactor,
                 nodesInTopology
@@ -182,7 +182,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                     // We ignore upstream exceptions on purpose.
                     rethrowIfError(ex);
 
-                    if (isMajorityOfCmgAreSuccesses(proposedCmgConsistentIds, responseFutures)) {
+                    if (isMajorityOfCmgAreSuccesses(proposedCmgNodeNames, responseFutures)) {
                         restarter.initiateRestart();
 
                         return null;
@@ -198,14 +198,14 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         }
     }
 
-    private static void ensureNoRepetitions(List<String> proposedCmgConsistentIds) {
-        if (new HashSet<>(proposedCmgConsistentIds).size() != proposedCmgConsistentIds.size()) {
-            throw new ClusterResetException("New CMG node consistentIds have repetitions: " + proposedCmgConsistentIds + ".");
+    private static void ensureNoRepetitions(List<String> proposedCmgNodeNames) {
+        if (new HashSet<>(proposedCmgNodeNames).size() != proposedCmgNodeNames.size()) {
+            throw new ClusterResetException("New CMG node names have repetitions: " + proposedCmgNodeNames + ".");
         }
     }
 
-    private void ensureContainsThisNodeName(List<String> proposedCmgConsistentIds) {
-        if (!proposedCmgConsistentIds.contains(thisNodeName)) {
+    private void ensureContainsThisNodeName(List<String> proposedCmgNodeNames) {
+        if (!proposedCmgNodeNames.contains(thisNodeName)) {
             throw new ClusterResetException("Current node is not contained in the new CMG, so it cannot conduct a cluster reset.");
         }
     }
@@ -217,13 +217,13 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static void ensureAllProposedCmgNodesAreInTopology(
-            List<String> proposedCmgConsistentIds,
+            List<String> proposedCmgNodeNames,
             Collection<ClusterNode> nodesInTopology
     ) {
-        Set<String> consistentIdsOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> namesOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
 
-        Set<String> notInTopology = new HashSet<>(proposedCmgConsistentIds);
-        notInTopology.removeAll(consistentIdsOfNodesInTopology);
+        Set<String> notInTopology = new HashSet<>(proposedCmgNodeNames);
+        notInTopology.removeAll(namesOfNodesInTopology);
 
         if (!notInTopology.isEmpty()) {
             throw new ClusterResetException("Some of proposed CMG nodes are not online: " + notInTopology + ".");
@@ -250,7 +250,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private ResetClusterMessage buildResetClusterMessageForReset(
-            Collection<String> proposedCmgConsistentIds,
+            Collection<String> proposedCmgNodeNames,
             ClusterState clusterState,
             @Nullable Integer metastorageReplicationFactor,
             Collection<ClusterNode> nodesInTopology
@@ -259,7 +259,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         formerClusterIds.add(clusterState.clusterTag().clusterId());
 
         ResetClusterMessageBuilder builder = messagesFactory.resetClusterMessage()
-                .newCmgNodes(new HashSet<>(proposedCmgConsistentIds))
+                .newCmgNodes(new HashSet<>(proposedCmgNodeNames))
                 .currentMetaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
@@ -292,17 +292,17 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static boolean isMajorityOfCmgAreSuccesses(
-            List<String> proposedCmgConsistentIds,
+            List<String> proposedCmgNodeNames,
             Map<String, CompletableFuture<NetworkMessage>> responseFutures
     ) {
-        Set<String> newCmgNodesSet = new HashSet<>(proposedCmgConsistentIds);
+        Set<String> newCmgNodesSet = new HashSet<>(proposedCmgNodeNames);
         List<CompletableFuture<NetworkMessage>> futuresFromNewCmg = responseFutures.entrySet().stream()
                 .filter(entry -> newCmgNodesSet.contains(entry.getKey()))
                 .map(Entry::getValue)
                 .collect(toList());
 
-        assert futuresFromNewCmg.size() == proposedCmgConsistentIds.size()
-                : futuresFromNewCmg.size() + " futures, but " + proposedCmgConsistentIds.size() + " nodes";
+        assert futuresFromNewCmg.size() == proposedCmgNodeNames.size()
+                : futuresFromNewCmg.size() + " futures, but " + proposedCmgNodeNames.size() + " nodes";
 
         long successes = futuresFromNewCmg.stream()
                 .filter(CompletableFutures::isCompletedSuccessfully)
