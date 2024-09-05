@@ -49,7 +49,6 @@ import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.DBOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -146,7 +145,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             ColumnFamilyHandle dataHandle,
             String groupId,
             RaftOptions raftOptions,
-            DBOptions dbOptions,
             Executor executor
     ) {
         Requires.requireNonNull(db);
@@ -174,12 +172,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
-        if (dbOptions.useFsync() != raftOptions.isSync()) {
-            LOG.warn("Fsync options differ, using {} [raftConfiguration={}, raftOptions={}]",
-                    raftOptions.isSync(), dbOptions.useFsync(), raftOptions.isSync());
-
-            this.writeOptions.setSync(raftOptions.isSync());
-        }
     }
 
     /**

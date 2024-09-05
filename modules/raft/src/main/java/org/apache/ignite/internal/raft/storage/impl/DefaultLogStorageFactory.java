@@ -213,7 +213,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, dbOptions, executorService);
+        assert raftOptions.isSync() == dbOptions.useFsync() : "Sync options must be the same";
+
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
     }
 
     @Override
