@@ -1490,9 +1490,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ReplicaStateContext context,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
-            context.deferredStopOperation = deferredStopOperation;
-            context.deferredStopOperationFuture = new CompletableFuture<>();
-            return context.deferredStopOperationFuture;
+            synchronized (context) {
+                context.deferredStopOperation = deferredStopOperation;
+                context.deferredStopOperationFuture = new CompletableFuture<>();
+                return context.deferredStopOperationFuture;
+            }
         }
 
         private void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
