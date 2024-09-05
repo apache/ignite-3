@@ -24,10 +24,14 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
+import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent.MessageComponentBuilder;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.rest.client.api.ClusterManagementApi;
+import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
  * Call which store connection info and notify all listeners about successful connection to the Ignite 3 node.
@@ -39,12 +43,15 @@ public class ConnectSuccessCall implements Call<SessionInfo, String> {
 
     private final EventPublisher eventPublisher;
 
+    private final ApiClientFactory clientFactory;
+
     /**
      * Constructor.
      */
-    public ConnectSuccessCall(StateConfigProvider stateConfigProvider, EventPublisher eventPublisher) {
+    public ConnectSuccessCall(StateConfigProvider stateConfigProvider, EventPublisher eventPublisher, ApiClientFactory clientFactory) {
         this.stateConfigProvider = stateConfigProvider;
         this.eventPublisher = eventPublisher;
+        this.clientFactory = clientFactory;
     }
 
     @Override
@@ -53,7 +60,15 @@ public class ConnectSuccessCall implements Call<SessionInfo, String> {
 
         eventPublisher.publish(Events.connect(sessionInfo));
 
-        return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s",
-                UiElements.url(sessionInfo.nodeUrl())).render());
+        MessageComponentBuilder builder = MessageUiComponent.builder()
+                .message("Connected to %s", UiElements.url(sessionInfo.nodeUrl()));
+        try {
+            new ClusterManagementApi(clientFactory.getClient(sessionInfo.nodeUrl())).clusterState();
+        } catch (ApiException e) {
+            if (e.getCode() == 409) { // CONFLICT means the cluster is not initialized yet
+                builder.hint("The cluster is not initialized. Run %s command to initialize it.", UiElements.command("cluster init"));
+            }
+        }
+        return DefaultCallOutput.success(builder.build().render());
     }
 }
