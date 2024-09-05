@@ -128,7 +128,6 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /**
      * See {@link #getAsync(Transaction, Tuple)}.
      */
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
@@ -269,7 +268,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
 
     /**
-     * See {@link #get(Transaction, Tuple)}.
+     * See {@link #getAndPut(Transaction, Tuple, Tuple)}.
      */
     @Override
     public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
@@ -490,7 +489,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     }
 
     /**
-     * See {@link #getAndReplace(Transaction, Tuple, Tuple)}.
+     * See {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)}.
      */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {

@@ -261,7 +261,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     }
 
     /**
-     * See {@link #get(Transaction, Tuple)}.
+     * See {@link #getAndPut(Transaction, Tuple, Tuple)}.
      */
     @Override
     public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
@@ -457,7 +457,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     }
 
     /**
-     * See {@link #getAndReplace(Transaction, Tuple, Tuple)}.
+     * See {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)}.
      */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
