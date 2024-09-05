@@ -84,6 +84,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -550,8 +551,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
      */
-    private CompletableFuture<Void> stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
-        return stopLeaseProlongation(groupId, redirectNodeId, false);
+    private void stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
+        stopLeaseProlongation(groupId, redirectNodeId, false);
     }
 
     /**
@@ -559,6 +560,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
+     * @param waitForPrimary Whether wait for primary to appear.
+     * @return Future that is completed when {@link StopLeaseProlongationMessage} is sent.
      */
     private CompletableFuture<Void> stopLeaseProlongation(
             ReplicationGroupId groupId,
