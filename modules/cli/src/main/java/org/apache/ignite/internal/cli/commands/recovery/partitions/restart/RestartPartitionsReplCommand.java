@@ -50,6 +50,7 @@ public class RestartPartitionsReplCommand extends BaseCommand implements Runnabl
                 .map(url -> RestartPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot restart partitions"))
+                .print()
         );
     }
 }
