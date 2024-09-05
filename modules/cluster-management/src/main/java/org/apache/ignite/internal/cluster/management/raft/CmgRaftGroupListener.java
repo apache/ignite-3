@@ -32,6 +32,8 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -69,6 +71,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private final ValidationManager validationManager;
 
     private final LongConsumer onLogicalTopologyChanged;
+
+    private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
     /**
      * Creates a new instance.
@@ -151,6 +155,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
                 onLogicalTopologyChanged.accept(clo.term());
+
+                clo.result(null);
+            } else if (command instanceof ChangeMetastorageNodesCommand) {
+                changeMetastorageNodes((ChangeMetastorageNodesCommand) command);
 
                 clo.result(null);
             }
@@ -242,6 +250,23 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         if (LOG.isInfoEnabled()) {
             LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
         }
+    }
+
+    private void changeMetastorageNodes(ChangeMetastorageNodesCommand command) {
+        ClusterState existingState = storageManager.getClusterState();
+
+        assert existingState != null : "Cluster state is not initialized when got " + command;
+
+        ClusterState newState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.copyOf(existingState.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(command.metaStorageNodes()))
+                .version(existingState.version())
+                .clusterTag(existingState.clusterTag())
+                .initialClusterConfiguration(existingState.initialClusterConfiguration())
+                .formerClusterIds(existingState.formerClusterIds())
+                .build();
+
+        storageManager.putClusterState(newState);
     }
 
     @Override
