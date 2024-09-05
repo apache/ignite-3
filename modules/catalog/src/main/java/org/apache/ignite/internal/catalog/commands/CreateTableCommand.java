@@ -43,7 +43,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -147,12 +146,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
-        CatalogIndexDescriptor pkIndex = createIndexDescriptor(indexName, pkIndexId, tableId);
+        CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, tableId);
 
         return List.of(
                 new NewTableEntry(table),
                 new NewIndexEntry(pkIndex),
-                new MakeIndexAvailableEntry(pkIndexId),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
     }
@@ -203,7 +201,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
     }
 
-    private CatalogIndexDescriptor createIndexDescriptor(String indexName, int pkIndexId, int tableId) {
+    private CatalogIndexDescriptor createPkIndexDescriptor(String indexName, int pkIndexId, int tableId) {
         CatalogIndexDescriptor pkIndex;
 
         if (primaryKey instanceof TableSortedPrimaryKey) {
@@ -223,7 +221,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    indexColumns
+                    indexColumns,
+                    true
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
             TableHashPrimaryKey hashPrimaryKey = (TableHashPrimaryKey) primaryKey;
@@ -233,7 +232,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    hashPrimaryKey.columns()
+                    hashPrimaryKey.columns(),
+                    true
             );
         } else {
             throw new IllegalArgumentException("Unexpected primary key type: " + primaryKey);

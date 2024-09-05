@@ -177,7 +177,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
                 PK_INDEX_ID,
                 List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false)),
-                true
+                false
         );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(

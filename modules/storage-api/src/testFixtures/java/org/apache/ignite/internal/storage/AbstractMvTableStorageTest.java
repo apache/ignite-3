@@ -367,7 +367,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         var catalogSortedIndex2 = new CatalogSortedIndexDescriptor(
@@ -376,7 +377,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         var sortedIndexDescriptor1 = new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndex1);
@@ -418,7 +420,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         var catalogHashIndex2 = new CatalogHashIndexDescriptor(
@@ -427,7 +430,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         var hashIndexDescriptor1 = new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndex1);
@@ -1054,7 +1058,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                false
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -1063,7 +1068,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                false
         );
 
         CatalogIndexDescriptor pkIndex = new CatalogHashIndexDescriptor(
@@ -1072,7 +1078,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of(pkColumnName)
+                List.of(pkColumnName),
+                true
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
@@ -1581,7 +1588,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkCursorAfterStartRebalance(sortedIndexStorageTolerantScanCursor);
     }
 
-    @SuppressWarnings({"resource", "deprecation"})
+    @SuppressWarnings("resource")
     private void checkMvPartitionStorageMethodsAfterStartRebalance(MvPartitionStorage storage) {
         checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 

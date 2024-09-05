@@ -102,7 +102,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
-    private final boolean pk;
+    private final boolean mustBeBuilt;
 
     /**
      * Constructor.
@@ -111,7 +111,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
+        this(index.id(), extractIndexColumnsConfiguration(table, index), !index.isCreatedWithTable());
     }
 
     /**
@@ -119,13 +119,13 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      *
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
-     * @param pk Primary index flag.
+     * @param mustBeBuilt Flag indicating that this index must be built by a background task.
      */
-    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean pk) {
+    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean mustBeBuilt) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
-        this.pk = pk;
+        this.mustBeBuilt = mustBeBuilt;
     }
 
     private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
@@ -147,8 +147,8 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
     }
 
     @Override
-    public boolean isPk() {
-        return pk;
+    public boolean mustBeBuilt() {
+        return mustBeBuilt;
     }
 
     @Override

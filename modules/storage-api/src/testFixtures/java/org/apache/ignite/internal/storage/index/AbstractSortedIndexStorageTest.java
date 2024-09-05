@@ -140,18 +140,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         int tableId = tableDescriptor.id();
         int indexId = catalogId.getAndIncrement();
 
-        CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columns);
+        CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columns);
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(
+        return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
                 new StorageSortedIndexDescriptor(tableDescriptor, indexDescriptor)
         );
-
-        if (built) {
-            completeBuildIndex(indexStorage);
-        }
-
-        return indexStorage;
     }
 
     /**
@@ -171,14 +165,21 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     }
 
     @Override
-    CatalogSortedIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
-        return createCatalogIndexDescriptor(tableId, indexId, indexName, toCatalogIndexColumnDescriptors(columnTypes));
+    CatalogSortedIndexDescriptor createCatalogIndexDescriptor(
+            int tableId,
+            int indexId,
+            String indexName,
+            boolean built,
+            ColumnType... columnTypes
+    ) {
+        return createCatalogIndexDescriptor(tableId, indexId, indexName, built, toCatalogIndexColumnDescriptors(columnTypes));
     }
 
     private CatalogSortedIndexDescriptor createCatalogIndexDescriptor(
             int tableId,
             int indexId,
             String indexName,
+            boolean built,
             CatalogIndexColumnDescriptor... columns
     ) {
         var indexDescriptor = new CatalogSortedIndexDescriptor(
@@ -187,7 +188,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 tableId,
                 false,
                 AVAILABLE,
-                List.of(columns)
+                List.of(columns),
+                built
         );
 
         addToCatalog(indexDescriptor);
