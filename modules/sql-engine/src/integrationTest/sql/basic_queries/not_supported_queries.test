@@ -1,0 +1,5 @@
+# name: test/sql/basic_queries/not_supported_queries.test
+# group: [basic_queries]
+
+statement error: Failed to validate query. From line 1, column 6 to line 1, column 14: A recursive query is not supported.
+WITH RECURSIVE gen(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM gen) SELECT * FROM gen LIMIT 10

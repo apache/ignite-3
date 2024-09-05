@@ -71,6 +71,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -233,6 +234,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Update creates a source expression list which is not updated
         // after type coercion adds CASTs to source expressions.
         syncSelectList(select, call);
+    }
+
+    @Override
+    public void validateWithItem(SqlWithItem withItem) {
+        if (withItem.recursive.booleanValue()) {
+            // pass withItem.recursive instead of withItem, so exception message
+            // will point to keyword RECURSIVE rather than name of the CTE
+            throw newValidationError(withItem.recursive,
+                    IgniteResource.INSTANCE.recursiveQueryIsNotSupported());
+        }
+
+        super.validateWithItem(withItem);
     }
 
     /** {@inheritDoc} */
