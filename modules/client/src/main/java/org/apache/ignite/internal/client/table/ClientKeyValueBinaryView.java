@@ -266,7 +266,6 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 tx);
     }
 
-
     /**
      * See {@link #getAndPut(Transaction, Tuple, Tuple)}.
      */
