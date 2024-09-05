@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message for resetting the cluster.
@@ -53,4 +54,10 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * IDs that the cluster had before (including the current incarnation by which this message is sent).
      */
     List<UUID> formerClusterIds();
+
+    /**
+     * Initial cluster configuration.
+     */
+    @Nullable
+    String initialClusterConfiguration();
 }

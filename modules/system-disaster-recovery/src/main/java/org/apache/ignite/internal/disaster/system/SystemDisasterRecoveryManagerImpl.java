@@ -228,6 +228,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
                 .formerClusterIds(formerClusterIds)
+                .initialClusterConfiguration(clusterState.initialClusterConfiguration())
                 .build();
     }
 
@@ -292,6 +293,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(clusterState.clusterTag().clusterId())
                 .formerClusterIds(formerClusterIds)
+                .initialClusterConfiguration(clusterState.initialClusterConfiguration())
                 .build();
     }
 

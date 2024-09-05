@@ -135,6 +135,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
             .metaStorageNodes(Set.of(thisNodeName))
             .version(IgniteProductVersion.CURRENT_VERSION.toString())
             .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
+            .initialClusterConfiguration("initial-config")
             .build();
 
     private final SuccessResponseMessage successResponseMessage = cmgMessagesFactory.successResponseMessage().build();
@@ -294,6 +295,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
         assertThat(message.formerClusterIds(), contains(usualClusterState.clusterTag().clusterId()));
+        assertThat(message.initialClusterConfiguration(), is("initial-config"));
     }
 
     @Test
@@ -408,6 +410,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 .clusterName(CLUSTER_NAME)
                 .clusterId(randomUUID())
                 .formerClusterIds(List.of(usualClusterState.clusterTag().clusterId()))
+                .initialClusterConfiguration("initial-config")
                 .build();
     }
 
@@ -502,6 +505,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
                 .formerClusterIds(List.of(randomUUID(), randomUUID()))
+                .initialClusterConfiguration("initial-config")
                 .build();
     }
 
@@ -516,6 +520,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(message.clusterName(), is(clusterState.clusterTag().clusterName()));
         assertThat(message.clusterId(), is(clusterState.clusterTag().clusterId()));
         assertThat(message.formerClusterIds(), is(clusterState.formerClusterIds()));
+        assertThat(message.initialClusterConfiguration(), is(clusterState.initialClusterConfiguration()));
     }
 
     @Test
