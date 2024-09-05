@@ -22,7 +22,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /**
  * A command that adds a new hash index to the catalog.
@@ -51,17 +50,14 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
             String tableName,
             boolean unique,
             List<String> columns,
-            CatalogIndexStatus status,
             boolean isCreatedWithTable
     ) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists, tableName, unique, columns, status, isCreatedWithTable);
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
     }
 
     @Override
     protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId) {
-        return new CatalogHashIndexDescriptor(
-                indexId, indexName, tableId, unique, status, columns, isCreatedWithTable
-        );
+        return new CatalogHashIndexDescriptor(indexId, indexName, tableId, unique, status, columns, isCreatedWithTable);
     }
 
     private static class Builder implements CreateHashIndexCommandBuilder {
@@ -71,8 +67,7 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
         private String tableName;
         private List<String> columns;
         private boolean unique;
-        private CatalogIndexStatus status = CatalogIndexStatus.REGISTERED;
-        private boolean isCreatedWithTable = false;
+        private boolean isCreatedWithTable;
 
         @Override
         public Builder tableName(String tableName) {
@@ -117,13 +112,6 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
-        public CreateHashIndexCommandBuilder status(CatalogIndexStatus status) {
-            this.status = status;
-
-            return this;
-        }
-
-        @Override
         public CreateHashIndexCommandBuilder isCreatedWithTable(boolean isCreatedWithTable) {
             this.isCreatedWithTable = isCreatedWithTable;
 
@@ -132,9 +120,7 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
 
         @Override
         public CatalogCommand build() {
-            return new CreateHashIndexCommand(
-                    schemaName, indexName, ifNotExists, tableName, unique, columns, status, isCreatedWithTable
-            );
+            return new CreateHashIndexCommand(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
         }
     }
 }

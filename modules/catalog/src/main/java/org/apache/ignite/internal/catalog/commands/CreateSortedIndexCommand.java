@@ -27,7 +27,6 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 
 /**
@@ -61,10 +60,9 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
             boolean unique,
             List<String> columns,
             List<CatalogColumnCollation> collations,
-            CatalogIndexStatus status,
             boolean isCreatedWithTable
     ) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists, tableName, unique, columns, status, isCreatedWithTable);
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
 
         this.collations = copyOrNull(collations);
 
@@ -104,8 +102,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         private List<String> columns;
         private List<CatalogColumnCollation> collations;
         private boolean unique;
-        private CatalogIndexStatus status = CatalogIndexStatus.REGISTERED;
-        private boolean isCreatedWithTable = false;
+        private boolean isCreatedWithTable;
 
         @Override
         public Builder tableName(String tableName) {
@@ -157,13 +154,6 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
-        public CreateSortedIndexCommandBuilder status(CatalogIndexStatus status) {
-            this.status = status;
-
-            return this;
-        }
-
-        @Override
         public CreateSortedIndexCommandBuilder isCreatedWithTable(boolean isCreatedWithTable) {
             this.isCreatedWithTable = isCreatedWithTable;
 
@@ -173,7 +163,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         @Override
         public CatalogCommand build() {
             return new CreateSortedIndexCommand(
-                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations, status, isCreatedWithTable
+                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations, isCreatedWithTable
             );
         }
     }

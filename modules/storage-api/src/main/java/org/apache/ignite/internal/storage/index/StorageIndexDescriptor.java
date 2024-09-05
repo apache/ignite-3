@@ -63,6 +63,8 @@ public interface StorageIndexDescriptor {
     /**
      * Returns {@code true} if this index must be built by a background task and {@code false} if this index will be built when inserting
      * data into its table.
+     *
+     * <p>The value of this field is deduced based on the {@link CatalogIndexDescriptor#isCreatedWithTable} flag value.
      */
     boolean mustBeBuilt();
 

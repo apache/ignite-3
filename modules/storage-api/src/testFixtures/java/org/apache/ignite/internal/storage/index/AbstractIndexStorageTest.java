@@ -396,16 +396,18 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         assertEquals(newNextRowIdToBuild, newNextRowIdToBuild);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testInitialRowIdToBuild(boolean built) {
-        IndexStorage indexStorage = createIndexStorage(INDEX_NAME, built, ColumnType.INT32);
+    @Test
+    void testInitialRowIdToBuildWithBuildIndex() {
+        IndexStorage indexStorage = createIndexStorage(INDEX_NAME, true, ColumnType.INT32);
 
-        if (built) {
-            assertThat(indexStorage.getNextRowIdToBuild(), is(nullValue()));
-        } else {
-            assertThat(indexStorage.getNextRowIdToBuild(), is(initialRowIdToBuild(TEST_PARTITION)));
-        }
+        assertThat(indexStorage.getNextRowIdToBuild(), is(nullValue()));
+    }
+
+    @Test
+    void testInitialRowIdToBuildWithNotBuiltIndex() {
+        IndexStorage indexStorage = createIndexStorage(INDEX_NAME, false, ColumnType.INT32);
+
+        assertThat(indexStorage.getNextRowIdToBuild(), is(initialRowIdToBuild(TEST_PARTITION)));
     }
 
     @Test

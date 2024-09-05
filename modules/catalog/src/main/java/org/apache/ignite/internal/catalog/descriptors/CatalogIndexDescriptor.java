@@ -34,7 +34,16 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
-    /** Flag indicating that this index has been created at the same time as its table. */
+    /**
+     * Flag indicating that this index has been created at the same time as its table.
+     *
+     * <p>This flag is used by the underlying index storage to determine whether the index should be built in the background (in case
+     * this flag {@code false}) or it will be filled with data alongside its table (in case this flag is {@code true}).
+     *
+     * <p>Unlike the {@code status} field, which may change during index lifecycle, the value of this field is constant, which allows to
+     * handle a case when an AVAILABLE index is being rebalanced to a new node and the new storage can decide if it needs to be built
+     * or not.
+     */
     private final boolean createdWithTable;
 
     CatalogIndexDescriptor(

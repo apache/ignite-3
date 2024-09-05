@@ -63,7 +63,6 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             String tableName,
             boolean unique,
             List<String> columns,
-            CatalogIndexStatus status,
             boolean isCreatedWithTable
     ) throws CatalogValidationException {
         super(schemaName, indexName);
@@ -74,7 +73,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         this.tableName = tableName;
         this.unique = unique;
         this.columns = copyOrNull(columns);
-        this.status = status;
+        this.status = isCreatedWithTable ? CatalogIndexStatus.AVAILABLE : CatalogIndexStatus.REGISTERED;
         this.isCreatedWithTable = isCreatedWithTable;
     }
 
