@@ -56,7 +56,7 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
     List<UUID> formerClusterIds();
 
     /**
-     * Initial cluster configuration.
+     * Initial cluster configuration ({@code null} if no initial configuration was passed on init).
      */
     @Nullable
     String initialClusterConfiguration();
