@@ -56,6 +56,12 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
     List<UUID> formerClusterIds();
 
     /**
+     * Initial cluster configuration ({@code null} if no initial configuration was passed on init).
+     */
+    @Nullable
+    String initialClusterConfiguration();
+
+    /**
      * Number of nodes in the Raft voting member set for Metastorage. Only non-null if Metastorage is to be repaired.
      */
     @Nullable Integer metastorageReplicationFactor();

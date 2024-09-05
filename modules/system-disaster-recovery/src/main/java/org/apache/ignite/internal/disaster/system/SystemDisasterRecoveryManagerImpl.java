@@ -263,7 +263,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .currentMetaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
-                .formerClusterIds(formerClusterIds);
+                .formerClusterIds(formerClusterIds)
+                .initialClusterConfiguration(clusterState.initialClusterConfiguration());
 
         if (metastorageReplicationFactor != null) {
             builder.metastorageReplicationFactor(metastorageReplicationFactor);
@@ -344,6 +345,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(clusterState.clusterTag().clusterId())
                 .formerClusterIds(formerClusterIds)
+                .initialClusterConfiguration(clusterState.initialClusterConfiguration())
                 .build();
     }
 
