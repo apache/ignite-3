@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -62,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -603,8 +605,33 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertTrue(topology.getLogicalTopology().nodes().isEmpty());
         assertTrue(distributionZoneManager.logicalTopology().isEmpty());
 
+        AtomicReference<Set<String>> dataNodesOnCreate = new AtomicReference<>();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        catalogManager.listen(ZONE_CREATE, parameters -> {
+            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
+
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(
+                            params.causalityToken(),
+                            params.catalogVersion(),
+                            params.zoneDescriptor().id()
+                    ).get(TIMEOUT, MILLISECONDS);
+
+                    dataNodesOnCreate.set(dataNodes);
+                } catch (Exception e) {
+                    fail();
+                }
+            }).thenRun(latch::countDown).thenApply(ignored -> false);
+        });
+
         createZone(ZONE_NAME, scaleUp, scaleDown, null);
 
+        latch.await(10, SECONDS);
+
+        assertTrue(dataNodesOnCreate.get().isEmpty());
         assertTrue(topology.getLogicalTopology().nodes().isEmpty());
         assertTrue(distributionZoneManager.logicalTopology().isEmpty());
 
