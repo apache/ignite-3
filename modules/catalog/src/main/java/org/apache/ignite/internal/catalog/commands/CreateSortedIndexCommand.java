@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 
 /**
@@ -70,7 +71,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
