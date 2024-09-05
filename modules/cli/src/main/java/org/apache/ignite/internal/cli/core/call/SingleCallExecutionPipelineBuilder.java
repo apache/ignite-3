@@ -20,11 +20,7 @@ package org.apache.ignite.internal.cli.core.call;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
-import java.time.temporal.ChronoUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import me.tongfei.progressbar.ProgressBarBuilder;
-import me.tongfei.progressbar.ProgressBarStyle;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
@@ -32,19 +28,10 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
 import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 
-/** Builder for {@link AsyncCallExecutionPipeline}. */
-public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
+/** Builder for {@link CallExecutionPipeline}. */
+public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
 
-    private final Function<ProgressTracker, AsyncCall<I, T>> callFactory;
-
-    private final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder()
-            .setStyle(ProgressBarStyle.UNICODE_BLOCK)
-            .continuousUpdate()
-            .setSpeedUnit(ChronoUnit.SECONDS)
-            .setInitialMax(100)
-            .hideETA()
-            .setTaskName("")
-            .showSpeed();
+    private final Call<I, T> call;
 
     private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
@@ -58,8 +45,8 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
 
     private boolean verbose;
 
-    AsyncCallExecutionPipelineBuilder(Function<ProgressTracker, AsyncCall<I, T>> callFactory) {
-        this.callFactory = callFactory;
+    SingleCallExecutionPipelineBuilder(Call<I, T> call) {
+        this.call = call;
     }
 
     private static PrintWriter wrapOutputStream(OutputStream output) {
@@ -71,62 +58,54 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
         return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
+    public SingleCallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
         this.inputProvider = inputProvider;
         return this;
     }
 
     @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> output(PrintWriter output) {
+    public SingleCallExecutionPipelineBuilder<I, T> output(PrintWriter output) {
         this.output = output;
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> output(OutputStream output) {
+    public SingleCallExecutionPipelineBuilder<I, T> output(OutputStream output) {
         return output(wrapOutputStream(output));
     }
 
     @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput) {
+    public SingleCallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput) {
         this.errOutput = errOutput;
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> errOutput(OutputStream output) {
+    public SingleCallExecutionPipelineBuilder<I, T> errOutput(OutputStream output) {
         return errOutput(wrapOutputStream(output));
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> exceptionHandler(ExceptionHandler<?> exceptionHandler) {
+    public SingleCallExecutionPipelineBuilder<I, T> exceptionHandler(ExceptionHandler<?> exceptionHandler) {
         exceptionHandlers.addExceptionHandler(exceptionHandler);
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> exceptionHandlers(ExceptionHandlers exceptionHandlers) {
+    public SingleCallExecutionPipelineBuilder<I, T> exceptionHandlers(ExceptionHandlers exceptionHandlers) {
         this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> decorator(Decorator<T, TerminalOutput> decorator) {
+    public SingleCallExecutionPipelineBuilder<I, T> decorator(Decorator<T, TerminalOutput> decorator) {
         this.decorator = decorator;
         return this;
     }
 
     @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
+    public SingleCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
         this.verbose = verbose;
         return this;
     }
 
-    public AsyncCallExecutionPipelineBuilder<I, T> name(String name) {
-        this.progressBarBuilder.setTaskName(name);
-        return this;
-    }
-
-    /** Builds {@link AsyncCallExecutionPipeline}. */
     @Override
     public CallExecutionPipeline<I, T> build() {
-        return new AsyncCallExecutionPipeline<>(
-                callFactory, progressBarBuilder, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose
-        );
+        return new SingleCallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
     }
 }

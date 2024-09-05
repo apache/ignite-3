@@ -51,13 +51,12 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot update cluster config"))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {

@@ -47,13 +47,12 @@ public class PartitionStatesReplCommand extends BaseCommand implements Runnable 
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(url -> PartitionStatesCallInput.of(options, url))
                 .then(Flows.fromCall(call))
-                .print(new TableDecorator(options.plain()))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list partition states"))
-                .verbose(verbose)
-                .start();
+                .print(new TableDecorator(options.plain()))
+        );
     }
 
 }
