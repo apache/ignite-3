@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -229,6 +230,23 @@ public class LeaseUpdater {
      * @return Future completes true when the lease was denied to prolong, false if it does not exist anymore.
      */
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
+        if (!lease.isAccepted()) {
+            return refreshLeasesFromMetaStorage()
+                    .thenCompose(msLeases -> {
+                        Lease msLease = msLeases.leases().stream()
+                                .filter(ls -> ls.replicationGroupId().equals(lease.replicationGroupId()))
+                                .findFirst()
+                                .orElse(lease);
+
+                        if (!msLease.isAccepted()) {
+                            // Can't deny that.
+                            return falseCompletedFuture();
+                        } else {
+                            return denyLease(grpId, msLease, redirectProposal);
+                        }
+                    });
+        }
+
         Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.cancelAgreement(grpId);
@@ -260,19 +278,22 @@ public class LeaseUpdater {
                 if (res) {
                     return trueCompletedFuture();
                 } else {
-                    CompletableFuture<Entry> fut = msManager.get(PLACEMENTDRIVER_LEASES_KEY);
-
-                    return fut.thenCompose(e -> {
-                        assert !e.tombstone() && !e.empty() && !(e.value() == null) : "Unexpected leases entry [entry=" + e + "].";
-
-                        byte[] msLeasesBytes = e.value();
-                        LeaseBatch msLeases = LeaseBatch.fromBytes(ByteBuffer.wrap(msLeasesBytes).order(LITTLE_ENDIAN));
-
-                        return denyLeaseImMetaStorage(deniedLease, msLeases.leases(), msLeases.bytes());
-                    });
+                    return refreshLeasesFromMetaStorage()
+                            .thenCompose(msLeases -> denyLeaseImMetaStorage(deniedLease, msLeases.leases(), msLeases.bytes()));
                 }
             });
         }
+    }
+
+    private CompletableFuture<LeaseBatch> refreshLeasesFromMetaStorage() {
+        CompletableFuture<Entry> fut = msManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+        return fut.thenApply(e -> {
+            assert !e.tombstone() && !e.empty() && !(e.value() == null) : "Unexpected leases entry [entry=" + e + "].";
+
+            byte[] msLeasesBytes = e.value();
+            return LeaseBatch.fromBytes(ByteBuffer.wrap(msLeasesBytes).order(LITTLE_ENDIAN));
+        });
     }
 
     private IgniteBiTuple<List<Lease>, Boolean> replaceLeaseInCollection(Collection<Lease> leases, Lease newLease) {
