@@ -29,6 +29,9 @@ import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test concurrent sorted index creation with nonunique index.
+ */
 public class ItTransactionsInsertLockTest extends ClusterPerClassIntegrationTest {
 
     private static final String TABLE_NAME = "indexed_tbl";
@@ -48,7 +51,7 @@ public class ItTransactionsInsertLockTest extends ClusterPerClassIntegrationTest
     @Test
     void testBiggerFirst() {
         sql("INSERT INTO " + TABLE_NAME + " (id, name) VALUES(1, 'Europe')");
-        
+
         Ignite node0 = CLUSTER.node(0);
 
         IgniteTransactionsImpl txns0 = unwrapIgniteTransactionsImpl(node0.transactions());

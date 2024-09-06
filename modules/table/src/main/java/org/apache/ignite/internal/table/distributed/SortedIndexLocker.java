@@ -47,9 +47,10 @@ public class SortedIndexLocker implements IndexLocker {
     private final Object positiveInf;
 
     private final int indexId;
+
     private final LockManager lockManager;
 
-
+    private final boolean unique;
     /** Index storage. */
     private final SortedIndexStorage storage;
 
@@ -71,6 +72,8 @@ public class SortedIndexLocker implements IndexLocker {
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
         this.positiveInf = partId;
+        // Unique indexes are not supported at the moment.
+        this.unique = false;
     }
 
     @Override
@@ -173,13 +176,23 @@ public class SortedIndexLocker implements IndexLocker {
         var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
-            LockMode modeToLock = shortLock.lockMode() == LockMode.S
-                    || shortLock.lockMode() == LockMode.X
-                    || shortLock.lockMode() == LockMode.SIX
-                    ? LockMode.X : LockMode.IX;
+            LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
+
             return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
                     .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
         });
+    }
+
+    private LockMode currentKeyLockMode(LockMode nextKeyLockMode) {
+        if (unique) {
+            return LockMode.X;
+        }
+        if (nextKeyLockMode == LockMode.S
+                || nextKeyLockMode == LockMode.X
+                || nextKeyLockMode == LockMode.SIX) {
+            return LockMode.X;
+        }
+        return LockMode.IX;
     }
 
     /** {@inheritDoc} */
