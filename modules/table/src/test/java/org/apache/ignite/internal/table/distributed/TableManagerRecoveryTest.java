@@ -166,8 +166,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private TransactionConfiguration txConfig;
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
-    @WorkDirectory
-    private Path workDir;
 
     // Table manager dependencies.
     private SchemaManager sm;
