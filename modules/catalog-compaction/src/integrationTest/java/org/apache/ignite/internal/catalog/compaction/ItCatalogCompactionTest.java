@@ -141,10 +141,14 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
-        InternalTransaction tx1 = (InternalTransaction) node0.transactions().begin();
-        InternalTransaction tx2 = (InternalTransaction) node1.transactions().begin();
+        InternalTransaction tx1 = startRwTxWithStartTimeNotLessThan(node0, node0.clock().now());
+        InternalTransaction tx2 = startRwTxWithStartTimeNotLessThan(node1, tx1.startTimestamp());
         InternalTransaction readonlyTx = (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
-        InternalTransaction tx3 = (InternalTransaction) node2.transactions().begin();
+        InternalTransaction tx3 = startRwTxWithStartTimeNotLessThan(node2, tx2.startTimestamp());
+
+        // make sure that transactions are ordered as expected
+        assertThat(tx2.startTimestamp().longValue(), greaterThan(tx1.startTimestamp().longValue()));
+        assertThat(tx3.startTimestamp().longValue(), greaterThan(tx2.startTimestamp().longValue()));
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
@@ -248,5 +252,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expectedTimestamp.longValue()));
             }
         }
+    }
+
+    private static InternalTransaction startRwTxWithStartTimeNotLessThan(IgniteImpl ignite, HybridTimestamp timestamp) {
+        ignite.clock().update(timestamp);
+
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin();
+
+        assertThat(tx.startTimestamp().longValue(), greaterThan(timestamp.longValue()));
+
+        return tx; 
     }
 }
