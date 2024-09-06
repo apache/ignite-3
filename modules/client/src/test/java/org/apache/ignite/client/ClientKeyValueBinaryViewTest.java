@@ -349,7 +349,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         assertNotNull(nullVal);
         assertNotNull(nullVal.get());
-        assertEquals(DEFAULT_ID, nullVal.get().longValue("id"));
+        assertEquals(1, nullVal.get().columnCount());
+        assertNull(nullVal.get().value(0));
         assertNull(nullVal.get().stringValue("name"));
     }
 
@@ -370,7 +371,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         assertNotNull(nullVal);
         assertNotNull(nullVal.get());
-        assertEquals(DEFAULT_ID, nullVal.get().longValue("id"));
+        assertEquals(1, nullVal.get().columnCount());
+        assertNull(nullVal.get().value(0));
         assertNull(nullVal.get().stringValue("name"));
 
         Tuple val = kvView.get(null, existingKey);
@@ -394,7 +396,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         assertNotNull(nullVal);
         assertNotNull(nullVal.get());
-        assertEquals(DEFAULT_ID, nullVal.get().longValue("id"));
+        assertEquals(1, nullVal.get().columnCount());
+        assertNull(nullVal.get().value(0));
         assertNull(nullVal.get().stringValue("name"));
 
         assertNull(kvView.get(null, existingKey));
@@ -417,7 +420,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         assertNotNull(nullVal);
         assertNotNull(nullVal.get());
-        assertEquals(DEFAULT_ID, nullVal.get().longValue("id"));
+        assertEquals(1, nullVal.get().columnCount());
+        assertNull(nullVal.get().value(0));
         assertNull(nullVal.get().stringValue("name"));
 
         Tuple val = kvView.get(null, existingKey);
