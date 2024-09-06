@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -134,7 +133,7 @@ public class MockNode {
                 new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier(UUID.randomUUID())),
+                new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier()),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
                 clusterIdHolder,

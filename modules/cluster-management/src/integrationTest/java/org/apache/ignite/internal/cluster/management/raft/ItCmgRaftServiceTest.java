@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -121,7 +120,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier(UUID.randomUUID()));
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
         }
 
         void start() {
