@@ -21,8 +21,8 @@ dropped versions of the catalog are no longer needed by any component in the clu
 
 ## Compaction restrictions
 
-1. Catalog must not be compacted by version which activation time is greater than or equal to earliest
-   active transaction in the cluster.
+1. Catalog compaction can be performed up to the highest version (excluding) which activation time is less 
+   or equal to the earliest active transaction begin timestamp.
 2. Catalog must not be compacted by version which can be required to replay the raft log during recovery.
 3. Index building is stick with a specific catalog version. This version cannot be truncated until
    the index build is complete.
