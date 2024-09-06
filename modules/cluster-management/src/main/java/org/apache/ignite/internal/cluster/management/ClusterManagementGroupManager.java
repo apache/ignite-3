@@ -369,7 +369,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         return destroyCmgWithEvents()
                 .thenCompose(unused -> {
-                    if (resetClusterMessage.cmgNodes().contains(clusterService.nodeName())) {
+                    if (resetClusterMessage.newCmgNodes().contains(clusterService.nodeName())) {
                         return doReinit(resetClusterMessage);
                     } else {
                         // Let's just wait for new CMG nodes to establish a majority and send us an invitation to join.
@@ -386,7 +386,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         synchronized (raftServiceLock) {
             // Disaster recovery means that the Repair Conductor has ensured the cluster was initialized,
             // so we can just pass null as initialClusterConfig.
-            serviceFuture = startCmgRaftServiceWithEvents(resetClusterMessage.cmgNodes(), null);
+            serviceFuture = startCmgRaftServiceWithEvents(resetClusterMessage.newCmgNodes(), null);
             raftService = serviceFuture;
         }
 
@@ -405,8 +405,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private CmgInitMessage cmgInitMessageFromResetClusterMessage(ResetClusterMessage resetClusterMessage) {
         return msgFactory.cmgInitMessage()
-                .cmgNodes(resetClusterMessage.cmgNodes())
-                .metaStorageNodes(resetClusterMessage.metaStorageNodes())
+                .cmgNodes(resetClusterMessage.newCmgNodes())
+                .metaStorageNodes(resetClusterMessage.currentMetaStorageNodes())
                 .clusterName(resetClusterMessage.clusterName())
                 .clusterId(resetClusterMessage.clusterId())
                 .initialClusterConfiguration(resetClusterMessage.initialClusterConfiguration())
