@@ -53,6 +53,14 @@ public class ConnectSuccessCall {
         this.clientFactory = clientFactory;
     }
 
+    /**
+     * Executes a series of steps after successful connection to the node. Sets a last connected config property, publishes an event,
+     * optionally checks whether the cluster is initialized or not and returns a message indicating a success.
+     *
+     * @param sessionInfo Session details.
+     * @param checkClusterInit If {@code true}, the method will call a REST API to check if the cluster is initialized.
+     * @return Call output with the message string.
+     */
     public CallOutput<String> execute(SessionInfo sessionInfo, boolean checkClusterInit) {
         stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), sessionInfo.nodeUrl());
 
