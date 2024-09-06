@@ -17,25 +17,21 @@
 
 package org.apache.ignite.internal.disaster.system.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message Group for disaster recovery of system groups.
+ * Response to {@link MetastorageIndexTermRequestMessage}.
  */
-@MessageGroup(groupType = 15, groupName = "SystemDisasterRecoveryMessages")
-public class SystemDisasterRecoveryMessageGroup {
+@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_RESPONSE)
+public interface MetastorageIndexTermResponseMessage extends NetworkMessage {
     /**
-     * Message type for {@link ResetClusterMessage}.
+     * Returns Raft index of the Metastorage group on the sender of this message.
      */
-    public static final short RESET_CLUSTER = 1;
+    long raftIndex();
 
     /**
-     * Message type for {@link MetastorageIndexTermRequestMessage}.
+     * Returns term corresponding to the Raft index of the Metastorage group on the sender of this message.
      */
-    public static final short METASTORAGE_INDEX_TERM_REQUEST = 2;
-
-    /**
-     * Message type for {@link MetastorageIndexTermResponseMessage}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
+    long raftTerm();
 }

@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -107,6 +109,14 @@ public interface RaftServer extends IgniteComponent {
      * @param groupOptions Options for this group.
      */
     void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions);
+
+    /**
+     * Returns information about index and term of the given node, or {@code null} if the group is not started.
+     *
+     * @param nodeId ID of the Raft node.
+     * @param groupOptions Options for this group.
+     */
+    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId, RaftGroupOptions groupOptions);
 
     /**
      * Returns local nodes running the given Raft group.
