@@ -29,6 +29,7 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;import java.util.List;
 import java.util.Map;
@@ -328,12 +329,10 @@ public class StripedDisruptor<T extends INodeIdAware> {
      * Event handler for stripe of the Striped disruptor. It routes an event to the event handler for a group.
      */
     private class StripeEntryHandler implements EventHandler<T> {
+        // TODO enummap.
         private final Map<NodeId, Map<DisruptorEventSourceType, EventHandler<T>>> subscribers = new HashMap<>();
 
-        /** The cache is used to correct handling the disruptor batch. */
-        private final Map<NodeId, T> eventCache = new HashMap<>();
-
-        private final List<T> eventCache2 = new ArrayList<>();
+        private final List<T> eventCache = new ArrayList<>();
 
         /** Current batch sizes. */
         private final Map<NodeId, Integer> currentBatchSizes = new HashMap<>();
@@ -383,7 +382,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             } else {
                 //internalBatching(event, sequence);
-                eventCache2.add(event);
+                eventCache.add(event);
 
                 if (endOfBatch) {
                      consumeBatch(event.nodeId(), sequence);
@@ -397,7 +396,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
 
             HashSet<T> endOfB = new HashSet<>();
 
-            for (T t : eventCache2) {
+            for (T t : eventCache) {
                 NodeId nodeId1 = t.nodeId();
 
                 // Batch log events from different nodes.
@@ -441,7 +440,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             }
 
-            for (T t : eventCache2) {
+            for (T t : eventCache) {
                 EventHandler<T> grpHandler = subscribers.get(nodeId).get(t.getSrcType());
 
                 if (grpHandler != null) {
@@ -449,41 +448,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             }
 
-            eventCache2.clear();
-        }
-
-
-        /**
-         * Processes the event with intermediate cache to batch internally for each subscriber for the stripe.
-         *
-         * @param event Disruptor event to process.
-         * @param sequence Number in the sequence of the element.
-         * @throws Exception Throw when some handler fails.
-         */
-        private void internalBatching(T event, long sequence) throws Exception {
-            NodeId pushNodeId = sharedStripe ? FAKE_NODE_ID : event.nodeId();
-
-            T prevEvent = eventCache.put(pushNodeId, event);
-
-            if (prevEvent != null) {
-                EventHandler<T> grpHandler = subscribers.get(prevEvent.nodeId()).get(event.getSrcType());
-
-                if (grpHandler != null) {
-                    if (metrics != null && metrics.enabled()) {
-                        metrics.hitToStripe(stripeId);
-
-                        currentBatchSizes.compute(pushNodeId, (nodeId, cnt) -> {
-                            if (cnt == null) {
-                                return 1;
-                            }
-
-                            return cnt + 1;
-                        });
-                    }
-
-                    grpHandler.onEvent(prevEvent, sequence, false);
-                }
-            }
+            eventCache.clear();
         }
     }
 
