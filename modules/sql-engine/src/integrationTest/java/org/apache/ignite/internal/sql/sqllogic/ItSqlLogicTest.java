@@ -348,6 +348,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
         for (IgniteServer node : nodes) {
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+            NODES.add(node);
 
             IgniteImpl ignite = unwrapIgniteImpl(node.api());
             CLUSTER_NODES.add(ignite);
