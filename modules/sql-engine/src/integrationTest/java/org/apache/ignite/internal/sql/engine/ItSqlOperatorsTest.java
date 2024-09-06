@@ -102,7 +102,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testAggregates() {
         assertExpression("COUNT(*)").returns(1L).check();
         assertExpression("SUM(val)").returns(1L).check();
-        assertExpression("AVG(val)").returns(1).check();
+        assertExpression("AVG(val)").returns(new BigDecimal("1.0000000000000000")).check();
         assertExpression("MIN(val)").returns(1).check();
         assertExpression("MAX(val)").returns(1).check();
         assertExpression("ANY_VALUE(val)").returns(1).check();

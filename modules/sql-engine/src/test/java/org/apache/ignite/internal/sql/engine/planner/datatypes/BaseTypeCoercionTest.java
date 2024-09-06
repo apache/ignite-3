@@ -76,6 +76,16 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         assertThat("There are duplicate pairs. Remove them", usedPairs, Matchers.empty());
     }
 
+    static IgniteSchema createSchemaWithSingleColumnTable(NativeType c1) {
+        return createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", c1)
+                        .build()
+        );
+    }
+
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
         return createSchema(
                 TestBuilders.table()
@@ -226,6 +236,25 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         Arguments secondOpBeSame() {
             return Arguments.of(pair, firstOpMatcher, ofTypeWithoutCast(pair.second()));
+        }
+    }
+
+    static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
+        return new SingleArgFunctionReturnTypeCheckBuilder(type);
+    }
+
+    /**
+     * Not really a builder, but provides DSL-like API to describe test case.
+     */
+    static class SingleArgFunctionReturnTypeCheckBuilder {
+        private final NativeType argumentType;
+
+        private SingleArgFunctionReturnTypeCheckBuilder(NativeType type) {
+            this.argumentType = type;
+        }
+
+        Arguments resultWillBe(NativeType returnType) {
+            return Arguments.of(argumentType, returnType);
         }
     }
 
