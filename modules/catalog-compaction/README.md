@@ -31,10 +31,9 @@ dropped versions of the catalog are no longer needed by any component in the clu
 
 ## Coordinator
 
-Compaction is performed from single node called compaction coordinator.
-To simplify the selection of the coordinator, it was decided to consider it to be the same node 
-as the leader of the metastorage group.
-Therefore, when the metastorage group leader changes, the compaction coordinator also changes.
+Compaction is performed from single node (compaction coordinator) which is the leader
+of the metastorage group for simplicity. Therefore, when the metastorage group leader
+changes, the compaction coordinator also changes.
 
 The [ElectionListener](../metastorage/src/main/java/org/apache/ignite/internal/metastorage/impl/ElectionListener.java)
 interface was introduced to listen for metastore leader elections.
@@ -48,20 +47,17 @@ The process is initiated by one of the following events:
 
 ## Overall process description
 
-When compaction is triggered, two parallel processes are started
+When compaction is triggered, two processes are started in parallel
 
 - The first process (let's call it "**replicas update**") updates all replication groups
   with determined minimum begin time among all active RW transactions in the cluster.
   This time will be used by compaction process (see below) to comply with the restriction
   about raft log recovery.
 - The second one ("**compaction**") determines the minimum required version of the catalog
-  and performs compaction.
+  and performs compaction. At each iteration, it uses the result of the replica update
+  process calculated at one of the previous iterations.
 
-![Replicas update](tech-notes/processes.png) 
-
-> **_NOTE_** Even though the compaction process depends on the result of the replicas
-update process, they are executed in parallel, so the compaction in the current iteration
-will see the result of the replicas update process obtained in one of the previous iterations.
+![Replicas update](tech-notes/processes.png)
 
 ### Replicas update process
 
