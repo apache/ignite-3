@@ -98,21 +98,34 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     public interface IApplyTask extends INodeIdAware {
-public TaskType getType();
-public void setType(TaskType type);
-public long getCommittedIndex();
-public void setCommittedIndex(long committedIndex);
-public long getTerm();
-public void setTerm(long term);
-public Status getStatus();
-public void setStatus(Status status);
-public LeaderChangeContext getLeaderChangeCtx();
-public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx);
-public Closure getDone();
-public void setDone(Closure done);
-public CountDownLatch getShutdownLatch();
-public void setShutdownLatch(CountDownLatch shutdownLatch);
-}
+        public TaskType getType();
+
+        public void setType(TaskType type);
+
+        public long getCommittedIndex();
+
+        public void setCommittedIndex(long committedIndex);
+
+        public long getTerm();
+
+        public void setTerm(long term);
+
+        public Status getStatus();
+
+        public void setStatus(Status status);
+
+        public LeaderChangeContext getLeaderChangeCtx();
+
+        public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx);
+
+        public Closure getDone();
+
+        public void setDone(Closure done);
+
+        public CountDownLatch getShutdownLatch();
+
+        public void setShutdownLatch(CountDownLatch shutdownLatch);
+    }
     /**
      * Apply task for disruptor.
      */
@@ -126,48 +139,75 @@ public void setShutdownLatch(CountDownLatch shutdownLatch);
         Closure done;
         private CountDownLatch shutdownLatch;
 
-@Override public TaskType getType() {
-    return type;
-}
-@Override public void setType(TaskType type) {
-    this.type = type;
-}
-@Override public long getCommittedIndex() {
-    return committedIndex;
-}
-@Override public void setCommittedIndex(long committedIndex) {
-    this.committedIndex = committedIndex;
-}
-@Override public long getTerm() {
-    return term;
-}
-@Override public void setTerm(long term) {
-    this.term = term;
-}
-@Override public Status getStatus() {
-    return status;
-}
-@Override public void setStatus(Status status) {
-    this.status = status;
-}
-@Override public LeaderChangeContext getLeaderChangeCtx() {
-    return leaderChangeCtx;
-}
-@Override public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx) {
-    this.leaderChangeCtx = leaderChangeCtx;
-}
-@Override public Closure getDone() {
-    return done;
-}
-@Override public void setDone(Closure done) {
-    this.done = done;
-}
-@Override public CountDownLatch getShutdownLatch() {
-    return shutdownLatch;
-}
-@Override public void setShutdownLatch(CountDownLatch shutdownLatch) {
-    this.shutdownLatch = shutdownLatch;
-}
+        @Override
+        public TaskType getType() {
+            return type;
+        }
+
+        @Override
+        public void setType(TaskType type) {
+            this.type = type;
+        }
+
+        @Override
+        public long getCommittedIndex() {
+            return committedIndex;
+        }
+
+        @Override
+        public void setCommittedIndex(long committedIndex) {
+            this.committedIndex = committedIndex;
+        }
+
+        @Override
+        public long getTerm() {
+            return term;
+        }
+
+        @Override
+        public void setTerm(long term) {
+            this.term = term;
+        }
+
+        @Override
+        public Status getStatus() {
+            return status;
+        }
+
+        @Override
+        public void setStatus(Status status) {
+            this.status = status;
+        }
+
+        @Override
+        public LeaderChangeContext getLeaderChangeCtx() {
+            return leaderChangeCtx;
+        }
+
+        @Override
+        public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx) {
+            this.leaderChangeCtx = leaderChangeCtx;
+        }
+
+        @Override
+        public Closure getDone() {
+            return done;
+        }
+
+        @Override
+        public void setDone(Closure done) {
+            this.done = done;
+        }
+
+        @Override
+        public CountDownLatch getShutdownLatch() {
+            return shutdownLatch;
+        }
+
+        @Override
+        public void setShutdownLatch(CountDownLatch shutdownLatch) {
+            this.shutdownLatch = shutdownLatch;
+        }
 
         @Override
         public void reset() {

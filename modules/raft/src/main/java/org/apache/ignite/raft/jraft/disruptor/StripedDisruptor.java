@@ -30,9 +30,9 @@ import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map.Entry;import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -333,7 +333,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
         /** The cache is used to correct handling the disruptor batch. */
         private final Map<NodeId, T> eventCache = new HashMap<>();
 
-        private final Map<NodeId, List<T>> eventCache2 = new HashMap<>();
+        private final List<T> eventCache2 = new ArrayList<>();
 
         /** Current batch sizes. */
         private final Map<NodeId, Integer> currentBatchSizes = new HashMap<>();
@@ -383,76 +383,73 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             } else {
                 //internalBatching(event, sequence);
-                eventCache2.compute(event.nodeId(), (k, v) -> {
-                    if (v == null) {
-                        v = new ArrayList<>(); // Use Avg batch size TODO.
-                    }
-
-                    v.add(event);
-
-                    return v;
-                });
+                eventCache2.add(event);
 
                 if (endOfBatch) {
                      consumeBatch(event.nodeId(), sequence);
                 }
-
-//                                EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(event.getSrcType());
-//
-//                                                    if (grpHandler != null) {
-//                                                        grpHandler.onEvent(event, sequence, true);
-//                                                    }
-
             }
-
-//            if (endOfBatch) {
-//                for (Map.Entry<NodeId, T> grpEvent : eventCache.entrySet()) {
-//                    EventHandler<T> grpHandler = subscribers.get(grpEvent.getValue().nodeId());
-//
-//                    if (grpHandler != null) {
-//                        if (metrics != null && metrics.enabled()) {
-//                            metrics.hitToStripe(stripeId);
-//
-//                            metrics.addBatchSize(currentBatchSizes.getOrDefault(grpEvent.getKey(), 0) + 1);
-//                        }
-//
-//                        grpHandler.onEvent(grpEvent.getValue(), sequence, true);
-//                    }
-//                }
-//
-//                currentBatchSizes.clear();
-//                eventCache.clear();
-//            }
         }
 
         private void consumeBatch(NodeId nodeId, long sequence) throws Exception {
-            List<T> cached = eventCache2.get(nodeId);
-                            if (cached != null) {
-                                                for (int i = 0; i < cached.size(); i++) {
-                                                    T t = cached.get(i);
+            // Calculate end of batch state.
+            Map<NodeId, List<T>> perNodeOrderMap = new HashMap<>();
 
-                                                    // assert t.nodeId().equals(event.nodeId());
+            HashSet<T> endOfB = new HashSet<>();
 
-                                                    boolean endB = true;
+            for (T t : eventCache2) {
+                NodeId nodeId1 = t.nodeId();
 
-                                                    if (i < cached.size() - 1) {
-                                                        T next = cached.get(i + 1);
+                // Batch log events from different nodes.
+                if (t.getSrcType() == DisruptorEventSourceType.LOG) {
+                    nodeId1 = FAKE_NODE_ID;
+                }
 
-                                                        // Batch events of same class.
-                                                        if (next.getSrcType() == t.getSrcType()) {
-                                                            endB = false;
-                                                        }
-                                                    }
+                perNodeOrderMap.compute(nodeId1, (k, v) -> {
+                    if (v == null) {
+                        v = new ArrayList<>();
+                    }
 
-                                                    EventHandler<T> grpHandler = subscribers.get(nodeId).get(t.getSrcType());
+                    v.add(t);
 
-                                                    if (grpHandler != null) {
-                                                        grpHandler.onEvent(t, sequence, endB);
-                                                    }
-                                                }
+                    return v;
+                });
+            }
 
-                                                cached.clear();
-                                            }
+            for (Entry<NodeId, List<T>> entry : perNodeOrderMap.entrySet()) {
+                if (entry.getKey().equals(FAKE_NODE_ID)) {
+                    endOfB.add(entry.getValue().get(entry.getValue().size() - 1));
+                } else {
+                    List<T> value = entry.getValue();
+                    for (int i = 0; i < value.size(); i++) {
+                        T t = value.get(i);
+                        boolean endB = true;
+
+                        if (i < value.size() - 1) {
+                            T next = value.get(i + 1);
+
+                            // Batch events of same class.
+                            if (next.getSrcType() == t.getSrcType()) {
+                                endB = false;
+                            }
+                        }
+
+                        if (endB) {
+                            endOfB.add(t);
+                        }
+                    }
+                }
+            }
+
+            for (T t : eventCache2) {
+                EventHandler<T> grpHandler = subscribers.get(nodeId).get(t.getSrcType());
+
+                if (grpHandler != null) {
+                    grpHandler.onEvent(t, sequence, endOfB.contains(t));
+                }
+            }
+
+            eventCache2.clear();
         }
 
 
