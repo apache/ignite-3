@@ -40,57 +40,57 @@ public interface IgniteResource {
     IgniteResource INSTANCE = Resources.create(IgniteResource.class);
 
     @BaseMessage("Illegal alias. {0} is reserved name")
-    Resources.ExInst<SqlValidatorException> illegalAlias(String a0);
+    ExInst<SqlValidatorException> illegalAlias(String a0);
 
     @BaseMessage("Cannot update field \"{0}\". Primary key columns are not modifiable")
-    Resources.ExInst<SqlValidatorException> cannotUpdateField(String field);
+    ExInst<SqlValidatorException> cannotUpdateField(String field);
 
     @BaseMessage("Illegal aggregate function. {0} is unsupported at the moment")
-    Resources.ExInst<SqlValidatorException> unsupportedAggregationFunction(String a0);
+    ExInst<SqlValidatorException> unsupportedAggregationFunction(String a0);
 
     @BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ")")
-    Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
+    ExInst<SqlValidatorException> correctIntegerLimit(String a0);
 
     @BaseMessage("Invalid decimal literal")
-    Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
+    ExInst<SqlValidatorException> decimalLiteralInvalid();
 
     @BaseMessage
             ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast")
-    Resources.ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
+    ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
 
     @BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast")
-    Resources.ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
+    ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
 
     @BaseMessage("System view {0} is not modifiable")
     ExInst<SqlValidatorException> systemViewIsNotModifiable(String systemViewName);
 
     @BaseMessage("Ambiguous operator {0}. Dynamic parameter requires adding explicit type cast")
-    Resources.ExInst<SqlValidatorException> ambiguousOperator1(String signature);
+    ExInst<SqlValidatorException> ambiguousOperator1(String signature);
 
     @BaseMessage("Ambiguous operator {0}. Dynamic parameter requires adding explicit type cast. Supported form(s): \n{1}")
-    Resources.ExInst<SqlValidatorException> ambiguousOperator2(String signature, String allowedSignatures);
+    ExInst<SqlValidatorException> ambiguousOperator2(String signature, String allowedSignatures);
 
     @BaseMessage("Unable to determine type of a dynamic parameter. Dynamic parameter requires adding explicit type cast")
-    Resources.ExInst<SqlValidatorException> unableToResolveDynamicParameterType();
+    ExInst<SqlValidatorException> unableToResolveDynamicParameterType();
 
     @BaseMessage("Incorrect type of a dynamic parameter. Expected <{0}> but got <{1}>")
-    Resources.ExInst<SqlValidatorException> incorrectDynamicParameterType(String expected, String actual);
+    ExInst<SqlValidatorException> incorrectDynamicParameterType(String expected, String actual);
 
     @BaseMessage("Expression is not supported: {0}")
-    Resources.ExInst<SqlValidatorException> unsupportedExpression(String exprType);
+    ExInst<SqlValidatorException> unsupportedExpression(String exprType);
 
     @BaseMessage("CHAR datatype is not supported in table")
-    Resources.ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
+    ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
     @BaseMessage("Length for type {0} must be at least 1")
-    Resources.ExInst<SqlValidatorException> invalidStringLength(String typeName);
+    ExInst<SqlValidatorException> invalidStringLength(String typeName);
 
     @BaseMessage("Column N#{0} matched using NATURAL keyword or USING clause "
             + "has incompatible types in this context: ''{1}'' to ''{2}''")
-    Resources.ExInst<SqlValidatorException> naturalOrUsingColumnNotCompatible(int num, String type1, String type2);
+    ExInst<SqlValidatorException> naturalOrUsingColumnNotCompatible(int num, String type1, String type2);
 
     @BaseMessage("Cannot apply ''{0}'' to arguments of type {1}.")
     ExInst<SqlValidatorException> canNotApplyOp2Type(String a0, String a1);
