@@ -781,8 +781,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     .startRaftGroupNodeAndWaitNodeReadyFuture(
                             raftNodeId(serverPeer),
                             raftConfiguration,
-                            new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
-                                    this::onLogicalTopologyChanged),
+                            new CmgRaftGroupListener(
+                                    clusterStateStorageMgr,
+                                    logicalTopology,
+                                    validationManager,
+                                    this::onLogicalTopologyChanged
+                            ),
                             this::onElectedAsLeader,
                             raftGroupOptionsConfigurer
                     )
