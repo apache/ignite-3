@@ -512,7 +512,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 pkIndexId,
                 new TestHashIndexStorage(
                         PART_ID,
-                        new StorageHashIndexDescriptor(pkIndexId, List.of(), true)
+                        new StorageHashIndexDescriptor(pkIndexId, List.of(), false)
                 ),
                 row2Tuple
         ));
