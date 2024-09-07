@@ -21,7 +21,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message for starting repair of Metastorage on the recipient node.
+ * Message for retrieving index+term of the Metastorage Raft group on the recipient node.
  */
 @Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_REQUEST)
 public interface MetastorageIndexTermRequestMessage extends NetworkMessage {
