@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
@@ -28,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -856,19 +856,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * future will be completed after the component start.
      */
     public CompletableFuture<IndexWithTerm> raftNodeIndex() {
-        return raftNodeStarted.thenCompose(unused -> inBusyLock(busyLock, () -> {
+        return raftNodeStarted.thenApply(unused -> inBusyLock(busyLock, () -> {
             RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
 
             IndexWithTerm indexWithTerm;
             try {
                 indexWithTerm = raftMgr.raftNodeIndex(nodeId, raftGroupOptionsConfigurer);
             } catch (NodeStoppingException e) {
-                return failedFuture(e);
+                throw new CompletionException(e);
             }
 
             assert indexWithTerm != null : "Attempt to get index and term when Raft node is not started yet or already stopped)";
 
-            return completedFuture(indexWithTerm);
+            return indexWithTerm;
         }));
     }
 
