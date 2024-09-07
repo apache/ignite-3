@@ -194,9 +194,7 @@ public interface RaftManager extends IgniteComponent {
      * Returns information about index and term of the given node, or {@code null} if the group is not started.
      *
      * @param nodeId ID of the Raft node.
-     * @param raftGroupOptionsConfigurer Group options configurer.
      * @throws NodeStoppingException If the node is already being stopped.
      */
-    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
-            throws NodeStoppingException;
+    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) throws NodeStoppingException;
 }

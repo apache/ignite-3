@@ -861,7 +861,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
             IndexWithTerm indexWithTerm;
             try {
-                indexWithTerm = raftMgr.raftNodeIndex(nodeId, raftGroupOptionsConfigurer);
+                indexWithTerm = raftMgr.raftNodeIndex(nodeId);
             } catch (NodeStoppingException e) {
                 throw new CompletionException(e);
             }

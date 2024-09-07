@@ -114,9 +114,8 @@ public interface RaftServer extends IgniteComponent {
      * Returns information about index and term of the given node, or {@code null} if the group is not started.
      *
      * @param nodeId ID of the Raft node.
-     * @param groupOptions Options for this group.
      */
-    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId, RaftGroupOptions groupOptions);
+    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId);
 
     /**
      * Returns local nodes running the given Raft group.

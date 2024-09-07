@@ -580,7 +580,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     @Override
-    public @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+    public @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) {
         RaftGroupService service = nodes.get(nodeId);
 
         if (service == null) {
