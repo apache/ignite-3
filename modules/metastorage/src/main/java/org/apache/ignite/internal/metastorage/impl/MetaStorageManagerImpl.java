@@ -295,13 +295,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
             var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
-            CompletableFuture<? extends RaftGroupService> raftNodeStartedFuture = metaStorageNodes.contains(thisNodeName)
+            CompletableFuture<? extends RaftGroupService> raftServiceFuture = metaStorageNodes.contains(thisNodeName)
                     ? startFollowerNode(metaStorageNodes, disruptorConfig)
                     : startLearnerNode(metaStorageNodes, disruptorConfig);
 
             raftNodeStarted.complete(null);
 
-            return raftNodeStartedFuture
+            return raftServiceFuture
                     .thenApply(raftService -> new MetaStorageServiceImpl(
                             thisNodeName,
                             raftService,
