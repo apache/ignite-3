@@ -46,7 +46,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -99,7 +98,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        topology = new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier(UUID.randomUUID()));
+        topology = new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier());
 
         topology.addEventListener(listener);
     }

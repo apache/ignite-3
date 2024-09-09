@@ -15,35 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.disaster.system.message;
 
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Always returns the same cluster ID fixed at construction.
+ * Message for retrieving index+term of the Metastorage Raft group on the recipient node.
  */
-public class ConstantClusterIdSupplier implements ClusterIdSupplier {
-    @Nullable
-    private final UUID clusterId;
-
-    /**
-     * Returns a supplier that never has any cluster ID (always returns {@code null}).
-     */
-    public static ClusterIdSupplier withoutClusterId() {
-        return new ConstantClusterIdSupplier(null);
-    }
-
-    public ConstantClusterIdSupplier() {
-        this(new UUID(1, 1));
-    }
-
-    public ConstantClusterIdSupplier(@Nullable UUID clusterId) {
-        this.clusterId = clusterId;
-    }
-
-    @Override
-    public @Nullable UUID clusterId() {
-        return clusterId;
-    }
+@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_REQUEST)
+public interface MetastorageIndexTermRequestMessage extends NetworkMessage {
 }

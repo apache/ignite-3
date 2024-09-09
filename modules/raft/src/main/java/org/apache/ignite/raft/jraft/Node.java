@@ -22,7 +22,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.State;
-import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.LogId;import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
@@ -328,4 +328,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Returns the value of last replicated log index. Corresponding log entry might not yet be written to the log storage (no flush).
      */
     long lastLogIndex();
+
+    /**
+     * Returns the value of last replicated log index (with its term). Corresponding log entry might not yet be written to the log storage
+     * (no flush).
+     */
+    LogId lastLogIndexAndTerm();
 }

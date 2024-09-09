@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -103,7 +102,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.add(clusterStateStorage);
 
-        topology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier(UUID.randomUUID()));
+        topology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 

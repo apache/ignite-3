@@ -15,35 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
-
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.raft;
 
 /**
- * Always returns the same cluster ID fixed at construction.
+ * Raft index with the corresponding term.
  */
-public class ConstantClusterIdSupplier implements ClusterIdSupplier {
-    @Nullable
-    private final UUID clusterId;
+public class IndexWithTerm {
+    private final long index;
+    private final long term;
 
-    /**
-     * Returns a supplier that never has any cluster ID (always returns {@code null}).
-     */
-    public static ClusterIdSupplier withoutClusterId() {
-        return new ConstantClusterIdSupplier(null);
+    /** Constructor. */
+    public IndexWithTerm(long index, long term) {
+        this.index = index;
+        this.term = term;
     }
 
-    public ConstantClusterIdSupplier() {
-        this(new UUID(1, 1));
+    /** Returns the index. */
+    public long index() {
+        return index;
     }
 
-    public ConstantClusterIdSupplier(@Nullable UUID clusterId) {
-        this.clusterId = clusterId;
-    }
-
-    @Override
-    public @Nullable UUID clusterId() {
-        return clusterId;
+    /** Returns the term corresponding to the index. */
+    public long term() {
+        return term;
     }
 }
