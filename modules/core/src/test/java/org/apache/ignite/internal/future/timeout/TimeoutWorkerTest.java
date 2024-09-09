@@ -48,7 +48,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "1")
 public class TimeoutWorkerTest {
-    private IgniteLogger LOG = Loggers.forClass(TimeoutWorkerTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TimeoutWorkerTest.class);
 
     private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, Consumer<Throwable> throwableProcessor) {
         return new TimeoutWorker(LOG, "node", name, reqMap, true, throwableProcessor);
