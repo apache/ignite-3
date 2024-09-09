@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -33,9 +35,7 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -51,45 +51,54 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.Throughput)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
 
-    private AtomicInteger id = new AtomicInteger();
+    private final AtomicInteger id = new AtomicInteger();
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
-    @Param({"1", "4", "8"})
+    @Param({"1"})
     private int batch;
 
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"1", "8"})
+    @Param({"1"})
     private int partitionCount;
 
     @Override
     public void nodeSetUp() throws Exception {
+        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "false");
+
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         super.nodeSetUp();
-    }
 
-    /**
-     * Initializes the tuple.
-     */
-    @Setup
-    public void setUp() {
+        //igniteImpl.metricManager().enable("raft");
+
         kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
         for (int i = 1; i < 11; i++) {
             tuple.set("field" + i, FIELD_VAL);
         }
     }
 
-    @TearDown
-    public void tearDown() {
-        System.out.println("Inserted " + id.get() * batch + " tuples");
+    @Override
+    public void nodeTearDown() throws Exception {
+        MetricSet set = igniteImpl.metricManager().metricSnapshot().get1().get("raft");
+        DistributionMetric b = set.get("raft.shared.disruptor.Batch");
+
+        System.out.println(b);
+
+        DistributionMetric stripes = set.get("raft.shared.disruptor.Stripes");
+
+        System.out.println(stripes);
+
+        super.nodeTearDown();
+
+        System.out.println("Inserted " + (id.get() * batch) + " tuples");
     }
 
     /**
@@ -117,24 +126,6 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + UpsertKvBenchmark.class.getSimpleName() + ".*")
-                .jvmArgsAppend(
-                        "-ea",
-//                        "-Djmh.executor=VIRTUAL",
-//                        "-Djdk.virtualThreadScheduler.parallelism=1",
-//                        "-Djdk.virtualThreadScheduler.maxPoolSize=1",
-//                        "-Djdk.virtualThreadScheduler.minRunnable=1",
-                        "--add-opens=java.base/java.lang=ALL-UNNAMED",
-                        "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                        "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                        "--add-opens=java.base/java.io=ALL-UNNAMED",
-                        "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                        "--add-opens=java.base/java.math=ALL-UNNAMED",
-                        "--add-opens=java.base/java.util=ALL-UNNAMED",
-                        "--add-opens=java.base/java.time=ALL-UNNAMED",
-                        "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                        "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
-                        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-                        "--add-opens=java.base/sun.security.x509=ALL-UNNAMED")
                 .build();
 
         new Runner(opt).run();

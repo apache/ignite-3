@@ -50,6 +50,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -292,14 +293,13 @@ public class JraftServerImpl implements RaftServer {
             opts.setRaftMetrics(new RaftMetricSource(opts.getStripes(), opts.getLogStripesCount()));
         }
 
-        boolean useSharedDisruptor = true;
+        boolean useSharedDisruptor = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP);
 
         if (!useSharedDisruptor) {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
                 opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-FSMCaller-Disruptor",
-                        //(nodeName, stripeName) -> ThreadUtils.virtualWorkerFactory(IgniteThread.threadPrefix(nodeName, stripeName)),
                         (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ApplyTask::new,
@@ -314,7 +314,6 @@ public class JraftServerImpl implements RaftServer {
                 opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-NodeImpl-Disruptor",
-                        //(nodeName, stripeName) -> ThreadUtils.virtualWorkerFactory(IgniteThread.threadPrefix(nodeName, stripeName)),
                         (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         LogEntryAndClosure::new,
@@ -354,8 +353,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
-            // Virtual threads don't make sense for shared disruptor.
-            StripedDisruptor<SharedEvent> sharedDisruptor = new StripedDisruptor<>(
+            StripedDisruptor<SharedEvent> sharedDisruptor = opts.getfSMCallerExecutorDisruptor() == null ? new StripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
                     (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
@@ -365,24 +363,20 @@ public class JraftServerImpl implements RaftServer {
                     false,
                     false,
                     opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
-            );
+            ) : null;
 
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            if (sharedDisruptor != null) {
+                assert opts.getfSMCallerExecutorDisruptor() == null && opts.getLogManagerDisruptor() == null
+                        && opts.getNodeApplyDisruptor() == null : "Invalid configuration";
 
-            if (opts.getfSMCallerExecutorDisruptor() == null) {
                 opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
-            }
-
-            if (opts.getLogManagerDisruptor() == null) {
                 opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
-            }
-
-            if (opts.getNodeApplyDisruptor() == null) {
+                opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
                 opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
             }
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
-                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
+                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-ReadOnlyService-Disruptor",
                         opts.getRaftOptions().getDisruptorBufferSize(),

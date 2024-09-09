@@ -74,9 +74,6 @@ public class AbstractMultiNodeBenchmark {
     @Param({"false", "true"})
     private boolean fsync;
 
-    @Param({"1"})
-    private int partitionCount;
-
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
@@ -177,7 +174,7 @@ public class AbstractMultiNodeBenchmark {
      * @throws Exception In case of any error.
      */
     @TearDown
-    public final void nodeTearDown() throws Exception {
+    public void nodeTearDown() throws Exception {
         IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
@@ -253,7 +250,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected int partitionCount() {
-        return partitionCount;
+        return CatalogUtils.DEFAULT_PARTITION_COUNT;
     }
 
     protected int replicaCount() {

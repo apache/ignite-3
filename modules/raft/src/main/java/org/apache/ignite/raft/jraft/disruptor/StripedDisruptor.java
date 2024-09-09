@@ -244,6 +244,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
             if (stripeId == -1) {
                 stripeId = nextStripeToSubscribe();
                 stripeMapper.put(nodeId, stripeId);
+
+                LOG.info("Mapped {} to {}{}", nodeId.toString(), name, stripeId);
             }
 
             queues[stripeId].publishEvent((event, sequence) -> {
@@ -381,7 +383,6 @@ public class StripedDisruptor<T extends INodeIdAware> {
                     });
                 }
             } else {
-                //internalBatching(event, sequence);
                 eventCache.add(event);
 
                 if (endOfBatch) {
@@ -391,6 +392,12 @@ public class StripedDisruptor<T extends INodeIdAware> {
         }
 
         private void consumeBatch(NodeId nodeId, long sequence) throws Exception {
+            if (metrics != null && metrics.enabled()) {
+                metrics.hitToStripe(stripeId);
+
+                metrics.addBatchSize(eventCache.size());
+            }
+
             // Calculate end of batch state.
             Map<NodeId, List<T>> perNodeOrderMap = new HashMap<>();
 

@@ -143,6 +143,21 @@ public class RaftMetricSource implements MetricSource {
                         LongStream.range(0, logStripeCount).toArray()
                 ));
 
+        metrics.put("raft.shared.disruptor.Batch",
+                new DistributionMetric(
+                        "raft.shared.disruptor.Batch",
+                        "The histogram of the batch size",
+                        bounds
+                ));
+        metrics.put("raft.shared.disruptor.Stripes",
+                new DistributionMetric(
+                        "raft.shared.disruptor.Stripes",
+                        "The histogram of distribution data by stripes",
+                        LongStream.range(0, stripeCount).toArray()
+                ));
+
+        // TODO metrics for metadata event loops.
+
         return metrics;
     }
 
