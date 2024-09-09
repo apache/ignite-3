@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.sql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
@@ -39,8 +40,8 @@ public class SqlQueryResult {
      */
     public TerminalOutput getResult(boolean plain) {
         return () -> sqlQueryResultItems.stream()
-            .map(x -> x.getDecorator(plain).decorate(x.getData()).toTerminalString())
-            .reduce("", String::concat);
+            .map(x -> x.decorate(plain).toTerminalString())
+            .collect(Collectors.joining(""));
     }
 
     /**

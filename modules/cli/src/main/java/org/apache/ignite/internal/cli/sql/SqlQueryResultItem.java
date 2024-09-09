@@ -17,22 +17,16 @@
 
 package org.apache.ignite.internal.cli.sql;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 
 /**
  *  An object that represents a single item of the SQL query result.
  */
 interface SqlQueryResultItem<T> {
-
     /**
-     * Get the data of the item.
-     */
-    T getData();
-
-    /**
-     * Get the decorator of the item.
+     * Decorates the item.
      *
-     * @param plain a flag for plain formatting.
+     * @param plain Whether to use plain output.
      */
-    Decorator getDecorator(boolean plain);
+    TerminalOutput decorate(boolean plain);
 }

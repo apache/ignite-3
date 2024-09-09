@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.sql;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
@@ -33,12 +33,7 @@ class SqlQueryResultTable<T> implements SqlQueryResultItem<Table> {
     }
 
     @Override
-    public Table<T> getData() {
-        return table;
-    }
-
-    @Override
-    public Decorator getDecorator(boolean plain) {
-        return new TableDecorator(plain);
+    public TerminalOutput decorate(boolean plain) {
+        return new TableDecorator(plain).decorate(table);
     }
 }
