@@ -25,12 +25,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -79,6 +81,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final List<ElectionListener> electionListeners;
 
+    private final BooleanSupplier leaderSecondaryDutiesPaused;
+
     /**
      * Leader term if this node is a leader, {@code null} otherwise.
      *
@@ -94,7 +98,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             ClusterTimeImpl clusterTime,
             CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
-            List<ElectionListener> electionListeners
+            List<ElectionListener> electionListeners,
+            BooleanSupplier leaderSecondaryDutiesPaused
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
@@ -103,6 +108,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.clusterTime = clusterTime;
         this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
         this.electionListeners = electionListeners;
+        this.leaderSecondaryDutiesPaused = leaderSecondaryDutiesPaused;
     }
 
     @Override
@@ -120,7 +126,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 metaStorageSvcFut
                         .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
                             clusterTime.startSafeTimeScheduler(
-                                    safeTime -> service.syncTime(safeTime, term),
+                                    safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, term, service),
                                     metaStorageConfiguration
                             );
                         })
@@ -146,6 +152,18 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 serializationFuture = null;
             }
         }
+    }
+
+    private CompletableFuture<Void> syncTimeIfSecondaryDutiesAreNotPaused(
+            HybridTimestamp safeTime,
+            long term,
+            MetaStorageServiceImpl service
+    ) {
+        if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+            return nullCompletedFuture();
+        }
+
+        return service.syncTime(safeTime, term);
     }
 
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {
@@ -179,6 +197,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
      * Executes the given action if the current node is the Meta Storage leader.
      */
     private void execute(Action action) {
+        if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+            LOG.info("Skipping Meta Storage configuration update because the leader's secondary duties are paused");
+
+            return;
+        }
+
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping Meta Storage configuration update because the node is stopping");
 

@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.Collection;
 import java.util.List;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.IndexWithTerm;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -87,7 +90,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -144,6 +147,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     /** Gets completed when raft service is started. */
     private final CompletableFuture<Void> raftNodeStarted = new CompletableFuture<>();
+
+    /**
+     * Becomes {@code true} when the node, even being formally a leader, should not perform secondary leader duties (these are managing
+     * learners and propagating idle safe time through Metastorage).
+     *
+     * <p>The flag is raised when we appoint a node as a leader forcefully via resetPeers(). The flag gets cleared when first non-forced
+     * configuration update comes after forcing leadership.
+     */
+    private volatile boolean leaderSecondaryDutiesPaused = false;
 
     /**
      * The constructor.
@@ -353,7 +365,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                         // dependency between these two components.
                         deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
-                        electionListeners
+                        electionListeners,
+                        () -> leaderSecondaryDutiesPaused
                 )))
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -385,6 +398,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 disruptorConfig,
                 raftGroupOptionsConfigurer
         );
+    }
+
+    private RaftNodeId raftNodeId() {
+        return raftNodeId(new Peer(clusterService.nodeName()));
     }
 
     private static RaftNodeId raftNodeId(Peer localPeer) {
@@ -849,15 +866,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         return recoveryFinishedFuture;
     }
 
-    /**
-     * Returns a future that will be completed with information about index and term of the Metastorage Raft group.
-     *
-     * <p>This method is special in the following regard: it can be called before the component gets started. The returned
-     * future will be completed after the component start.
-     */
+    @Override
     public CompletableFuture<IndexWithTerm> raftNodeIndex() {
         return raftNodeStarted.thenApply(unused -> inBusyLock(busyLock, () -> {
-            RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
+            RaftNodeId nodeId = raftNodeId();
 
             IndexWithTerm indexWithTerm;
             try {
@@ -870,6 +882,24 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
             return indexWithTerm;
         }));
+    }
+
+    @Override
+    public CompletableFuture<Void> becomeLonelyLeader(boolean pauseLeaderSecondaryDuties) {
+        return inBusyLockAsync(busyLock, () -> {
+            leaderSecondaryDutiesPaused = pauseLeaderSecondaryDuties;
+
+            RaftNodeId raftNodeId = raftNodeId();
+            PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
+
+            ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+
+            assert metaStorageSvcFut.isDone() : "MetaStorageService is not ready yet; this instance doesn't look to be properly started";
+            RaftGroupService raftGroupService = metaStorageSvcFut.join().raftGroupService();
+
+            raftGroupService.updateConfiguration(newConfiguration);
+            return raftGroupService.refreshLeader();
+        });
     }
 
     @TestOnly
