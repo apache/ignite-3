@@ -38,7 +38,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     @Test
     void sequentialUpdates() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3)";
-        String expectedOutput = "Updated 1 rows." + System.lineSeparator()
+        String expectedOutput = "Updated 1 rows.\n"
                 + "Updated 2 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
@@ -54,22 +54,22 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     void sequentialSelects() {
         String testQuery = "select * from mytable order by id; insert into mytable(id) values(3); select * from mytable order by id;";
         String expectedOutput =
-                  "╔════╤═══════╗" + System.lineSeparator()
-                + "║ ID │ NAME  ║" + System.lineSeparator()
-                + "╠════╪═══════╣" + System.lineSeparator()
-                + "║ 1  │ Name1 ║" + System.lineSeparator()
-                + "╟────┼───────╢" + System.lineSeparator()
-                + "║ 2  │ Name2 ║" + System.lineSeparator()
-                + "╚════╧═══════╝" + System.lineSeparator()
-                + "Updated 1 rows." + System.lineSeparator()
-                + "╔════╤═══════╗" + System.lineSeparator()
-                + "║ ID │ NAME  ║" + System.lineSeparator()
-                + "╠════╪═══════╣" + System.lineSeparator()
-                + "║ 1  │ Name1 ║" + System.lineSeparator()
-                + "╟────┼───────╢" + System.lineSeparator()
-                + "║ 2  │ Name2 ║" + System.lineSeparator()
-                + "╟────┼───────╢" + System.lineSeparator()
-                + "║ 3  │ null  ║" + System.lineSeparator()
+                  "╔════╤═══════╗\n"
+                + "║ ID │ NAME  ║\n"
+                + "╠════╪═══════╣\n"
+                + "║ 1  │ Name1 ║\n"
+                + "╟────┼───────╢\n"
+                + "║ 2  │ Name2 ║\n"
+                + "╚════╧═══════╝\n"
+                + "Updated 1 rows.\n"
+                + "╔════╤═══════╗\n"
+                + "║ ID │ NAME  ║\n"
+                + "╠════╪═══════╣\n"
+                + "║ 1  │ Name1 ║\n"
+                + "╟────┼───────╢\n"
+                + "║ 2  │ Name2 ║\n"
+                + "╟────┼───────╢\n"
+                + "║ 3  │ null  ║\n"
                 + "╚════╧═══════╝";
 
         execute("sql", "insert into mytable(id, name) values (1, 'Name1'), (2, 'Name2')", "--jdbc-url", JDBC_URL);
@@ -86,8 +86,8 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     @Test
     void deleteAfterInserts() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3); delete from mytable;";
-        String expectedOutput = "Updated 1 rows." + System.lineSeparator()
-                + "Updated 2 rows." + System.lineSeparator()
+        String expectedOutput = "Updated 1 rows.\n"
+                + "Updated 2 rows.\n"
                 + "Updated 3 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
@@ -102,8 +102,8 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     @Test
     void updateAfterInserts() {
         String testQuery = "insert into mytable(id) values (1);insert into mytable(id) values (2), (3); update mytable set Name = 'Name1';";
-        String expectedOutput = "Updated 1 rows." + System.lineSeparator()
-                + "Updated 2 rows." + System.lineSeparator()
+        String expectedOutput = "Updated 1 rows.\n"
+                + "Updated 2 rows.\n"
                 + "Updated 3 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
@@ -118,7 +118,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     @Test
     void sequentialCreateTable() {
         String testQuery = "create table mytable1(id int primary key); create table mytable2(id int primary key)";
-        String expectedOutput = "Updated 0 rows." + System.lineSeparator()
+        String expectedOutput = "Updated 0 rows.\n"
                 + "Updated 0 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
@@ -137,11 +137,11 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     void singleSelect() {
         String testQuery = "select * from mytable";
         String expectedOutput =
-                  "╔════╤══════╗" + System.lineSeparator()
-                + "║ ID │ NAME ║" + System.lineSeparator()
-                + "╠════╧══════╣" + System.lineSeparator()
-                + "║ \\(empty\\)   ║" + System.lineSeparator()
-                + "╚═══════════╝\\s*$";
+                  "╔════╤══════╗\n"
+                + "║ ID │ NAME ║\n"
+                + "╠════╧══════╣\n"
+                + "║ \\(empty\\)   ║\n"
+                + "╚═══════════╝\n" + System.lineSeparator();
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
 
