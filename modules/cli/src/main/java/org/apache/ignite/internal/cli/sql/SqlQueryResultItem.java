@@ -22,7 +22,7 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 /**
  *  An object that represents a single item of the SQL query result.
  */
-interface SqlQueryResultItem<T> {
+interface SqlQueryResultItem {
     /**
      * Decorates the item.
      *

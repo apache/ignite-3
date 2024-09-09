@@ -54,7 +54,7 @@ public class SqlQueryResult {
          * Add table to query result.
          */
         void addTable(Table<String> table) {
-            sqlQueryResultItems.add(new SqlQueryResultTable<>(table));
+            sqlQueryResultItems.add(new SqlQueryResultTable(table));
         }
 
         /**

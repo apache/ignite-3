@@ -24,11 +24,11 @@ import org.apache.ignite.internal.cli.sql.table.Table;
 /**
  * A table in the SQL query result.
  */
-class SqlQueryResultTable<T> implements SqlQueryResultItem<Table> {
+class SqlQueryResultTable implements SqlQueryResultItem {
 
-    private final Table<T> table;
+    private final Table<String> table;
 
-    SqlQueryResultTable(Table<T> table) {
+    SqlQueryResultTable(Table<String> table) {
         this.table = table;
     }
 

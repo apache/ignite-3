@@ -23,7 +23,7 @@ import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 /**
  * A message in the SQL query result.
  */
-class SqlQueryResultMessage implements SqlQueryResultItem<String> {
+class SqlQueryResultMessage implements SqlQueryResultItem {
 
     private final String message;
 

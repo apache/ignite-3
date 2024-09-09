@@ -140,14 +140,14 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
                   "╔════╤══════╗\n"
                 + "║ ID │ NAME ║\n"
                 + "╠════╧══════╣\n"
-                + "║ \\(empty\\)   ║\n"
+                + "║ (empty)   ║\n"
                 + "╚═══════════╝\n" + System.lineSeparator();
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputMatches(expectedOutput),
+                () -> assertOutputIs(expectedOutput),
                 this::assertErrOutputIsEmpty
         );
     }
