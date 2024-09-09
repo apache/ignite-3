@@ -481,8 +481,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             }
             else if ((Nullable.GetUnderlyingType(expression.Type) ?? expression.Type) == typeof(decimal))
             {
-                // Use maximum scale and precision when casting to decimal (see CatalogUtils.MAX_DECIMAL_SCALE, MAX_DECIMAL_PRECISION).
-                ResultBuilder.Append(" as decimal(32767, 32767))");
+                // .NET decimal has 28-29 digit precision, Ignite CatalogUtils.MAX_DECIMAL_PRECISION = Short.MAX_VALUE = 32767.
+                // Use 30 to avoid rounding errors, but not greater to avoid performance issues.
+                ResultBuilder.Append(" as decimal(30))");
             }
             else
             {
