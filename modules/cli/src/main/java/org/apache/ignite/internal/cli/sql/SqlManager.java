@@ -57,12 +57,10 @@ public class SqlManager implements AutoCloseable {
                 ResultSet rs = statement.getResultSet();
                 if (rs != null) {
                     sqlQueryResultBuilder.addTable(Table.fromResultSet(rs));
-                    continue;
+                } else {
+                    int updateCount = statement.getUpdateCount();
+                    sqlQueryResultBuilder.addMessage(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
                 }
-
-                int updateCount = statement.getUpdateCount();
-                sqlQueryResultBuilder.addMessage(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
-
             } while (statement.getMoreResults() || statement.getUpdateCount() != -1);
 
             return sqlQueryResultBuilder.build();
