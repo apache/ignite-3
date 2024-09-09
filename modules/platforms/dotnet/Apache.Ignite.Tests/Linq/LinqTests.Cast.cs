@@ -40,7 +40,8 @@ public partial class LinqTests
                 Double = (double?)x.Val / 2000,
                 Decimal0 = (decimal?)x.Val / 200m
             })
-            .OrderByDescending(x => x.Long);
+            .OrderByDescending(x => x.Long)
+            .Take(1);
 
         var res = query.ToList();
 
@@ -49,10 +50,7 @@ public partial class LinqTests
         Assert.AreEqual(900, res[0].Long);
         Assert.AreEqual(900f / 1000, res[0].Float);
         Assert.AreEqual(900d / 2000, res[0].Double);
-
-        // TODO IGNITE-21743 Cast to decimal loses precision: "Expected: 4.5m But was: 5m"
-        // Assert.AreEqual(900m / 200, res[0].Decimal0);
-        Assert.AreEqual(5m, res[0].Decimal0);
+        Assert.AreEqual(900m / 200, res[0].Decimal0);
 
         StringAssert.Contains(
             "select cast((_T0.VAL / ?) as tinyint) as BYTE, " +
@@ -60,10 +58,28 @@ public partial class LinqTests
             "cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, " +
             "(cast(_T0.VAL as double) / ?) as DOUBLE, " +
-            "(cast(_T0.VAL as decimal) / ?) as DECIMAL0 " +
+            "(cast(_T0.VAL as decimal(30)) / ?) as DECIMAL0 " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
+    }
+
+    [Test]
+    public void TestCastToDecimalPrecision()
+    {
+        // ReSharper disable once RedundantCast
+        var query = PocoIntView.AsQueryable()
+            .Select(x => (decimal?)x.Val / 33m)
+            .OrderByDescending(x => x)
+            .Take(1);
+
+        var res = query.ToList();
+
+        // TODO IGNITE-23171 Sql. Result of division doesn't match derived type
+        // Assert.AreEqual(900m / 33m, res[0]);
+        Assert.AreEqual(27.27272727272727m, res[0]);
+
+        StringAssert.Contains("(cast(_T0.VAL as decimal(30)) / ?)", query.ToString());
     }
 
     [Test]
