@@ -491,7 +491,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 staleIdDetector,
                 classDescriptorRegistry,
                 marshaller,
-                criticalWorkerRegistry
+                criticalWorkerRegistry,
+                failureProcessor
         );
 
         SerializationService serializationService = new SerializationService(
