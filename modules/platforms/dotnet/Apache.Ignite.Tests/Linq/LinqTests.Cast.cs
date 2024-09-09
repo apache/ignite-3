@@ -64,6 +64,21 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestCastToDecimalPrecision()
+    {
+        // ReSharper disable once RedundantCast
+        var query = PocoIntView.AsQueryable()
+            .Select(x => (decimal?)x.Val / 33m)
+            .OrderByDescending(x => x);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(900m / 33m, res[0]);
+
+        StringAssert.Contains("cast(_T0.VAL as decimal(32767, 32767)) / ?) as DECIMAL0 ", query.ToString());
+    }
+
+    [Test]
     public void TestJoinOnDifferentTypes()
     {
         var query = PocoFloatView.AsQueryable()
