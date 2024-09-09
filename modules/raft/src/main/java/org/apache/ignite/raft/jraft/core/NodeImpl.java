@@ -2787,6 +2787,17 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    @Override
+    public LogId lastLogIndexAndTerm() {
+        this.readLock.lock();
+        try {
+            return logManager.getLastLogId(false).copy();
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
     @OnlyForTest
     ConfigurationEntry getConf() {
         this.readLock.lock();

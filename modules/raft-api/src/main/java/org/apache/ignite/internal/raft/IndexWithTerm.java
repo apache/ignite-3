@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.disaster.system.message;
-
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+package org.apache.ignite.internal.raft;
 
 /**
- * Message Group for disaster recovery of system groups.
+ * Raft index with the corresponding term.
  */
-@MessageGroup(groupType = 15, groupName = "SystemDisasterRecoveryMessages")
-public class SystemDisasterRecoveryMessageGroup {
-    /**
-     * Message type for {@link ResetClusterMessage}.
-     */
-    public static final short RESET_CLUSTER = 1;
+public class IndexWithTerm {
+    private final long index;
+    private final long term;
 
-    /**
-     * Message type for {@link MetastorageIndexTermRequestMessage}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_REQUEST = 2;
+    /** Constructor. */
+    public IndexWithTerm(long index, long term) {
+        this.index = index;
+        this.term = term;
+    }
 
-    /**
-     * Message type for {@link MetastorageIndexTermResponseMessage}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
+    /** Returns the index. */
+    public long index() {
+        return index;
+    }
+
+    /** Returns the term corresponding to the index. */
+    public long term() {
+        return term;
+    }
 }

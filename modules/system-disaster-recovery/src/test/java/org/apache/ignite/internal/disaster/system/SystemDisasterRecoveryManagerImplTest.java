@@ -56,9 +56,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessageBuilder;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
@@ -71,6 +73,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -122,6 +125,9 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ServerRestarter restarter;
 
+    @Mock
+    private Supplier<CompletableFuture<IndexWithTerm>> metastorageIndexWithTerm;
+
     private SystemDisasterRecoveryManagerImpl manager;
 
     private final ComponentContext componentContext = new ComponentContext();
@@ -159,7 +165,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 topologyService,
                 messagingService,
                 vaultManager,
-                restarter
+                restarter,
+                metastorageIndexWithTerm
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
     }
@@ -585,6 +592,21 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 ClusterResetException.class
         );
         assertThat(ex.getMessage(), is("Metastorage replication factor cannot exceed size of current physical topology (1)."));
+    }
+
+    @Test
+    void returnsIndexAndTerm() {
+        when(metastorageIndexWithTerm.get()).thenReturn(completedFuture(new IndexWithTerm(234, 2)));
+
+        NetworkMessageHandler handler = extractMessageHandler();
+        handler.onReceived(messagesFactory.metastorageIndexTermRequestMessage().build(), thisNode, 123L);
+
+        ArgumentCaptor<MetastorageIndexTermResponseMessage> captor = ArgumentCaptor.forClass(MetastorageIndexTermResponseMessage.class);
+        verify(messagingService).respond(eq(thisNode), captor.capture(), eq(123L));
+
+        MetastorageIndexTermResponseMessage response = captor.getValue();
+        assertThat(response.raftIndex(), is(234L));
+        assertThat(response.raftTerm(), is(2L));
     }
 
     private enum ResetCluster {
