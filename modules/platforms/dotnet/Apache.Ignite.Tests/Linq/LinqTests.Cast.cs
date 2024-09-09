@@ -49,10 +49,7 @@ public partial class LinqTests
         Assert.AreEqual(900, res[0].Long);
         Assert.AreEqual(900f / 1000, res[0].Float);
         Assert.AreEqual(900d / 2000, res[0].Double);
-
-        // TODO IGNITE-21743 Cast to decimal loses precision: "Expected: 4.5m But was: 5m"
-        // Assert.AreEqual(900m / 200, res[0].Decimal0);
-        Assert.AreEqual(5m, res[0].Decimal0);
+        Assert.AreEqual(900m / 200, res[0].Decimal0);
 
         StringAssert.Contains(
             "select cast((_T0.VAL / ?) as tinyint) as BYTE, " +
@@ -60,7 +57,7 @@ public partial class LinqTests
             "cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, " +
             "(cast(_T0.VAL as double) / ?) as DOUBLE, " +
-            "(cast(_T0.VAL as decimal) / ?) as DECIMAL0 " +
+            "(cast(_T0.VAL as decimal(32767, 32767)) / ?) as DECIMAL0 " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
             query.ToString());

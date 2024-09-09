@@ -481,8 +481,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             }
             else if ((Nullable.GetUnderlyingType(expression.Type) ?? expression.Type) == typeof(decimal))
             {
-                // TODO IGNITE-21743 Cast to decimal loses precision: we should specify precision and scale here.
-                ResultBuilder.Append(" as decimal)");
+                // Use maximum scale and precision when casting to decimal (see CatalogUtils.MAX_DECIMAL_SCALE, MAX_DECIMAL_PRECISION).
+                ResultBuilder.Append(" as decimal(32767, 32767))");
             }
             else
             {
