@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 
@@ -65,11 +66,11 @@ public final class Types {
     public static final NativeType DECIMAL_22_3 = NativeTypes.decimalOf(22, 3);
     public static final NativeType DECIMAL_35_16 = NativeTypes.decimalOf(35, 16);
 
-    public static final NativeType DECIMAL_MAX_18 = NativeTypes.decimalOf(32767, 18);
+    public static final NativeType DECIMAL_MAX_18 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 18);
 
-    public static final NativeType DECIMAL_MAX_2 = NativeTypes.decimalOf(32767, 2);
+    public static final NativeType DECIMAL_MAX_2 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 2);
 
-    public static final NativeType DECIMAL_MAX_0 = NativeTypes.decimalOf(32767, 0);
+    public static final NativeType DECIMAL_MAX_0 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 0);
 
     private Types() {
         throw new AssertionError("Should not be called");

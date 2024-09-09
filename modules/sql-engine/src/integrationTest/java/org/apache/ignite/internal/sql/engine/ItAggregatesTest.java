@@ -55,6 +55,11 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     private static final int ROWS = 103;
 
+    // most commonly used values
+    private static final BigDecimal ONE_WITH_SCALE_16 = new BigDecimal("1").setScale(16, RoundingMode.UNNECESSARY);
+    private static final BigDecimal ONE_AND_HALF_WITH_SCALE_16 = new BigDecimal("1.5").setScale(16, RoundingMode.UNNECESSARY);
+    private static final BigDecimal TWO_WITH_SCALE_16 = new BigDecimal("2").setScale(16, RoundingMode.UNNECESSARY);
+
     /**
      * Before all.
      */
@@ -556,8 +561,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM numbers");
         sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
 
-        BigDecimal avgDec = new BigDecimal("1.5000000000000000");
-        BigDecimal avgDecBigScale = new BigDecimal("1.500000000000000000");
+        BigDecimal avgDec = ONE_AND_HALF_WITH_SCALE_16;
+        BigDecimal avgDecBigScale = new BigDecimal("1.5").setScale(18, RoundingMode.UNNECESSARY);
         Double avgDouble = 1.5d;
 
         assertQuery("SELECT "
@@ -581,7 +586,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.6650000000000000"))
+                .returns(new BigDecimal("1.665").setScale(16, RoundingMode.UNNECESSARY))
                 .check();
 
         sql("DELETE FROM numbers");
@@ -597,7 +602,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.0000000000000000"), new BigDecimal("1.0000000000000000"))
+                .returns(ONE_WITH_SCALE_16, ONE_WITH_SCALE_16)
                 .check();
     }
 
@@ -640,20 +645,20 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM not_null_numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.5000000000000000"), new BigDecimal("1.5000000000000000"))
+                .returns(ONE_AND_HALF_WITH_SCALE_16, ONE_AND_HALF_WITH_SCALE_16)
                 .check();
 
         // Return type of an AVG aggregate can never be null.
         assertQuery("SELECT AVG(int_col) FROM not_null_numbers GROUP BY int_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.0000000000000000"))
-                .returns(new BigDecimal("2.0000000000000000"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         assertQuery("SELECT AVG(dec4_2_col) FROM not_null_numbers GROUP BY dec4_2_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.0000000000000000"))
-                .returns(new BigDecimal("2.0000000000000000"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         sql("DELETE FROM numbers");
@@ -661,14 +666,14 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col) FROM numbers GROUP BY int_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.0000000000000000"))
-                .returns(new BigDecimal("2.0000000000000000"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers GROUP BY dec4_2_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.0000000000000000"))
-                .returns(new BigDecimal("2.0000000000000000"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
     }
 
@@ -689,8 +694,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvgFromLiterals(String[] rules) {
-        BigDecimal avgDec = new BigDecimal("1.5000000000000000");
-        BigDecimal avgDecBigScale = new BigDecimal("1.500000000000000000");
+        BigDecimal avgDec = ONE_AND_HALF_WITH_SCALE_16;
+        BigDecimal avgDecBigScale = new BigDecimal("1.5").setScale(18, RoundingMode.UNNECESSARY);
         Double avgDouble = 1.5d;
 
         assertQuery("SELECT "
@@ -712,15 +717,15 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "AVG(6::DOUBLE), AVG(7::DECIMAL(2)), AVG(8.00::DECIMAL(4,2)), AVG(9.00::DECIMAL(20,18))")
                 .disableRules(rules)
                 .returns(
-                        new BigDecimal("1.0000000000000000"),
-                        new BigDecimal("2.0000000000000000"),
-                        new BigDecimal("3.0000000000000000"),
-                        new BigDecimal("4.0000000000000000"),
+                        ONE_WITH_SCALE_16,
+                        TWO_WITH_SCALE_16,
+                        new BigDecimal("3").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("4").setScale(16, RoundingMode.UNNECESSARY),
                         5.0d,
                         6.0d,
-                        new BigDecimal("7.0000000000000000"),
-                        new BigDecimal("8.0000000000000000"),
-                        new BigDecimal("9.000000000000000000")
+                        new BigDecimal("7").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("8").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("9").setScale(18, RoundingMode.UNNECESSARY)
                 )
                 .check();
 
@@ -730,7 +735,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "  UNION\n"
                 + "  SELECT 2::DECIMAL(2) as dec2_col, 3.00::DECIMAL(4,2) as dec4_2_col\n"
                 + ") as t")
-                .returns(new BigDecimal("1.5000000000000000"), new BigDecimal("2.5000000000000000"))
+                .returns(ONE_AND_HALF_WITH_SCALE_16, new BigDecimal("2.5").setScale(16, RoundingMode.UNNECESSARY))
                 .check();
     }
 
