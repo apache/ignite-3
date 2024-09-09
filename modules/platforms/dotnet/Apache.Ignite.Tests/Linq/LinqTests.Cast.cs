@@ -40,7 +40,8 @@ public partial class LinqTests
                 Double = (double?)x.Val / 2000,
                 Decimal0 = (decimal?)x.Val / 200m
             })
-            .OrderByDescending(x => x.Long);
+            .OrderByDescending(x => x.Long)
+            .Take(1);
 
         var res = query.ToList();
 
@@ -69,7 +70,8 @@ public partial class LinqTests
         // ReSharper disable once RedundantCast
         var query = PocoIntView.AsQueryable()
             .Select(x => (decimal?)x.Val / 33m)
-            .OrderByDescending(x => x);
+            .OrderByDescending(x => x)
+            .Take(1);
 
         var res = query.ToList();
 
