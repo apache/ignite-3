@@ -24,9 +24,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Timeout object worker.
@@ -41,6 +42,10 @@ public class TimeoutWorker extends IgniteWorker {
     /** True means removing object from the operation map on timeout. */
     private final boolean removeOnTimeout;
 
+    /** Closure to process throwables in the worker thread. */
+    @Nullable
+    private final Consumer<Throwable> throwableProcessor;
+
     /**
      * Constructor.
      *
@@ -50,18 +55,21 @@ public class TimeoutWorker extends IgniteWorker {
      *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
      * @param requestsMap Active operations.
      * @param removeOnTimeout Remove operation from map.
+     * @param throwableProcessor Closure to process throwables in the worker thread.
      */
     public TimeoutWorker(
             IgniteLogger log,
             String igniteInstanceName,
             String name,
             ConcurrentMap requestsMap,
-            boolean removeOnTimeout
+            boolean removeOnTimeout,
+            @Nullable Consumer<Throwable> throwableProcessor
     ) {
         super(log, igniteInstanceName, name, null);
 
         this.requestsMap = requestsMap;
         this.removeOnTimeout = removeOnTimeout;
+        this.throwableProcessor = throwableProcessor;
     }
 
     @Override
@@ -102,8 +110,11 @@ public class TimeoutWorker extends IgniteWorker {
             }
 
         } catch (Throwable t) {
-            // TODO: IGNITE-23075 Call FH here.
-            throw new IgniteInternalException(t);
+            if (throwableProcessor != null) {
+                throwableProcessor.accept(t);
+            } else {
+                log.error("Timeout worker failed and can't process the timeouts any longer [worker={}].", t, name());
+            }
         }
     }
 }

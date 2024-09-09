@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -47,6 +48,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -141,6 +144,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
+     * @param failureProcessor Failure processor.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -149,7 +153,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
-            CriticalWorkerRegistry criticalWorkerRegistry
+            CriticalWorkerRegistry criticalWorkerRegistry,
+            FailureProcessor failureProcessor
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
@@ -164,7 +169,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
 
-        timeoutWorker = new TimeoutWorker(LOG, nodeName, "MessagingService-timeout-worker", requestsMap, true);
+        timeoutWorker = new TimeoutWorker(
+                LOG,
+                nodeName,
+                "MessagingService-timeout-worker",
+                requestsMap,
+                true,
+                th -> failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, th))
+        );
     }
 
     /**
