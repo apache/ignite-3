@@ -171,7 +171,7 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
         return nullptr;
 
     Py_ssize_t size{0};
-    if (params && !Py_IsNone(params)) {
+    if (params && params != Py_None) {
         if (PySequence_Check(params)) {
             size = PySequence_Size(params);
             if (size < 0) {

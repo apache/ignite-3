@@ -107,7 +107,7 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
 }
 
 static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj, bool claim) {
-    if (Py_IsNone(obj)) {
+    if (obj == Py_None) {
         if (claim) {
             builder.claim_null();
             builder.claim_null();
