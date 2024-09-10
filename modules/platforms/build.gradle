@@ -157,6 +157,12 @@ tasks.register('signArtifacts', Sign) {
     sign zipCppClient
 }
 
+tasks.register('dotnetTest', Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "test", "Apache.Ignite.Tests", "--logger", "console;verbosity=normal"
+}
+
 configurations {
     platformsRelease {
         canBeConsumed = true
