@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #define MODULE_NAME "_pyignite3_extension"
 
 #define PY_ASSERT(cond, err)                                \
@@ -31,5 +33,3 @@ class diagnosable;
 }
 
 bool check_errors(ignite::diagnosable& diag);
-
-
