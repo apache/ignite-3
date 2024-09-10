@@ -667,7 +667,7 @@ private:
     SQLULEN m_row_array_size{1};
 
     /** Parameters. */
-    parameter_set m_parameters;
+    parameter_set_impl m_parameters;
 
     /** Query timeout in seconds. */
     std::int32_t m_timeout{0};
