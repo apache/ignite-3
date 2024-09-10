@@ -50,13 +50,10 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(options::toDeployUnitCallInput)
                 .then(Flows.mono(input ->
-                    CallExecutionPipeline.asyncBuilder(callFactory::create)
+                    runPipeline(CallExecutionPipeline.asyncBuilder(callFactory::create)
                             .inputProvider(() -> input)
-                            .output(spec.commandLine().getOut())
-                            .errOutput(spec.commandLine().getErr())
-                            .verbose(verbose)
                             .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot deploy unit"))
-                            .build().runPipeline()
+                    )
                 ))
                 .start();
     }

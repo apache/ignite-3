@@ -51,14 +51,10 @@ public class LogicalTopologyCommand extends BaseCommand implements Callable<Inte
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new TopologyDecorator(plain))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot show logical topology"))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

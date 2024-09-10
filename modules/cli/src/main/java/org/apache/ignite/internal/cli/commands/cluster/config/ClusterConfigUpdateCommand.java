@@ -48,14 +48,10 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot update cluster config"))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 
     private ClusterConfigUpdateCallInput buildCallInput() {

@@ -58,13 +58,9 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
         // We need to do this before the connect call since it will fire events even before repl start.
         replManager.subscribe();
 
-        int exitCode = CallExecutionPipeline.builder(connectCall)
+        int exitCode = runPipeline(CallExecutionPipeline.builder(connectCall)
                 .inputProvider(this::connectCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
         if (exitCode == 0) {
             replManager.startReplMode();
         }

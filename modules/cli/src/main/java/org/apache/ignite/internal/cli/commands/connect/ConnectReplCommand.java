@@ -54,11 +54,10 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfConnected(connectCallInput(nodeUrl.toString()))
+        runFlow(question.askQuestionIfConnected(connectCallInput(nodeUrl.toString()))
                 .then(Flows.fromCall(connectCall))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private ConnectCallInput connectCallInput(String nodeUrl) {

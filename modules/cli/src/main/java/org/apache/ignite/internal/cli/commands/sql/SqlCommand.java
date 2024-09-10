@@ -82,13 +82,10 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
+            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
-                    .output(spec.commandLine().getOut())
-                    .errOutput(spec.commandLine().getErr())
                     .decorator(new SqlQueryResultDecorator(plain))
-                    .verbose(verbose)
-                    .build().runPipeline();
+            );
         } catch (SQLException e) {
             ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
             return new SqlExceptionHandler().handle(exceptionWriter, e);
