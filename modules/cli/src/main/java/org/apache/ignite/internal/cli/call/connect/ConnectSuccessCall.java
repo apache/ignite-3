@@ -54,7 +54,7 @@ public class ConnectSuccessCall {
     }
 
     /**
-     * Executes a series of steps after successful connection to the node. Sets a last connected config property, publishes an event,
+     * Executes a series of steps after successful connection to the node. Sets the last connected config property, publishes an event,
      * optionally checks whether the cluster is initialized or not and returns a message indicating a success.
      *
      * @param sessionInfo Session details.
