@@ -43,9 +43,28 @@ public:
      * @param writer Writer.
      */
     virtual void write(ignite::protocol::writer &writer) const override {
-        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
-            write_pyobject(writer, m_params.get_item(idx));
+        auto row_size = std::int32_t(m_params.get_size());
+        if (!row_size) {
+            writer.write_nil();
+            return;
         }
+
+        writer.write(row_size);
+        ignite::binary_tuple_builder row_builder{row_size * 3};
+        row_builder.start();
+
+        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
+            submit_pyobject(row_builder, m_params.get_item(idx), true);
+        }
+
+        row_builder.layout();
+
+        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
+            submit_pyobject(row_builder, m_params.get_item(idx), false);
+        }
+
+        auto row_data = row_builder.build();
+        writer.write_binary(row_data);
     }
 
     /**

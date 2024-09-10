@@ -20,6 +20,8 @@
 #include <ignite/protocol/writer.h>
 #include <ignite/common/ignite_type.h>
 #include <ignite/common/primitive.h>
+#include <ignite/common/detail/defer.h>
+#include <ignite/tuple/binary_tuple_builder.h>
 
 #include <optional>
 
@@ -103,5 +105,82 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
     }
 }
 
-static void write_pyobject(ignite::protocol::writer &writer, PyObject *obj) {
+static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj, bool claim) {
+    if (Py_IsNone(obj)) {
+        if (claim) {
+            builder.claim_null();
+        } else {
+            builder.append_null();
+        }
+        return;
+    }
+
+    if (PyBool_Check(obj)) {
+        bool val = Py_IsTrue(obj);
+        if (claim) {
+            builder.claim_bool(val);
+        } else {
+            builder.append_bool(val);
+        }
+        return;
+    }
+
+    if (PyBytes_Check(obj)) {
+        auto *data = reinterpret_cast<std::byte*>(PyBytes_AsString(obj));
+        auto len = PyBytes_Size(obj);
+        ignite::bytes_view view(data, len);
+
+        if (claim) {
+            builder.claim_varlen(view);
+        } else {
+            builder.append_varlen(view);
+        }
+        return;
+    }
+
+    if (PyUnicode_Check(obj)) {
+        auto str_array = PyUnicode_AsUTF8String(obj);
+        if (!str_array) {
+            throw ignite::ignite_error("Can not convert string to UTF-8");
+        }
+        // To be called when the scope is left.
+        ignite::detail::defer([&] { Py_DECREF(str_array); });
+
+        auto *data = PyBytes_AsString(str_array);
+        auto len = PyBytes_Size(str_array);
+        std::string_view view(data, len);
+
+        if (claim) {
+            builder.claim_varlen(view);
+        } else {
+            builder.append_varlen(view);
+        }
+        return;
+    }
+
+    if (PyFloat_Check(obj)) {
+        double val = PyFloat_AsDouble(obj);
+        if (claim) {
+            builder.claim_double(val);
+        } else {
+            builder.append_double(val);
+        }
+        return;
+    }
+
+    if (PyLong_Check(obj)) {
+        auto val = PyLong_AsLongLong(obj);
+        if (claim) {
+            builder.claim_int64(val);
+        } else {
+            builder.append_int64(val);
+        }
+        return;
+    }
+
+    assert(obj->ob_type);
+    assert(obj->ob_type->tp_name);
+
+    // TODO: IGNITE-22745 Provide wider data types support
+    throw ignite::ignite_error("Type is not supported " + std::string(obj->ob_type->tp_name));
 }
