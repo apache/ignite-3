@@ -42,7 +42,7 @@ interface was introduced to listen for metastore leader elections.
 
 The process is initiated by one of the following events:
 
-1. `low watermark` has been changed
+1. `low watermark` has been changed (every 5 minutes by default)
 2. the compaction coordinator has been changed
 
 ## Overall process description
