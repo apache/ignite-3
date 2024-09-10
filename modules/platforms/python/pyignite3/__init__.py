@@ -44,7 +44,7 @@ DATETIME = datetime.datetime
 UUID = uuid.UUID
 
 
-def type_code_from_int(native: int):
+def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
         return NIL
     elif native == native_type_code.BOOLEAN:
@@ -79,7 +79,7 @@ class ColumnDescription:
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
-        self.type_code = type_code_from_int(type_code)
+        self.type_code = _type_code_from_int(type_code)
         self.display_size = display_size
         self.internal_size = internal_size
         self.precision = precision
@@ -320,13 +320,7 @@ class Connection:
         return Cursor(self._py_connection.cursor())
 
 
-def connect(address: [str],
-            identity: Optional[str] = None,
-            secret: Optional[str] = None,
-            schema: Optional[str] = 'PUBLIC',
-            timezone: Optional[str] = None,
-            page_size: Optional[int] = 1024,
-            timeout: Optional[int] = 30) -> Connection:
+def connect(address: [str], **kwargs) -> Connection:
     """
     Establish connection with the Ignite cluster.
 
@@ -334,6 +328,9 @@ def connect(address: [str],
     ----------
     address: [str]
         A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+
+    Keyword Arguments
+    ----------
     identity: str, optional
         An identifier to use for authentication. E.g. username.
     secret: str, optional
@@ -348,8 +345,7 @@ def connect(address: [str],
     timeout: int, optional
         A timeout in seconds to use for any network operation. Default value: 30.
     """
-    return _pyignite3_extension.connect(address=address, identity=identity, secret=secret, schema=schema,
-                                        timezone=timezone, page_size=page_size, timeout=timeout)
+    return _pyignite3_extension.connect(address=address, **kwargs)
 
 
 class Error(Exception):
