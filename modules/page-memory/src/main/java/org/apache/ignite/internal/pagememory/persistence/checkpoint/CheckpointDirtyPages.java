@@ -25,9 +25,12 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
+import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +56,8 @@ class CheckpointDirtyPages {
     /**
      * Constructor.
      *
-     * @param dirtyPages Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs.
+     * @param dirtyPages Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition
+     *         IDs.
      */
     public CheckpointDirtyPages(List<DataRegionDirtyPages<FullPageId[]>> dirtyPages) {
         assert dirtyPages instanceof RandomAccess : dirtyPages;
@@ -229,5 +233,23 @@ class CheckpointDirtyPages {
 
     private static boolean equalsByGroupAndPartition(FullPageId pageId0, FullPageId pageId1) {
         return pageId0.groupId() == pageId1.groupId() && pageId0.partitionId() == pageId1.partitionId();
+    }
+
+    /** Returns {@code true} if it is necessary to write to the partition with only one thread. */
+    boolean isWriteToPartitionInOneThread() {
+        return CollectionUtils.first(dirtyPages) instanceof DataRegionDirtyPages1;
+    }
+
+    /** Returns the dirty partition ID queue. */
+    IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> toDirtyPartitionIdQueue() {
+        List<IgniteBiTuple<PersistentPageMemory, GroupPartitionId[]>> dirtyPartitions = dirtyPages.stream()
+                .map(DataRegionDirtyPages1.class::cast)
+                .map(dataRegionDirtyPages1 -> new IgniteBiTuple<>(
+                        dataRegionDirtyPages1.pageMemory,
+                        ((Set<GroupPartitionId>) dataRegionDirtyPages1.dirtyPartitions).toArray(GroupPartitionId[]::new)
+                ))
+                .collect(toList());
+
+        return new IgniteConcurrentMultiPairQueue<>(dirtyPartitions);
     }
 }

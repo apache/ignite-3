@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -76,7 +78,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>{@link CheckpointWorkflow#markCheckpointEnd} - Finalization of last checkpoint.
  */
-class CheckpointWorkflow {
+public class CheckpointWorkflow {
+    public static volatile boolean WRITE_MULTI_THREADED = true;
+
     /**
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}.
      *
@@ -282,7 +286,8 @@ class CheckpointWorkflow {
 
             updateHeartbeat.run();
 
-            CheckpointDirtyPages checkpointPages = createAndSortCheckpointDirtyPages(dirtyPages);
+            CheckpointDirtyPages checkpointPages =
+                    WRITE_MULTI_THREADED ? createAndSortCheckpointDirtyPages(dirtyPages) : createAndSortCheckpointDirtyPages1(dirtyPages);
 
             curr.pagesToWrite(checkpointPages);
 
@@ -434,6 +439,68 @@ class CheckpointWorkflow {
             }
 
             checkpointDirtyPages.add(new DataRegionDirtyPages<>(dataRegionDirtyPages.pageMemory, pageIds));
+        }
+
+        // Add tasks to sort arrays of dirty page IDs in parallel if their number is greater than or equal to PARALLEL_SORT_THRESHOLD.
+        List<ForkJoinTask<?>> parallelSortTasks = checkpointDirtyPages.stream()
+                .map(dataRegionDirtyPages -> dataRegionDirtyPages.dirtyPages)
+                .filter(pageIds -> pageIds.length >= PARALLEL_SORT_THRESHOLD)
+                .map(pageIds -> parallelSortThreadPool.submit(() -> Arrays.parallelSort(pageIds, DIRTY_PAGE_COMPARATOR)))
+                .collect(toList());
+
+        // Sort arrays of dirty page IDs if their number is less than PARALLEL_SORT_THRESHOLD.
+        for (DataRegionDirtyPages<FullPageId[]> dataRegionDirtyPages : checkpointDirtyPages) {
+            if (dataRegionDirtyPages.dirtyPages.length < PARALLEL_SORT_THRESHOLD) {
+                Arrays.sort(dataRegionDirtyPages.dirtyPages, DIRTY_PAGE_COMPARATOR);
+            }
+        }
+
+        // Waits for a parallel sort task.
+        for (ForkJoinTask<?> parallelSortTask : parallelSortTasks) {
+            try {
+                parallelSortTask.get();
+            } catch (ExecutionException | InterruptedException e) {
+                throw new IgniteInternalCheckedException(
+                        "Failed to perform pages array parallel sort",
+                        e instanceof ExecutionException ? e.getCause() : e
+                );
+            }
+        }
+
+        return new CheckpointDirtyPages(checkpointDirtyPages);
+    }
+
+    CheckpointDirtyPages createAndSortCheckpointDirtyPages1(
+            DataRegionsDirtyPages dataRegionsDirtyPages
+    ) throws IgniteInternalCheckedException {
+        List<DataRegionDirtyPages<FullPageId[]>> checkpointDirtyPages = new ArrayList<>();
+
+        int realPagesArrSize = 0;
+
+        // Collect arrays of dirty pages for sorting.
+        for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
+            FullPageId[] pageIds = new FullPageId[dataRegionDirtyPages.dirtyPages.size()];
+
+            var partitionIds = new HashSet<GroupPartitionId>();
+
+            int pagePos = 0;
+
+            for (FullPageId dirtyPage : dataRegionDirtyPages.dirtyPages) {
+                assert realPagesArrSize++ != dataRegionsDirtyPages.dirtyPageCount :
+                        "Incorrect estimated dirty pages number: " + dataRegionsDirtyPages.dirtyPageCount;
+
+                pageIds[pagePos++] = dirtyPage;
+                partitionIds.add(new GroupPartitionId(dirtyPage.groupId(), dirtyPage.partitionId()));
+            }
+
+            // Some pages may have been already replaced.
+            if (pagePos == 0) {
+                continue;
+            } else if (pagePos != pageIds.length) {
+                pageIds = Arrays.copyOf(pageIds, pagePos);
+            }
+
+            checkpointDirtyPages.add(new DataRegionDirtyPages1<>(dataRegionDirtyPages.pageMemory, pageIds, partitionIds));
         }
 
         // Add tasks to sort arrays of dirty page IDs in parallel if their number is greater than or equal to PARALLEL_SORT_THRESHOLD.

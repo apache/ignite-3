@@ -116,4 +116,32 @@ public class CheckpointPagesWriterFactory {
                 shutdownNow
         );
     }
+
+    /** Returns a new writer for the POC. */
+    CheckpointPagesWriter1 build1(
+            CheckpointMetricsTracker tracker,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionIdQueue,
+            List<PersistentPageMemory> pageMemoryList,
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            CompletableFuture<Void> doneWriteFut,
+            Runnable updateHeartbeat,
+            CheckpointProgressImpl checkpointProgress,
+            BooleanSupplier shutdownNow,
+            CheckpointDirtyPages checkpointPages
+    ) {
+        return new CheckpointPagesWriter1(
+                dirtyPartitionIdQueue,
+                checkpointProgress,
+                checkpointPages,
+                tracker,
+                partitionMetaManager,
+                dirtyPageWriter,
+                ioRegistry,
+                updatedPartitions,
+                threadBuf,
+                doneWriteFut,
+                shutdownNow,
+                updateHeartbeat
+        );
+    }
 }

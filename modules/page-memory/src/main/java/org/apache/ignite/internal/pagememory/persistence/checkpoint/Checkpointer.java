@@ -428,30 +428,55 @@ public class Checkpointer extends IgniteWorker {
         // Updated partitions.
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
-        CompletableFuture<?>[] futures = new CompletableFuture[checkpointWritePageThreads];
+        CompletableFuture<Void>[] futures = new CompletableFuture[checkpointWritePageThreads];
 
         tracker.onPagesWriteStart();
 
         List<PersistentPageMemory> pageMemoryList = checkpointDirtyPages.dirtyPageMemoryInstances();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
+        if (checkpointDirtyPages.isWriteToPartitionInOneThread()) {
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionIdQueue =
+                    checkpointDirtyPages.toDirtyPartitionIdQueue();
 
-        for (int i = 0; i < checkpointWritePageThreads; i++) {
-            CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
-                    tracker,
-                    writePageIds,
-                    pageMemoryList,
-                    updatedPartitions,
-                    futures[i] = new CompletableFuture<>(),
-                    workProgressDispatcher::updateHeartbeat,
-                    currentCheckpointProgress,
-                    shutdownNow
-            );
+            for (int i = 0; i < checkpointWritePageThreads; i++) {
+                CheckpointPagesWriter1 write = checkpointPagesWriterFactory.build1(
+                        tracker,
+                        dirtyPartitionIdQueue,
+                        pageMemoryList,
+                        updatedPartitions,
+                        futures[i] = new CompletableFuture<>(),
+                        workProgressDispatcher::updateHeartbeat,
+                        currentCheckpointProgress,
+                        shutdownNow,
+                        checkpointDirtyPages
+                );
 
-            if (pageWritePool == null) {
-                write.run();
-            } else {
-                pageWritePool.execute(write);
+                if (pageWritePool == null) {
+                    write.run();
+                } else {
+                    pageWritePool.execute(write);
+                }
+            }
+        } else {
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
+
+            for (int i = 0; i < checkpointWritePageThreads; i++) {
+                CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
+                        tracker,
+                        writePageIds,
+                        pageMemoryList,
+                        updatedPartitions,
+                        futures[i] = new CompletableFuture<>(),
+                        workProgressDispatcher::updateHeartbeat,
+                        currentCheckpointProgress,
+                        shutdownNow
+                );
+
+                if (pageWritePool == null) {
+                    write.run();
+                } else {
+                    pageWritePool.execute(write);
+                }
             }
         }
 

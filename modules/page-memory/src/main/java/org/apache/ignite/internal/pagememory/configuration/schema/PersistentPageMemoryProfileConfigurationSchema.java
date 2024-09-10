@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
+import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
@@ -35,7 +36,7 @@ public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfi
      * 256 MiB, if system was unable to retrieve physical memory size.
      */
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static final long DFLT_DATA_REGION_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
+    public static final long DFLT_DATA_REGION_SIZE = Math.max(4L * GiB, (long) (0.2 * getTotalMemoryAvailable()));
 
     /** Random-LRU page replacement algorithm. */
     public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
