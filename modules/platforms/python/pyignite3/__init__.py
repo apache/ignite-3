@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List, Any, Sequence, Tuple, Union
+from typing import Optional, List, Any, Sequence, Tuple
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -90,12 +90,17 @@ class ColumnDescription:
 class Cursor:
     """
     Cursor class. Represents a single statement and holds the result of its execution.
+
+    Attributes
+    ----------
+    arraysize: int
+        a read/write attribute, that specifies the number of rows to fetch at a time with .fetchmany().
+        It defaults to 1 meaning to fetch a single row at a time.
     """
+    arraysize: int = 1
 
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
-
-        self.arraysize = 1
         self._description = None
 
     def __enter__(self):
@@ -315,17 +320,43 @@ class Connection:
         return Cursor(self._py_connection.cursor())
 
 
-def connect(**kwargs) -> Connection:
+def connect(address: [str],
+            identity: Optional[str] = None,
+            secret: Optional[str] = None,
+            schema: Optional[str] = 'PUBLIC',
+            timezone: Optional[str] = None,
+            page_size: Optional[int] = 1024,
+            timeout: Optional[int] = 30) -> Connection:
     """
     Establish connection with the Ignite cluster.
+
+    Parameters
+    ----------
+    address: [str]
+        A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+    identity: str, optional
+        An identifier to use for authentication. E.g. username.
+    secret: str, optional
+        A secret to use for authentication. E.g. password.
+    schema: str, optional
+        A schema name to be used by default. Default value: 'PUBLIC'.
+    timezone: str, optional
+        A timezone to use as a client's timezone. Used to correctly work with date/time values, received from client.
+        By default, a server's timezone is used.
+    page_size: int, optional
+        A maximum number of rows, which are received or sent in a single request. Default value: 1024.
+    timeout: int, optional
+        A timeout in seconds to use for any network operation. Default value: 30.
     """
-    return _pyignite3_extension.connect(**kwargs)
+    return _pyignite3_extension.connect(address=address, identity=identity, secret=secret, schema=schema,
+                                        timezone=timezone, page_size=page_size, timeout=timeout)
 
 
 class Error(Exception):
     pass
 
 
+# noinspection PyShadowingBuiltins
 class Warning(Exception):
     pass
 

@@ -80,11 +80,11 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     const char* secret = nullptr;
     const char* schema = nullptr;
     const char* timezone = nullptr;
-    double timeout = 0.0;
+    int timeout = 0;
     int page_size = 0;
 
     int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "s|ssssdi", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+        args, kwargs, "s|ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
 
     if (!parsed)
         return nullptr;
@@ -112,10 +112,9 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     if (page_size)
         cfg.set_page_size(std::int32_t(page_size));
 
-    std::int32_t s_timeout = std::lround(timeout);
-    if (s_timeout)
+    if (timeout)
     {
-        void* ptr_timeout = (void*)(ptrdiff_t(s_timeout));
+        void* ptr_timeout = (void*)(ptrdiff_t(timeout));
         sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
         if (!check_errors(*sql_conn))
             return nullptr;
