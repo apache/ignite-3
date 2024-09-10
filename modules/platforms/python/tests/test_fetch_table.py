@@ -18,6 +18,11 @@ import pyignite3
 from tests.util import server_addresses_basic
 
 
+@pytest.fixture()
+def table_name(request):
+    return request.node.originalname
+
+
 def create_and_populate_test_table(cursor, rows_num, table_name):
     cursor.execute(f'drop table if exists {table_name}')
     cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
@@ -32,8 +37,7 @@ def check_row(i, row):
     assert row[2] == pytest.approx(i / 2.0)
 
 
-def test_fetchone_table_empty():
-    table_name = test_fetchone_table_empty.__name__
+def test_fetchone_table_empty(table_name):
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
             try:
@@ -47,8 +51,7 @@ def test_fetchone_table_empty():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchone_table_many_rows():
-    table_name = test_fetchone_table_many_rows.__name__
+def test_fetchone_table_many_rows(table_name):
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -68,8 +71,7 @@ def test_fetchone_table_many_rows():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchmany_table_empty():
-    table_name = test_fetchmany_table_empty.__name__
+def test_fetchmany_table_empty(table_name):
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
             try:
@@ -83,8 +85,7 @@ def test_fetchmany_table_empty():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchmany_table_many_rows():
-    table_name = test_fetchmany_table_many_rows.__name__
+def test_fetchmany_table_many_rows(table_name):
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -116,8 +117,7 @@ def test_fetchmany_table_many_rows():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchall_table_empty():
-    table_name = test_fetchmany_table_empty.__name__
+def test_fetchall_table_empty(table_name):
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
             try:
@@ -131,8 +131,7 @@ def test_fetchall_table_empty():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchall_table_many_rows():
-    table_name = test_fetchmany_table_many_rows.__name__
+def test_fetchall_table_many_rows(table_name):
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -154,8 +153,7 @@ def test_fetchall_table_many_rows():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetch_mixed_table_many_rows():
-    table_name = test_fetch_mixed_table_many_rows.__name__
+def test_fetch_mixed_table_many_rows(table_name):
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
@@ -185,8 +183,7 @@ def test_fetch_mixed_table_many_rows():
                 cursor.execute(f'drop table if exists {table_name}')
 
 
-def test_fetchone_table_many_rows_parameter():
-    table_name = test_fetchone_table_many_rows_parameter.__name__
+def test_fetchone_table_many_rows_parameter(table_name):
     rows_num = 15
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
