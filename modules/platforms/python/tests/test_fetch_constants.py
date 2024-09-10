@@ -40,7 +40,7 @@ test_data = [
 
 @pytest.mark.parametrize("query,value", test_data)
 def test_fetch_constant(query, value):
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             cursor.execute(query)
             data = cursor.fetchone()
@@ -52,7 +52,7 @@ def test_fetch_constant(query, value):
 
 
 def test_fetch_constant_double_nan():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             cursor.execute("select CAST('NaN' AS DOUBLE)")
             data = cursor.fetchone()
@@ -61,7 +61,7 @@ def test_fetch_constant_double_nan():
 
 
 def test_fetch_constant_several_ints():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             cursor.execute("select 1,2,3")
             data = cursor.fetchone()
@@ -72,7 +72,7 @@ def test_fetch_constant_several_ints():
 
 
 def test_fetch_constant_int_bool_string():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             cursor.execute("select 42, TRUE, 'Test string'")
             data = cursor.fetchone()

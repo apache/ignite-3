@@ -19,12 +19,12 @@ from tests.util import server_addresses_invalid, server_addresses_basic
 
 
 def test_connection_success():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
+    conn = pyignite3.connect(address=server_addresses_basic, timeout=1)
     assert conn is not None
     conn.close()
 
 
 def test_connection_fail():
     with pytest.raises(RuntimeError) as err:
-        pyignite3.connect(address=server_addresses_invalid[0])
+        pyignite3.connect(address=server_addresses_invalid)
     assert err.match("Failed to establish connection with the host.")

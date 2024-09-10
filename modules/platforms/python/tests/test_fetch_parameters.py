@@ -48,7 +48,7 @@ test_data = [
 
 
 def check_fetch_parameters(param, use_tuple: bool):
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             cursor.execute("select ?", (param,) if use_tuple else [param])
             data = cursor.fetchone()

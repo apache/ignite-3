@@ -30,7 +30,7 @@ def table_name(request):
 
 @pytest.fixture()
 def connection():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
+    conn = pyignite3.connect(address=server_addresses_basic)
     yield conn
     conn.close()
 

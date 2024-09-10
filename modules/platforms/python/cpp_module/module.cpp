@@ -21,6 +21,7 @@
 
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
+#include <ignite/common/detail/defer.h>
 
 #include <memory>
 #include <cmath>
@@ -75,19 +76,48 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         nullptr
     };
 
-    const char* address = nullptr;
-    const char* identity = nullptr;
-    const char* secret = nullptr;
-    const char* schema = nullptr;
-    const char* timezone = nullptr;
+    PyObject *address = nullptr;
+    const char *identity = nullptr;
+    const char *secret = nullptr;
+    const char *schema = nullptr;
+    const char *timezone = nullptr;
     int timeout = 0;
     int page_size = 0;
 
     int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "s|ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+        args, kwargs, "O|$ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
 
     if (!parsed)
         return nullptr;
+
+    std::stringstream address_builder;
+    if (PyList_Check(address)) {
+        auto size = PyList_Size(address);
+        for (Py_ssize_t idx = 0; idx < size; ++idx) {
+            auto item = PyList_GetItem(address, idx);
+            if (!PyUnicode_Check(item)) {
+                PyErr_SetString(PyExc_RuntimeError, "Only list of string values is allowed in 'address' parameter");
+                return nullptr;
+            }
+
+            auto str_array = PyUnicode_AsUTF8String(item);
+            if (!str_array) {
+                PyErr_SetString(PyExc_RuntimeError, "Can not convert address string to UTF-8");
+                return nullptr;
+            }
+            // To be called when the scope is left.
+            ignite::detail::defer([&] { Py_DECREF(str_array); });
+
+            auto *data = PyBytes_AsString(str_array);
+            auto len = PyBytes_Size(str_array);
+            std::string_view view(data, len);
+
+            address_builder << view;
+            if ((idx + 1) < size) {
+                address_builder << ',';
+            }
+        }
+    }
 
     using namespace ignite;
 
@@ -98,7 +128,8 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         return nullptr;
 
     configuration cfg;
-    cfg.set_address(address);
+    auto addrs_str = address_builder.str();
+    cfg.set_address(addrs_str);
 
     if (schema)
         cfg.set_schema(schema);

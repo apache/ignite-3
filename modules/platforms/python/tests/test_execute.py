@@ -17,7 +17,7 @@ from tests.util import server_addresses_basic
 
 
 def test_execute_const_sql_success():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
+    conn = pyignite3.connect(address=server_addresses_basic)
     assert conn is not None
     try:
         cursor = conn.cursor()
@@ -45,7 +45,7 @@ def test_execute_const_sql_success():
 
 def test_execute_sql_table_success():
     table_name = test_execute_update_rowcount.__name__
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             try:
                 cursor.execute(f'create table {table_name}(id int primary key, data varchar, dec decimal(3,5))')
@@ -74,7 +74,7 @@ def test_execute_sql_table_success():
 
 def test_execute_update_rowcount():
     table_name = test_execute_update_rowcount.__name__
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+    with pyignite3.connect(address=server_addresses_basic) as conn:
         with conn.cursor() as cursor:
             try:
                 cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
