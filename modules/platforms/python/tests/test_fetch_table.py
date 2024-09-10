@@ -14,29 +14,7 @@
 # limitations under the License.
 import pytest
 
-import pyignite3
-from tests.util import server_addresses_basic
-
 TEST_ROWS_NUM = 15
-
-
-@pytest.fixture()
-def table_name(request):
-    return request.node.originalname
-
-
-@pytest.fixture()
-def connection():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
-    yield conn
-    conn.close()
-
-
-@pytest.fixture()
-def cursor(connection):
-    cursor = connection.cursor()
-    yield cursor
-    cursor.close()
 
 
 @pytest.fixture()
