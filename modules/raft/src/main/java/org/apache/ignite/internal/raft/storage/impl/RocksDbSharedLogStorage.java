@@ -42,7 +42,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Describer;
@@ -144,7 +143,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
             String groupId,
-            RaftOptions raftOptions,
+            WriteOptions writeOptions,
             Executor executor
     ) {
         Requires.requireNonNull(db);
@@ -170,8 +169,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.groupEndPrefix = groupEndPrefix(groupId);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
-
-        this.writeOptions = new WriteOptions();
+        this.writeOptions = writeOptions;
     }
 
     /**
