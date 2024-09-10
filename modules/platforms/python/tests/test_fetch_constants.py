@@ -39,47 +39,39 @@ test_data = [
 
 
 @pytest.mark.parametrize("query,value", test_data)
-def test_fetch_constant(query, value):
-    with pyignite3.connect(address=server_addresses_basic) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            data = cursor.fetchone()
-            assert len(data) == 1
-            if isinstance(value, float):
-                assert data[0] == pytest.approx(value)
-            else:
-                assert data[0] == value
+def test_fetch_constant(query, value, cursor):
+    cursor.execute(query)
+    data = cursor.fetchone()
+    assert len(data) == 1
+    if isinstance(value, float):
+        assert data[0] == pytest.approx(value)
+    else:
+        assert data[0] == value
 
 
-def test_fetch_constant_double_nan():
-    with pyignite3.connect(address=server_addresses_basic) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST('NaN' AS DOUBLE)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert math.isnan(data[0])
+def test_fetch_constant_double_nan(cursor):
+    cursor.execute("select CAST('NaN' AS DOUBLE)")
+    data = cursor.fetchone()
+    assert len(data) == 1
+    assert math.isnan(data[0])
 
 
-def test_fetch_constant_several_ints():
-    with pyignite3.connect(address=server_addresses_basic) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select 1,2,3")
-            data = cursor.fetchone()
-            assert len(data) == 3
-            assert data[0] == 1
-            assert data[1] == 2
-            assert data[2] == 3
+def test_fetch_constant_several_ints(cursor):
+    cursor.execute("select 1,2,3")
+    data = cursor.fetchone()
+    assert len(data) == 3
+    assert data[0] == 1
+    assert data[1] == 2
+    assert data[2] == 3
 
 
-def test_fetch_constant_int_bool_string():
-    with pyignite3.connect(address=server_addresses_basic) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select 42, TRUE, 'Test string'")
-            data = cursor.fetchone()
-            assert len(data) == 3
-            assert data[0] == 42
-            assert data[1] is True
-            assert data[2] == 'Test string'
+def test_fetch_constant_int_bool_string(cursor):
+    cursor.execute("select 42, TRUE, 'Test string'")
+    data = cursor.fetchone()
+    assert len(data) == 3
+    assert data[0] == 42
+    assert data[1] is True
+    assert data[2] == 'Test string'
 
-            nothing = cursor.fetchone()
-            assert nothing is None
+    nothing = cursor.fetchone()
+    assert nothing is None

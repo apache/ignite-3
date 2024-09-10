@@ -17,12 +17,6 @@ import pytest
 TEST_ROWS_NUM = 15
 
 
-@pytest.fixture()
-def drop_table_cleanup(cursor, table_name):
-    yield None
-    cursor.execute(f'drop table if exists {table_name}')
-
-
 def create_and_populate_test_table(cursor, rows_num, table_name):
     cursor.execute(f'drop table if exists {table_name}')
     cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')

@@ -42,6 +42,12 @@ def cursor(connection):
     cursor.close()
 
 
+@pytest.fixture()
+def drop_table_cleanup(cursor, table_name):
+    yield None
+    cursor.execute(f'drop table if exists {table_name}')
+
+
 @pytest.fixture(autouse=True, scope="session")
 def cluster():
     if not check_cluster_started():

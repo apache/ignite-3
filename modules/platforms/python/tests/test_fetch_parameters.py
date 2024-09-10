@@ -47,23 +47,21 @@ test_data = [
 ]
 
 
-def check_fetch_parameters(param, use_tuple: bool):
-    with pyignite3.connect(address=server_addresses_basic) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select ?", (param,) if use_tuple else [param])
-            data = cursor.fetchone()
-            assert len(data) == 1
-            if isinstance(param, float):
-                assert data[0] == pytest.approx(param)
-            else:
-                assert data[0] == param
+def check_fetch_parameters(cursor, param, use_tuple: bool):
+    cursor.execute("select ?", (param,) if use_tuple else [param])
+    data = cursor.fetchone()
+    assert len(data) == 1
+    if isinstance(param, float):
+        assert data[0] == pytest.approx(param)
+    else:
+        assert data[0] == param
 
 
 @pytest.mark.parametrize("param", test_data)
-def test_fetch_parameter_list(param):
-    check_fetch_parameters(param, False)
+def test_fetch_parameter_list(cursor, param):
+    check_fetch_parameters(cursor, param, False)
 
 
 @pytest.mark.parametrize("param", test_data)
-def test_fetch_parameter_tuple(param):
-    check_fetch_parameters(param, True)
+def test_fetch_parameter_tuple(cursor, param):
+    check_fetch_parameters(cursor, param, True)
