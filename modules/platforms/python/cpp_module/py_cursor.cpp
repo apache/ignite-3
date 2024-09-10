@@ -183,7 +183,6 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
             return nullptr;
         }
     }
-    std::cout << "Sequence size: " << size << std::endl;
 
     py_parameter_set py_params(size, params);
     self->m_statement->execute_sql_query(query, py_params);

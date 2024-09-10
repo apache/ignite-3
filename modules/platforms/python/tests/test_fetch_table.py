@@ -183,3 +183,23 @@ def test_fetch_mixed_table_many_rows():
 
             finally:
                 cursor.execute(f'drop table if exists {table_name}')
+
+
+def test_fetchone_table_many_rows_parameter():
+    table_name = test_fetchone_table_many_rows_parameter.__name__
+    rows_num = 15
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                create_and_populate_test_table(cursor, rows_num, table_name)
+
+                cursor.execute(f"select id, data, fl from {table_name} where id = ? order by id", [13])
+
+                row = cursor.fetchone()
+                check_row(13, row)
+
+                end = cursor.fetchone()
+                assert end is None
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}')
