@@ -85,7 +85,7 @@ void parameter_set_impl::set_params_status(int64_t idx, SQLUSMALLINT status) con
     m_params_status[idx] = status;
 }
 
-void parameter_set_impl::set_params_processed(SQLULEN processed) const {
+void parameter_set_impl::set_params_processed(SQLULEN processed) {
     if (m_processed_param_rows)
         *m_processed_param_rows = processed;
 }

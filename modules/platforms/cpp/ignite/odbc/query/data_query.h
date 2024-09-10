@@ -263,7 +263,7 @@ private:
     std::string m_query;
 
     /** Parameter bindings. */
-    const parameter_set &m_params;
+    parameter_set &m_params;
 
     /** Parameter types. */
     std::vector<sql_parameter> m_params_meta{};

@@ -61,22 +61,15 @@ public:
     [[nodiscard]] virtual std::int32_t get_param_set_size() const = 0;
 
     /**
-     * Set number of m_parameters processed in batch.
+     * Set number of parameters processed in batch.
      *
      * @param processed Processed.
      */
-    virtual void set_params_processed(SQLULEN processed) const = 0;
-
-    /**
-     * Get pointer to write number of m_parameters processed in batch.
-     *
-     * @return Pointer to write number of m_parameters processed in batch.
-     */
-    [[nodiscard]] virtual SQLULEN *get_params_processed_ptr() const = 0;
+    virtual void set_params_processed(SQLULEN processed) = 0;
 
     /**
      * Get pointer to array in which to return the status of each
-     * set of m_parameters.
+     * set of parameters.
      *
      * @return Value.
      */
@@ -104,7 +97,7 @@ public:
     parameter_set_impl &operator=(const parameter_set_impl &) = delete;
 
     /**
-     * Set m_parameters set size.
+     * Set parameters set size.
      *
      * @param size Size of the parameter set.
      */
@@ -126,14 +119,14 @@ public:
     void unbind_parameter(std::uint16_t param_idx);
 
     /**
-     * Unbind all m_parameters.
+     * Unbind all parameters.
      */
     void unbind_all();
 
     /**
-     * Get number of bound m_parameters.
+     * Get number of bound parameters.
      *
-     * @return Number of bound m_parameters.
+     * @return Number of bound parameters.
      */
     [[nodiscard]] std::uint16_t get_parameters_number() const;
 
@@ -152,7 +145,7 @@ public:
     int *get_param_bind_offset_ptr();
 
     /**
-     * Prepare m_parameters set for statement execution.
+     * Prepare parameters set for statement execution.
      */
     void prepare();
 
@@ -231,11 +224,11 @@ public:
     [[nodiscard]] std::int32_t get_param_set_size() const override;
 
     /**
-     * Set number of m_parameters processed in batch.
+     * Set number of parameters processed in batch.
      *
      * @param processed Processed.
      */
-    void set_params_processed(SQLULEN processed) const override;
+    void set_params_processed(SQLULEN processed) override;
 
     /**
      * Number of processed params should be written using provided address.
@@ -245,22 +238,22 @@ public:
     void set_params_processed_ptr(SQLULEN *ptr);
 
     /**
-     * Get pointer to write number of m_parameters processed in batch.
+     * Get pointer to write number of parameters processed in batch.
      *
-     * @return Pointer to write number of m_parameters processed in batch.
+     * @return Pointer to write number of parameters processed in batch.
      */
-    [[nodiscard]] SQLULEN *get_params_processed_ptr() const override;
+    [[nodiscard]] SQLULEN *get_params_processed_ptr() const;
 
     /**
      * Set pointer to array in which to return the status of each
-     * set of m_parameters.
+     * set of parameters.
      * @param value Value.
      */
     void set_params_status_ptr(SQLUSMALLINT *value);
 
     /**
      * Get pointer to array in which to return the status of each
-     * set of m_parameters.
+     * set of parameters.
      * @return Value.
      */
     [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const override;
@@ -283,10 +276,10 @@ private:
     /** Parameters. */
     parameter_binding_map m_params{};
 
-    /** Offset added to pointers to change binding of m_parameters. */
+    /** Offset added to pointers to change binding of parameters. */
     int *m_param_bind_offset{nullptr};
 
-    /** Processed m_parameters. */
+    /** Processed parameters. */
     SQLULEN *m_processed_param_rows{nullptr};
 
     /** Parameters status. */
