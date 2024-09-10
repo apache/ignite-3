@@ -12,19 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
-
 import pyignite3
-from tests.util import server_addresses_invalid, server_addresses_basic
+from tests.util import server_addresses_basic
 
 
-def test_connection_success():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
-    assert conn is not None
-    conn.close()
-
-
-def test_connection_fail():
-    with pytest.raises(RuntimeError) as err:
-        pyignite3.connect(address=server_addresses_invalid[0])
-    assert err.match("Failed to establish connection with the host.")
+def test_fetch_constant_string():
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("select 'Lorem ipsum'")
+            data = cursor.fetchone()
+            assert len(data) == 1
+            assert data[0] == 'Lorem ipsum'

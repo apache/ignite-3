@@ -12,18 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
-
 import pyignite3
-from tests.util import start_cluster_gen, check_cluster_started, server_addresses_basic
-
-
-@pytest.fixture(autouse=True)
-def cluster():
-    if not check_cluster_started():
-        yield from start_cluster_gen()
-    else:
-        yield None
+from tests.util import server_addresses_basic
 
 
 def test_execute_const_sql_success():

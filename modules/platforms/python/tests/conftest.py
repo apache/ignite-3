@@ -14,5 +14,17 @@
 # limitations under the License.
 import logging
 
+import pytest
+
+from tests.util import check_cluster_started, start_cluster_gen
+
 logger = logging.getLogger('pyignite3')
 logger.setLevel(logging.DEBUG)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cluster():
+    if not check_cluster_started():
+        yield from start_cluster_gen()
+    else:
+        yield None
