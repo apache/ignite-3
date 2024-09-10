@@ -141,3 +141,17 @@ def test_fetchone_table_many_rows_parameter(table_name, cursor, drop_table_clean
 
     end = cursor.fetchone()
     assert end is None
+
+
+def test_insert_arguments_fetchone(table_name, cursor, drop_table_cleanup):
+    cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
+    for i in range(TEST_ROWS_NUM):
+        cursor.execute(f"insert into {table_name} values (?, ?, ?)", [i, f'Value-{i * 2}', i / 2.0])
+
+    cursor.execute(f"select id, data, fl from {table_name} where id = ?", [3])
+
+    row = cursor.fetchone()
+    check_row(3, row)
+
+    end = cursor.fetchone()
+    assert end is None
