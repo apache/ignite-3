@@ -102,7 +102,7 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
 namespace ignite {
 
 data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection, std::string sql,
-    const parameter_set &params, std::int32_t &timeout)
+    parameter_set &params, std::int32_t &timeout)
     : query(m_diag, query_type::DATA)
     , m_connection(m_connection)
     , m_query(std::move(sql))
