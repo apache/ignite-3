@@ -15,9 +15,9 @@ incremental updates with a snapshot.
 But different components can refer to a specific version of the catalog. Until they 
 finish their work with this version, it cannot be truncated.
 
-This module introduces [CatalogCompactionRunner](src/main/java/org/apache/ignite/internal/catalog/compaction/CatalogCompactionRunner.java) 
-component, which is responsible for periodically performing catalog compaction ensuring that
-dropped versions of the catalog are no longer needed by any component in the cluster.
+This module introduces [CatalogCompactionRunner](src/main/java/org/apache/ignite/internal/catalog/compaction/CatalogCompactionRunner.java)
+component. This component handles periodical catalog compaction, ensuring that dropped  versions
+of the catalog are no longer needed by any component in the cluster.
 
 ## Compaction restrictions
 
@@ -47,23 +47,27 @@ The process is initiated by one of the following events:
 
 ## Overall process description
 
-When compaction is triggered, two processes are started in parallel
+Catalog compaction consists of two main stages:
 
-- The first process (let's call it "**replicas update**") updates all replication groups
-  with determined minimum begin time among all active RW transactions in the cluster.
-  This time will be used by compaction process (see below) to comply with the restriction
-  about raft log recovery.
-- The second one ("**compaction**") determines the minimum required version of the catalog
-  and performs compaction. At each iteration, it uses the result of the replica update
-  process calculated at one of the previous iterations.
+1. **Replicas update**. Updates all replication groups with determined minimum begin
+   time among all active RW transactions in the cluster. After some time (see below for details)
+   these timestamps are published and become available for the next phase.
 
-![Replicas update](tech-notes/processes.png)
+2. **Compaction**. Using the timestamps published on the previous stage calculates
+   the minimum required version of the catalog and perform compaction.
 
-### Replicas update process
+Publishing timestamps can take a long time, and the success of compaction depends on more
+than just these timestamps. That's why both stages run in parallel. Thus, the compaction
+stage uses the result of the replicas update calculated at one of the previous iterations.
+To minimize the number of network requests, both processes run simultaneously and use a common
+[request](src/main/java/org/apache/ignite/internal/catalog/compaction/message/CatalogCompactionMinimumTimesRequest.java)
+to collect timestamps from the entire cluster in one round trip.
+
+### Replicas update stage
 
 ![Replicas update](tech-notes/replicas-update.png)
 
-This process consists of the following steps:
+This stage consists of the following steps:
 
 1. Each node uses [ActiveLocalTxMinimumBeginTimeProvider](../transactions/src/main/java/org/apache/ignite/internal/tx/ActiveLocalTxMinimumBeginTimeProvider.java)
    to determine the minimum begin time among all local active RW transactions and sends it to coordinator.
@@ -74,7 +78,7 @@ This process consists of the following steps:
 4. This timestamp (let's call it `minTxTime`) is published (become available to compaction process) only
    after checkpoint (flushing partition data to disk).
 
-### Compaction process
+### Compaction stage
 
 ![Replicas update](tech-notes/compaction.png)
 

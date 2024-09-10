@@ -1,5 +1,5 @@
 @startuml
-title Compaction process
+title Compaction stage
 
 database Coordinator as crd
 database "Cluster node" as node

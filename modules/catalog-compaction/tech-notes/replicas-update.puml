@@ -1,5 +1,5 @@
 @startuml
-title Replicas update process
+title Replicas update stage
 
 database Coordinator as crd
 database "Cluster node" as node
