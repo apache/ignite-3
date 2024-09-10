@@ -20,7 +20,6 @@
 
 #include "module.h"
 #include "py_cursor.h"
-#include "py_sequence.h"
 #include "type_conversion.h"
 
 #include <Python.h>
@@ -35,7 +34,7 @@ public:
      *
      * @param params Python parameters sequence.
      */
-    py_parameter_set(const py_sequence &params) : m_params(params) {}
+    py_parameter_set(Py_ssize_t size, PyObject *params) : m_size(size), m_params(params) {}
 
     /**
      * Write only first row of the param set using provided writer.
@@ -43,7 +42,7 @@ public:
      * @param writer Writer.
      */
     virtual void write(ignite::protocol::writer &writer) const override {
-        auto row_size = std::int32_t(m_params.get_size());
+        auto row_size = std::int32_t(m_size);
         if (!row_size) {
             writer.write_nil();
             return;
@@ -53,14 +52,14 @@ public:
         ignite::binary_tuple_builder row_builder{row_size * 3};
         row_builder.start();
 
-        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
-            submit_pyobject(row_builder, m_params.get_item(idx), true);
+        for (std::int32_t idx = 0; idx < row_size; ++idx) {
+            submit_pyobject(row_builder, PySequence_GetItem(m_params, idx), true);
         }
 
         row_builder.layout();
 
-        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
-            submit_pyobject(row_builder, m_params.get_item(idx), false);
+        for (std::int32_t idx = 0; idx < row_size; ++idx) {
+            submit_pyobject(row_builder, PySequence_GetItem(m_params, idx), false);
         }
 
         auto row_data = row_builder.build();
@@ -108,11 +107,14 @@ public:
     }
 
 private:
+    /** Size. */
+    Py_ssize_t m_size{0};
+
     /** Python sequence of parameters. */
-    py_sequence m_params;
+    PyObject *m_params{nullptr};
 
     /** Processed params. */
-    SQLULEN m_processed;
+    SQLULEN m_processed{0};
 };
 
 
@@ -168,12 +170,21 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     if (!parsed)
         return nullptr;
 
-    auto sequence = py_sequence::make(params);
-    if (!sequence)
-        return nullptr;
+    Py_ssize_t size{0};
+    if (params && !Py_IsNone(params)) {
+        if (PySequence_Check(params)) {
+            size = PySequence_Size(params);
+            if (size < 0) {
+                PyErr_SetString(PyExc_RuntimeError, "Internal error while getting size of the parameters sequence");
+                return nullptr;
+            }
+        } else {
+            PyErr_SetString(PyExc_RuntimeError, "Only sequences of parameters are supported");
+            return nullptr;
+        }
+    }
 
-    py_parameter_set py_params(*sequence);
-
+    py_parameter_set py_params(size, params);
     self->m_statement->execute_sql_query(query, py_params);
     if (!check_errors(*self->m_statement))
         return nullptr;
