@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List, Any, Sequence
+from typing import Optional, List, Any, Sequence, Tuple
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -152,7 +152,7 @@ class Cursor:
             self._py_cursor.close()
             self._py_cursor = None
 
-    def execute(self, *args):
+    def execute(self, query: str, params: Optional[List[Any] | Tuple[Any]] = None):
         """
         Execute a database operation (query or command).
 
@@ -165,7 +165,7 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        self._py_cursor.execute(*args)
+        self._py_cursor.execute(query, params)
         self._update_description()
 
     def _update_description(self):
