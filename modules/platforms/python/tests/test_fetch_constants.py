@@ -20,85 +20,35 @@ import pyignite3
 from tests.util import server_addresses_basic
 
 
-def test_fetch_constant_string():
+test_data = [
+    ("select 'Lorem ipsum'", 'Lorem ipsum'),
+    ("select ''", ''),
+    ("select CAST(42 AS TINYINT)", 42),
+    ("select CAST(-18 AS TINYINT)", -18),
+    ("select CAST(4242 AS SMALLINT)", 4242),
+    ("select 987654321", 987654321),
+    ("select CAST(1234567890987654321 AS BIGINT)", 1234567890987654321),
+    ("select CAST(123.456 AS REAL)", 123.456),
+    ("select CAST(-123456789.987654321 AS DOUBLE)", -123456789.987654321),
+    ("select TRUE", True),
+    ("select FALSE", False),
+    ("select x'45F0AB'", b'\x45\xf0\xab'),
+    ("select x''", b''),
+    ("select NULL", None),
+]
+
+
+@pytest.mark.parametrize("query,value", test_data)
+def test_fetch_constant(query, value):
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("select 'Lorem ipsum'")
+            cursor.execute(query)
             data = cursor.fetchone()
             assert len(data) == 1
-            assert data[0] == 'Lorem ipsum'
-
-
-def test_fetch_constant_string_empty():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select ''")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == ''
-
-
-def test_fetch_constant_tinyint():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(42 AS TINYINT)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == 42
-
-
-def test_fetch_constant_tinyint_negative():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(-18 AS TINYINT)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == -18
-
-
-def test_fetch_constant_smallint():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(4242 AS SMALLINT)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == 4242
-
-
-def test_fetch_constant_int():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select 987654321")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == 987654321
-
-
-def test_fetch_constant_bigint():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(1234567890987654321 AS BIGINT)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == 1234567890987654321
-
-
-def test_fetch_constant_real():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(123.456 AS REAL)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == pytest.approx(123.456)
-
-
-def test_fetch_constant_double():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select CAST(-123456789.987654321 AS DOUBLE)")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == pytest.approx(-123456789.987654321)
+            if isinstance(value, float):
+                assert data[0] == pytest.approx(value)
+            else:
+                assert data[0] == value
 
 
 def test_fetch_constant_double_nan():
@@ -108,51 +58,6 @@ def test_fetch_constant_double_nan():
             data = cursor.fetchone()
             assert len(data) == 1
             assert math.isnan(data[0])
-
-
-def test_fetch_constant_bool_true():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select TRUE")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] is True
-
-
-def test_fetch_constant_bool_false():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select FALSE")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] is False
-
-
-def test_fetch_constant_binary():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select x'45F0AB'")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == b'\x45\xf0\xab'
-
-
-def test_fetch_constant_binary_empty():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select x''")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] == b''
-
-
-def test_fetch_constant_null():
-    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("select NULL")
-            data = cursor.fetchone()
-            assert len(data) == 1
-            assert data[0] is None
 
 
 def test_fetch_constant_several_ints():
