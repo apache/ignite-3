@@ -22,6 +22,7 @@
 #include <ignite/common/primitive.h>
 #include <ignite/common/detail/defer.h>
 #include <ignite/tuple/binary_tuple_builder.h>
+#include <ignite/protocol/utils.h>
 
 #include <optional>
 
@@ -109,7 +110,11 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (Py_IsNone(obj)) {
         if (claim) {
             builder.claim_null();
+            builder.claim_null();
+            builder.claim_null();
         } else {
+            builder.append_null();
+            builder.append_null();
             builder.append_null();
         }
         return;
@@ -118,8 +123,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyBool_Check(obj)) {
         bool val = Py_IsTrue(obj);
         if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
             builder.claim_bool(val);
         } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
             builder.append_bool(val);
         }
         return;
@@ -131,8 +138,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         ignite::bytes_view view(data, len);
 
         if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
             builder.claim_varlen(view);
         } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
             builder.append_varlen(view);
         }
         return;
@@ -151,8 +160,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         std::string_view view(data, len);
 
         if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::STRING);
             builder.claim_varlen(view);
         } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::STRING);
             builder.append_varlen(view);
         }
         return;
@@ -161,8 +172,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyFloat_Check(obj)) {
         double val = PyFloat_AsDouble(obj);
         if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DOUBLE);
             builder.claim_double(val);
         } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::DOUBLE);
             builder.append_double(val);
         }
         return;
@@ -171,8 +184,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyLong_Check(obj)) {
         auto val = PyLong_AsLongLong(obj);
         if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::INT64);
             builder.claim_int64(val);
         } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::INT64);
             builder.append_int64(val);
         }
         return;

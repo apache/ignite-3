@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List, Any, Sequence, Tuple
+from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code

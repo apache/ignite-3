@@ -12,14 +12,62 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
+
 import pyignite3
 from tests.util import server_addresses_basic
 
+test_data = [
+    0,
+    1,
+    -1,
+    2,
+    43,
+    -543656,
+    423538409739,
+    0.0,
+    123.456,
+    -76.4,
+    1.0E-40,
+    1.0E40,
+    'test',
+    'TEST',
+    'Lorem Ipsum',
+    '你好',
+    'Мир!',
+    '',
+    True,
+    False,
+    None,
+    b'',
+    b'0',
+    b'123456789',
+    b'h9832y9r8wf08hw85h0h2508h0858',
+    b'\x45\xf0\xab',
+]
 
-def test_fetch_constant_string():
+
+@pytest.mark.parametrize("param", test_data)
+def test_fetch_parameter_list(param):
     with pyignite3.connect(address=server_addresses_basic[0]) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("select 'Lorem ipsum'")
+            cursor.execute("select ?", [param])
             data = cursor.fetchone()
             assert len(data) == 1
-            assert data[0] == 'Lorem ipsum'
+            if isinstance(param, float):
+                assert data[0] == pytest.approx(param)
+            else:
+                assert data[0] == param
+
+
+@pytest.mark.parametrize("param", test_data)
+def test_fetch_parameter_tuple(param):
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("select ?", (param,))
+            data = cursor.fetchone()
+            assert len(data) == 1
+            if isinstance(param, float):
+                assert data[0] == pytest.approx(param)
+            else:
+                assert data[0] == param
