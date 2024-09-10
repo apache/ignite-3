@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List, Any, Sequence, Tuple
+from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -157,7 +157,7 @@ class Cursor:
             self._py_cursor.close()
             self._py_cursor = None
 
-    def execute(self, query: str, params: Optional[List[Any] | Tuple[Any]] = None):
+    def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
         Execute a database operation (query or command).
 
