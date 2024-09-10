@@ -109,7 +109,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             }
 
             askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
-            return connectSuccessCall.execute(sessionInfo);
+            return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
         } catch (Exception e) {
             if (session.info() != null) {
                 eventPublisher.publish(Events.disconnect());
