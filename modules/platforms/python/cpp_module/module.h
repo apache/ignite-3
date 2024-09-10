@@ -17,8 +17,19 @@
 
 #define MODULE_NAME "_pyignite3_extension"
 
+#define PY_ASSERT(cond, err)                                \
+    do {                                                    \
+        if (!(cond)) {                                      \
+            PyErr_SetString(PyExc_AssertionError, (err));   \
+            return nullptr;                                 \
+        }                                                   \
+    } while (false)
+
+
 namespace ignite {
 class diagnosable;
 }
 
 bool check_errors(ignite::diagnosable& diag);
+
+

@@ -192,6 +192,3 @@ bool check_errors(ignite::diagnosable& diag) {
     return false;
 }
 
-
-
-
