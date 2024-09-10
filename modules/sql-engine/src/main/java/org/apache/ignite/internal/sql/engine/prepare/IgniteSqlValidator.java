@@ -394,9 +394,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         int startPosition = selectList.size() - sourceExprListSize;
 
         for (var i = 0; i < sourceExprListSize; i++) {
-            SqlNode sourceExpr = sourceExpressionList.get(i);
+            SqlNode replacement = sourceExpressionList.get(i);
             int position = startPosition + i;
-            selectList.set(position, sourceExpr);
+
+            SqlNode source = selectList.get(position);
+
+            // We can't blindly replace all expressions, for example the call with SCALAR_QUERY
+            // is only sets in sourceSelect, keeping unmodified SqlSelect in sourceExpressionList.
+            if (source instanceof SqlBasicCall && !(replacement instanceof SqlBasicCall)) {
+                continue;
+            }
+
+            selectList.set(position, replacement);
         }
     }
 
