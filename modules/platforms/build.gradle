@@ -161,6 +161,7 @@ tasks.register('dotnetTest', Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
     // Do not require external server, it will be started as part of tests.
+    // Alternatively, start PlatformTestNodeRunner manually before executing this task.
     environment("IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER", "false")
 
     commandLine "dotnet", "test", "Apache.Ignite.Tests", "--logger", "console;verbosity=normal"
