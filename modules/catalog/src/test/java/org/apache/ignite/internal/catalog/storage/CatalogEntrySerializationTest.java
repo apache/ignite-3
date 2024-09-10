@@ -446,12 +446,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogIndexColumnDescriptor idxCol4 = new CatalogIndexColumnDescriptor("C4", CatalogColumnCollation.ASC_NULLS_LAST);
 
         return new CatalogSortedIndexDescriptor(
-                1, name, 12, false, CatalogIndexStatus.AVAILABLE, List.of(idxCol1, idxCol2, idxCol3, idxCol4));
+                1, name, 12, false, CatalogIndexStatus.AVAILABLE, List.of(idxCol1, idxCol2, idxCol3, idxCol4), true);
     }
 
     private static CatalogHashIndexDescriptor newHashIndexDescriptor(String name) {
         return new CatalogHashIndexDescriptor(
-                1, name, 12, true, CatalogIndexStatus.REGISTERED, List.of("C1", "C2"));
+                1, name, 12, true, CatalogIndexStatus.REGISTERED, List.of("C1", "C2"), true);
     }
 
     private static CatalogTableDescriptor newTableDescriptor(String name, List<CatalogTableColumnDescriptor> columns) {

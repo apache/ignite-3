@@ -80,6 +80,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
@@ -178,7 +179,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     raftGroupEventsClientListener
             );
 
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

@@ -21,13 +21,11 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.FormatMixin;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -55,8 +53,8 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     @Inject
     private ConnectToClusterQuestion question;
 
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+    @Mixin
+    private FormatMixin format;
 
     @Override
     public void run() {
@@ -65,15 +63,11 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show cluster config"))
                 .verbose(verbose)
-                .print(new JsonDecorator(isHighlightEnabled()))
+                .print(format.decorator())
                 .start();
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
         return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
-    }
-
-    private boolean isHighlightEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

@@ -81,6 +81,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
@@ -164,7 +165,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(clusterStateStorage);
 
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

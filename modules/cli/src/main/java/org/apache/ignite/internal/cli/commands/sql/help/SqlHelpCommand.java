@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.sql.help;
 
+import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
@@ -29,10 +30,13 @@ import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_
 import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.StringJoiner;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -76,7 +80,7 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
     @Override
     public void run() {
         if (parameters != null) {
-            String command = String.join(" ", this.parameters);
+            String command = String.join(" ", parameters);
             String commandUsage = IgniteSqlCommand.find(command)
                     .map(IgniteSqlCommand::getSyntax)
                     .or(() -> {
@@ -87,22 +91,26 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
             outWriter.println(commandUsage);
         } else {
             String helpMessage = self.getParent().getUsageMessage(colorScheme)
-                    + System.lineSeparator()
+                    + lineSeparator()
                     + sqlCommands()
-                    + System.lineSeparator()
-                    + System.lineSeparator()
-                    + "\nPress Ctrl-D to exit";
+                    + lineSeparator()
+                    + lineSeparator()
+                    + "Press Ctrl-D to exit.";
             outWriter.println(helpMessage);
         }
     }
 
-    private static String sqlCommands() {
-        StringJoiner joiner = new StringJoiner(System.lineSeparator());
-        joiner.add("SQL commands: ");
-        Arrays.stream(IgniteSqlCommand.values())
-                .map(IgniteSqlCommand::getTopic)
-                .forEach(joiner::add);
-        return joiner.toString();
+    private String sqlCommands() {
+        Set<String> topicsSet = new HashSet<>();
+        List<String> topics = new ArrayList<>();
+        for (IgniteSqlCommand command : IgniteSqlCommand.values()) {
+            // Take each command only once.
+            if (topicsSet.add(command.getTopic().toLowerCase())) {
+                topics.add(colorScheme.commandText("  " + command.getTopic()).toString());
+            }
+        }
+
+        return topics.stream().collect(Collectors.joining(lineSeparator(), "SQL commands" + lineSeparator(), ""));
     }
 
     @Override

@@ -214,14 +214,15 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     }
 
     private void flush() throws Exception {
-        // flush may be triggered by prefetching, so let's do nothing in this case
-        if (pendingRequests.isEmpty()) {
-            return;
-        }
-
         PendingRequest<OutRowT> currentReq = pendingRequests.peek();
 
-        assert currentReq != null;
+        // There may be no pending requests in two cases:
+        //   1) flush has been triggered by prefetch
+        //   2) concurrent cancellation already cleared the queue
+        // In both cases we should just return immediately.
+        if (currentReq == null) {
+            return;
+        }
 
         taskScheduled.set(false);
 
@@ -232,7 +233,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         boolean hasMoreRows = waiting != -1 || !buff.isEmpty();
 
         if (currentReq.buff.size() == currentReq.requested || !hasMoreRows) {
-            pendingRequests.remove();
+            // use poll() instead of remove() because latter throws exception when queue is empty,
+            // and queue may be cleared concurrently by cancellation
+            pendingRequests.poll();
 
             currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMoreRows));
         }

@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParam
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -57,7 +55,6 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -83,6 +80,7 @@ import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
@@ -311,8 +309,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         for (SqlTypeName numType : NUMERIC_TYPES) {
             for (SqlTypeName intervalType : INTERVAL_TYPES) {
                 RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
-                ColumnType colType = columnType(initialNumType);
-                Object value = generateValueByType(1000, Objects.requireNonNull(colType));
+                Object value = SqlTestUtils.generateValueByType(initialNumType);
                 String intervalTypeStr = makeUsableIntervalType(intervalType.getName());
 
                 fillTestCase(intervalTypeStr, "" + value, testItems, false, ctx);

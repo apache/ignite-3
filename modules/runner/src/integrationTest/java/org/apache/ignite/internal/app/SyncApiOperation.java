@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.compute.JobTarget.anyNode;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
@@ -26,7 +27,10 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -124,7 +128,28 @@ enum SyncApiOperation {
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), refs.selectIdsStatement)),
     SQL_EXECUTE_BATCH(refs -> refs.sql.executeBatch(null, UPDATE_QUERY, BatchedArguments.of(999))),
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatch(null, refs.updateStatement, BatchedArguments.of(999))),
-    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY));
+    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY)),
+
+    COMPUTE_SUBMIT(refs -> refs.compute.submit(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
+    COMPUTE_EXECUTE(refs -> refs.compute.execute(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
+    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitBroadcast(
+            Set.copyOf(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
+    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcast(
+            Set.copyOf(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
+    COMPUTE_SUBMIT_MAP_REDUCE(refs -> refs.compute.submitMapReduce(
+            TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
+            null
+    )),
+    COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduce(
+            TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
+            null
+    ));
 
     private final Consumer<References> action;
 
@@ -139,6 +164,7 @@ enum SyncApiOperation {
     boolean worksAfterShutdown() {
         return this == IGNITE_TABLES
                 || this == IGNITE_TRANSACTIONS
-                || this == IGNITE_SQL;
+                || this == IGNITE_SQL
+                || this == IGNITE_COMPUTE;
     }
 }

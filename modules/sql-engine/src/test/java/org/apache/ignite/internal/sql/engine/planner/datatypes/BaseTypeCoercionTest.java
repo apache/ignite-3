@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -41,8 +42,11 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -70,6 +74,16 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         assertThat("There are missing pairs", remainingPairs, Matchers.empty());
         assertThat("There are duplicate pairs. Remove them", usedPairs, Matchers.empty());
+    }
+
+    static IgniteSchema createSchemaWithSingleColumnTable(NativeType c1) {
+        return createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", c1)
+                        .build()
+        );
     }
 
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
@@ -223,5 +237,52 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         Arguments secondOpBeSame() {
             return Arguments.of(pair, firstOpMatcher, ofTypeWithoutCast(pair.second()));
         }
+    }
+
+    static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
+        return new SingleArgFunctionReturnTypeCheckBuilder(type);
+    }
+
+    /**
+     * Not really a builder, but provides DSL-like API to describe test case.
+     */
+    static class SingleArgFunctionReturnTypeCheckBuilder {
+        private final NativeType argumentType;
+
+        private SingleArgFunctionReturnTypeCheckBuilder(NativeType type) {
+            this.argumentType = type;
+        }
+
+        Arguments resultWillBe(NativeType returnType) {
+            return Arguments.of(argumentType, returnType);
+        }
+    }
+
+    /**
+     * Generates SQL literal with a random value for given type take into account precision and scale for the passed param.
+     *
+     * @param type Type to generate literal value.
+     * @param closerToBoundForDecimal5 if {@code true} will generate random value in the upper half of positive values for DECIMAL
+     *         type with 5  digits in integer part of the number.
+     * @return Generated value as string representation of a SQL literal.
+     */
+    static String generateLiteral(NativeType type, boolean closerToBoundForDecimal5) {
+        Object val = SqlTestUtils.generateValueByType(type);
+        // We have different behaviour of planner depending on value it can put CAST or not to do it.
+        // So we will generate all values which more then Short.MAX_VALUE and CAST will be always putted.
+        if (closerToBoundForDecimal5 && type.spec() == NativeTypeSpec.DECIMAL) {
+            DecimalNativeType t = ((DecimalNativeType) type);
+            // for five-digit we can have value less or more then Short.MaX_VALUE.
+            // To get rid of vagueness let's generate always bigger value.
+            if (t.precision() - t.scale() == 5) {
+                BigDecimal bd = ((BigDecimal) val);
+                if (bd.signum() > 0 && bd.intValue() < Short.MAX_VALUE) {
+                    val = bd.add(BigDecimal.valueOf(Short.MAX_VALUE));
+                } else if (bd.signum() < 0 && bd.intValue() > -Short.MAX_VALUE) {
+                    val = bd.subtract(BigDecimal.valueOf(Short.MAX_VALUE));
+                }
+            }
+        }
+        return SqlTestUtils.makeLiteral(val.toString(), type.spec().asColumnType());
     }
 }

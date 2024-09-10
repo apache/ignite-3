@@ -27,7 +27,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.ComputeJob;
@@ -36,6 +39,11 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -44,6 +52,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -141,10 +150,57 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         return Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node());
     }
 
+    @CartesianTest
+    void taskExecutionFuturesCompleteInContinuationsPool(
+            @Enum ComputeMapReduceOperation mapReduceOperation,
+            @Enum TaskExecutionAsyncOperation executionOperation
+    ) {
+        TaskExecution<?> execution = mapReduceOperation.executeOn(computeForPublicUse());
+
+        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
+                .thenApply(unused -> currentThread());
+
+        assertThat(completerFuture, willBe(
+                either(is(currentThread())).or(asyncContinuationPool())
+        ));
+    }
+
+    @CartesianTest
+    void taskExecutionFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum ComputeMapReduceOperation submitOperation,
+            @Enum TaskExecutionAsyncOperation executionOperation
+    ) {
+        TaskExecution<?> execution = submitOperation.executeOn(computeForInternalUse());
+
+        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
+                .thenApply(unused -> currentThread());
+
+        assertThat(completerFuture, willBe(
+                either(is(currentThread())).or(anIgniteThread())
+        ));
+    }
+
     private static class NoOpJob implements ComputeJob<Void, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
             return completedFuture("ok");
+        }
+    }
+
+    private static class NoOpMapReduceTask implements MapReduceTask<Void, Void, String, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Void, String>>> splitAsync(TaskExecutionContext taskContext, @Nullable Void input) {
+            return completedFuture(List.of(
+                    MapReduceJob.<Void, String>builder()
+                            .jobDescriptor(JobDescriptor.builder(NoOpJob.class).build())
+                            .nodes(taskContext.ignite().clusterNodes())
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            return completedFuture(null);
         }
     }
 
@@ -164,7 +220,10 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
                         null)),
         EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build(),
-                null));
+                null)),
+        EXECUTE_MAP_REDUCE_ASYNC(compute -> compute
+                .executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)
+        );
 
         private final Function<IgniteCompute, CompletableFuture<?>> action;
 
@@ -220,6 +279,42 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<?> executeOn(JobExecution<?> execution) {
             return action.apply((JobExecution<Object>) execution);
+        }
+    }
+
+    private enum ComputeMapReduceOperation {
+        SUBMIT_MAP_REDUCE(compute -> compute
+                .submitMapReduce(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)
+        );
+
+        private final Function<IgniteCompute, TaskExecution<?>> action;
+
+        ComputeMapReduceOperation(Function<IgniteCompute, TaskExecution<?>> action) {
+            this.action = action;
+        }
+
+        TaskExecution<?> executeOn(IgniteCompute compute) {
+            return action.apply(compute);
+        }
+    }
+
+    private enum TaskExecutionAsyncOperation {
+        STATES_ASYNC(execution -> execution.statesAsync()),
+        IDS_ASYNC(execution -> execution.idsAsync()),
+        RESULT_ASYNC(execution -> execution.resultAsync()),
+        STATE_ASYNC(execution -> execution.stateAsync()),
+        ID_ASYNC(execution -> execution.idAsync()),
+        CANCEL_ASYNC(execution -> execution.cancelAsync()),
+        CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
+
+        private final Function<TaskExecution<Object>, CompletableFuture<?>> action;
+
+        TaskExecutionAsyncOperation(Function<TaskExecution<Object>, CompletableFuture<?>> action) {
+            this.action = action;
+        }
+
+        CompletableFuture<?> executeOn(TaskExecution<?> execution) {
+            return action.apply((TaskExecution<Object>) execution);
         }
     }
 }

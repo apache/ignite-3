@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,7 +38,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -55,6 +54,11 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
             "MapReduceSortAggregateConverterRule");
 
     private static final int ROWS = 103;
+
+    // most commonly used values
+    private static final BigDecimal ONE_WITH_SCALE_16 = new BigDecimal("1").setScale(16, RoundingMode.UNNECESSARY);
+    private static final BigDecimal ONE_AND_HALF_WITH_SCALE_16 = new BigDecimal("1.5").setScale(16, RoundingMode.UNNECESSARY);
+    private static final BigDecimal TWO_WITH_SCALE_16 = new BigDecimal("2").setScale(16, RoundingMode.UNNECESSARY);
 
     /**
      * Before all.
@@ -101,6 +105,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "double_col DOUBLE, "
                 + "dec2_col DECIMAL(2), "
                 + "dec4_2_col DECIMAL(4,2), "
+                + "dec20_18_col DECIMAL(20,18), "
                 + "dec10_2_col DECIMAL(10,2) "
                 + ")");
 
@@ -553,18 +558,19 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvg(String[] rules) {
-        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
-                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
-
         sql("DELETE FROM numbers");
-        sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
+        sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
+
+        BigDecimal avgDec = ONE_AND_HALF_WITH_SCALE_16;
+        BigDecimal avgDecBigScale = new BigDecimal("1.5").setScale(18, RoundingMode.UNNECESSARY);
+        Double avgDouble = 1.5d;
 
         assertQuery("SELECT "
                 + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
-                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col), AVG(dec20_18_col) "
                 + "FROM numbers")
                 .disableRules(rules)
-                .returns((byte) 1, (short) 1, 1, 1L, 1.5f, 1.5d, new BigDecimal("1.5"), new BigDecimal("1.50"))
+                .returns(avgDec, avgDec, avgDec, avgDec, avgDouble, avgDouble, avgDec, avgDec, avgDecBigScale)
                 .check();
 
         sql("DELETE FROM numbers");
@@ -572,7 +578,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.50"))
+                .returns(avgDec)
                 .check();
 
         sql("DELETE FROM numbers");
@@ -580,7 +586,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.665"))
+                .returns(new BigDecimal("1.665").setScale(16, RoundingMode.UNNECESSARY))
                 .check();
 
         sql("DELETE FROM numbers");
@@ -596,12 +602,11 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(1, new BigDecimal("1.00"))
+                .returns(ONE_WITH_SCALE_16, ONE_WITH_SCALE_16)
                 .check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22988")
     public void testAvgRandom() {
         long seed = System.nanoTime();
         Random random = new Random(seed);
@@ -617,17 +622,17 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
             numbers.add(num);
 
             String query = "INSERT INTO numbers (id, int_col, dec10_2_col) VALUES(?, ?, ?)";
-            sql(query, i, num.intValue(), num);
+            sql(query, i, num.setScale(0, RoundingMode.HALF_UP).intValue(), num);
         }
 
         BigDecimal avg = numbers.stream()
                 .reduce(new BigDecimal("0.00"), BigDecimal::add)
-                .divide(BigDecimal.valueOf(numbers.size()), MathContext.DECIMAL64);
+                .divide(BigDecimal.valueOf(numbers.size()), 16, RoundingMode.HALF_UP);
 
         for (String[] rules : makePermutations(DISABLED_RULES)) {
             assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
                     .disableRules(rules)
-                    .returns(avg.intValue(), avg)
+                    .returns(avg, avg)
                     .check();
         }
     }
@@ -640,20 +645,20 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM not_null_numbers")
                 .disableRules(rules)
-                .returns(1, new BigDecimal("1.50"))
+                .returns(ONE_AND_HALF_WITH_SCALE_16, ONE_AND_HALF_WITH_SCALE_16)
                 .check();
 
         // Return type of an AVG aggregate can never be null.
         assertQuery("SELECT AVG(int_col) FROM not_null_numbers GROUP BY int_col")
                 .disableRules(rules)
-                .returns(1)
-                .returns(2)
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         assertQuery("SELECT AVG(dec4_2_col) FROM not_null_numbers GROUP BY dec4_2_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.00"))
-                .returns(new BigDecimal("2.00"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         sql("DELETE FROM numbers");
@@ -661,14 +666,14 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(int_col) FROM numbers GROUP BY int_col")
                 .disableRules(rules)
-                .returns(1)
-                .returns(2)
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers GROUP BY dec4_2_col")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.00"))
-                .returns(new BigDecimal("2.00"))
+                .returns(ONE_WITH_SCALE_16)
+                .returns(TWO_WITH_SCALE_16)
                 .check();
     }
 
@@ -679,36 +684,49 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT "
                 + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
-                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col), AVG(dec20_18_col) "
                 + "FROM numbers")
                 .disableRules(rules)
-                .returns(null, null, null, null, null, null, null, null)
+                .returns(null, null, null, null, null, null, null, null, null)
                 .check();
     }
 
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvgFromLiterals(String[] rules) {
-        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
-                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
+        BigDecimal avgDec = ONE_AND_HALF_WITH_SCALE_16;
+        BigDecimal avgDecBigScale = new BigDecimal("1.5").setScale(18, RoundingMode.UNNECESSARY);
+        Double avgDouble = 1.5d;
 
         assertQuery("SELECT "
-                + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
-                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), AVG(float_col), " 
+                + "AVG(double_col), AVG(dec2_col), AVG(dec4_2_col), AVG(dec20_18_col) "
                 + "FROM (VALUES "
-                + "(1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1::REAL, 1::DOUBLE, 1::DECIMAL(2), 1.00::DECIMAL(4,2)), "
-                + "(2::TINYINT, 2::SMALLINT, 2::INTEGER, 2::BIGINT, 2::REAL, 2::DOUBLE, 2::DECIMAL(2), 2.00::DECIMAL(4,2)) "
+                + "(1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1::REAL," 
+                + " 1::DOUBLE, 1::DECIMAL(2), 1.00::DECIMAL(4,2), 1.00::DECIMAL(20,18)), "
+                + "(2::TINYINT, 2::SMALLINT, 2::INTEGER, 2::BIGINT, 2::REAL," 
+                + " 2::DOUBLE, 2::DECIMAL(2), 2.00::DECIMAL(4,2), 2.00::DECIMAL(20,18)) "
                 + ") "
-                + "t(tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, dec2_col, dec4_2_col)")
+                + "t(tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, dec2_col, dec4_2_col, dec20_18_col)")
                 .disableRules(rules)
-                .returns((byte) 1, (short) 1, 1, 1L, 1.5f, 1.5d, new BigDecimal("1.5"), new BigDecimal("1.50"))
+                .returns(avgDec, avgDec, avgDec, avgDec, avgDouble, avgDouble, avgDec, avgDec, avgDecBigScale)
                 .check();
 
         assertQuery("SELECT "
-                + "AVG(1::TINYINT), AVG(2::SMALLINT), AVG(3::INTEGER), AVG(4::BIGINT), "
-                + "AVG(5::REAL), AVG(6::DOUBLE), AVG(7::DECIMAL(2)), AVG(8.00::DECIMAL(4,2))")
+                + "AVG(1::TINYINT), AVG(2::SMALLINT), AVG(3::INTEGER), AVG(4::BIGINT), AVG(5::REAL), " 
+                + "AVG(6::DOUBLE), AVG(7::DECIMAL(2)), AVG(8.00::DECIMAL(4,2)), AVG(9.00::DECIMAL(20,18))")
                 .disableRules(rules)
-                .returns((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7"), new BigDecimal("8.00"))
+                .returns(
+                        ONE_WITH_SCALE_16,
+                        TWO_WITH_SCALE_16,
+                        new BigDecimal("3").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("4").setScale(16, RoundingMode.UNNECESSARY),
+                        5.0d,
+                        6.0d,
+                        new BigDecimal("7").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("8").setScale(16, RoundingMode.UNNECESSARY),
+                        new BigDecimal("9").setScale(18, RoundingMode.UNNECESSARY)
+                )
                 .check();
 
         assertQuery("SELECT AVG(dec2_col), AVG(dec4_2_col) FROM\n"
@@ -717,7 +735,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "  UNION\n"
                 + "  SELECT 2::DECIMAL(2) as dec2_col, 3.00::DECIMAL(4,2) as dec4_2_col\n"
                 + ") as t")
-                .returns(new BigDecimal("1.5"), new BigDecimal("2.50"))
+                .returns(ONE_AND_HALF_WITH_SCALE_16, new BigDecimal("2.5").setScale(16, RoundingMode.UNNECESSARY))
                 .check();
     }
 

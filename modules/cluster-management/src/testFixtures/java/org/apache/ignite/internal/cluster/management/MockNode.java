@@ -45,6 +45,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -132,7 +133,7 @@ public class MockNode {
                 new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage),
+                new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier()),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
                 clusterIdHolder,

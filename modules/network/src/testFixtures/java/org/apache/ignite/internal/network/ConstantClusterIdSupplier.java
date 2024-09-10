@@ -34,6 +34,10 @@ public class ConstantClusterIdSupplier implements ClusterIdSupplier {
         return new ConstantClusterIdSupplier(null);
     }
 
+    public ConstantClusterIdSupplier() {
+        this(new UUID(1, 1));
+    }
+
     public ConstantClusterIdSupplier(@Nullable UUID clusterId) {
         this.clusterId = clusterId;
     }

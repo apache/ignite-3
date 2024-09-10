@@ -22,8 +22,11 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_Q
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 
+import java.util.Collection;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.IgniteTables;
@@ -44,6 +47,9 @@ class References {
     final IgniteTables tables;
     final IgniteTransactions transactions;
     final IgniteSql sql;
+    final IgniteCompute compute;
+
+    final Collection<ClusterNode> clusterNodes;
 
     final Table table; // From table().
     final Table tableFromTableAsync;
@@ -69,6 +75,9 @@ class References {
         tables = ignite.tables();
         transactions = ignite.transactions();
         sql = ignite.sql();
+        compute = ignite.compute();
+
+        clusterNodes = ignite.clusterNodes();
 
         table = tables.table(TEST_TABLE_NAME);
         tableFromTableAsync = tables.tableAsync(TEST_TABLE_NAME).get(10, SECONDS);
