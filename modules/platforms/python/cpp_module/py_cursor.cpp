@@ -22,85 +22,9 @@
 
 #include "module.h"
 #include "py_cursor.h"
+#include "py_sequence.h"
 
 #include <Python.h>
-
-int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds)
-{
-    UNUSED_VALUE args;
-    UNUSED_VALUE kwds;
-
-    self->m_statement = nullptr;
-
-    return 0;
-}
-
-void py_cursor_dealloc(py_cursor *self)
-{
-    delete self->m_statement;
-    self->m_statement = nullptr;
-    Py_TYPE(self)->tp_free(self);
-}
-
-static PyObject* py_cursor_close(py_cursor* self, PyObject*)
-{
-    if (self->m_statement) {
-        self->m_statement->close();
-        if (!check_errors(*self->m_statement))
-            return nullptr;
-
-        delete self->m_statement;
-        self->m_statement = nullptr;
-    }
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kwargs)
-{
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
-        return nullptr;
-    }
-
-    static char *kwlist[] = {
-        "query",
-        "params",
-        nullptr
-    };
-
-    const char* query = nullptr;
-    // TODO IGNITE-23126 Support parameters
-    PyObject *params = nullptr;
-
-    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);
-
-    if (!parsed)
-        return nullptr;
-
-    self->m_statement->execute_sql_query(query);
-    if (!check_errors(*self->m_statement))
-        return nullptr;
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
-{
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
-        return nullptr;
-    }
-
-    auto query = self->m_statement->get_query();
-
-    if (!query)
-        return PyLong_FromLong(-1);
-
-    return PyLong_FromLong(long(query->affected_rows()));
-}
 
 static PyObject* primitive_to_pyobject(ignite::primitive value) {
     using ignite::ignite_type;
@@ -177,6 +101,161 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return nullptr;
         }
     }
+}
+
+static void write_pyobject(ignite::protocol::writer &writer, PyObject *obj) {
+
+}
+
+
+class py_parameter_set : public ignite::parameter_set {
+public:
+    /**
+     * Constructor.
+     *
+     * @param params Python parameters sequence.
+     */
+    py_parameter_set(const py_sequence &params) : m_params(params) {}
+
+    /**
+     * Write only first row of the param set using provided writer.
+     *
+     * @param writer Writer.
+     */
+    virtual void write(ignite::protocol::writer &writer) const override {
+        for (Py_ssize_t idx = 0; idx < m_params.get_size(); ++idx) {
+            write_pyobject(writer, m_params.get_item(idx));
+        }
+    }
+
+    /**
+     * Write rows of the param set in interval [begin, end) using provided writer.
+     *
+     * @param writer Writer.
+     * @param begin Beginning of the interval.
+     * @param end End of the interval.
+     * @param last Last page flag.
+     */
+    virtual void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
+        // TODO: IGNITE-22742 Implement execution with a batch of parameters
+        throw ignite::ignite_error("Execution with the batch of parameters is not implemented");
+    }
+
+    /**
+     * Get parameter set size.
+     *
+     * @return Number of rows in set.
+     */
+    [[nodiscard]] virtual std::int32_t get_param_set_size() const override {
+        // TODO: IGNITE-22742 Implement execution with a batch of parameters
+        return 1;
+    }
+
+    /**
+     * Set number of parameters processed in batch.
+     *
+     * @param processed Processed.
+     */
+    virtual void set_params_processed(SQLULEN processed) override { m_processed = processed; }
+
+    /**
+     * Get pointer to array in which to return the status of each set of parameters.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const override {
+        // TODO: IGNITE-22742 Implement execution with a batch of parameters
+        return nullptr;
+    }
+
+private:
+    /** Python sequence of parameters. */
+    py_sequence m_params;
+
+    /** Processed params. */
+    SQLULEN m_processed;
+};
+
+
+int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds)
+{
+    UNUSED_VALUE args;
+    UNUSED_VALUE kwds;
+
+    self->m_statement = nullptr;
+
+    return 0;
+}
+
+void py_cursor_dealloc(py_cursor *self)
+{
+    delete self->m_statement;
+    self->m_statement = nullptr;
+    Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject* py_cursor_close(py_cursor* self, PyObject*)
+{
+    if (self->m_statement) {
+        self->m_statement->close();
+        if (!check_errors(*self->m_statement))
+            return nullptr;
+
+        delete self->m_statement;
+        self->m_statement = nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kwargs)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    static char *kwlist[] = {
+        "query",
+        "params",
+        nullptr
+    };
+
+    const char* query = nullptr;
+    PyObject *params = nullptr;
+
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);
+    if (!parsed)
+        return nullptr;
+
+    auto sequence = py_sequence::make(params);
+    if (!sequence)
+        return nullptr;
+
+    py_parameter_set py_params(*sequence);
+
+    self->m_statement->execute_sql_query(query, py_params);
+    if (!check_errors(*self->m_statement))
+        return nullptr;
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    auto query = self->m_statement->get_query();
+
+    if (!query)
+        return PyLong_FromLong(-1);
+
+    return PyLong_FromLong(long(query->affected_rows()));
 }
 
 static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)

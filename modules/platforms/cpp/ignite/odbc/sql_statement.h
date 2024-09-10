@@ -150,6 +150,14 @@ public:
     void execute_sql_query(const std::string &query);
 
     /**
+     * Execute SQL query with the custom parameter set.
+     *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     */
+    void execute_sql_query(const std::string &query, parameter_set &params);
+
+    /**
      * Execute SQL query.
      */
     void execute_sql_query();
@@ -466,6 +474,15 @@ private:
      * @return Operation result.
      */
     sql_result internal_execute_sql_query(const std::string &query);
+
+    /**
+     * Execute SQL query.
+     *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     * @return Operation result.
+     */
+    sql_result internal_execute_sql_query(const std::string &query, parameter_set &params);
 
     /**
      * Execute SQL query.
