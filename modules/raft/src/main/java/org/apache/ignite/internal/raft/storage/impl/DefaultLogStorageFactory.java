@@ -213,6 +213,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         closables.add(dbOptions);
         closables.add(cfOption);
         closables.add(flushListener);
+        closables.add(writeOptions);
 
         RocksUtils.closeAll(closables);
     }

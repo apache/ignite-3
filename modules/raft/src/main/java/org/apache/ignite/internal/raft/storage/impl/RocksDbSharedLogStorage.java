@@ -94,7 +94,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Shared data column family handle. */
     private final ColumnFamilyHandle dataHandle;
 
-    /** Write options. */
+    /** Shared write options. */
     private final WriteOptions writeOptions;
 
     /** Start prefix. */
@@ -662,7 +662,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called upon closing the storage.
      */
     protected void onShutdown() {
-        writeOptions.close();
         groupEndBound.close();
         groupStartBound.close();
     }
