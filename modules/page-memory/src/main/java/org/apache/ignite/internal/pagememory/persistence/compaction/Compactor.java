@@ -255,7 +255,11 @@ public class Compactor extends IgniteWorker {
                             partitionCompactionInProgressMap.incrementPartitionProcessingCounter(groupPartitionId);
 
                             try {
-                                mergeDeltaFileToMainFile(toMerge.groupPartitionFilePageStore.pageStore(), toMerge.deltaFilePageStoreIo, tracker);
+                                mergeDeltaFileToMainFile(
+                                        toMerge.groupPartitionFilePageStore.pageStore(),
+                                        toMerge.deltaFilePageStoreIo,
+                                        tracker
+                                );
                             } finally {
                                 partitionCompactionInProgressMap.decrementPartitionProcessingCounter(groupPartitionId);
                             }

@@ -31,19 +31,19 @@ public class WriteSpeedFormatter {
         SEPARATOR.setDecimalSeparator('.');
     }
 
-    /** Format for speed > 10 MB/sec */
+    /** Format for speed > 10 MB/sec. */
     private static final DecimalFormat HIGH_SPEED_FORMAT = new DecimalFormat("#", SEPARATOR);
 
-    /** Format for speed in range 1-10 MB/sec */
+    /** Format for speed in range 1-10 MB/sec. */
     private static final DecimalFormat MEDIUM_SPEED_FORMAT = new DecimalFormat("#.##", SEPARATOR);
 
     /**
      * Format for speed < 1 MB/sec For cases when user deployed Grid to inappropriate HW, e.g. AWS EFS, where throughput is elastic and can
-     * degrade to near-zero values
+     * degrade to near-zero values.
      */
     private static final DecimalFormat LOW_SPEED_FORMAT = new DecimalFormat("#.####", SEPARATOR);
 
-    /** Constructor */
+    /** Constructor. */
     private WriteSpeedFormatter() {
         // no-op
     }
