@@ -85,15 +85,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-    /** Bytes in a Kilobyte. */
-    public static final long KB = 1024L;
-
-    /** Bytes in a Megabyte. */
-    public static final long MB = 1024L * 1024;
-
-    /** Bytes in a Gigabyte. */
-    public static final long GB = 1024L * 1024 * 1024;
-
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 

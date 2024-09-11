@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Constants;
 
 /**
  * Util class that encapsulates write speed formatting. Ported from {@code Ignite 2.x}.
@@ -55,7 +55,7 @@ public class WriteSpeedFormatter {
      * @return Formatted write speed.
      */
     public static String formatWriteSpeed(float avgWriteSpeedInBytes) {
-        float speedInMbs = avgWriteSpeedInBytes / IgniteUtils.MB;
+        float speedInMbs = avgWriteSpeedInBytes / Constants.MiB;
 
         if (speedInMbs >= 10.0) {
             synchronized (HIGH_SPEED_FORMAT) {
