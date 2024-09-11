@@ -368,7 +368,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         LOG.info(">>> Cluster is stopped.");
     }
 
-    private static final class TestRunnerRuntime implements RunnerRuntime {
+    static final class TestRunnerRuntime implements RunnerRuntime {
 
         /**
          * {@inheritDoc}

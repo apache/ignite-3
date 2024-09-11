@@ -307,7 +307,7 @@ final class Query extends Command {
         }
     }
 
-    private void checkResultTuples(ScriptContext ctx, List<List<?>> res) {
+    void checkResultTuples(ScriptContext ctx, List<List<?>> res) {
         if (expectedRes.size() != res.size()) {
             throw new AssertionError("Invalid results rows count at: " + posDesc
                     + ". [expectedRows=" + expectedRes.size() + ", actualRows=" + res.size()
@@ -327,13 +327,19 @@ final class Query extends Command {
                 String expectStrValRaw = expectedRow.get(j);
                 String expectStrVal = ctx.replaceVars(expectStrValRaw);
 
-                checkEquals(ctx,
-                        "Not expected result at: " + posDesc
-                                + ". [row=" + i + ", col=" + j
-                                + ", expected=" + expectStrVal + ", actual=" + resultToString(ctx, row.get(j)) + ']',
-                        expectStrVal,
-                        row.get(j)
-                );
+                try {
+                    checkEquals(ctx,
+                            "Not expected result at: " + posDesc
+                                    + ". [row=" + i + ", col=" + j
+                                    + ", expected=" + expectStrVal + ", actual=" + resultToString(ctx, row.get(j)) + ']',
+                            expectStrVal,
+                            row.get(j)
+                    );
+                } catch (AssertionError ex) {
+                    AssertionError extended = new AssertionError("Returned results: " + res);
+                    extended.addSuppressed(ex);
+                    throw extended;
+                }
             }
         }
     }
