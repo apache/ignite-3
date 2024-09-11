@@ -51,8 +51,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
 
@@ -71,8 +71,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "false");
-
+        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         super.nodeSetUp();
@@ -106,16 +105,16 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void upsert() {
-//        List<CompletableFuture<Void>> futs = new ArrayList<>();
-//
-//        for (int i = 0; i < batch - 1; i++) {
-//            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
-//            futs.add(fut);
-//        }
-//
-//        for (CompletableFuture<Void> fut : futs) {
-//            fut.join();
-//        }
+        List<CompletableFuture<Void>> futs = new ArrayList<>();
+
+        for (int i = 0; i < batch - 1; i++) {
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
+            futs.add(fut);
+        }
+
+        for (CompletableFuture<Void> fut : futs) {
+            fut.join();
+        }
 
         kvView.put(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
     }

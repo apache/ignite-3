@@ -245,7 +245,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
             stripeId = nextStripeToSubscribe();
             stripeMapper.put(nodeId, stripeId);
 
-            LOG.info("Mapped {} to {}{}", nodeId.toString(), name, stripeId);
+            LOG.info("Node {}:{} mapped to {}{}", nodeId.toString(), type, name, stripeId);
         }
 
         queues[stripeId].publishEvent((event, sequence) -> {
