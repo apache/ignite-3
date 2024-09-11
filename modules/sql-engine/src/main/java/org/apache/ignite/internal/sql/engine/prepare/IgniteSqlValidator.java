@@ -397,11 +397,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlNode replacement = sourceExpressionList.get(i);
             int position = startPosition + i;
 
-            SqlNode source = selectList.get(position);
-
-            // We can't blindly replace all expressions, for example the call with SCALAR_QUERY
-            // is only sets in sourceSelect, keeping unmodified SqlSelect in sourceExpressionList.
-            if (source instanceof SqlBasicCall && !(replacement instanceof SqlBasicCall)) {
+            // The method exists to replace an expression with an expression that has the required
+            // type cast. Therefore, this only applies when the replacement contains SqlBasicCall.
+            // For example a call with SCALAR_QUERY is only present in sourceSelect, keeping original
+            // SqlSelect in sourceExpressionList, and we should not make a replacement in this case.
+            if (!(replacement instanceof SqlBasicCall)) {
                 continue;
             }
 
