@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "module.h"
+#include "utils.h"
 
 #include <ignite/protocol/writer.h>
 #include <ignite/common/ignite_type.h>

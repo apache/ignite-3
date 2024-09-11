@@ -18,7 +18,7 @@
 #include <ignite/odbc/sql_statement.h>
 #include <ignite/odbc/query/data_query.h>
 
-#include "module.h"
+#include "utils.h"
 #include "py_cursor.h"
 #include "type_conversion.h"
 
@@ -433,7 +433,7 @@ static PyObject* py_cursor_null_ok(py_cursor* self, PyObject* args)
 
 static PyTypeObject py_cursor_type = {
     PyVarObject_HEAD_INIT(nullptr, 0)
-    MODULE_NAME "." PY_CURSOR_CLASS_NAME
+    EXT_MODULE_NAME "." PY_CURSOR_CLASS_NAME
 };
 
 static struct PyMethodDef py_cursor_methods[] = {
