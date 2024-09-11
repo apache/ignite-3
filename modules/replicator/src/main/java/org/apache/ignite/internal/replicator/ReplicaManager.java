@@ -560,42 +560,70 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId groupId,
             @Nullable String redirectNodeId
     ) {
-        return msNodes.thenCompose(nodeIds -> {
-            List<CompletableFuture<NetworkMessage>> futs = new ArrayList<>();
+        long retriesTimeout = 60_000;
+        long startTime = System.currentTimeMillis();
 
-            for (String nodeId : nodeIds) {
-                ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
+        return stopLeaseProlongation(groupId, redirectNodeId, startTime + retriesTimeout);
+    }
 
-                if (node != null) {
-                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several times.
-                    futs.add(
-                        clusterNetSvc.messagingService().invoke(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
-                                .groupId(groupId)
-                                .redirectProposal(redirectNodeId)
-                                .build(), 60_000)
-                    );
+    /**
+     * Sends stop lease prolongation message to all participants of placement driver group.
+     *
+     * @param groupId Replication group id.
+     * @param redirectNodeId Node consistent id to redirect.
+     * @param endTime Time to end the retries.
+     * @return Future that is completed when the lease is denied to prolong, containing the expiration time of this lease.
+     */
+    private CompletableFuture<HybridTimestamp> stopLeaseProlongation(
+            ReplicationGroupId groupId,
+            @Nullable String redirectNodeId,
+            long endTime
+    ) {
+        long timeout = System.currentTimeMillis() - endTime;
+
+        if (timeout <= 0) {
+            return failedFuture(new IgniteException(INTERNAL_ERR, format("Failed to stop lease prolongation within timeout [groupId={}]",
+                    groupId)));
+        } else {
+            return msNodes.thenCompose(nodeIds -> {
+                List<CompletableFuture<NetworkMessage>> futs = new ArrayList<>();
+
+                for (String nodeId : nodeIds) {
+                    ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
+
+                    if (node != null) {
+                        // TODO: IGNITE-19441 Stop lease prolongation message might be sent several times.
+                        futs.add(
+                                clusterNetSvc.messagingService()
+                                        .invoke(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                                                .groupId(groupId)
+                                                .redirectProposal(redirectNodeId)
+                                                .build(), timeout)
+                                        .exceptionally(th -> null)
+                        );
+                    }
                 }
-            }
 
-            return allOf(futs)
-                    .thenCompose(unused -> {
-                        NetworkMessage response = futs.stream()
-                                .map(CompletableFuture::join)
-                                .filter(Objects::nonNull)
-                                .findAny()
-                                .orElse(null);
+                return allOf(futs)
+                        .thenCompose(unused -> {
+                            NetworkMessage response = futs.stream()
+                                    .map(CompletableFuture::join)
+                                    .filter(Objects::nonNull)
+                                    .findAny()
+                                    .orElse(null);
 
-                        if (response == null) {
-                            // This is
-                            return stopLeaseProlongation(groupId, redirectNodeId);
-                        } else {
-                            assert response instanceof StopLeaseProlongationMessageResponse : format("Unexpected response type [class={}, "
-                                    + "response={}].", response.getClass(), response);
+                            if (response == null) {
+                                return stopLeaseProlongation(groupId, redirectNodeId, endTime);
+                            } else {
+                                assert response instanceof StopLeaseProlongationMessageResponse : format(
+                                        "Unexpected response type [class={}, "
+                                                + "response={}].", response.getClass(), response);
 
-                            return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
-                        }
-                    });
-        });
+                                return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
+                            }
+                        });
+            });
+        }
     }
 
     private CompletableFuture<Replica> startReplicaInternal(

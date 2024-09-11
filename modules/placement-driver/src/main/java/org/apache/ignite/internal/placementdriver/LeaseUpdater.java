@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.hash;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -29,7 +27,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -50,7 +47,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -257,33 +253,6 @@ public class LeaseUpdater {
                     return deniedLease.getExpirationTime();
                 } else {
                     return null;
-                }
-            });
-        }
-    }
-
-    private CompletableFuture<HybridTimestamp> denyLeaseImMetaStorage(
-            Lease deniedLease,
-            Collection<Lease> currentLeases,
-            byte[] currentLeasesBytes
-    ) {
-        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
-
-        IgniteBiTuple<List<Lease>, Boolean> renewedLeasesTup = replaceProlongableLeaseInCollection(currentLeases, deniedLease);
-
-        if (!renewedLeasesTup.get2()) {
-            return nullCompletedFuture();
-        } else {
-            return msManager.invoke(
-                    or(notExists(key), value(key).eq(currentLeasesBytes)),
-                    put(key, new LeaseBatch(renewedLeasesTup.get1()).bytes()),
-                    noop()
-            ).thenCompose(res -> {
-                if (res) {
-                    return completedFuture(deniedLease.getExpirationTime());
-                } else {
-                    return refreshLeasesFromMetaStorage()
-                            .thenCompose(msLeases -> denyLeaseImMetaStorage(deniedLease, msLeases.leases(), msLeases.bytes()));
                 }
             });
         }
