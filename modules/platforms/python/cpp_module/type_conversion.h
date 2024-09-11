@@ -23,6 +23,7 @@
 #include <ignite/common/ignite_type.h>
 #include <ignite/common/primitive.h>
 #include <ignite/common/detail/defer.h>
+#include <ignite/common/detail/bytes.h>
 #include <ignite/tuple/binary_tuple_builder.h>
 #include <ignite/protocol/utils.h>
 
@@ -46,37 +47,37 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
         }
 
         case ignite_type::INT8: {
-            auto &i8_val =  value.get<std::int8_t>();
+            auto &i8_val = value.get<std::int8_t>();
             return PyLong_FromLong(long(i8_val));
         }
 
         case ignite_type::INT16: {
-            auto &i16_val =  value.get<std::int16_t>();
+            auto &i16_val = value.get<std::int16_t>();
             return PyLong_FromLong(long(i16_val));
         }
 
         case ignite_type::INT32: {
-            auto &i32_val =  value.get<std::int32_t>();
+            auto &i32_val = value.get<std::int32_t>();
             return PyLong_FromLong(long(i32_val));
         }
 
         case ignite_type::INT64: {
-            auto &i64_val =  value.get<std::int64_t>();
+            auto &i64_val = value.get<std::int64_t>();
             return PyLong_FromLongLong(i64_val);
         }
 
         case ignite_type::FLOAT: {
-            auto &float_val =  value.get<float>();
+            auto &float_val = value.get<float>();
             return PyFloat_FromDouble(float_val);
         }
 
         case ignite_type::DOUBLE: {
-            auto &double_val =  value.get<double>();
+            auto &double_val = value.get<double>();
             return PyFloat_FromDouble(double_val);
         }
 
         case ignite_type::BOOLEAN: {
-            auto &bool_val =  value.get<bool>();
+            auto &bool_val = value.get<bool>();
             if (bool_val) {
                 Py_RETURN_TRUE;
             } else {
@@ -85,11 +86,18 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
         }
 
         case ignite_type::BYTE_ARRAY: {
-            auto &blob_val =  value.get<std::vector<std::byte>>();
+            auto &blob_val = value.get<std::vector<std::byte>>();
             return PyBytes_FromStringAndSize((const char*)blob_val.data(), blob_val.size());
         }
 
-        case ignite_type::UUID:
+        case ignite_type::UUID: {
+            auto &uuid_val = value.get<ignite::uuid>();
+            std::byte buf[16];
+            ignite::detail::bytes::store<ignite::detail::endian::BIG>(buf, uuid_val.get_most_significant_bits());
+            ignite::detail::bytes::store<ignite::detail::endian::BIG>(buf + 8, uuid_val.get_least_significant_bits());
+            return py_create_uuid({buf, sizeof(buf)});
+        }
+
         case ignite_type::DATE:
         case ignite_type::TIMESTAMP:
         case ignite_type::TIME:

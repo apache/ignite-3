@@ -22,18 +22,6 @@
 
 #include <Python.h>
 
-PyObject* py_get_class(const char* module_name, const char* class_name) {
-    auto pyignite3_mod = PyImport_ImportModule(module_name);
-
-    if (!pyignite3_mod)
-        return nullptr;
-
-    auto conn_class = PyObject_GetAttrString(pyignite3_mod, class_name);
-    Py_DECREF(pyignite3_mod);
-
-    return conn_class;
-}
-
 bool check_errors(ignite::diagnosable& diag) {
     auto &records = diag.get_diagnostic_records();
     if (records.is_successful())
@@ -67,4 +55,44 @@ const char* py_object_get_typename(PyObject* obj) {
     }
 
     return obj->ob_type->tp_name;
+}
+
+PyObject* py_get_class(const char* module_name, const char* class_name) {
+    auto pyignite3_mod = PyImport_ImportModule(module_name);
+
+    if (!pyignite3_mod)
+        return nullptr;
+
+    auto conn_class = PyObject_GetAttrString(pyignite3_mod, class_name);
+    Py_DECREF(pyignite3_mod);
+
+    return conn_class;
+}
+
+PyObject* py_create_uuid(ignite::bytes_view bytes) {
+    auto uuid_class = py_get_class(MODULE_NAME, "UUID");
+    if (!uuid_class)
+        return nullptr;
+    ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+
+    auto args = PyTuple_New(0);
+    if (!args)
+        return nullptr;
+    ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+
+    PyObject* py_bytes = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    if (!py_bytes)
+        return nullptr;
+
+    if (PyDict_SetItemString(kwargs, "bytes", py_bytes) < 0) {
+        Py_DECREF(py_bytes);
+        return nullptr;
+    }
+
+    return PyObject_Call(uuid_class, args, kwargs);
 }

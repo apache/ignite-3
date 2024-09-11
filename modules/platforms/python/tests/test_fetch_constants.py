@@ -13,28 +13,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
+import uuid
 
 import pytest
-
-import pyignite3
-from tests.util import server_addresses_basic
 
 
 test_data = [
     ("select 'Lorem ipsum'", 'Lorem ipsum'),
     ("select ''", ''),
-    ("select CAST(42 AS TINYINT)", 42),
-    ("select CAST(-18 AS TINYINT)", -18),
-    ("select CAST(4242 AS SMALLINT)", 4242),
+    ("select 42::TINYINT", 42),
+    ("select -18::TINYINT", -18),
+    ("select 4242::SMALLINT", 4242),
     ("select 987654321", 987654321),
-    ("select CAST(1234567890987654321 AS BIGINT)", 1234567890987654321),
-    ("select CAST(123.456 AS REAL)", 123.456),
-    ("select CAST(-123456789.987654321 AS DOUBLE)", -123456789.987654321),
+    ("select 1234567890987654321::BIGINT", 1234567890987654321),
+    ("select 123.456::REAL", 123.456),
+    ("select -123456789.987654321::DOUBLE", -123456789.987654321),
     ("select TRUE", True),
     ("select FALSE", False),
     ("select x'45F0AB'", b'\x45\xf0\xab'),
     ("select x''", b''),
     ("select NULL", None),
+    ("SELECT 'c4a0327c-44be-416d-ae90-75c05079789f'::UUID", uuid.UUID('c4a0327c-44be-416d-ae90-75c05079789f')),
+    ("SELECT '00000000-0000-0000-0000-000000000001'::UUID", uuid.UUID('00000000-0000-0000-0000-000000000001')),
+    ("SELECT '10101010-1010-1010-1010-101010101010'::UUID", uuid.UUID('10101010-1010-1010-1010-101010101010')),
 ]
 
 

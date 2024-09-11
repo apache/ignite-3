@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <ignite/common/bytes_view.h>
+
 #include <Python.h>
 
 #define MODULE_NAME "pyignite3"
@@ -36,15 +38,6 @@ class diagnosable;
 }
 
 /**
- * Get a Python's class instance.
- *
- * @param module_name Module name.
- * @param class_name Class name.
- * @return
- */
-PyObject* py_get_class(const char* module_name, const char* class_name);
-
-/**
  * Check odbc object for errors, and set a proper Python exception, if there are.
  * @param diag Diagnosable object instance.
  * @return @c true if there is no error, and @c false, if there is an error.
@@ -58,3 +51,19 @@ bool check_errors(ignite::diagnosable& diag);
  * @return Typename if available, and "Unknown" otherwise.
  */
 const char* py_object_get_typename(PyObject* obj);
+
+/**
+ * Get a Python's class instance.
+ *
+ * @param module_name Module name.
+ * @param class_name Class name.
+ * @return
+ */
+PyObject* py_get_class(const char* module_name, const char* class_name);
+
+/**
+ * Create a new instance of pyignite3.UUID from an array of bytes.
+ * @param value Uuid.
+ * @return A new instance of pyignite3.UUID.
+ */
+PyObject* py_create_uuid(ignite::bytes_view bytes);
