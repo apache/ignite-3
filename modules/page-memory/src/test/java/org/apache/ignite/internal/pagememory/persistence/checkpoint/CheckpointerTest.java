@@ -385,7 +385,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        verify(dirtyPages, times(1)).toDirtyPageIdQueue();
+        verify(dirtyPages, times(1)).toDirtyPartitionQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, times(1)).triggerCompaction();
         verify(mockLogSyncer, times(1)).sync();
@@ -416,7 +416,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        verify(dirtyPages, never()).toDirtyPageIdQueue();
+        verify(dirtyPages, never()).toDirtyPartitionQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, never()).triggerCompaction();
 

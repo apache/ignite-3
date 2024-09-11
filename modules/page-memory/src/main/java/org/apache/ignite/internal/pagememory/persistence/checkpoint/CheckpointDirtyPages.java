@@ -27,14 +27,12 @@ import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs that should be
- * checkpointed.
- */
+/** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and partition IDs that should be checkpointed. */
 class CheckpointDirtyPages {
     /** Dirty page ID comparator by groupId -> partitionId -> pageIdx. */
     static final Comparator<FullPageId> DIRTY_PAGE_COMPARATOR = Comparator
@@ -80,6 +78,18 @@ class CheckpointDirtyPages {
                 .collect(toList());
 
         return new IgniteConcurrentMultiPairQueue<>(dirtyPageIds);
+    }
+
+    /** Creates a concurrent queue of dirty partitions to be written to at checkpoint. */
+    public IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> toDirtyPartitionQueue() {
+        List<IgniteBiTuple<PersistentPageMemory, GroupPartitionId[]>> dirtyPartitions = dirtyPagesAndPartitions.stream()
+                .map(dirtyPagesAndPartitions -> new IgniteBiTuple<>(
+                        dirtyPagesAndPartitions.pageMemory,
+                        dirtyPagesAndPartitions.dirtyPartitions.toArray(GroupPartitionId[]::new))
+                )
+                .collect(toList());
+
+        return new IgniteConcurrentMultiPairQueue<>(dirtyPartitions);
     }
 
     /**
