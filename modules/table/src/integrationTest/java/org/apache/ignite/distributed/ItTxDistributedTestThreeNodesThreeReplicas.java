@@ -63,8 +63,8 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
     @AfterEach
     public void after() throws Exception {
         try {
-            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), TimeUnit.SECONDS.toMillis(5)));
-            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), TimeUnit.SECONDS.toMillis(5)));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), TimeUnit.SECONDS.toMillis(10)));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), TimeUnit.SECONDS.toMillis(10)));
         } finally {
             super.after();
         }

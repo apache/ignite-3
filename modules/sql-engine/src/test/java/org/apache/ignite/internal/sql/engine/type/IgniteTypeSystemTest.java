@@ -17,12 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem.MIN_SCALE_OF_AVG_RESULT;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests for {@link IgniteTypeSystem}. */
 public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
@@ -89,4 +99,74 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
     public void testGetMaxNumericScale() {
         assertEquals(DECIMAL_SCALE, typeSystem.getMaxNumericScale());
     }
+
+    @ParameterizedTest
+    @MethodSource("deriveAvgTypeArguments")
+    void deriveAvgType(RelDataType argument, RelDataType expected) {
+        RelDataType actual = typeSystem.deriveAvgAggType(Commons.typeFactory(), argument);
+
+        assertThat(actual, Matchers.equalTo(expected));
+    }
+
+    private static Stream<Arguments> deriveAvgTypeArguments() {
+        IgniteTypeSystem typeSystem = IgniteTypeSystem.INSTANCE;
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        return Stream.of(
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.INT8),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                typeSystem.getMaxPrecision(SqlTypeName.TINYINT) + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.INT16),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                typeSystem.getMaxPrecision(SqlTypeName.SMALLINT) + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.INT32),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                typeSystem.getMaxPrecision(SqlTypeName.INTEGER) + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.INT64),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                typeSystem.getMaxPrecision(SqlTypeName.BIGINT) + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(4, 0)),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                4 + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(4, 2)),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                2 + MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(4, 4)),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(
+                                MIN_SCALE_OF_AVG_RESULT, MIN_SCALE_OF_AVG_RESULT
+                        ))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(20, 18)),
+                        native2relationalType(typeFactory, NativeTypes.decimalOf(20, 18))
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.FLOAT),
+                        native2relationalType(typeFactory, NativeTypes.DOUBLE)
+                ),
+                Arguments.of(
+                        native2relationalType(typeFactory, NativeTypes.DOUBLE),
+                        native2relationalType(typeFactory, NativeTypes.DOUBLE)
+                )
+        );
+    } 
 }

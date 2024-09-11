@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -140,6 +142,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final RaftGroupOptionsConfigurer raftGroupOptionsConfigurer;
 
+    /** Gets completed when raft service is started. */
+    private final CompletableFuture<Void> raftNodeStarted = new CompletableFuture<>();
+
     /**
      * The constructor.
      *
@@ -211,7 +216,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         electionListeners.add(listener);
     }
 
-    private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
+    private CompletableFuture<Long> recover(MetaStorageService service) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -294,13 +299,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     ? startFollowerNode(metaStorageNodes, disruptorConfig)
                     : startLearnerNode(metaStorageNodes, disruptorConfig);
 
-            return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(
-                    thisNodeName,
-                    raftService,
-                    busyLock,
-                    clusterTime,
-                    () -> clusterService.topologyService().localMember().id())
-            );
+            raftNodeStarted.complete(null);
+
+            return raftServiceFuture
+                    .thenApply(raftService -> new MetaStorageServiceImpl(
+                            thisNodeName,
+                            raftService,
+                            busyLock,
+                            clusterTime,
+                            () -> clusterService.topologyService().localMember().id())
+                    );
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -325,7 +333,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         followerListener = new MetaStorageListener(storage, clusterTime);
 
         CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
-                new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
+                raftNodeId(localPeer),
                 configuration,
                 followerListener,
                 RaftGroupEventsListener.noopLsnr,
@@ -370,13 +378,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         learnerListener = new MetaStorageListener(storage, clusterTime);
 
         return raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
-                new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
+                raftNodeId(localPeer),
                 configuration,
                 learnerListener,
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
                 raftGroupOptionsConfigurer
         );
+    }
+
+    private static RaftNodeId raftNodeId(Peer localPeer) {
+        return new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer);
     }
 
     /**
@@ -835,6 +847,29 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Long> recoveryFinishedFuture() {
         return recoveryFinishedFuture;
+    }
+
+    /**
+     * Returns a future that will be completed with information about index and term of the Metastorage Raft group.
+     *
+     * <p>This method is special in the following regard: it can be called before the component gets started. The returned
+     * future will be completed after the component start.
+     */
+    public CompletableFuture<IndexWithTerm> raftNodeIndex() {
+        return raftNodeStarted.thenApply(unused -> inBusyLock(busyLock, () -> {
+            RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
+
+            IndexWithTerm indexWithTerm;
+            try {
+                indexWithTerm = raftMgr.raftNodeIndex(nodeId);
+            } catch (NodeStoppingException e) {
+                throw new CompletionException(e);
+            }
+
+            assert indexWithTerm != null : "Attempt to get index and term when Raft node is not started yet or already stopped)";
+
+            return indexWithTerm;
+        }));
     }
 
     @TestOnly

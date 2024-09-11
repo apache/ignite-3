@@ -32,12 +32,12 @@ import picocli.CommandLine.Mixin;
  */
 @Command(name = "init", description = "Initializes an Ignite cluster")
 public class ClusterInitCommand extends BaseCommand implements Callable<Integer> {
+    @Mixin
+    private ClusterInitOptions clusterInitOptions;
+
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;
-
-    @Mixin
-    private ClusterInitOptions clusterInitOptions;
 
     @Inject
     private ClusterInitCall call;
@@ -45,13 +45,9 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 
     private ClusterInitCallInput buildCallInput() {

@@ -89,6 +89,8 @@ dependencies {
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-catalog-compaction')
+    implementation project(':ignite-system-disaster-recovery')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -166,6 +168,7 @@ dependencies {
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

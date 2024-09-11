@@ -33,7 +33,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHan
 import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 
 /** Builder for {@link AsyncCallExecutionPipeline}. */
-public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> {
+public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
 
     private final Function<ProgressTracker, AsyncCall<I, T>> callFactory;
 
@@ -76,6 +76,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> {
         return this;
     }
 
+    @Override
     public AsyncCallExecutionPipelineBuilder<I, T> output(PrintWriter output) {
         this.output = output;
         return this;
@@ -85,6 +86,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> {
         return output(wrapOutputStream(output));
     }
 
+    @Override
     public AsyncCallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput) {
         this.errOutput = errOutput;
         return this;
@@ -109,6 +111,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> {
         return this;
     }
 
+    @Override
     public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
         this.verbose = verbose;
         return this;
@@ -120,6 +123,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> {
     }
 
     /** Builds {@link AsyncCallExecutionPipeline}. */
+    @Override
     public CallExecutionPipeline<I, T> build() {
         return new AsyncCallExecutionPipeline<>(
                 callFactory, progressBarBuilder, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose

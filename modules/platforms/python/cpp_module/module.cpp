@@ -21,6 +21,7 @@
 
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
+#include <ignite/common/detail/defer.h>
 
 #include <memory>
 #include <cmath>
@@ -28,10 +29,141 @@
 #include <Python.h>
 
 
-PyObject* connect(PyObject* self, PyObject *args, PyObject* kwargs);
+static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
+    std::unique_ptr<ignite::sql_connection> conn)
+{
+    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
+
+    if (!pyignite3_mod)
+        return nullptr;
+
+    auto conn_class = PyObject_GetAttrString(pyignite3_mod, "Connection");
+    Py_DECREF(pyignite3_mod);
+
+    if (!conn_class)
+        return nullptr;
+
+    auto args = PyTuple_New(0);
+    auto kwargs = Py_BuildValue("{}");
+    PyObject* conn_obj  = PyObject_Call(conn_class, args, kwargs);
+    Py_DECREF(conn_class);
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+
+    if (!conn_obj)
+        return nullptr;
+
+    auto py_conn = make_py_connection(std::move(env), std::move(conn));
+    if (!py_conn)
+        return nullptr;
+
+    auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
+    if (res)
+        return nullptr;
+
+    return conn_obj;
+}
+
+static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+    static char *kwlist[] = {
+        "address",
+        "identity",
+        "secret",
+        "schema",
+        "timezone",
+        "page_size",
+        "timeout",
+        nullptr
+    };
+
+    PyObject *address = nullptr;
+    const char *identity = nullptr;
+    const char *secret = nullptr;
+    const char *schema = nullptr;
+    const char *timezone = nullptr;
+    int timeout = 0;
+    int page_size = 0;
+
+    int parsed = PyArg_ParseTupleAndKeywords(
+        args, kwargs, "O|$ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+
+    if (!parsed)
+        return nullptr;
+
+    std::stringstream address_builder;
+    if (PyList_Check(address)) {
+        auto size = PyList_Size(address);
+        for (Py_ssize_t idx = 0; idx < size; ++idx) {
+            auto item = PyList_GetItem(address, idx);
+            if (!PyUnicode_Check(item)) {
+                PyErr_SetString(PyExc_RuntimeError, "Only list of string values is allowed in 'address' parameter");
+                return nullptr;
+            }
+
+            auto str_array = PyUnicode_AsUTF8String(item);
+            if (!str_array) {
+                PyErr_SetString(PyExc_RuntimeError, "Can not convert address string to UTF-8");
+                return nullptr;
+            }
+            // To be called when the scope is left.
+            ignite::detail::defer([&] { Py_DECREF(str_array); });
+
+            auto *data = PyBytes_AsString(str_array);
+            auto len = PyBytes_Size(str_array);
+            std::string_view view(data, len);
+
+            address_builder << view;
+            if ((idx + 1) < size) {
+                address_builder << ',';
+            }
+        }
+    }
+
+    using namespace ignite;
+
+    auto sql_env = std::make_unique<sql_environment>();
+
+    std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
+    if (!check_errors(*sql_env))
+        return nullptr;
+
+    configuration cfg;
+    auto addrs_str = address_builder.str();
+    cfg.set_address(addrs_str);
+
+    if (schema)
+        cfg.set_schema(schema);
+
+    if (identity)
+        cfg.set_auth_identity(identity);
+
+    if (secret)
+        cfg.set_auth_secret(secret);
+
+    if (page_size)
+        cfg.set_page_size(std::int32_t(page_size));
+
+    if (timeout)
+    {
+        void* ptr_timeout = (void*)(ptrdiff_t(timeout));
+        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+
+        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
+
+    sql_conn->establish(cfg);
+    if (!check_errors(*sql_conn))
+        return nullptr;
+
+    return make_connection(std::move(sql_env), std::move(sql_conn));
+}
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction) connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
@@ -90,107 +222,10 @@ bool check_errors(ignite::diagnosable& diag) {
     return false;
 }
 
-static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn) {
-        auto pyignite3_mod = PyImport_ImportModule("pyignite3");
-
-    if (!pyignite3_mod)
-        return nullptr;
-
-    auto conn_class = PyObject_GetAttrString(pyignite3_mod, "Connection");
-    Py_DECREF(pyignite3_mod);
-
-    if (!conn_class)
-        return nullptr;
-
-    auto args = PyTuple_New(0);
-    auto kwargs = Py_BuildValue("{}");
-    PyObject* conn_obj  = PyObject_Call(conn_class, args, kwargs);
-    Py_DECREF(conn_class);
-    Py_DECREF(args);
-    Py_DECREF(kwargs);
-
-    if (!conn_obj)
-        return nullptr;
-
-    auto py_conn = make_py_connection(std::move(env), std::move(conn));
-    if (!py_conn)
-        return nullptr;
-
-    auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
-    if (res)
-        return nullptr;
-
-    return conn_obj;
-}
-
-static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
-    static char *kwlist[] = {
-        "address",
-        "identity",
-        "secret",
-        "schema",
-        "timezone",
-        "page_size",
-        "timeout",
-        nullptr
-    };
-
-    const char* address = nullptr;
-    const char* identity = nullptr;
-    const char* secret = nullptr;
-    const char* schema = nullptr;
-    const char* timezone = nullptr;
-    double timeout = 0.0;
-    int page_size = 0;
-
-    int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "s|ssssdi", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
-
-    if (!parsed)
-        return nullptr;
-
-    using namespace ignite;
-
-    auto sql_env = std::make_unique<sql_environment>();
-
-    std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
-    if (!check_errors(*sql_env))
-        return nullptr;
-
-    configuration cfg;
-    cfg.set_address(address);
-
-    if (schema)
-        cfg.set_schema(schema);
-
-    if (identity)
-        cfg.set_auth_identity(identity);
-
-    if (secret)
-        cfg.set_auth_secret(secret);
-
-    if (page_size)
-        cfg.set_page_size(std::int32_t(page_size));
-
-    std::int32_t s_timeout = std::lround(timeout);
-    if (s_timeout)
-    {
-        void* ptr_timeout = (void*)(ptrdiff_t(s_timeout));
-        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-
-        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
+const char* py_object_get_typename(PyObject* obj) {
+    if (!obj || !obj->ob_type || !obj->ob_type->tp_name) {
+        return "Unknown";
     }
 
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
-
-    return make_connection(std::move(sql_env), std::move(sql_conn));
+    return obj->ob_type->tp_name;
 }
-
-

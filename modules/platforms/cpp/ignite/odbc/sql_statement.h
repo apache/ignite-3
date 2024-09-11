@@ -150,6 +150,14 @@ public:
     void execute_sql_query(const std::string &query);
 
     /**
+     * Execute SQL query with the custom parameter set.
+     *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     */
+    void execute_sql_query(const std::string &query, parameter_set &params);
+
+    /**
      * Execute SQL query.
      */
     void execute_sql_query();
@@ -470,6 +478,15 @@ private:
     /**
      * Execute SQL query.
      *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     * @return Operation result.
+     */
+    sql_result internal_execute_sql_query(const std::string &query, parameter_set &params);
+
+    /**
+     * Execute SQL query.
+     *
      * @return Operation result.
      */
     sql_result internal_execute_sql_query();
@@ -667,7 +684,7 @@ private:
     SQLULEN m_row_array_size{1};
 
     /** Parameters. */
-    parameter_set m_parameters;
+    parameter_set_impl m_parameters;
 
     /** Query timeout in seconds. */
     std::int32_t m_timeout{0};

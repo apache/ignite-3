@@ -71,6 +71,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -235,45 +236,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         syncSelectList(select, call);
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected void checkTypeAssignment(
-            SqlValidatorScope sourceScope,
-            SqlValidatorTable table,
-            RelDataType sourceRowType,
-            RelDataType targetRowType,
-            SqlNode query
-    ) {
-        boolean coerced = false;
-
-        if (query instanceof SqlUpdate) {
-            SqlNodeList targetColumnList =
-                    requireNonNull(((SqlUpdate) query).getTargetColumnList());
-            int targetColumnCount = targetColumnList.size();
-            targetRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, targetRowType,
-                            targetColumnCount);
-            sourceRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType,
-                            targetColumnCount);
+    public void validateWithItem(SqlWithItem withItem) {
+        if (withItem.recursive.booleanValue()) {
+            // pass withItem.recursive instead of withItem, so exception message
+            // will point to keyword RECURSIVE rather than name of the CTE
+            throw newValidationError(withItem.recursive,
+                    IgniteResource.INSTANCE.recursiveQueryIsNotSupported());
         }
 
-        // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
-        // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
-        if (config().typeCoercionEnabled()) {
-            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
-                    sourceRowType, targetRowType, null)) {
-                if ((query.getKind() == SqlKind.INSERT || query.getKind() == SqlKind.UPDATE)
-                        && targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)
-                        && sourceRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
-                    coerced = getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
-                }
-            }
-        }
-
-        if (!coerced) {
-            doCheckTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
-        }
+        super.validateWithItem(withItem);
     }
 
     /** {@inheritDoc} */

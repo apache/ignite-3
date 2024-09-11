@@ -415,6 +415,19 @@ public class Loza implements RaftManager {
         }
     }
 
+    @Override
+    public @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return raftServer.raftNodeIndex(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,

@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -218,7 +219,7 @@ public class ItTxTestCluster {
 
     private ReplicaService clientReplicaSvc;
 
-    protected Map<String, Loza> raftServers;
+    protected Map<String, Loza> raftServers = new HashMap<>();
 
     protected Map<String, ReplicaManager> replicaManagers;
 
@@ -346,7 +347,7 @@ public class ItTxTestCluster {
 
         clusterServices = new ConcurrentHashMap<>(nodes);
 
-        nodeFinder.findNodes().parallelStream()
+        localAddresses.parallelStream()
                 .forEach(addr -> {
                     ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
                     cluster.add(svc);
@@ -407,8 +408,10 @@ public class ItTxTestCluster {
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
             LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    "test",
                     clusterService.nodeName(),
-                    partitionsWorkDir.resolve("log")
+                    partitionsWorkDir.resolve("log"),
+                    raftConfig.fsync().value()
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageFactory);
@@ -576,7 +579,7 @@ public class ItTxTestCluster {
      *
      * @param tableName Table name.
      * @param schemaDescriptor Schema descriptor.
-     * @return Groups map.
+     * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
         int tableId = globalCatalogId.getAndIncrement();
@@ -674,7 +677,6 @@ public class ItTxTestCluster {
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
-                when(pkIndexDescriptor.isPk()).thenReturn(true);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
                         schemaDescriptor.keyColumns().size(),
@@ -853,8 +855,10 @@ public class ItTxTestCluster {
         );
     }
 
-    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+    private static LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
+            private final UUID clusterId = UUID.randomUUID();
+
             @Override
             public void addEventListener(LogicalTopologyEventListener listener) {
 
@@ -869,14 +873,18 @@ public class ItTxTestCluster {
             public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
                 return completedFuture(new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet())));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                ));
             }
 
             @Override
             public LogicalTopologySnapshot localLogicalTopology() {
                 return new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                );
             }
 
             @Override
@@ -905,7 +913,6 @@ public class ItTxTestCluster {
 
     /**
      * Shutdowns all cluster nodes after each test.
-     *
      */
     public void shutdownCluster() {
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
@@ -922,35 +929,33 @@ public class ItTxTestCluster {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
 
-        if (raftServers != null) {
-            for (Entry<String, Loza> entry : raftServers.entrySet()) {
-                Loza rs = entry.getValue();
+        for (Entry<String, Loza> entry : raftServers.entrySet()) {
+            Loza rs = entry.getValue();
 
-                ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
+            ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-                CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
-                        .map(grp -> {
-                            try {
-                                return replicaMgr.stopReplica(grp);
-                            } catch (NodeStoppingException e) {
-                                throw new AssertionError(e);
-                            }
-                        })
-                        .toArray(CompletableFuture[]::new);
+            CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
+                    .map(grp -> {
+                        try {
+                            return replicaMgr.stopReplica(grp);
+                        } catch (NodeStoppingException e) {
+                            throw new AssertionError(e);
+                        }
+                    })
+                    .toArray(CompletableFuture[]::new);
 
-                assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
+            assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-                rs.localNodes().parallelStream().forEach(nodeId -> {
-                    try {
-                        rs.stopRaftNode(nodeId);
-                    } catch (NodeStoppingException e) {
-                        throw new AssertionError(e);
-                    }
-                });
+            rs.localNodes().parallelStream().forEach(nodeId -> {
+                try {
+                    rs.stopRaftNode(nodeId);
+                } catch (NodeStoppingException e) {
+                    throw new AssertionError(e);
+                }
+            });
 
-                assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-                assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-            }
+            assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (logStorageFactories != null) {

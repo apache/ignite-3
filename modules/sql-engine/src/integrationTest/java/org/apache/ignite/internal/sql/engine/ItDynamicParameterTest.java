@@ -76,11 +76,18 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
-        Object param = SqlTestUtils.generateValueByType(type);
+        Object param;
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite SQL doesn't support precision more than 3 for temporal types.
+        if (type == ColumnType.TIME || type == ColumnType.TIMESTAMP || type == ColumnType.DATETIME) {
+            param = SqlTestUtils.generateValueByType(type, 3, -1);
+        } else {
+            param = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
+        }
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
-        assertTrue(type0.startsWith(SqlTestUtils.toSqlType(type)));
+        // ToDo https://issues.apache.org/jira/browse/IGNITE-23130 Typeof for TIMESTAMP return not well formed name.
+        assertTrue(type0.replace('_', ' ').startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 

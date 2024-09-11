@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.VERSION_OPTION_ORDER;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION_DESC;
 
@@ -51,6 +52,6 @@ import picocli.CommandLine.Option;
         })
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = VERSION_OPTION, versionHelp = true, description = VERSION_OPTION_DESC)
+    @Option(names = VERSION_OPTION, versionHelp = true, description = VERSION_OPTION_DESC, order = VERSION_OPTION_ORDER)
     private boolean versionRequested;
 }

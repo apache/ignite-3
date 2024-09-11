@@ -36,6 +36,7 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /** Jobs and marhallers definitions that are used in tests. */
@@ -276,7 +277,7 @@ public class Jobs {
     }
 
     /** MapReduce task that splits input list into two parts and sends them to different nodes. */
-    public static class MapReduce implements MapReduceTask<List<String>, String, String, String> {
+    public static class MapReduce implements MapReduceTask<List<String>, String, String, List<String>> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(
                 TaskExecutionContext taskContext,
@@ -293,17 +294,72 @@ public class Jobs {
                     MapReduceJob.<String, String>builder()
                             .jobDescriptor(mapJobDescriptor)
                             .node(nodes.get(0))
+                            .args(input.get(0))
                             .build(),
                     MapReduceJob.<String, String>builder()
                             .jobDescriptor(mapJobDescriptor)
                             .node(nodes.get(1))
+                            .args(input.get(1))
                             .build()
             ));
         }
 
         @Override
-        public CompletableFuture<String> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
-            return null;
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            return completedFuture(new ArrayList<>(results.values()));
+        }
+
+        @Override
+        public @Nullable Marshaller<List<String>, byte[]> splitJobInputMarshaller() {
+            return ByteArrayMarshaller.create();
+        }
+
+        @Override
+        public @Nullable Marshaller<List<String>, byte[]> reduceJobResultMarshaller() {
+            return ByteArrayMarshaller.create();
+        }
+    }
+
+    /** MapReduce that adds a column to the tuple on each step. */
+    public static class MapReduceTuples implements MapReduceTask<Tuple, Tuple, Tuple, Tuple> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Tuple, Tuple>>> splitAsync(TaskExecutionContext taskContext, @Nullable Tuple input) {
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            Tuple jobsInput = Tuple.copy(input);
+            jobsInput.set("split", "call");
+
+            var mapJobDescriptor = JobDescriptor.builder(EchoTupleJob.class).build();
+
+            return completedFuture(List.of(
+                    MapReduceJob.<Tuple, Tuple>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(0))
+                            .args(jobsInput)
+                            .build(),
+                    MapReduceJob.<Tuple, Tuple>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(1))
+                            .args(jobsInput)
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<Tuple> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Tuple> results) {
+            Tuple reduceResult = Tuple.copy((Tuple) results.values().toArray()[0]);
+            reduceResult.set("reduce", "call");
+
+            return completedFuture(reduceResult);
+        }
+    }
+
+    static class EchoTupleJob implements ComputeJob<Tuple, Tuple> {
+        @Override
+        public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Tuple arg) {
+            var tuple = Tuple.copy(arg);
+            tuple.set("echo", "echo");
+
+            return completedFuture(tuple);
         }
     }
 }

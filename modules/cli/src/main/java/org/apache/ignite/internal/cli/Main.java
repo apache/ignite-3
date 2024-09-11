@@ -97,6 +97,7 @@ public class Main {
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
         cmd.setTrimQuotes(true);
+        cmd.setCaseInsensitiveEnumValuesAllowed(true);
         return cmd.execute(args);
     }
 

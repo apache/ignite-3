@@ -46,12 +46,11 @@ public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Ru
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildEnableCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot enable metrics"))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 }

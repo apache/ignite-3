@@ -56,6 +56,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -92,6 +93,7 @@ import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
 import org.apache.ignite.raft.jraft.core.SharedEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -628,6 +630,19 @@ public class JraftServerImpl implements RaftServer {
             // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
             IgniteUtils.deleteIfExists(serverDataPath);
         }
+    }
+
+    @Override
+    public @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) {
+        RaftGroupService service = nodes.get(nodeId);
+
+        if (service == null) {
+            return null;
+        }
+
+        LogId logId = service.getRaftNode().lastLogIndexAndTerm();
+
+        return new IndexWithTerm(logId.getIndex(), logId.getTerm());
     }
 
     /**

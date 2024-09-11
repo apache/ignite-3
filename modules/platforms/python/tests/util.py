@@ -92,7 +92,7 @@ def kill_process_tree(pid):
 # noinspection PyBroadException
 def check_server_started(addr: str) -> bool:
     try:
-        conn = pyignite3.connect(address=addr, timeout=1)
+        conn = pyignite3.connect(address=[addr], timeout=1)
     except RuntimeError as e:
         return False
 

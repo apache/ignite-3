@@ -420,7 +420,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         int zoneId = getZoneId(ZONE_NAME);
 
-        // Check that data nodes value of the the zone is NODE_0.
+        // Check that data nodes value of the zone is NODE_0.
         Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
                 .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);

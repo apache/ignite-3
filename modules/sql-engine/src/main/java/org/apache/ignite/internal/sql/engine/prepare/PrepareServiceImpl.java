@@ -36,12 +36,14 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
@@ -396,7 +398,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 SqlNode validatedNode = validated.sqlNode();
 
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
+                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
@@ -420,12 +422,73 @@ public class PrepareServiceImpl implements PrepareService {
                 return plan;
             }, planningPool));
 
-            return planFut.thenApply(Function.identity());
+            return planFut;
         });
     }
 
     private PlanId nextPlanId() {
         return new PlanId(prepareServiceId, planIdGen.getAndIncrement());
+    }
+
+    private static boolean simpleInsert(SqlNode node) {
+        if (!(node instanceof SqlInsert)) {
+            return false;
+        }
+
+        SqlInsert insert = (SqlInsert) node;
+
+        SqlNode sourceNode = insert.getSource();
+
+        if (!(sourceNode instanceof SqlBasicCall) || insert.isUpsert() || sourceNode.getKind() != SqlKind.VALUES) {
+            return false;
+        } else {
+            for (SqlNode op : ((SqlBasicCall) sourceNode).getOperandList()) {
+                if (!(op instanceof SqlBasicCall)) {
+                    return false;
+                }
+
+                SqlBasicCall opCall = (SqlBasicCall) op;
+                for (SqlNode op0 : opCall.getOperandList()) {
+                    if (op0.getKind() != SqlKind.LITERAL) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /** Prepare plan in current thread, applicable for simple insert queries, cache plan not involved. */
+    CompletableFuture<QueryPlan> prepareDmlOpt(SqlNode sqlNode, PlanningContext ctx, String originalQuery) {
+        assert single(sqlNode);
+
+        // Validate
+        IgnitePlanner planner = ctx.planner();
+        SqlNode validatedNode = planner.validate(sqlNode);
+
+        IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, null);
+
+        // Get parameter metadata.
+        RelDataType parameterRowType = planner.getParameterRowType();
+        ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+
+        ExplainablePlan plan;
+        if (optimizedRel instanceof IgniteKeyValueModify) {
+            plan = new KeyValueModifyPlan(
+                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+            );
+        } else {
+            plan = new MultiStepPlan(
+                    nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, ctx.catalogVersion(), null
+            );
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Plan prepared: \n{}\n\n{}", originalQuery, plan.explain());
+        }
+
+        return CompletableFuture.completedFuture(plan);
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
@@ -435,12 +498,18 @@ public class PrepareServiceImpl implements PrepareService {
             return f;
         }
 
+        SqlNode sqlNode = parsedResult.parsedTree();
+
+        assert single(sqlNode);
+
+        boolean dmlSimplePlan = simpleInsert(sqlNode);
+
+        if (dmlSimplePlan) {
+            return prepareDmlOpt(sqlNode, ctx, parsedResult.originalQuery());
+        }
+
         CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
-
-            SqlNode sqlNode = parsedResult.parsedTree();
-
-            assert single(sqlNode);
 
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
@@ -464,7 +533,7 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlNode validatedNode = stmt.value;
                 ParameterMetadata parameterMetadata = stmt.parameterMetadata;
 
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
+                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
 
                 int catalogVersion = ctx.catalogVersion();
 
@@ -486,7 +555,7 @@ public class PrepareServiceImpl implements PrepareService {
                 return plan;
             }, planningPool));
 
-            return planFut.thenApply(Function.identity());
+            return planFut;
         });
     }
 
@@ -668,7 +737,7 @@ public class PrepareServiceImpl implements PrepareService {
         );
     }
 
-    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, CacheKey key) {
+    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, @Nullable Runnable onTimeoutAction) {
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
@@ -678,7 +747,9 @@ public class PrepareServiceImpl implements PrepareService {
             // Otherwise the cache will keep a plan that can not be used anymore,
             // and we should allow another planning attempt with increased timeout.
             if (ctx.timeouted()) {
-                cache.invalidate(key);
+                if (onTimeoutAction != null) {
+                    onTimeoutAction.run();
+                }
 
                 //noinspection ThrowInsideCatchBlockWhichIgnoresCaughtException
                 throw new SqlException(

@@ -275,9 +275,11 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             compactor.triggerCompaction(clockService.now());
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
-            waitForCondition(() -> catalogManager.earliestCatalogVersion() != 0, 1_000);
 
-            assertThat(catalogManager.earliestCatalogVersion(), is(catalog.version() - 1));
+            int expectedEarliestVersion = catalog.version() - 1;
+
+            waitForCondition(() -> catalogManager.earliestCatalogVersion() == expectedEarliestVersion, 1_000);
+            assertThat(catalogManager.earliestCatalogVersion(), is(expectedEarliestVersion));
         }
     }
 

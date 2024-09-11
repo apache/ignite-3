@@ -38,12 +38,14 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -126,11 +128,12 @@ public class MockNode {
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
+                new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
                 new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage),
+                new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier()),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
                 clusterIdHolder,

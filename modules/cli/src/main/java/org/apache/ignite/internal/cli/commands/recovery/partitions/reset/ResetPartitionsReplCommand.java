@@ -46,12 +46,11 @@ public class ResetPartitionsReplCommand extends BaseCommand implements Runnable 
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(url -> ResetPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot reset partitions"))
                 .print()
-                .start();
+        );
     }
 }

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 
 /**
@@ -52,9 +53,17 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
      * @param collations List of the columns collations. The size of this list should much size of the columns.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private CreateSortedIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
-            List<String> columns, List<CatalogColumnCollation> collations) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists, tableName, unique, columns);
+    private CreateSortedIndexCommand(
+            String schemaName,
+            String indexName,
+            boolean ifNotExists,
+            String tableName,
+            boolean unique,
+            List<String> columns,
+            List<CatalogColumnCollation> collations,
+            boolean isCreatedWithTable
+    ) throws CatalogValidationException {
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
 
         this.collations = copyOrNull(collations);
 
@@ -62,7 +71,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
@@ -72,7 +81,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, indexColumnDescriptors
+                indexId, indexName, tableId, unique, status, indexColumnDescriptors, isCreatedWithTable
         );
     }
 
@@ -94,6 +103,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         private List<String> columns;
         private List<CatalogColumnCollation> collations;
         private boolean unique;
+        private boolean isCreatedWithTable;
 
         @Override
         public Builder tableName(String tableName) {
@@ -145,9 +155,16 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
+        public CreateSortedIndexCommandBuilder isCreatedWithTable(boolean isCreatedWithTable) {
+            this.isCreatedWithTable = isCreatedWithTable;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new CreateSortedIndexCommand(
-                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations
+                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations, isCreatedWithTable
             );
         }
     }
