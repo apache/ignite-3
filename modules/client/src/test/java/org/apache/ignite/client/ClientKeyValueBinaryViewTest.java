@@ -37,6 +37,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -96,13 +97,31 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testPutNull() {
+    public void testPutNullAsKeyIsForbidden() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> kvView.put(null, null, Tuple.create()));
+        assertThat(ex.getMessage(), containsString("key"));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16707")
+    public void testPutNullAsValueIsForbidden() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+        Tuple key = defaultTupleKey();
+
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> kvView.put(null, key, null));
+        assertThat(ex.getMessage(), containsString("val"));
+    }
+
+    @Test
+    public void testPutEmptyTuple() {
         Table table = defaultTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         Tuple key = defaultTupleKey();
 
-        kvView.put(null, key, null);
+        kvView.put(null, key, Tuple.create());
         Tuple resVal = kvView.get(null, key);
 
         assertNull(resVal.stringValue("name"));
@@ -339,7 +358,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple existingKey = tupleKey(DEFAULT_ID);
         Tuple nonExistingKey = tupleKey(-1L);
 
-        kvView.put(null, existingKey, null);
+        kvView.put(null, existingKey, Tuple.create());
         kvView.remove(null, nonExistingKey);
 
         NullableValue<Tuple> nullVal = kvView.getNullable(null, existingKey);
@@ -361,7 +380,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple existingKey = tupleKey(DEFAULT_ID);
         Tuple nonExistingKey = tupleKey(-1L);
 
-        kvView.put(null, existingKey, null);
+        kvView.put(null, existingKey, Tuple.create());
         kvView.remove(null, nonExistingKey);
 
         NullableValue<Tuple> nullVal = kvView.getNullableAndPut(null, existingKey, tupleVal(DEFAULT_NAME));
@@ -386,7 +405,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple existingKey = tupleKey(DEFAULT_ID);
         Tuple nonExistingKey = tupleKey(-1L);
 
-        kvView.put(null, existingKey, null);
+        kvView.put(null, existingKey, Tuple.create());
         kvView.remove(null, nonExistingKey);
 
         NullableValue<Tuple> nullVal = kvView.getNullableAndRemove(null, existingKey);
@@ -410,7 +429,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple existingKey = tupleKey(DEFAULT_ID);
         Tuple nonExistingKey = tupleKey(-1L);
 
-        kvView.put(null, existingKey, null);
+        kvView.put(null, existingKey, Tuple.create());
         kvView.remove(null, nonExistingKey);
 
         NullableValue<Tuple> nullVal = kvView.getNullableAndReplace(null, existingKey, tupleVal(DEFAULT_NAME));
