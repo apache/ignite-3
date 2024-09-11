@@ -49,6 +49,7 @@ public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitio
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock.flushDelayMillis = 0")
             RocksDbStorageEngineConfiguration engineConfig,
+            // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration
     ) {
