@@ -99,4 +99,4 @@ This stage consists of the following steps:
    2. some node is missing required replication group
    3. calculated catalog version has an index that is still building
    4. there is an active rebalance, which refer to the calculated (or below calculated) version of the catalog
-6. Perform catalog compaction.
+6. The coordinator performs catalog compaction.
