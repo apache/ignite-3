@@ -15,10 +15,36 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <Python.h>
+
 #define MODULE_NAME "_pyignite3_extension"
+
+#define PY_ASSERT(cond, err)                                \
+    do {                                                    \
+        if (!(cond)) {                                      \
+            PyErr_SetString(PyExc_AssertionError, (err));   \
+            return nullptr;                                 \
+        }                                                   \
+    } while (false)
+
 
 namespace ignite {
 class diagnosable;
 }
 
+/**
+ * Check odbc object for errors, and set a proper Python exception, if there are.
+ * @param diag Diagnosable object instance.
+ * @return @c true if there is no error, and @c false, if there is an error.
+ */
 bool check_errors(ignite::diagnosable& diag);
+
+/**
+ * Get a typename of the PyObject instance safely, if possible.
+ *
+ * @param obj Object.
+ * @return Typename if available, and "Unknown" otherwise.
+ */
+const char* py_object_get_typename(PyObject* obj);
