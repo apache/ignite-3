@@ -53,7 +53,7 @@ Catalog compaction consists of two main stages:
    time among all active RW transactions in the cluster. After some time (see below for details)
    these timestamps are published and become available for the next phase.
 
-2. **Compaction**. Using the timestamps published on the previous stage calculates
+2. **Compaction**. By using the timestamps published on the previous stage coordinator calculates
    the minimum required version of the catalog and performs compaction.
 
 Publishing timestamps can take a long time, and the success of compaction depends on more
