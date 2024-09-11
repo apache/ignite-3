@@ -25,7 +25,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Util class that encapsulates write speed formatting. Ported from {@code Ignite 2.x}.
  */
 public class WriteSpeedFormatter {
-    private static final DecimalFormatSymbols SEPARATOR = DecimalFormatSymbols.getInstance();
+    private static final DecimalFormatSymbols SEPARATOR = new DecimalFormatSymbols();
 
     static {
         SEPARATOR.setDecimalSeparator('.');

@@ -54,7 +54,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    @InjectConfiguration("mock.profiles.default = {engine = aipersist, size=" + (256 * IgniteUtils.MB) + "}")
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
     private StorageConfiguration storageConfig;
 
     @WorkDirectory

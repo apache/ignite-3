@@ -208,7 +208,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns checkpoint write lock wait duration in mills.
+     * Returns checkpoint write lock wait duration in the given time unit.
      *
      * <p>Not thread safe.
      */
@@ -217,7 +217,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns checkpoint action before taken write lock duration in mills.
+     * Returns checkpoint action before taken write lock duration in the given time unit.
      *
      * <p>Not thread safe.
      */
@@ -226,7 +226,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns execution all {@link CheckpointListener#onMarkCheckpointBegin} under write lock duration in mills.
+     * Returns execution all {@link CheckpointListener#onMarkCheckpointBegin} under write lock duration in the given time unit.
      *
      * <p>Not thread safe.
      */
@@ -235,7 +235,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns checkpoint write lock hold duration in mills.
+     * Returns checkpoint write lock hold duration in the given time unit.
      *
      * <p>Not thread safe.
      */
@@ -244,7 +244,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns pages write duration in mills.
+     * Returns pages write duration in the given time unit.
      *
      * <p>Not thread safe.
      */
@@ -253,7 +253,7 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns checkpoint fsync duration in mills.
+     * Returns checkpoint fsync duration in the given time unit.
      *
      * <p>Not thread safe.
      */
