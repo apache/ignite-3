@@ -54,10 +54,23 @@ public class WriteSpeedFormatter {
      * @param avgWriteSpeedInBytes CP write speed in bytes.
      * @return Formatted CP write speed.
      */
-    public static synchronized String formatWriteSpeed(float avgWriteSpeedInBytes) {
+    public static String formatWriteSpeed(float avgWriteSpeedInBytes) {
         float speedInMbs = avgWriteSpeedInBytes / IgniteUtils.MB;
-        return speedInMbs >= 10.0
-                ? HIGH_SPEED_FORMAT.format(speedInMbs)
-                : speedInMbs >= 0.1 ? MEDIUM_SPEED_FORMAT.format(speedInMbs) : LOW_SPEED_FORMAT.format(speedInMbs);
+
+        if (speedInMbs >= 10.0) {
+            synchronized (HIGH_SPEED_FORMAT) {
+                return HIGH_SPEED_FORMAT.format(speedInMbs);
+            }
+        }
+
+        if (speedInMbs >= 0.1) {
+            synchronized (MEDIUM_SPEED_FORMAT) {
+                return MEDIUM_SPEED_FORMAT.format(speedInMbs);
+            }
+        }
+
+        synchronized (LOW_SPEED_FORMAT) {
+            return LOW_SPEED_FORMAT.format(speedInMbs);
+        }
     }
 }

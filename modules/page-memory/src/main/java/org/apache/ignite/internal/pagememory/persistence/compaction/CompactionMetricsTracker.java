@@ -32,8 +32,6 @@ public class CompactionMetricsTracker {
 
     private volatile int dataPagesWritten;
 
-    private volatile int copyOnWritePagesWritten;
-
     private final long startNanos = System.nanoTime();
 
     private long endNanos;
