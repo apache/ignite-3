@@ -1064,7 +1064,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         try {
             view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
 
-            fail("Lock conflict have to be detected.");
+            fail("Lock conflict has to be detected.");
         } catch (Exception e) {
             assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
 
