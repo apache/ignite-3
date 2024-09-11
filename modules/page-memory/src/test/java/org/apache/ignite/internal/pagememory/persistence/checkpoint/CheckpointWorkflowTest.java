@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -383,7 +384,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         workflow.addCheckpointListener(checkpointListener, dataRegion);
 
         workflow.markCheckpointEnd(new Checkpoint(
-                new CheckpointDirtyPages(List.of(createCheckpointDirtyPages(pageMemory, of(0, 0, 0)))),
+                new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, of(0, 0, 0)))),
                 progressImpl
         ));
 
@@ -661,13 +662,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(pageIds);
 
         return mock;
-    }
-
-    private static DataRegionDirtyPages<FullPageId[]> createCheckpointDirtyPages(
-            PersistentPageMemory pageMemory,
-            FullPageId... pageIds
-    ) {
-        return new DataRegionDirtyPages<>(pageMemory, pageIds);
     }
 
     private static DataRegionDirtyPages<Collection<FullPageId>> createDataRegionDirtyPages(
