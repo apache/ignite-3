@@ -49,7 +49,7 @@ The process is initiated by one of the following events:
 
 Catalog compaction consists of two main stages:
 
-1. **Replicas update**. Updates all replication groups with preset minimum start
+1. **Replicas update**. Updates all replication groups with preset minimum begin
    time among all active RW transactions in the cluster. After some time (see below for details)
    these timestamps are published and become available for the next phase.
 
@@ -70,7 +70,7 @@ to collect timestamps from the entire cluster in one round trip.
 This stage consists of the following steps:
 
 1. Each node uses [ActiveLocalTxMinimumBeginTimeProvider](../transactions/src/main/java/org/apache/ignite/internal/tx/ActiveLocalTxMinimumBeginTimeProvider.java)
-   to determine the minimum start time among all local active read-write transactions and sends it to coordinator.
+   to determine the minimum begin time among all local active read-write transactions and sends it to coordinator.
 2. Coordinator calculates global minimum and sends it to all nodes using [CatalogCompactionPrepareUpdateTxBeginTimeMessage](src/main/java/org/apache/ignite/internal/catalog/compaction/message/CatalogCompactionPrepareUpdateTxBeginTimeMessage.java).
 3. Each node stores this time within replication groups for which the local node is the leader  
    (using [UpdateMinimumActiveTxBeginTimeReplicaRequest](../partition-replicator/src/main/java/org/apache/ignite/internal/partition/replicator/network/replication/UpdateMinimumActiveTxBeginTimeReplicaRequest.java)
