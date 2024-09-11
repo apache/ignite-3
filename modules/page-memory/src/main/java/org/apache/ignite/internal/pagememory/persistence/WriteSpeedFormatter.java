@@ -49,10 +49,10 @@ public class WriteSpeedFormatter {
     }
 
     /**
-     * Format CP write speed in MB/sec.
+     * Format write speed in MB/sec.
      *
-     * @param avgWriteSpeedInBytes CP write speed in bytes.
-     * @return Formatted CP write speed.
+     * @param avgWriteSpeedInBytes Write speed in bytes.
+     * @return Formatted write speed.
      */
     public static String formatWriteSpeed(float avgWriteSpeedInBytes) {
         float speedInMbs = avgWriteSpeedInBytes / IgniteUtils.MB;
