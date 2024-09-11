@@ -55,7 +55,7 @@ public:
      * @param params SQL params.
      * @param timeout Timeout.
      */
-    data_query(diagnosable_adapter &diag, sql_connection &connection, std::string sql, const parameter_set &params,
+    data_query(diagnosable_adapter &diag, sql_connection &connection, std::string sql, parameter_set &params,
         std::int32_t &timeout);
 
     /**
@@ -263,7 +263,7 @@ private:
     std::string m_query;
 
     /** Parameter bindings. */
-    const parameter_set &m_params;
+    parameter_set &m_params;
 
     /** Parameter types. */
     std::vector<sql_parameter> m_params_meta{};

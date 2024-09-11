@@ -102,7 +102,7 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
 namespace ignite {
 
 data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection, std::string sql,
-    const parameter_set &params, std::int32_t &timeout)
+    parameter_set &params, std::int32_t &timeout)
     : query(m_diag, query_type::DATA)
     , m_connection(m_connection)
     , m_query(std::move(sql))
@@ -360,17 +360,12 @@ void data_query::process_affected_rows(const std::vector<std::int64_t> &affected
     for (auto &ar : affected_rows) {
         m_rows_affected += ar;
     }
-    m_params.set_params_processed(affected_rows.size());
+    m_params.set_params_processed(m_rows_affected);
 
     if (status_ptr) {
         for (auto i = 0; i < m_params.get_param_set_size(); i++) {
             status_ptr[i] = (size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
         }
-    }
-
-    // Batch query, set attribute if it's set
-    if (auto affected = m_params.get_params_processed_ptr(); affected) {
-        *affected = m_rows_affected;
     }
 
     m_executed = true;
