@@ -1,7 +1,7 @@
 # Catalog compaction module
 
 > Compaction was moved to a separate module from the catalog module to eliminate circular
-dependencies, as it requires some components that may themselves depend on the catalog  
+dependencies, as it requires some components that may themselves depend on the catalog
 module. Please refer to the catalog's module [readme](../catalog/README.md) for more
 information about catalog service and update log.
 
