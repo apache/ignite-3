@@ -85,6 +85,7 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
+
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
