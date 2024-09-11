@@ -40,4 +40,14 @@ public class ReplicationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1000)
     public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
+
+    /** The interval in milliseconds that is used in the beginning of lease granting process. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public long agreementAcceptanceInterval = 120_000;
+
+    /** Lease holding interval. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public long leaseExpirationInterval = 5_000;
 }
