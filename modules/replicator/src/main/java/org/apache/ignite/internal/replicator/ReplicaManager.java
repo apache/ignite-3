@@ -579,7 +579,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             @Nullable String redirectNodeId,
             long endTime
     ) {
-        long timeout = System.currentTimeMillis() - endTime;
+        long timeout = endTime - System.currentTimeMillis();
 
         if (timeout <= 0) {
             return failedFuture(new IgniteException(INTERNAL_ERR, format("Failed to stop lease prolongation within timeout [groupId={}]",
@@ -1458,7 +1458,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (context.reservedForPrimary) {
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                            planDeferredReplicaStop(context, null, stopOperation);
+                            planDeferredReplicaStop(groupId, context, null, stopOperation);
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1475,7 +1475,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // If is primary, turning off the primary first.
                         context.replicaState = ReplicaState.RESTART_PLANNED;
                         return replicaManager.stopLeaseProlongation(groupId, null)
-                                .thenCompose(leaseExpirationTime -> planDeferredReplicaStop(context, leaseExpirationTime, stopOperation));
+                                .thenCompose(leaseExpirationTime ->
+                                        planDeferredReplicaStop(groupId, context, leaseExpirationTime, stopOperation)
+                                );
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1521,25 +1523,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private CompletableFuture<Void> planDeferredReplicaStop(
+                ReplicationGroupId groupId,
                 ReplicaStateContext context,
                 @Nullable HybridTimestamp leaseExpirationTime,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
             synchronized (context) {
-                context.deferredStopOperationFuture = leaseExpirationTime == null
+                context.deferredStopReadyFuture = leaseExpirationTime == null
                         ? new CompletableFuture<>()
                         : replicaManager.clockService.waitFor(leaseExpirationTime);
 
-                return context.deferredStopOperationFuture
-                        .thenComposeAsync(unused -> deferredStopOperation.get(), replicaManager.requestsExecutor);
+                return context.deferredStopReadyFuture
+                        .thenComposeAsync(unused -> stopReplica(groupId, context, deferredStopOperation), replicaManager.requestsExecutor);
             }
         }
 
         private static void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
-            assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
+            assert context.deferredStopReadyFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
 
-            context.deferredStopOperationFuture.complete(null);
-            context.deferredStopOperationFuture = null;
+            context.deferredStopReadyFuture.complete(null);
+            context.deferredStopReadyFuture = null;
         }
 
         /**
@@ -1607,10 +1610,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         HybridTimestamp leaseStartTime;
 
         /**
-         * Future for deferred stop operation for replica that was reserved for becoming primary, and needs to be stopped.
+         * Future that should be complete when the deferred stop operation is ready to begin. Deferred stop operation is the stop of
+         * replica that was reserved for becoming primary, and needs to be stopped.
          */
         @Nullable
-        CompletableFuture<Void> deferredStopOperationFuture;
+        CompletableFuture<Void> deferredStopReadyFuture;
 
         ReplicaStateContext(ReplicaState replicaState, CompletableFuture<Boolean> previousOperationFuture) {
             this.replicaState = replicaState;

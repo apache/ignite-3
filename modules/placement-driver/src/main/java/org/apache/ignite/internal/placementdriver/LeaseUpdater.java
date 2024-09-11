@@ -695,7 +695,7 @@ public class LeaseUpdater {
          * @param msg Message.
          * @param correlationId Correlation id.
          */
-        private void processMessageInternal(String sender, PlacementDriverActorMessage msg, long correlationId) {
+        private void processMessageInternal(String sender, PlacementDriverActorMessage msg, @Nullable Long correlationId) {
             ReplicationGroupId grpId = msg.groupId();
 
             Lease lease = leaseTracker.getLease(grpId);
@@ -713,14 +713,16 @@ public class LeaseUpdater {
                                     deniedLeaseExpTime != null);
                         }
 
-                        Long deniedLeaseExpTimeLong = deniedLeaseExpTime == null ? null : deniedLeaseExpTime.longValue();
+                        if (correlationId != null) {
+                            Long deniedLeaseExpTimeLong = deniedLeaseExpTime == null ? null : deniedLeaseExpTime.longValue();
 
-                        StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
-                                .stopLeaseProlongationMessageResponse()
-                                .deniedLeaseExpirationTimeLong(deniedLeaseExpTimeLong)
-                                .build();
+                            StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                                    .stopLeaseProlongationMessageResponse()
+                                    .deniedLeaseExpirationTimeLong(deniedLeaseExpTimeLong)
+                                    .build();
 
-                        clusterService.messagingService().respond(sender, response, correlationId);
+                            clusterService.messagingService().respond(sender, response, correlationId);
+                        }
                     });
                 }
             } else {
