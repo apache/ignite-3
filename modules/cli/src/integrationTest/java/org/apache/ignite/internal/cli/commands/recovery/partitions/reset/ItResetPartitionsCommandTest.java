@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
-import org.apache.ignite.internal.util.ArrayUtils;
-
 /** Test class for {@link ResetPartitionsCommand}. */
 public class ItResetPartitionsCommandTest extends ItResetPartitionsTest {
     @Override
-    protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partitions", "reset"}, args);
-
-        super.execute(fullArgs);
+    protected Class<?> getCommandClass() {
+        return ResetPartitionsCommand.class;
     }
 }
