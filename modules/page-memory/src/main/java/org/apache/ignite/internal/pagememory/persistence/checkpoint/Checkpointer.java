@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.Math.max;
 import static java.lang.System.nanoTime;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -98,22 +100,39 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class Checkpointer extends IgniteWorker {
-    private static final String CHECKPOINT_STARTED_LOG_FORMAT = "Checkpoint started ["
-            + "checkpointId=%s, "
-            + "checkpointBeforeWriteLockTime=%dms, "
-            + "checkpointWriteLockWait=%dms, "
-            + "checkpointListenersExecuteTime=%dms, "
-            + "checkpointWriteLockHoldTime=%dms, "
-            + "splitAndSortPagesDuration=%dms, "
-            + "%s"
-            + "pages=%d, "
-            + "reason='%s']";
+    private static final String CHECKPOINT_STARTED_LOG_TEMPLATE = "Checkpoint started ["
+            + "checkpointId={}, "
+            + "beforeWriteLockTime={}ms, "
+            + "writeLockWait={}us, "
+            + "listenersExecuteTime={}us, "
+            + "writeLockHoldTime={}us, "
+            + "splitAndSortPagesDuration={}ms, "
+            + "{}"
+            + "pages={}, "
+            + "reason='{}']";
+
+    private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
+            + "beforeWriteLockTime={}ms, "
+            + "writeLockWait={}us, "
+            + "listenersExecuteTime={}us, "
+            + "writeLockHoldTime={}us, reason='{}']";
+
+    private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
+            + "checkpointId={}, "
+            + "pages={}, "
+            + "pagesWriteTime={}ms, "
+            + "fsyncTime={}ms, "
+            + "totalTime={}ms, "
+            + "avgWriteSpeed={}MB/s]";
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Checkpointer.class);
 
     /** Pause detector. */
     private final @Nullable LongJvmPauseDetector pauseDetector;
+
+    /** Page size. */
+    private final int pageSize;
 
     /** Checkpoint config. */
     private final PageMemoryCheckpointConfiguration checkpointConfig;
@@ -164,6 +183,7 @@ public class Checkpointer extends IgniteWorker {
      * @param factory Page writer factory.
      * @param filePageStoreManager File page store manager.
      * @param compactor Delta file compactor.
+     * @param pageSize Page size.
      * @param checkpointConfig Checkpoint configuration.
      * @param logSyncer Write-ahead log synchronizer.
      */
@@ -176,12 +196,14 @@ public class Checkpointer extends IgniteWorker {
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
             Compactor compactor,
+            int pageSize,
             PageMemoryCheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread", workerListener);
 
         this.pauseDetector = detector;
+        this.pageSize = pageSize;
         this.checkpointConfig = checkpointConfig;
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
@@ -332,18 +354,18 @@ public class Checkpointer extends IgniteWorker {
                     long possibleJvmPauseDuration = possibleLongJvmPauseDuration(tracker);
 
                     if (log.isInfoEnabled()) {
-                        log.info(String.format(
-                                CHECKPOINT_STARTED_LOG_FORMAT,
+                        log.info(
+                                CHECKPOINT_STARTED_LOG_TEMPLATE,
                                 chp.progress.id(),
-                                tracker.beforeWriteLockDuration(),
-                                tracker.writeLockWaitDuration(),
-                                tracker.onMarkCheckpointBeginDuration(),
-                                tracker.writeLockHoldDuration(),
-                                tracker.splitAndSortCheckpointPagesDuration(),
+                                tracker.beforeWriteLockDuration(MILLISECONDS),
+                                tracker.writeLockWaitDuration(MICROSECONDS),
+                                tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
+                                tracker.writeLockHoldDuration(MICROSECONDS),
+                                tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
                                 possibleJvmPauseDuration > 0 ? "possibleJvmPauseDuration=" + possibleJvmPauseDuration + "ms, " : "",
                                 chp.dirtyPagesSize,
                                 chp.progress.reason()
-                        ));
+                        );
                     }
                 }
 
@@ -360,16 +382,14 @@ public class Checkpointer extends IgniteWorker {
                 }
             } else {
                 if (log.isInfoEnabled()) {
-                    log.info(String.format(
-                            "Skipping checkpoint (no pages were modified) ["
-                                    + "checkpointBeforeWriteLockTime=%dms, checkpointWriteLockWait=%dms, "
-                                    + "checkpointListenersExecuteTime=%dms, checkpointWriteLockHoldTime=%dms, reason='%s']",
-                            tracker.beforeWriteLockDuration(),
-                            tracker.writeLockWaitDuration(),
-                            tracker.onMarkCheckpointBeginDuration(),
-                            tracker.writeLockHoldDuration(),
+                    log.info(
+                            CHECKPOINT_SKIPPED_LOG_TEMPLATE,
+                            tracker.beforeWriteLockDuration(MILLISECONDS),
+                            tracker.writeLockWaitDuration(MICROSECONDS),
+                            tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
+                            tracker.writeLockHoldDuration(MICROSECONDS),
                             chp.progress.reason()
-                    ));
+                    );
                 }
 
                 tracker.onPagesWriteStart();
@@ -383,14 +403,18 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    log.info(String.format(
-                            "Checkpoint finished [checkpointId=%s, pages=%d, pagesWriteTime=%dms, fsyncTime=%dms, totalTime=%dms]",
+                    float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
+                    float avgWriteSpeedInBytes = pageSize * chp.dirtyPagesSize / totalDurationInSeconds;
+
+                    log.info(
+                            CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
                             chp.dirtyPagesSize,
-                            tracker.pagesWriteDuration(),
-                            tracker.fsyncDuration(),
-                            tracker.totalDuration()
-                    ));
+                            tracker.pagesWriteDuration(MILLISECONDS),
+                            tracker.fsyncDuration(MILLISECONDS),
+                            tracker.totalDuration(MILLISECONDS),
+                            WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                    );
                 }
             }
         } catch (IgniteInternalCheckedException e) {
@@ -598,7 +622,9 @@ public class Checkpointer extends IgniteWorker {
      */
     private long possibleLongJvmPauseDuration(CheckpointMetricsTracker tracker) {
         if (pauseDetector != null) {
-            if (tracker.writeLockWaitDuration() + tracker.writeLockHoldDuration() > pauseDetector.longJvmPauseThreshold()) {
+            long lockDuration = tracker.writeLockWaitDuration(MILLISECONDS) + tracker.writeLockHoldDuration(MILLISECONDS);
+
+            if (lockDuration > pauseDetector.longJvmPauseThreshold()) {
                 long now = coarseCurrentTimeMillis();
 
                 // We must get last wake-up time before search possible pause in events map.

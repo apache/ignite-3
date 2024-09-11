@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * Tracks various checkpoint phases and stats.
@@ -48,25 +50,27 @@ public class CheckpointMetricsTracker {
 
     private volatile int copyOnWritePagesWritten;
 
-    private final long checkpointStartTimestamp = coarseCurrentTimeMillis();
+    private final long startTimestamp = FastTimestamps.coarseCurrentTimeMillis();
 
-    private long checkpointWriteLockWaitStartTimestamp;
+    private final long startNanos = System.nanoTime();
 
-    private long checkpointOnMarkCheckpointBeginStartTimestamp;
+    private long writeLockWaitStartNanos;
 
-    private long checkpointWriteLockReleaseTimestamp;
+    private long onMarkCheckpointBeginEndNanos;
 
-    private long checkpointPagesWriteStartTimestamp;
+    private long onMarkCheckpointBeginStartNanos;
 
-    private long checkpointFsyncStartTimestamp;
+    private long writeLockReleaseNanos;
 
-    private long checkpointEndTimestamp;
+    private long pagesWriteStartNanos;
 
-    private long splitAndSortCheckpointPagesStartTimestamp;
+    private long fsyncStartNanos;
 
-    private long splitAndSortCheckpointPagesEndTimestamp;
+    private long endNanos;
 
-    private long checkpointOnMarkCheckpointBeginEndTimestamp;
+    private long splitAndSortPagesStartNanos;
+
+    private long splitAndSortPagesEndNanos;
 
     /**
      * Returns checkpoint start timestamp in mills.
@@ -74,7 +78,7 @@ public class CheckpointMetricsTracker {
      * <p>Thread safe.
      */
     public long checkpointStartTime() {
-        return checkpointStartTimestamp;
+        return startTimestamp;
     }
 
     /**
@@ -83,7 +87,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onCheckpointEnd() {
-        checkpointEndTimestamp = coarseCurrentTimeMillis();
+        endNanos = System.nanoTime();
     }
 
     /**
@@ -128,7 +132,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onWriteLockWaitStart() {
-        checkpointWriteLockWaitStartTimestamp = coarseCurrentTimeMillis();
+        writeLockWaitStartNanos = System.nanoTime();
     }
 
     /**
@@ -137,7 +141,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onWriteLockRelease() {
-        checkpointWriteLockReleaseTimestamp = coarseCurrentTimeMillis();
+        writeLockReleaseNanos = System.nanoTime();
     }
 
     /**
@@ -146,7 +150,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onMarkCheckpointBeginStart() {
-        checkpointOnMarkCheckpointBeginStartTimestamp = coarseCurrentTimeMillis();
+        onMarkCheckpointBeginStartNanos = System.nanoTime();
     }
 
     /**
@@ -155,7 +159,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onMarkCheckpointBeginEnd() {
-        checkpointOnMarkCheckpointBeginEndTimestamp = coarseCurrentTimeMillis();
+        onMarkCheckpointBeginEndNanos = System.nanoTime();
     }
 
     /**
@@ -164,7 +168,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onPagesWriteStart() {
-        checkpointPagesWriteStartTimestamp = coarseCurrentTimeMillis();
+        pagesWriteStartNanos = System.nanoTime();
     }
 
     /**
@@ -173,7 +177,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onFsyncStart() {
-        checkpointFsyncStartTimestamp = coarseCurrentTimeMillis();
+        fsyncStartNanos = System.nanoTime();
     }
 
     /**
@@ -182,7 +186,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onSplitAndSortCheckpointPagesStart() {
-        splitAndSortCheckpointPagesStartTimestamp = coarseCurrentTimeMillis();
+        splitAndSortPagesStartNanos = System.nanoTime();
     }
 
     /**
@@ -191,7 +195,7 @@ public class CheckpointMetricsTracker {
      * <p>Not thread safe.
      */
     public void onSplitAndSortCheckpointPagesEnd() {
-        splitAndSortCheckpointPagesEndTimestamp = coarseCurrentTimeMillis();
+        splitAndSortPagesEndNanos = System.nanoTime();
     }
 
     /**
@@ -199,8 +203,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long totalDuration() {
-        return checkpointEndTimestamp - checkpointStartTimestamp;
+    public long totalDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(endNanos - startNanos, NANOSECONDS);
     }
 
     /**
@@ -208,8 +212,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long writeLockWaitDuration() {
-        return checkpointOnMarkCheckpointBeginStartTimestamp - checkpointWriteLockWaitStartTimestamp;
+    public long writeLockWaitDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(onMarkCheckpointBeginStartNanos - writeLockWaitStartNanos, NANOSECONDS);
     }
 
     /**
@@ -217,8 +221,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long beforeWriteLockDuration() {
-        return checkpointWriteLockWaitStartTimestamp - checkpointStartTimestamp;
+    public long beforeWriteLockDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(writeLockWaitStartNanos - startNanos, NANOSECONDS);
     }
 
     /**
@@ -226,8 +230,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long onMarkCheckpointBeginDuration() {
-        return checkpointOnMarkCheckpointBeginEndTimestamp - checkpointOnMarkCheckpointBeginStartTimestamp;
+    public long onMarkCheckpointBeginDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(onMarkCheckpointBeginEndNanos - onMarkCheckpointBeginStartNanos, NANOSECONDS);
     }
 
     /**
@@ -235,8 +239,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long writeLockHoldDuration() {
-        return checkpointWriteLockReleaseTimestamp - checkpointOnMarkCheckpointBeginStartTimestamp;
+    public long writeLockHoldDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(writeLockReleaseNanos - onMarkCheckpointBeginStartNanos, NANOSECONDS);
     }
 
     /**
@@ -244,8 +248,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long pagesWriteDuration() {
-        return checkpointFsyncStartTimestamp - checkpointPagesWriteStartTimestamp;
+    public long pagesWriteDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(fsyncStartNanos - pagesWriteStartNanos, NANOSECONDS);
     }
 
     /**
@@ -253,8 +257,8 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long fsyncDuration() {
-        return checkpointEndTimestamp - checkpointFsyncStartTimestamp;
+    public long fsyncDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(endNanos - fsyncStartNanos, NANOSECONDS);
     }
 
     /**
@@ -262,7 +266,7 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long splitAndSortCheckpointPagesDuration() {
-        return splitAndSortCheckpointPagesEndTimestamp - splitAndSortCheckpointPagesStartTimestamp;
+    public long splitAndSortCheckpointPagesDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(splitAndSortPagesEndNanos - splitAndSortPagesStartNanos, NANOSECONDS);
     }
 }
