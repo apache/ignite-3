@@ -83,7 +83,7 @@ public class Lease implements ReplicaMeta {
             HybridTimestamp leaseExpirationTime,
             ReplicationGroupId replicationGroupId
     ) {
-        this(leaseholder, leaseholderId, startTime, leaseExpirationTime, false, false, null, replicationGroupId);
+        this(leaseholder, leaseholderId, startTime, leaseExpirationTime, true, false, null, replicationGroupId);
     }
 
     /**
@@ -110,8 +110,6 @@ public class Lease implements ReplicaMeta {
             ReplicationGroupId replicationGroupId
     ) {
         assert (leaseholder == null) == (leaseholderId == null) : "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId;
-
-        assert (proposedCandidate == null || !prolong) : this;
 
         this.leaseholder = leaseholder;
         this.leaseholderId = leaseholderId;
@@ -153,10 +151,10 @@ public class Lease implements ReplicaMeta {
      *
      * @return Denied lease.
      */
-    public Lease denyLease(String proposedCandidate) {
-        assert accepted : "The lease is not accepted: " + this;
+    public Lease denyLease(@Nullable String proposedCandidate) {
+        HybridTimestamp newExpirationTime = accepted ? expirationTime : new HybridTimestamp(System.currentTimeMillis(), 0);
 
-        return new Lease(leaseholder, leaseholderId, startTime, expirationTime, false, true, proposedCandidate, replicationGroupId);
+        return new Lease(leaseholder, leaseholderId, startTime, newExpirationTime, false, accepted, proposedCandidate, replicationGroupId);
     }
 
     @Override

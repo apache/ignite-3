@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -36,12 +37,15 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -78,13 +82,12 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
-import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -122,6 +125,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -550,41 +554,48 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
+     * @return Future that is completed when the lease is denied to prolong, containing the expiration time of this lease.
      */
-    private void stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
-        stopLeaseProlongation(groupId, redirectNodeId, false);
-    }
-
-    /**
-     * Sends stop lease prolongation message to all participants of placement driver group.
-     *
-     * @param groupId Replication group id.
-     * @param redirectNodeId Node consistent id to redirect.
-     * @param waitForPrimary Whether wait for primary to appear.
-     * @return Future that is completed when {@link StopLeaseProlongationMessage} is sent.
-     */
-    private CompletableFuture<Void> stopLeaseProlongation(
+    private CompletableFuture<HybridTimestamp> stopLeaseProlongation(
             ReplicationGroupId groupId,
-            @Nullable String redirectNodeId,
-            boolean waitForPrimary
+            @Nullable String redirectNodeId
     ) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = waitForPrimary
-                ? placementDriver.awaitPrimaryReplica(groupId, clockService.now(), 120, TimeUnit.SECONDS)
-                : nullCompletedFuture();
+        return msNodes.thenCompose(nodeIds -> {
+            List<CompletableFuture<NetworkMessage>> futs = new ArrayList<>();
 
-        return primaryReplicaFuture.thenCompose(unused -> msNodes.thenAccept(nodeIds -> {
             for (String nodeId : nodeIds) {
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
                     // TODO: IGNITE-19441 Stop lease prolongation message might be sent several times.
-                    clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
-                            .groupId(groupId)
-                            .redirectProposal(redirectNodeId)
-                            .build());
+                    futs.add(
+                        clusterNetSvc.messagingService().invoke(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                                .groupId(groupId)
+                                .redirectProposal(redirectNodeId)
+                                .build(), 60_000)
+                    );
                 }
             }
-        }));
+
+            return allOf(futs)
+                    .thenCompose(unused -> {
+                        NetworkMessage response = futs.stream()
+                                .map(CompletableFuture::join)
+                                .filter(Objects::nonNull)
+                                .findAny()
+                                .orElse(null);
+
+                        if (response == null) {
+                            // This is
+                            return stopLeaseProlongation(groupId, redirectNodeId);
+                        } else {
+                            assert response instanceof StopLeaseProlongationMessageResponse : format("Unexpected response type [class={}, "
+                                    + "response={}].", response.getClass(), response);
+
+                            return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
+                        }
+                    });
+        });
     }
 
     private CompletableFuture<Replica> startReplicaInternal(
@@ -1419,7 +1430,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (context.reservedForPrimary) {
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                            planDeferredReplicaStop(context, stopOperation);
+                            planDeferredReplicaStop(context, null, stopOperation);
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
@@ -1435,8 +1446,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (context.reservedForPrimary) {
                         // If is primary, turning off the primary first.
                         context.replicaState = ReplicaState.RESTART_PLANNED;
-                        return replicaManager.stopLeaseProlongation(groupId, null, true)
-                                .thenCompose(unused -> planDeferredReplicaStop(context, stopOperation));
+                        return replicaManager.stopLeaseProlongation(groupId, null)
+                                .thenCompose(leaseExpirationTime -> planDeferredReplicaStop(context, leaseExpirationTime, stopOperation));
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -1481,27 +1492,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return context.previousOperationFuture.thenApply(v -> null);
         }
 
-        private static CompletableFuture<Void> planDeferredReplicaStop(
+        private CompletableFuture<Void> planDeferredReplicaStop(
                 ReplicaStateContext context,
+                @Nullable HybridTimestamp leaseExpirationTime,
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
             synchronized (context) {
-                context.deferredStopOperation = deferredStopOperation;
-                context.deferredStopOperationFuture = new CompletableFuture<>();
-                return context.deferredStopOperationFuture;
+                context.deferredStopOperationFuture = leaseExpirationTime == null
+                        ? new CompletableFuture<>()
+                        : replicaManager.clockService.waitFor(leaseExpirationTime);
+
+                return context.deferredStopOperationFuture
+                        .thenComposeAsync(unused -> deferredStopOperation.get(), replicaManager.requestsExecutor);
             }
         }
 
-        private void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
-            assert context.deferredStopOperation != null : "Stop operation is not defined [groupId=" + groupId + "].";
+        private static void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
             assert context.deferredStopOperationFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
 
-            stopReplica(groupId, context, context.deferredStopOperation).whenComplete((v, e) -> {
-                CompletableFuture<Void> f = context.deferredStopOperationFuture;
-                context.deferredStopOperation = null;
-                context.deferredStopOperationFuture = null;
-                f.complete(null);
-            });
+            context.deferredStopOperationFuture.complete(null);
+            context.deferredStopOperationFuture = null;
         }
 
         /**
@@ -1569,13 +1579,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         HybridTimestamp leaseStartTime;
 
         /**
-         * Deferred stop operation for replica that was reserved for becoming primary, but hasn't become primary and was excluded from
-         * assignments.
+         * Future for deferred stop operation for replica that was reserved for becoming primary, and needs to be stopped.
          */
-        @Nullable
-        Supplier<CompletableFuture<Void>> deferredStopOperation;
-
-        /** Future for {@link #deferredStopOperation}. */
         @Nullable
         CompletableFuture<Void> deferredStopOperationFuture;
 
