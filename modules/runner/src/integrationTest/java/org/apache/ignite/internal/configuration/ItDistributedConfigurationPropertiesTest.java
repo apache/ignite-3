@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -186,7 +185,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier(UUID.randomUUID()));
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

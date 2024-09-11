@@ -177,7 +177,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
                 PK_INDEX_ID,
                 List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false)),
-                true
+                false
         );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
@@ -497,13 +497,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return List.of(
                 new ReadWriteTestArg(RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
                 new ReadWriteTestArg(RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_INSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RW_UPSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_INSERT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_UPSERT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.IX),
 
                 new ReadWriteTestArg(RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.IX)
         );
     }
 
@@ -511,8 +511,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return List.of(
                 new ReadWriteTestArg(RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
                 new ReadWriteTestArg(RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX)
         );
     }
 

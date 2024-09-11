@@ -551,14 +551,6 @@ public class IgniteImpl implements Ignite {
                 failureProcessor
         );
 
-        systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
-                name,
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService(),
-                vaultMgr,
-                restarter
-        );
-
         clock = new HybridClockImpl();
 
         clockWaiter = new ClockWaiter(name, clock);
@@ -570,8 +562,14 @@ public class IgniteImpl implements Ignite {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
-        partitionsLogStorageFactory =
-                SharedLogStorageFactoryUtils.create("table data log", clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+        boolean raftUseFsync = raftConfiguration.fsync().value();
+
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                "table data log",
+                clusterSvc.nodeName(),
+                partitionsWorkDir.raftLogPath(),
+                raftUseFsync
+        );
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -590,8 +588,12 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        cmgLogStorageFactory =
-                SharedLogStorageFactoryUtils.create("cluster-management-group log", clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
+        cmgLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                "cluster-management-group log",
+                clusterSvc.nodeName(),
+                cmgWorkDir.raftLogPath(),
+                raftUseFsync
+        );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
@@ -656,8 +658,12 @@ public class IgniteImpl implements Ignite {
 
         ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
-        msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create("meta-storage log", clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                "meta-storage log",
+                clusterSvc.nodeName(),
+                metastorageWorkDir.raftLogPath(),
+                raftUseFsync
+        );
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -686,6 +692,15 @@ public class IgniteImpl implements Ignite {
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
+
+        systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
+                name,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                vaultMgr,
+                restarter,
+                metaStorageMgr::raftNodeIndex
+        );
 
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
@@ -1214,11 +1229,11 @@ public class IgniteImpl implements Ignite {
                     failureProcessor,
                     clusterStateStorage,
                     clusterIdService,
+                    systemDisasterRecoveryManager,
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
                     clusterSvc,
-                    systemDisasterRecoveryManager,
                     restComponent,
                     partitionsLogStorageFactory,
                     msLogStorageFactory,

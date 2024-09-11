@@ -46,12 +46,11 @@ public class NodeMetricSourceDisableReplCommand extends BaseCommand implements R
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildDisableCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot disable metrics"))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 }

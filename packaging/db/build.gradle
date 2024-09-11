@@ -53,6 +53,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dbArtifacts libs.slf4j.jdk14
 
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
 }

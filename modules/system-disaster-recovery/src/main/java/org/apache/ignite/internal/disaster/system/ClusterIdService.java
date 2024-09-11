@@ -32,6 +32,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to handle volatile information about cluster ID used to restrict which nodes can connect this one and vice versa.
+ *
+ * <p>This MUST be started after the Vault, but before networking.
  */
 public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, IgniteComponent {
     private final SystemDisasterRecoveryStorage storage;

@@ -67,7 +67,7 @@ public interface ClusterState extends NetworkMessage, Serializable {
     }
 
     /**
-     * Returns initial cluster configuration.
+     * Returns initial cluster configuration ({@code null} if no initial configuration was passed on init).
      */
     @Nullable
     String initialClusterConfiguration();

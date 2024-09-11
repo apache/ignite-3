@@ -52,11 +52,11 @@ public class NodeMetricSourceListReplCommand extends BaseCommand implements Runn
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metrics"))
                 .print(new MetricSourceListDecorator(plain))
-                .start();
+        );
     }
 }

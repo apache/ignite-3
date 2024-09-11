@@ -189,4 +189,12 @@ public interface RaftManager extends IgniteComponent {
      */
     void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
             throws NodeStoppingException;
+
+    /**
+     * Returns information about index and term of the given node, or {@code null} if the group is not started.
+     *
+     * @param nodeId ID of the Raft node.
+     * @throws NodeStoppingException If the node is already being stopped.
+     */
+    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) throws NodeStoppingException;
 }
