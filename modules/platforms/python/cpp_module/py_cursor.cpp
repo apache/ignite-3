@@ -179,7 +179,10 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
                 return nullptr;
             }
         } else {
-            PyErr_SetString(PyExc_RuntimeError, "Only sequences of parameters are supported");
+            auto msg_str = std::string("The object does not provide the sequence protocol: ")
+                + py_object_get_typename(params);
+
+            PyErr_SetString(PyExc_RuntimeError, msg_str.c_str());
             return nullptr;
         }
     }

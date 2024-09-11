@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "module.h"
+
 #include <ignite/protocol/writer.h>
 #include <ignite/common/ignite_type.h>
 #include <ignite/common/primitive.h>
@@ -193,9 +195,6 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         return;
     }
 
-    assert(obj->ob_type);
-    assert(obj->ob_type->tp_name);
-
     // TODO: IGNITE-22745 Provide wider data types support
-    throw ignite::ignite_error("Type is not supported " + std::string(obj->ob_type->tp_name));
+    throw ignite::ignite_error("Type is not supported " + std::string(py_object_get_typename(obj)));
 }

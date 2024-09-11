@@ -222,3 +222,10 @@ bool check_errors(ignite::diagnosable& diag) {
     return false;
 }
 
+const char* py_object_get_typename(PyObject* obj) {
+    if (!obj || !obj->ob_type || !obj->ob_type->tp_name) {
+        return "Unknown";
+    }
+
+    return obj->ob_type->tp_name;
+}
