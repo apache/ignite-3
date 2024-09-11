@@ -298,6 +298,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                     StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
             );
         } catch (IOException e) {
+            LOG.error("Failed to write values to config file.", e);
             throw new NodeConfigWriteException(
                     "Failed to write values to config file.", e);
         }

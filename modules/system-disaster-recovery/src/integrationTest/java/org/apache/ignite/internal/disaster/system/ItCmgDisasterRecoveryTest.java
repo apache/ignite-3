@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -83,6 +84,10 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private void startAndInitCluster(int nodeCount, int[] cmgNodeIndexes, int[] metastorageNodeIndexes) {
+        // Pre-allocate this to make sure that for each pair of nodes, if they start almost at the same time, at least one is able to make
+        // an initial sync to another one.
+        cluster.overrideSeedsCount(10);
+
         cluster.startAndInit(nodeCount, paramsBuilder -> {
             paramsBuilder.cmgNodeNames(nodeNames(cmgNodeIndexes));
             paramsBuilder.metaStorageNodeNames(nodeNames(metastorageNodeIndexes));
@@ -371,5 +376,77 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         return IgniteClient.builder()
                 .addresses(igniteImpl(0).clientAddress().host())
                 .build();
+    }
+
+    @Test
+    void dataNodesAreUpdatedCorrectlyAfterClusterReset() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        final String zoneName = "TEST_ZONE";
+
+        cluster.node(1).sql().execute(
+                null,
+                "CREATE ZONE " + zoneName + " WITH STORAGE_PROFILES='default', "
+                        + "DATA_NODES_AUTO_ADJUST_SCALE_UP=0, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=0"
+        );
+
+        int zoneId = igniteImpl(1).catalogManager().zone("TEST_ZONE", Long.MAX_VALUE).id();
+
+        waitTillDataNodesBecome(new int[]{0, 1}, zoneId, igniteImpl(1));
+
+        cluster.startNode(2);
+
+        waitTillDataNodesBecome(new int[]{0, 1, 2}, zoneId, igniteImpl(1));
+
+        // This makes the CMG majority go away.
+        cluster.stopNode(0);
+
+        // Now, dataNodes should have become [1, 2], but as there is no CMG leader, no one is able to trigger data nodes update.
+
+        // Repair CMG with just node 1.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(restartedIgniteImpl1);
+
+        waitTillDataNodesBecome(new int[]{1, 2}, zoneId, restartedIgniteImpl1);
+
+        // Starting the node that did not see the repair.
+        migrate(0, 1);
+
+        waitTillDataNodesBecome(new int[]{0, 1, 2}, zoneId, restartedIgniteImpl1);
+
+        // Now let's make sure that normal additions/removals still work after cluster reset.
+
+        cluster.stopNode(0);
+        waitTillDataNodesBecome(new int[]{1, 2}, zoneId, restartedIgniteImpl1);
+
+        cluster.startNode(3);
+        waitTillDataNodesBecome(new int[]{1, 2, 3}, zoneId, restartedIgniteImpl1);
+
+        // TODO: IGNITE-23096 - remove after the hang is fixed.
+        waitTillNodesRestartInProcess(1, 2);
+    }
+
+    private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {
+        int catalogVersion = ignite.catalogManager().latestCatalogVersion();
+
+        assertTrue(
+                waitForCondition(
+                        () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
+                        SECONDS.toMillis(10)
+                ),
+                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time"
+        );
+    }
+
+    private static Set<String> currentDataNodes(IgniteImpl ignite, int catalogVersion, int zoneId) {
+        long currentRevision = ignite.metaStorageManager().appliedRevision();
+
+        CompletableFuture<Set<String>> dataNodesFuture = ignite.distributionZoneManager()
+                .dataNodes(currentRevision, catalogVersion, zoneId);
+
+        assertThat(dataNodesFuture, willCompleteSuccessfully());
+        return dataNodesFuture.join();
     }
 }

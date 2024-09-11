@@ -126,6 +126,9 @@ public class Cluster {
     /** Number of nodes in the cluster on first startAndInit() [if it was invoked]. */
     private volatile int initialClusterSize;
 
+    /** Number of seeds to use instead of initialClusterSize. */
+    private volatile int seedCountOverride = -1;
+
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
@@ -310,8 +313,10 @@ public class Cluster {
     }
 
     private String seedAddressesString() {
+        int localSeedCountOverride = seedCountOverride;
         // We do this maxing because in some scenarios startAndInit() is not invoked, instead startNode() is used directly.
-        int seedsCount = Math.max(Math.max(initialClusterSize, nodes.size()), 1);
+        int seedsCount = localSeedCountOverride > 0 ? localSeedCountOverride
+                : Math.max(Math.max(initialClusterSize, nodes.size()), 1);
 
         return IntStream.range(0, seedsCount)
                 .map(index -> BASE_PORT + index)
@@ -655,6 +660,15 @@ public class Cluster {
         assertThat(tablePartitionIds.size(), is(1));
 
         return tablePartitionIds.get(0);
+    }
+
+    /**
+     * Sets number of seeds to use instead of initialClusterSize.
+     *
+     * @param newOverride New override value.
+     */
+    public void overrideSeedsCount(int newOverride) {
+        seedCountOverride = newOverride;
     }
 
     private static class AddCensorshipByRecipientConsistentId implements BiPredicate<String, NetworkMessage> {

@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List, Any, Sequence
+from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -44,7 +44,7 @@ DATETIME = datetime.datetime
 UUID = uuid.UUID
 
 
-def type_code_from_int(native: int):
+def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
         return NIL
     elif native == native_type_code.BOOLEAN:
@@ -79,7 +79,7 @@ class ColumnDescription:
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
-        self.type_code = type_code_from_int(type_code)
+        self.type_code = _type_code_from_int(type_code)
         self.display_size = display_size
         self.internal_size = internal_size
         self.precision = precision
@@ -90,12 +90,17 @@ class ColumnDescription:
 class Cursor:
     """
     Cursor class. Represents a single statement and holds the result of its execution.
+
+    Attributes
+    ----------
+    arraysize: int
+        a read/write attribute, that specifies the number of rows to fetch at a time with .fetchmany().
+        It defaults to 1 meaning to fetch a single row at a time.
     """
+    arraysize: int = 1
 
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
-
-        self.arraysize = 1
         self._description = None
 
     def __enter__(self):
@@ -152,7 +157,7 @@ class Cursor:
             self._py_cursor.close()
             self._py_cursor = None
 
-    def execute(self, *args):
+    def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
         Execute a database operation (query or command).
 
@@ -165,7 +170,7 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        self._py_cursor.execute(*args)
+        self._py_cursor.execute(query, params)
         self._update_description()
 
     def _update_description(self):
@@ -315,17 +320,39 @@ class Connection:
         return Cursor(self._py_connection.cursor())
 
 
-def connect(**kwargs) -> Connection:
+def connect(address: [str], **kwargs) -> Connection:
     """
     Establish connection with the Ignite cluster.
+
+    Parameters
+    ----------
+    address: [str]
+        A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+
+    Keyword Arguments
+    ----------
+    identity: str, optional
+        An identifier to use for authentication. E.g. username.
+    secret: str, optional
+        A secret to use for authentication. E.g. password.
+    schema: str, optional
+        A schema name to be used by default. Default value: 'PUBLIC'.
+    timezone: str, optional
+        A timezone to use as a client's timezone. Used to correctly work with date/time values, received from client.
+        By default, a server's timezone is used.
+    page_size: int, optional
+        A maximum number of rows, which are received or sent in a single request. Default value: 1024.
+    timeout: int, optional
+        A timeout in seconds to use for any network operation. Default value: 30.
     """
-    return _pyignite3_extension.connect(**kwargs)
+    return _pyignite3_extension.connect(address=address, **kwargs)
 
 
 class Error(Exception):
     pass
 
 
+# noinspection PyShadowingBuiltins
 class Warning(Exception):
     pass
 

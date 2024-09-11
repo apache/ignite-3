@@ -49,14 +49,10 @@ public class NodeMetricSetListCommand extends BaseCommand implements Callable<In
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new MetricSetListDecorator(plain))
-                .verbose(verbose)
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metrics"))
-                .build()
-                .runPipeline();
+        );
     }
 }

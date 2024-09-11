@@ -89,7 +89,9 @@ public class ConnectToClusterQuestion {
         );
 
         return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
-                        () -> ConnectCallInput.builder().url(defaultUrl).build())
+                        // Don't check whether the cluster is initialized or not. This method is called from ordinary commands and they will
+                        // show an error if the cluster is not initialized, duplicating the message.
+                        () -> ConnectCallInput.builder().url(defaultUrl).checkClusterInit(false).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -205,7 +207,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).build())
+        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).checkClusterInit(true).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,

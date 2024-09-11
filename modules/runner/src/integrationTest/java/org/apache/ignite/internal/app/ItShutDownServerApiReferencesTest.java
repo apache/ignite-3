@@ -68,7 +68,7 @@ class ItShutDownServerApiReferencesTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(AsyncApiOperation.class)
-    void asyncOperationsWorkAfterRestart(AsyncApiOperation operation) {
+    void asyncOperationsThrowAfterShutdown(AsyncApiOperation operation) {
         assertThat(operation.execute(beforeShutdown), willThrow(IgniteException.class, 10, SECONDS, "The node is already shut down."));
     }
 }

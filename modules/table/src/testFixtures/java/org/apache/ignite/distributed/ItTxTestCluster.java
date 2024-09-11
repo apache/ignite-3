@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -407,8 +408,10 @@ public class ItTxTestCluster {
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
             LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    "test",
                     clusterService.nodeName(),
-                    partitionsWorkDir.resolve("log")
+                    partitionsWorkDir.resolve("log"),
+                    raftConfig.fsync().value()
             );
 
             logStorageFactories.put(nodeName, partitionsLogStorageFactory);
@@ -576,7 +579,7 @@ public class ItTxTestCluster {
      *
      * @param tableName Table name.
      * @param schemaDescriptor Schema descriptor.
-     * @return Groups map.
+     * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
         int tableId = globalCatalogId.getAndIncrement();
@@ -674,7 +677,6 @@ public class ItTxTestCluster {
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
-                when(pkIndexDescriptor.isPk()).thenReturn(true);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
                         schemaDescriptor.keyColumns().size(),
@@ -853,8 +855,10 @@ public class ItTxTestCluster {
         );
     }
 
-    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+    private static LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
+            private final UUID clusterId = UUID.randomUUID();
+
             @Override
             public void addEventListener(LogicalTopologyEventListener listener) {
 
@@ -869,14 +873,18 @@ public class ItTxTestCluster {
             public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
                 return completedFuture(new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet())));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                ));
             }
 
             @Override
             public LogicalTopologySnapshot localLogicalTopology() {
                 return new LogicalTopologySnapshot(
                         1,
-                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()));
+                        clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()),
+                        clusterId
+                );
             }
 
             @Override
@@ -905,7 +913,6 @@ public class ItTxTestCluster {
 
     /**
      * Shutdowns all cluster nodes after each test.
-     *
      */
     public void shutdownCluster() {
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());

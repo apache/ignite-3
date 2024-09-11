@@ -1175,7 +1175,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

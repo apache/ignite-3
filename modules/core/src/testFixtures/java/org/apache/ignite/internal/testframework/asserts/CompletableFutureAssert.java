@@ -50,6 +50,23 @@ public class CompletableFutureAssert {
     }
 
     /**
+     * Asserts that the given future completes with an exception being an instance of the given class (in 10 seconds) and returns
+     * that exception for further examination.
+     *
+     * <p>Unlike
+     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * this method allows to examine the actual exception thrown further in the test.
+     *
+     * @param future Future to work on.
+     * @param expectedExceptionClass Expected class of the exception.
+     * @param <X> Exception type.
+     * @return Matched exception.
+     */
+    public static <X extends Throwable> X assertWillThrow(CompletableFuture<?> future, Class<X> expectedExceptionClass) {
+        return assertWillThrow(future, expectedExceptionClass, 10, SECONDS);
+    }
+
+    /**
      * Asserts that the given future completes with an exception being an instance of the given class (in time) and returns
      * that exception for further examination.
      *

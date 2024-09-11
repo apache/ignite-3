@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -119,7 +120,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
         }
 
         void start() {
@@ -153,7 +154,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                             configuration,
                             new CmgRaftGroupListener(
                                     clusterStateStorageMgr,
-                                    new LogicalTopologyImpl(clusterStateStorage),
+                                    logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {}
                             ),

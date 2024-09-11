@@ -58,6 +58,7 @@ import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
@@ -79,6 +80,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Database options. */
     private DBOptions dbOptions;
 
+    /** Write options to use in writes to database. */
+    private WriteOptions writeOptions;
+
     /** Configuration column family handle. */
     private ColumnFamilyHandle confHandle;
 
@@ -89,6 +93,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     private AbstractEventListener flushListener;
 
+    private final boolean fsync;
+
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
      * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
@@ -98,7 +104,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
 
-
     /**
      * Constructor.
      *
@@ -106,7 +111,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", "test", path);
+        this("test", "test", path, true);
     }
 
     /**
@@ -115,10 +120,12 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param factoryName Name of the log factory, will be used in logs.
      * @param nodeName Node name.
      * @param logPath Function to get path to the log storage.
+     * @param fsync If should fsync after each write to database.
      */
-    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath) {
+    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath, boolean fsync) {
         this.factoryName = factoryName;
         this.logPath = logPath;
+        this.fsync = fsync;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -147,6 +154,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
         this.dbOptions = createDbOptions();
+
+        this.writeOptions = new WriteOptions().setSync(dbOptions.useFsync());
 
         this.cfOption = createColumnFamilyOptions();
 
@@ -204,14 +213,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         closables.add(dbOptions);
         closables.add(cfOption);
         closables.add(flushListener);
+        closables.add(writeOptions);
 
         RocksUtils.closeAll(closables);
     }
 
-    /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+        assert raftOptions.isSync() == dbOptions.useFsync() : "Sync options must be the same";
+
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, writeOptions, executorService);
     }
 
     @Override
@@ -273,9 +284,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     protected DBOptions createDbOptions() {
         return new DBOptions()
-            .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
-            .setCreateIfMissing(true)
-            .setCreateMissingColumnFamilies(true);
+                .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true)
+                .setUseFsync(fsync);
     }
 
     /**

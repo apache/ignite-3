@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-raft-api')
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core
@@ -41,6 +42,9 @@ dependencies {
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-api'))

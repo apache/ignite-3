@@ -166,7 +166,8 @@ public class IndexMeta implements Serializable {
      * @see Catalog#time()
      */
     IndexMeta status(MetaIndexStatus newStatus, int catalogVersion, long activationTs) {
-        assert !statusChanges.containsKey(newStatus) : "newStatus=" + newStatus + ", catalogVersion=" + catalogVersion;
+        assert !statusChanges.containsKey(newStatus) :
+                String.format("newStatus=%s, catalogVersion=%d, indexName=%s", newStatus, catalogVersion, indexName);
 
         var newStatuses = new EnumMap<>(statusChanges);
         newStatuses.put(newStatus, new MetaIndexStatusChange(catalogVersion, activationTs));
