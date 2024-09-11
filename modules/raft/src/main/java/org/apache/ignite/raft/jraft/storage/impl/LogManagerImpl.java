@@ -136,6 +136,15 @@ public class LogManagerImpl implements LogManager {
             this.done = null;
             this.type = null;
         }
+
+        @Override
+        public String toString() {
+            return "StableClosureEvent{" +
+                    "done=" + done +
+                    ", type=" + type +
+                    ", super=" + super.toString() +
+                    '}';
+        }
     }
 
     /**

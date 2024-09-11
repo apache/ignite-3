@@ -80,4 +80,14 @@ public abstract class NodeIdAware implements INodeIdAware {
         evtType = REGULAR;
         srcType = null;
     }
+
+    @Override
+    public String toString() {
+        return "NodeIdAware{" +
+                "nodeId=" + nodeId +
+                ", handler=" + handler +
+                ", evtType=" + evtType +
+                ", srcType=" + srcType +
+                '}';
+    }
 }

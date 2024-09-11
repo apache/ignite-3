@@ -221,6 +221,20 @@ public class FSMCallerImpl implements FSMCaller {
             this.done = null;
             this.shutdownLatch = null;
         }
+
+        @Override
+        public String toString() {
+            return "ApplyTask{" +
+                    "type=" + type +
+                    ", committedIndex=" + committedIndex +
+                    ", term=" + term +
+                    ", status=" + status +
+                    ", leaderChangeCtx=" + leaderChangeCtx +
+                    ", done=" + done +
+                    ", shutdownLatch=" + shutdownLatch +
+                    ", super=" + super.toString() +
+                    '}';
+        }
     }
 
     private class ApplyTaskHandler implements EventHandler<IApplyTask> {
@@ -254,7 +268,6 @@ public class FSMCallerImpl implements FSMCaller {
     private RaftMessagesFactory msgFactory;
 
     public FSMCallerImpl() {
-        super();
         this.currTask = TaskType.IDLE;
         this.lastAppliedIndex = new AtomicLong(0);
         this.applyingIndex = new AtomicLong(0);
@@ -293,7 +306,7 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller...");
+        LOG.info("Shutting down FSMCaller {}...", this.nodeId);
 
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);

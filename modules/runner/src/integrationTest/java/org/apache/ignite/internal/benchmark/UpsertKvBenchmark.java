@@ -66,7 +66,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"1"})
+    @Param({"8"})
     private int partitionCount;
 
     @Override
@@ -106,16 +106,16 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void upsert() {
-        List<CompletableFuture<Void>> futs = new ArrayList<>();
-
-        for (int i = 0; i < batch - 1; i++) {
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
-            futs.add(fut);
-        }
-
-        for (CompletableFuture<Void> fut : futs) {
-            fut.join();
-        }
+//        List<CompletableFuture<Void>> futs = new ArrayList<>();
+//
+//        for (int i = 0; i < batch - 1; i++) {
+//            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
+//            futs.add(fut);
+//        }
+//
+//        for (CompletableFuture<Void> fut : futs) {
+//            fut.join();
+//        }
 
         kvView.put(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
     }

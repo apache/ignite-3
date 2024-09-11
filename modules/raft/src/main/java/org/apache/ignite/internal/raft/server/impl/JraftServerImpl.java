@@ -341,7 +341,6 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogManagerDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-LogManager-Disruptor",
-                        (nodeName, stripeName) -> ThreadUtils.virtualWorkerFactory(IgniteThread.threadPrefix(nodeName, stripeName)),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         StableClosureEvent::new,
                         opts.getLogStripesCount(),
