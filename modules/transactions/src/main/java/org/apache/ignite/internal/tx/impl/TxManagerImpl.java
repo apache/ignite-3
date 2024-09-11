@@ -328,7 +328,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
-        orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
+        orphanDetector = new OrphanDetector(
+                topologyService,
+                replicaService,
+                placementDriverHelper,
+                lockManager,
+                partitionOperationsExecutor
+        );
 
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
 

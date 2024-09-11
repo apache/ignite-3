@@ -29,6 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -81,6 +82,9 @@ public class OrphanDetector {
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
 
+    /** The executor is used to send a transaction resolution message to the commit partition for an orphan transaction. */
+    private final Executor partitionOperationsExecutor;
+
     /**
      * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
      * not finalized.
@@ -97,17 +101,20 @@ public class OrphanDetector {
      * @param replicaService Replica service.
      * @param placementDriverHelper Placement driver helper.
      * @param lockManager Lock manager.
+     * @param partitionOperationsExecutor Executor is used to start resolution procedure.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriverHelper placementDriverHelper,
-            LockManager lockManager
+            LockManager lockManager,
+            Executor partitionOperationsExecutor
     ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriverHelper = placementDriverHelper;
         this.lockManager = lockManager;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
     /**
@@ -175,7 +182,9 @@ public class OrphanDetector {
                     txState.txCoordinatorId()
             );
 
-            sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+            // We can path the work to another thread without any condition, because it is a very rare scenario in which the transaction
+            // coordinator left topology.
+            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessage(txState.commitPartitionId(), txId));
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
