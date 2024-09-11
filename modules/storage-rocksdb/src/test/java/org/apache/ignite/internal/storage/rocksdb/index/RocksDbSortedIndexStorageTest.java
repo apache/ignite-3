@@ -50,7 +50,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock.flushDelayMillis = 0")
             RocksDbStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 16777216}")
+            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration
     ) {
         engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
