@@ -88,6 +88,7 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -597,7 +598,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
-     * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
+     * topology event. In this case, we check that the nodes are still empty relatively initial parameters even though a zone
+     * topology was already changed.
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
@@ -605,33 +607,33 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertTrue(topology.getLogicalTopology().nodes().isEmpty());
         assertTrue(distributionZoneManager.logicalTopology().isEmpty());
 
-        AtomicReference<Set<String>> dataNodesOnCreate = new AtomicReference<>();
+        AtomicReference<Pair<Long, Integer>> zoneCreateTokens = new AtomicReference<>();
 
         CountDownLatch latch = new CountDownLatch(1);
 
         catalogManager.listen(ZONE_CREATE, parameters -> {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
-            return CompletableFuture.runAsync(() -> {
-                try {
-                    Set<String> dataNodes = distributionZoneManager.dataNodes(
-                            params.causalityToken(),
-                            params.catalogVersion(),
-                            params.zoneDescriptor().id()
-                    ).get(TIMEOUT, MILLISECONDS);
+            zoneCreateTokens.set(new Pair<>(params.causalityToken(), params.catalogVersion()));
 
-                    dataNodesOnCreate.set(dataNodes);
-                } catch (Exception e) {
-                    fail();
-                }
-            }).thenRun(latch::countDown).thenApply(ignored -> false);
+            latch.countDown();
+
+            return falseCompletedFuture();
         });
 
         createZone(ZONE_NAME, scaleUp, scaleDown, null);
 
         latch.await(10, SECONDS);
 
-        assertTrue(dataNodesOnCreate.get().isEmpty());
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes = distributionZoneManager.dataNodes(
+                zoneCreateTokens.get().getFirst(),
+                zoneCreateTokens.get().getSecond(),
+                zoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(dataNodes.isEmpty());
         assertTrue(topology.getLogicalTopology().nodes().isEmpty());
         assertTrue(distributionZoneManager.logicalTopology().isEmpty());
 
@@ -640,6 +642,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertEquals(TWO_NODES, topology.getLogicalTopology().nodes());
         assertTrue(waitForCondition(() -> distributionZoneManager.logicalTopology().size() == 2, 10_000));
+
+        dataNodes = distributionZoneManager.dataNodes(
+                zoneCreateTokens.get().getFirst(),
+                zoneCreateTokens.get().getSecond(),
+                zoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(dataNodes.isEmpty());
     }
 
     /**
