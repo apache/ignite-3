@@ -128,10 +128,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
 
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -275,10 +276,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -398,10 +400,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     public CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key, "key");
 
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
@@ -482,10 +485,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),

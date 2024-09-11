@@ -118,7 +118,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
-        // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return getAsync(tx, key).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
@@ -266,7 +267,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return getAndPutAsync(tx, key, val).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
@@ -372,7 +374,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
-        // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return getAndRemoveAsync(tx, key).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
@@ -448,7 +451,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        // Binary view does not allow nulls to be used as values, so NullableValue.get() will never return null.
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
         return getAndReplaceAsync(tx, key, val).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
