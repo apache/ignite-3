@@ -24,7 +24,9 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +46,7 @@ public class TimeoutWorker extends IgniteWorker {
 
     /** Closure to process throwables in the worker thread. */
     @Nullable
-    private final Consumer<Throwable> throwableProcessor;
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -55,7 +57,7 @@ public class TimeoutWorker extends IgniteWorker {
      *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
      * @param requestsMap Active operations.
      * @param removeOnTimeout Remove operation from map.
-     * @param throwableProcessor Closure to process throwables in the worker thread.
+     * @param failureProcessor Closure to process throwables in the worker thread.
      */
     public TimeoutWorker(
             IgniteLogger log,
@@ -63,13 +65,13 @@ public class TimeoutWorker extends IgniteWorker {
             String name,
             ConcurrentMap requestsMap,
             boolean removeOnTimeout,
-            @Nullable Consumer<Throwable> throwableProcessor
+            @Nullable FailureProcessor failureProcessor
     ) {
         super(log, igniteInstanceName, name, null);
 
         this.requestsMap = requestsMap;
         this.removeOnTimeout = removeOnTimeout;
-        this.throwableProcessor = throwableProcessor;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -110,8 +112,8 @@ public class TimeoutWorker extends IgniteWorker {
             }
 
         } catch (Throwable t) {
-            if (throwableProcessor != null) {
-                throwableProcessor.accept(t);
+            if (failureProcessor != null) {
+                failureProcessor.process(new FailureContext(FailureType.SYSTEM_WORKER_TERMINATION, t));
             } else {
                 log.error("Timeout worker failed and can't process the timeouts any longer [worker={}].", t, name());
             }

@@ -31,9 +31,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -50,8 +51,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class TimeoutWorkerTest {
     private static final IgniteLogger LOG = Loggers.forClass(TimeoutWorkerTest.class);
 
-    private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, Consumer<Throwable> throwableProcessor) {
-        return new TimeoutWorker(LOG, "node", name, reqMap, true, throwableProcessor);
+    private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, FailureProcessor failureProcessor) {
+        return new TimeoutWorker(LOG, "node", name, reqMap, true, failureProcessor);
     }
 
     @Test
@@ -100,12 +101,14 @@ public class TimeoutWorkerTest {
         return Stream.of(new ThrowableProcessor(), null).collect(toList());
     }
 
-    private static class ThrowableProcessor implements Consumer<Throwable> {
+    private static class ThrowableProcessor implements FailureProcessor {
         final CompletableFuture<Throwable> throwableFuture = new CompletableFuture<>();
 
         @Override
-        public void accept(Throwable throwable) {
-            throwableFuture.complete(throwable);
+        public boolean process(FailureContext failureCtx) {
+            throwableFuture.complete(failureCtx.error());
+
+            return true;
         }
     }
 
