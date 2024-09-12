@@ -49,7 +49,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         assertThatMetastorageHasMajority(node0);
 
         // Stop the majority.
-        stopAllNodesBut0();
+        stopAllNodesExcept0();
 
         // Metastorage does not work anymore.
         assertThatMetastorageHasNoMajority(node0);
@@ -84,7 +84,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         assertThat(node0.metaStorageManager.get(new ByteArray("abc")), willCompleteSuccessfully());
     }
 
-    private void stopAllNodesBut0() {
+    private void stopAllNodesExcept0() {
         for (int i = 1; i < nodes.size(); i++) {
             Node node = nodes.get(i);
             node.clusterService.beforeNodeStop();
@@ -99,7 +99,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         Node node0 = nodes.get(0);
 
         // Stop the majority.
-        stopAllNodesBut0();
+        stopAllNodesExcept0();
 
         assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
 
@@ -118,7 +118,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         Node node0 = nodes.get(0);
 
         // Stop the majority.
-        stopAllNodesBut0();
+        stopAllNodesExcept0();
 
         assertThat(node0.metaStorageManager.becomeLonelyLeader(false), willCompleteSuccessfully());
 
@@ -146,7 +146,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         Node node0 = nodes.get(0);
 
         // Stop the majority.
-        stopAllNodesBut0();
+        stopAllNodesExcept0();
 
         assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
 
@@ -167,7 +167,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         Node node0 = nodes.get(0);
 
         // Stop the majority.
-        stopAllNodesBut0();
+        stopAllNodesExcept0();
 
         assertThat(node0.metaStorageManager.becomeLonelyLeader(false), willCompleteSuccessfully());
 
