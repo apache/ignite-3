@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import decimal
 import math
 import uuid
 import datetime
@@ -46,6 +47,14 @@ test_data = [
     ("SELECT TIMESTAMP'1969-07-20 20:17:40'", datetime.datetime(1969, 7, 20, 20, 17, 40)),
     ("SELECT TIMESTAMP'2024-09-12 07:59:13'", datetime.datetime(2024, 9, 12, 7, 59, 13)),
     ("SELECT TIMESTAMP'1000-01-01 00:00:00'", datetime.datetime(1000, 1, 1, 0, 0, 0)),
+    ("SELECT '1111111111111111111111111111111'::DECIMAL", decimal.Decimal('1111111111111111111111111111111')),
+    ("SELECT '11111111111111.11111111111111111'::DECIMAL(31,17)", decimal.Decimal('11111111111111.11111111111111111')),
+    ("SELECT '0.000000000000000000000000000001'::DECIMAL(31,30)", decimal.Decimal('0.000000000000000000000000000001')),
+    ("SELECT '123.456789'::DECIMAL(9,6)", decimal.Decimal('123.456789')),
+    ("SELECT '-123.456789'::DECIMAL(9,6)", decimal.Decimal('-123.456789')),
+    ("SELECT '1'::DECIMAL(20,10)", decimal.Decimal(1)),
+    ("SELECT '0'::DECIMAL(20,10)", decimal.Decimal(0)),
+
 ]
 
 

@@ -240,3 +240,29 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
 
     return PyObject_Call(datetime_class, args, kwargs);
 }
+
+PyObject* py_create_number(std::string_view value) {
+    auto number_class = py_get_class(MODULE_NAME, "NUMBER");
+    if (!number_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(number_class); });
+
+    PyObject* str_obj = PyUnicode_FromStringAndSize(value.data(), value.size());
+    if (!str_obj)
+        return nullptr;
+    auto str_obj_guard = ignite::detail::defer([&]{ Py_DECREF(str_obj); });
+
+    auto args = PyTuple_Pack(1, str_obj);
+    if (!args)
+        return nullptr;
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    str_obj_guard.release();
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+
+    return PyObject_Call(number_class, args, kwargs);
+}

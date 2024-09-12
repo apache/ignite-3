@@ -28,6 +28,7 @@
 #include <ignite/protocol/utils.h>
 
 #include <optional>
+#include <sstream>
 
 #include <Python.h>
 
@@ -113,8 +114,21 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_datetime(datetime_val);
         }
 
-        case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
+        case ignite_type::DECIMAL: {
+            auto &decimal_val = value.get<ignite::big_decimal>();
+            std::stringstream converter;
+            converter << decimal_val;
+            auto str = converter.str();
+            return py_create_number(str);
+        }
+
+        case ignite_type::NUMBER: {
+            auto &big_integer_val = value.get<ignite::big_integer>();
+            std::stringstream converter;
+            converter << big_integer_val;
+            auto str = converter.str();
+            return py_create_number(str);
+        }
 
         case ignite_type::TIMESTAMP:
         case ignite_type::BITMASK:

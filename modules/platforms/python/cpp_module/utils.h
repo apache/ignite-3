@@ -21,6 +21,7 @@
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_date_time.h>
+#include <ignite/common/big_decimal.h>
 
 #include <Python.h>
 
@@ -91,3 +92,10 @@ PyObject* py_create_time(const ignite::ignite_time &value);
  * @return A new instance of pyignite3.DATETIME.
  */
 PyObject* py_create_datetime(const ignite::ignite_date_time &value);
+
+/**
+ * Create a new instance of pyignite3.NUMBER from a string.
+ * @param value String representation of the decimal value.
+ * @return A new instance of pyignite3.NUMBER.
+ */
+PyObject* py_create_number(std::string_view value);
