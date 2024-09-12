@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -69,7 +69,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
 
         compactor.start();
 
@@ -101,7 +101,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -154,7 +154,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 filePageStoreManager,
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
@@ -183,7 +183,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doNothing().when(compactor).waitDeltaFiles();
 
@@ -209,7 +209,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
 
@@ -229,7 +229,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         assertFalse(compactor.isCancelled());
 

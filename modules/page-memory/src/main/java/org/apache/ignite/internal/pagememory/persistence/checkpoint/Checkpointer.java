@@ -48,7 +48,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -149,7 +149,7 @@ public class Checkpointer extends IgniteWorker {
     private final Compactor compactor;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private final LogSyncer logSyncer;
 
@@ -159,7 +159,7 @@ public class Checkpointer extends IgniteWorker {
      * @param igniteInstanceName Name of the Ignite instance.
      * @param workerListener Listener for life-cycle worker events.
      * @param detector Long JVM pause detector.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
      * @param filePageStoreManager File page store manager.
@@ -171,7 +171,7 @@ public class Checkpointer extends IgniteWorker {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector detector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
@@ -187,7 +187,7 @@ public class Checkpointer extends IgniteWorker {
         this.checkpointPagesWriterFactory = factory;
         this.filePageStoreManager = filePageStoreManager;
         this.compactor = compactor;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.logSyncer = logSyncer;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
@@ -238,9 +238,9 @@ public class Checkpointer extends IgniteWorker {
 
             // We need to handle OutOfMemoryError and the rest in different ways
             if (t instanceof OutOfMemoryError) {
-                failureProcessor.process(new FailureContext(CRITICAL_ERROR, t));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, t));
             } else {
-                failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
+                failureManager.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
             }
 
             throw new IgniteInternalException(t);
@@ -319,7 +319,7 @@ public class Checkpointer extends IgniteWorker {
                 }
 
                 // In case of checkpoint initialization error node should be invalidated and stopped.
-                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
                 // Re-throw as unchecked exception to force stopping checkpoint thread.
                 throw new IgniteInternalCheckedException(e);
@@ -398,7 +398,7 @@ public class Checkpointer extends IgniteWorker {
                 chp.progress.fail(e);
             }
 
-            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
         }

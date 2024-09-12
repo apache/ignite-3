@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -89,7 +89,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param staleIds Used to update/detect whether a node has left the physical topology.
      * @param clusterIdSupplier Supplier for cluster ID.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -100,7 +100,7 @@ public class ScaleCubeClusterServiceFactory {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -125,7 +125,7 @@ public class ScaleCubeClusterServiceFactory {
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller(),
                 criticalWorkerRegistry,
-                failureProcessor
+                failureManager
         );
 
         return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
@@ -151,7 +151,7 @@ public class ScaleCubeClusterServiceFactory {
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,
-                        failureProcessor
+                        failureManager
                 );
                 this.connectionMgr = connectionMgr;
 

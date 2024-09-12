@@ -33,7 +33,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -88,7 +88,7 @@ public class Compactor extends IgniteWorker {
     private final int pageSize;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Creates new ignite worker with given parameters.
@@ -99,7 +99,7 @@ public class Compactor extends IgniteWorker {
      * @param threads Number of compaction threads.
      * @param filePageStoreManager File page store manager.
      * @param pageSize Page size in bytes.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public Compactor(
             IgniteLogger log,
@@ -108,12 +108,12 @@ public class Compactor extends IgniteWorker {
             ConfigurationValue<Integer> threads,
             FilePageStoreManager filePageStoreManager,
             int pageSize,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         super(log, igniteInstanceName, "compaction-thread", listener);
 
         this.filePageStoreManager = filePageStoreManager;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         int threadCount = threads.value();
 
@@ -148,7 +148,7 @@ public class Compactor extends IgniteWorker {
                 doCompaction();
             }
         } catch (Throwable t) {
-            failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
+            failureManager.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
 
             throw new IgniteInternalException(t);
         }

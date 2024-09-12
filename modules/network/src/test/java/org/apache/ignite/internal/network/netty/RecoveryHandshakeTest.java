@@ -36,7 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -722,7 +722,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                mock(FailureProcessor.class)
+                mock(FailureManager.class)
         );
     }
 
@@ -758,7 +758,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                mock(FailureProcessor.class)
+                mock(FailureManager.class)
         );
     }
 

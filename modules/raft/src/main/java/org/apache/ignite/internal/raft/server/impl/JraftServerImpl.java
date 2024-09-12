@@ -46,7 +46,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -116,7 +116,7 @@ public class JraftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -157,20 +157,20 @@ public class JraftServerImpl implements RaftServer {
      * @param service Cluster service.
      * @param opts Default node options.
      * @param raftGroupEventsClientListener Raft events listener.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public JraftServerImpl(
             ClusterService service,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.service = service;
         this.nodeManager = new NodeManager();
 
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         // Auto-adjust options.
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
@@ -476,7 +476,7 @@ public class JraftServerImpl implements RaftServer {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
 
-            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, nodeOptions.getCommandsMarshaller(), failureProcessor));
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, nodeOptions.getCommandsMarshaller(), failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
@@ -705,19 +705,19 @@ public class JraftServerImpl implements RaftServer {
 
         private final Marshaller marshaller;
 
-        private final FailureProcessor failureProcessor;
+        private final FailureManager failureManager;
 
         /**
          * Constructor.
          *
          * @param listener The listener.
          * @param marshaller Marshaller.
-         * @param failureProcessor Failure processor that is used to handle critical errors.
+         * @param failureManager Failure processor that is used to handle critical errors.
          */
-        public DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller, FailureProcessor failureProcessor) {
+        public DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller, FailureManager failureManager) {
             this.listener = listener;
             this.marshaller = marshaller;
-            this.failureProcessor = failureProcessor;
+            this.failureManager = failureManager;
         }
 
         public RaftGroupListener getListener() {
@@ -790,7 +790,7 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
 
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
             }
         }
 
@@ -842,7 +842,7 @@ public class JraftServerImpl implements RaftServer {
             } catch (Throwable e) {
                 done.run(new Status(RaftError.EIO, "Fail to save snapshot %s", e.getMessage()));
 
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
         }
 
@@ -852,7 +852,7 @@ public class JraftServerImpl implements RaftServer {
             try {
                 return listener.onSnapshotLoad(Path.of(reader.getPath()));
             } catch (Throwable err) {
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
 
                 return false;
             }

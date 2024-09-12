@@ -27,8 +27,6 @@ import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;

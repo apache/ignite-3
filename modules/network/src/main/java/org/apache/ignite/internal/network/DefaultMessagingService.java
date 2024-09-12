@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -144,7 +144,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -154,7 +154,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
@@ -175,7 +175,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 "MessagingService-timeout-worker",
                 requestsMap,
                 true,
-                th -> failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, th))
+                th -> failureManager.process(new FailureContext(SYSTEM_WORKER_TERMINATION, th))
         );
     }
 

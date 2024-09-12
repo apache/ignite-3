@@ -15,7 +15,17 @@
  * limitations under the License.
  */
 
-/**
- * This package provides implementation of {@link org.apache.ignite.internal.failure.FailureManager} and defines possible failure types.
- */
 package org.apache.ignite.internal.failure;
+
+/**
+ * General failure processing API.
+ */
+public interface FailureProcessor {
+    /**
+     * Processes failure accordingly to configured {@link FailureHandler}.
+     *
+     * @param failureCtx Failure context.
+     * @return {@code True} If this very call led to Ignite node invalidation.
+     */
+    boolean process(FailureContext failureCtx);
+}

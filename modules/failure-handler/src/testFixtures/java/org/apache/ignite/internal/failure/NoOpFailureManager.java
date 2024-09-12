@@ -20,13 +20,13 @@ package org.apache.ignite.internal.failure;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 
 /**
- * This class represents a no-op failure processor.
+ * This class represents a no-op failure manager.
  */
-public class NoOpFailureProcessor extends FailureProcessor {
+public class NoOpFailureManager extends FailureManager {
     /**
      * Creates a new instance of no-op failure processor.
      */
-    public NoOpFailureProcessor() {
+    public NoOpFailureManager() {
         super(new NoOpFailureHandler());
     }
 }

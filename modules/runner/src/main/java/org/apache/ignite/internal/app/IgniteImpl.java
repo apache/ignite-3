@@ -129,7 +129,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -309,7 +309,7 @@ public class IgniteImpl implements Ignite {
     private final CriticalWorkerWatchdog criticalWorkerRegistry;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
@@ -511,7 +511,7 @@ public class IgniteImpl implements Ignite {
 
         FailureProcessorConfiguration failureProcessorConfiguration = nodeConfigRegistry.getConfiguration(
                 FailureProcessorExtensionConfiguration.KEY).failureHandler();
-        failureProcessor = new FailureProcessor(node::shutdown, failureProcessorConfiguration);
+        failureManager = new FailureManager(node::shutdown, failureProcessorConfiguration);
 
         CriticalWorkersConfiguration criticalWorkersConfiguration = nodeConfigRegistry
                 .getConfiguration(CriticalWorkersExtensionConfiguration.KEY).criticalWorkers();
@@ -528,7 +528,7 @@ public class IgniteImpl implements Ignite {
         criticalWorkerRegistry = new CriticalWorkerWatchdog(
                 criticalWorkersConfiguration,
                 threadPoolsManager.commonScheduler(),
-                failureProcessor
+                failureManager
         );
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
@@ -537,7 +537,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
                 criticalWorkersConfiguration,
-                failureProcessor
+                failureManager
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
@@ -548,7 +548,7 @@ public class IgniteImpl implements Ignite {
                 new VaultStaleIds(vaultMgr),
                 clusterIdService,
                 criticalWorkerRegistry,
-                failureProcessor
+                failureManager
         );
 
         clock = new HybridClockImpl();
@@ -577,7 +577,7 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration,
                 clock,
                 raftGroupEventsClientListener,
-                failureProcessor
+                failureManager
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -642,7 +642,7 @@ public class IgniteImpl implements Ignite {
                 logicalTopology,
                 validationManager,
                 nodeAttributesCollector,
-                failureProcessor,
+                failureManager,
                 clusterIdService,
                 cmgRaftConfigurer
         );
@@ -673,7 +673,7 @@ public class IgniteImpl implements Ignite {
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, metastorageWorkDir.dbPath(), failureProcessor),
+                new RocksDbKeyValueStorage(name, metastorageWorkDir.dbPath(), failureManager),
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
@@ -767,7 +767,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                failureProcessor,
+                failureManager,
                 raftMarshaller,
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
@@ -797,7 +797,7 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,
-                failureProcessor,
+                failureManager,
                 logSyncer,
                 clock
         );
@@ -830,7 +830,7 @@ public class IgniteImpl implements Ignite {
                 gcConfig.lowWatermark(),
                 clockService,
                 vaultMgr,
-                failureProcessor,
+                failureManager,
                 clusterSvc.messagingService()
         );
 
@@ -1015,7 +1015,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metricManager,
                 systemViewManager,
-                failureProcessor,
+                failureManager,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
@@ -1226,7 +1226,7 @@ public class IgniteImpl implements Ignite {
                     vaultMgr,
                     threadPoolsManager,
                     clockWaiter,
-                    failureProcessor,
+                    failureManager,
                     clusterStateStorage,
                     clusterIdService,
                     systemDisasterRecoveryManager,
@@ -1489,8 +1489,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
-    public FailureProcessor failureProcessor() {
-        return failureProcessor;
+    public FailureManager failureProcessor() {
+        return failureManager;
     }
 
     @TestOnly
