@@ -55,6 +55,11 @@ test_data = [
     ("SELECT '-123.456789'::DECIMAL(9,6)", decimal.Decimal('-123.456789')),
     ("SELECT '1'::DECIMAL(20,10)", decimal.Decimal(1)),
     ("SELECT '0'::DECIMAL(20,10)", decimal.Decimal(0)),
+    ("SELECT INTERVAL '0' DAY", datetime.timedelta(days=0)),
+    ("SELECT INTERVAL '1' DAY", datetime.timedelta(days=1)),
+    ("SELECT INTERVAL '145' DAY", datetime.timedelta(days=145)),
+    ("SELECT INTERVAL '123456789' SECOND", datetime.timedelta(seconds=123456789)),
+    ("SELECT INTERVAL '987654321.123' SECOND", datetime.timedelta(seconds=987654321, milliseconds=123)),
 
 ]
 

@@ -291,3 +291,40 @@ PyObject* py_create_number(std::string_view value) {
 
     return PyObject_Call(number_class, args, kwargs);
 }
+
+PyObject* py_create_timedelta(const ignite::ignite_duration &value) {
+    auto duration_class = py_get_class(MODULE_NAME, "DURATION");
+    if (!duration_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(duration_class); });
+
+    auto args = PyTuple_New(0);
+    if (!args)
+        return nullptr;
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    PyObject* second = PyLong_FromLong(value.get_seconds());
+    if (!second)
+        return nullptr;
+    auto second_guard = ignite::detail::defer([&]{ Py_DECREF(second); });
+
+    PyObject* u_second = PyLong_FromLong(value.get_nano() / 1000);
+    if (!u_second)
+        return nullptr;
+    auto u_second_guard = ignite::detail::defer([&]{ Py_DECREF(u_second); });
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+
+    if (PyDict_SetItemString(kwargs, "seconds", second) < 0)
+        return nullptr;
+    second_guard.release();
+
+    if (PyDict_SetItemString(kwargs, "microseconds", u_second) < 0)
+        return nullptr;
+    u_second_guard.release();
+
+    return PyObject_Call(duration_class, args, kwargs);
+}

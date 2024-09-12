@@ -41,6 +41,7 @@ NUMBER = decimal.Decimal
 DATE = datetime.date
 TIME = datetime.time
 DATETIME = datetime.datetime
+DURATION = datetime.timedelta
 UUID = uuid.UUID
 
 

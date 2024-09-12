@@ -114,7 +114,7 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_datetime(datetime_val);
         }
 
-        case ignite_type::TIMESTAMP:  {
+        case ignite_type::TIMESTAMP: {
             auto &timestamp_val = value.get<ignite::ignite_timestamp>();
             return py_create_datetime(timestamp_val);
         }
@@ -127,11 +127,18 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_number(str);
         }
 
-        case ignite_type::PERIOD:
-        case ignite_type::DURATION:
+        case ignite_type::DURATION: {
+            auto &duration_val = value.get<ignite::ignite_duration>();
+            return py_create_timedelta(duration_val);
+        }
+
+        case ignite_type::PERIOD:{
+            PyErr_SetString(PyExc_RuntimeError, "PERIOD data type is not supported");
+            return nullptr;
+        }
+
         default: {
-            // TODO: IGNITE-22745 Provide wider data types support
-            auto err_msg = "The type is not supported yet: " + std::to_string(int(value.get_type()));
+            auto err_msg = "The type is not supported: " + std::to_string(int(value.get_type()));
             PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
             return nullptr;
         }

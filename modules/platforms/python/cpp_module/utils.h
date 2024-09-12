@@ -22,6 +22,7 @@
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_timestamp.h>
+#include <ignite/common/ignite_duration.h>
 #include <ignite/common/big_decimal.h>
 
 #include <Python.h>
@@ -68,6 +69,7 @@ PyObject* py_get_class(const char* module_name, const char* class_name);
 
 /**
  * Create a new instance of pyignite3.UUID from an array of bytes.
+ *
  * @param value Uuid.
  * @return A new instance of pyignite3.UUID.
  */
@@ -75,6 +77,7 @@ PyObject* py_create_uuid(ignite::bytes_view bytes);
 
 /**
  * Create a new instance of pyignite3.DATE from an ignite_date.
+ *
  * @param value Date.
  * @return A new instance of pyignite3.DATE.
  */
@@ -82,6 +85,7 @@ PyObject* py_create_date(const ignite::ignite_date &value);
 
 /**
  * Create a new instance of pyignite3.TIME from an ignite_date.
+ *
  * @param value Time.
  * @return A new instance of pyignite3.TIME.
  */
@@ -89,6 +93,7 @@ PyObject* py_create_time(const ignite::ignite_time &value);
 
 /**
  * Create a new instance of pyignite3.DATETIME from an ignite_date.
+ *
  * @param value Date-Time.
  * @return A new instance of pyignite3.DATETIME.
  */
@@ -96,6 +101,7 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value);
 
 /**
  * Create a new instance of pyignite3.DATETIME from an ignite_timestamp.
+ *
  * @param value Timestamp.
  * @return A new instance of pyignite3.DATETIME.
  */
@@ -103,7 +109,16 @@ PyObject* py_create_datetime(const ignite::ignite_timestamp &value);
 
 /**
  * Create a new instance of pyignite3.NUMBER from a string.
+ *
  * @param value String representation of the decimal value.
  * @return A new instance of pyignite3.NUMBER.
  */
 PyObject* py_create_number(std::string_view value);
+
+/**
+ * Create a new instance of pyignite3.DURATION from an ignite_duration.
+ *
+ * @param value ignite_duration.
+ * @return A new instance of pyignite3.DURATION.
+ */
+PyObject* py_create_timedelta(const ignite::ignite_duration &value);
