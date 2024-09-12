@@ -64,16 +64,22 @@ public class SortedIndexLocker implements IndexLocker {
      * @param lockManager A lock manager to acquire locks in.
      * @param storage A storage of an index this locker is created for.
      * @param indexRowResolver A convertor which derives an index key from given table row.
+     * @param unique A flag indicating whether the given index unique or not.
      */
-    public SortedIndexLocker(int indexId, int partId, LockManager lockManager, SortedIndexStorage storage,
-            ColumnsExtractor indexRowResolver) {
+    public SortedIndexLocker(
+            int indexId,
+            int partId,
+            LockManager lockManager,
+            SortedIndexStorage storage,
+            ColumnsExtractor indexRowResolver,
+            boolean unique
+    ) {
         this.indexId = indexId;
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
         this.positiveInf = partId;
-        // Unique indexes are not supported at the moment.
-        this.unique = false;
+        this.unique = unique;
     }
 
     @Override
