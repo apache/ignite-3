@@ -297,19 +297,17 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     DisruptorEventSourceType type,
                     BiConsumer<IApplyTask, Throwable> exceptionHandler
             ) {
-                if (type == DisruptorEventSourceType.FSM && block.compareAndSet(true, false)) {
-                    log.info("Raft task is blocked.");
+                return super.subscribe(nodeId, (event, sequence, endOfBatch) -> {
+                    if (block.compareAndSet(true, false)) {
+                        log.info("Raft task is blocked.");
 
-                    try {
                         latch.await();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
+
+                        log.info("Raft task is continue executing.");
                     }
 
-                    log.info("Raft task is continue executing.");
-                }
-
-                return super.subscribe(nodeId, handler, type, exceptionHandler);
+                    handler.onEvent(event, sequence, endOfBatch);
+                }, type, exceptionHandler);
             }
         });
 
