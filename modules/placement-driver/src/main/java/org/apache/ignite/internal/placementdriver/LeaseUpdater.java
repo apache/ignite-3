@@ -511,9 +511,15 @@ public class LeaseUpdater {
                 Map<ReplicationGroupId, Lease> renewedLeases,
                 Map<ReplicationGroupId, Boolean> toBeNegotiated
         ) {
-            String proposedCandidate = agreement.isDeclined()
-                    ? agreement.getRedirectTo()
-                    : (lease.isProlongable() ? lease.getLeaseholder() : lease.proposedCandidate());
+            String proposedCandidate = null;
+
+            if (agreement.isDeclined()) {
+                proposedCandidate = agreement.getRedirectTo();
+            }
+
+            if (proposedCandidate == null) {
+                proposedCandidate = lease.isProlongable() ? lease.getLeaseholder() : lease.proposedCandidate();
+            }
 
             ClusterNode candidate = nextLeaseHolder(assignments, grpId, proposedCandidate);
 
