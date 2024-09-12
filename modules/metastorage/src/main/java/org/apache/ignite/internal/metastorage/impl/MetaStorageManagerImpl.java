@@ -157,6 +157,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     private volatile boolean leaderSecondaryDutiesPaused = false;
 
+    /** Protects {@link #becomeLonelyLeader(boolean)} from concurrent executions. */
+    private final Object becomeLonelyLeaderMutex = new Object();
+
     /**
      * The constructor.
      *
@@ -887,18 +890,21 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public CompletableFuture<Void> becomeLonelyLeader(boolean pauseLeaderSecondaryDuties) {
         return inBusyLockAsync(busyLock, () -> {
-            leaderSecondaryDutiesPaused = pauseLeaderSecondaryDuties;
+            synchronized (becomeLonelyLeaderMutex) {
+                leaderSecondaryDutiesPaused = pauseLeaderSecondaryDuties;
 
-            RaftNodeId raftNodeId = raftNodeId();
-            PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
+                RaftNodeId raftNodeId = raftNodeId();
+                PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
-            ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
 
-            assert metaStorageSvcFut.isDone() : "MetaStorageService is not ready yet; this instance doesn't look to be properly started";
-            RaftGroupService raftGroupService = metaStorageSvcFut.join().raftGroupService();
+                assert metaStorageSvcFut.isDone()
+                        : "MetaStorageService is not ready yet; this instance doesn't look to be properly started";
+                RaftGroupService raftGroupService = metaStorageSvcFut.join().raftGroupService();
 
-            raftGroupService.updateConfiguration(newConfiguration);
-            return raftGroupService.refreshLeader();
+                raftGroupService.updateConfiguration(newConfiguration);
+                return raftGroupService.refreshLeader();
+            }
         });
     }
 
