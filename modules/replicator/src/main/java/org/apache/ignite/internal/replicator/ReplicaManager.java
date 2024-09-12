@@ -139,6 +139,8 @@ import org.jetbrains.annotations.VisibleForTesting;
  * <p>Only a single instance of the class exists in Ignite node.
  */
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
+    private static final long STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS = 60_000;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -560,10 +562,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId groupId,
             @Nullable String redirectNodeId
     ) {
-        long retriesTimeout = 60_000;
         long startTime = System.currentTimeMillis();
 
-        return stopLeaseProlongation(groupId, redirectNodeId, startTime + retriesTimeout);
+        return stopLeaseProlongation(groupId, redirectNodeId, startTime + STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS);
     }
 
     /**

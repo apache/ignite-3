@@ -397,31 +397,25 @@ public class LeaseUpdater {
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
 
-                    if (lease.isProlongable()) {
-                        agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
+                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
-                        if (agreement.isAccepted()) {
-                            Lease negotiatedLease = agreement.getLease();
+                    if (lease.isProlongable() && agreement.isAccepted()) {
+                        Lease negotiatedLease = agreement.getLease();
 
-                            // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can
-                            // contain stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is
-                            // guaranteed to be already written to meta storage before negotiation begins, and in this case its start time
-                            // would be greater than lease's.
-                            assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
-                                    : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
-                                    + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
+                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can
+                        // contain stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is
+                        // guaranteed to be already written to meta storage before negotiation begins, and in this case its start time
+                        // would be greater than lease's.
+                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
+                                : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
+                                + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
-                            publishLease(grpId, negotiatedLease, renewedLeases);
+                        publishLease(grpId, negotiatedLease, renewedLeases);
 
-                            continue;
-                        } else if (agreement.isDeclined()) {
-                            // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
-                            chooseCandidateAndCreateNewLease(grpId, lease, agreement, assignments, renewedLeases, toBeNegotiated);
-
-                            continue;
-                        }
-                    } else {
-                        // If the lease was denied, create the new one.
+                        continue;
+                    } else if (!lease.isProlongable() || agreement.isDeclined()) {
+                        // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
+                        // Also, if the lease was denied, we create the new one.
                         chooseCandidateAndCreateNewLease(grpId, lease, agreement, assignments, renewedLeases, toBeNegotiated);
 
                         continue;

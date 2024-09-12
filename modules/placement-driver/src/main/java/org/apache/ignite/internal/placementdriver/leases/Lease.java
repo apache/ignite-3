@@ -152,7 +152,7 @@ public class Lease implements ReplicaMeta {
      * @return Denied lease.
      */
     public Lease denyLease(@Nullable String proposedCandidate) {
-        HybridTimestamp newExpirationTime = accepted ? expirationTime : new HybridTimestamp(System.currentTimeMillis(), 0);
+        HybridTimestamp newExpirationTime = accepted ? expirationTime : hybridTimestamp(startTime.longValue() + 1);
 
         return new Lease(leaseholder, leaseholderId, startTime, newExpirationTime, false, accepted, proposedCandidate, replicationGroupId);
     }
