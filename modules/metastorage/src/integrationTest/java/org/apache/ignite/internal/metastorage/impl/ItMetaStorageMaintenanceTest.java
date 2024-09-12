@@ -155,6 +155,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
         HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();
 
+        // Make sure the leader does not propagate Metastorage SafeTime (as we requested it to pause secondary duties).
         assertFalse(
                 waitForCondition(() -> clusterTime0.currentSafeTime().longValue() > timeBeforeOp.longValue(), SECONDS.toMillis(2)),
                 "The leader still propagates safetime"
@@ -176,6 +177,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
         HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();
 
+        // Make sure the leader propagates Metastorage SafeTime (as we requested it NOT to pause secondary duties).
         assertTrue(
                 waitForCondition(() -> clusterTime0.currentSafeTime().longValue() > timeBeforeOp.longValue(), SECONDS.toMillis(10)),
                 "The leader does not propagate safetime"
