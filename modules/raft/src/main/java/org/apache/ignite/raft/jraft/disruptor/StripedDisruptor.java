@@ -296,7 +296,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
-             LOG.info("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch + " e=" + event.toString());
+            // LOG.info("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch + " e=" + event.toString());
 
             if (event.getEvtType() == SUBSCRIBE) {
                 if (endOfBatch ) {
