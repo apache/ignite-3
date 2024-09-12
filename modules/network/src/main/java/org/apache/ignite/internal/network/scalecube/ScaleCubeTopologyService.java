@@ -58,6 +58,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** Topology members map from the consistent id to the cluster node. */
     private final ConcurrentMap<String, ClusterNode> consistentIdToMemberMap = new ConcurrentHashMap<>();
+
+    /** Topology members map from the id to the cluster node. */
     private final ConcurrentMap<String, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
 
     /**
