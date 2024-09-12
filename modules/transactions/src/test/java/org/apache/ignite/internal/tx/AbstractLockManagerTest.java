@@ -1095,9 +1095,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testAcquireLockAfterFail() {
         UUID tx1 = TestTransactionIds.newTransactionId();
         UUID tx2 = TestTransactionIds.newTransactionId();
-        ;
         UUID tx3 = TestTransactionIds.newTransactionId();
-        ;
 
         var key = new LockKey(0);
 
