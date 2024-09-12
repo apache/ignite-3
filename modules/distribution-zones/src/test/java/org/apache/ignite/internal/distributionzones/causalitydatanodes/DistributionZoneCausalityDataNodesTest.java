@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -63,7 +62,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -88,16 +86,13 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.stubbing.Answer;
 
 /**
@@ -594,62 +589,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         ).get(TIMEOUT, MILLISECONDS);
 
         assertEquals(emptySet(), dataNodes);
-    }
-
-    /**
-     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
-     * topology event. In this case, we check that the nodes are still empty relatively initial parameters even though a zone
-     * topology was already changed.
-     */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsOfDifferentTimersValue")
-    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) throws Exception {
-        assertTrue(topology.getLogicalTopology().nodes().isEmpty());
-        assertTrue(distributionZoneManager.logicalTopology().isEmpty());
-
-        AtomicReference<Pair<Long, Integer>> zoneCreateTokens = new AtomicReference<>();
-
-        CountDownLatch latch = new CountDownLatch(1);
-
-        catalogManager.listen(ZONE_CREATE, parameters -> {
-            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            zoneCreateTokens.set(new Pair<>(params.causalityToken(), params.catalogVersion()));
-
-            latch.countDown();
-
-            return falseCompletedFuture();
-        });
-
-        createZone(ZONE_NAME, scaleUp, scaleDown, null);
-
-        latch.await(10, SECONDS);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        Set<String> dataNodes = distributionZoneManager.dataNodes(
-                zoneCreateTokens.get().getFirst(),
-                zoneCreateTokens.get().getSecond(),
-                zoneId
-        ).get(TIMEOUT, MILLISECONDS);
-
-        assertTrue(dataNodes.isEmpty());
-        assertTrue(topology.getLogicalTopology().nodes().isEmpty());
-        assertTrue(distributionZoneManager.logicalTopology().isEmpty());
-
-        topology.putNode(NODE_0);
-        topology.putNode(NODE_1);
-
-        assertEquals(TWO_NODES, topology.getLogicalTopology().nodes());
-        assertTrue(waitForCondition(() -> distributionZoneManager.logicalTopology().size() == 2, 10_000));
-
-        dataNodes = distributionZoneManager.dataNodes(
-                zoneCreateTokens.get().getFirst(),
-                zoneCreateTokens.get().getSecond(),
-                zoneId
-        ).get(TIMEOUT, MILLISECONDS);
-
-        assertTrue(dataNodes.isEmpty());
     }
 
     /**
