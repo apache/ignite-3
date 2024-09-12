@@ -43,6 +43,9 @@ test_data = [
     ("SELECT TIME'20:17:40'", datetime.time(20, 17, 40)),
     ("SELECT TIME'07:59:13'", datetime.time(7, 59, 13)),
     ("SELECT TIME'00:00:00'", datetime.time(0, 0, 0)),
+    ("SELECT TIMESTAMP'1969-07-20 20:17:40'", datetime.datetime(1969, 7, 20, 20, 17, 40)),
+    ("SELECT TIMESTAMP'2024-09-12 07:59:13'", datetime.datetime(2024, 9, 12, 7, 59, 13)),
+    ("SELECT TIMESTAMP'1000-01-01 00:00:00'", datetime.datetime(1000, 1, 1, 0, 0, 0)),
 ]
 
 

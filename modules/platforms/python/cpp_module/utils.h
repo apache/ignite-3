@@ -20,6 +20,7 @@
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
+#include <ignite/common/ignite_date_time.h>
 
 #include <Python.h>
 
@@ -83,3 +84,10 @@ PyObject* py_create_date(const ignite::ignite_date &value);
  * @return A new instance of pyignite3.TIME.
  */
 PyObject* py_create_time(const ignite::ignite_time &value);
+
+/**
+ * Create a new instance of pyignite3.DATETIME from an ignite_date.
+ * @param value Date-Time.
+ * @return A new instance of pyignite3.DATETIME.
+ */
+PyObject* py_create_datetime(const ignite::ignite_date_time &value);

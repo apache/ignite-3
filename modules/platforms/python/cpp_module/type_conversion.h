@@ -108,13 +108,18 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_time(time_val);
         }
 
-        case ignite_type::TIMESTAMP:
-        case ignite_type::DATETIME:
-        case ignite_type::BITMASK:
+        case ignite_type::DATETIME: {
+            auto &datetime_val = value.get<ignite::ignite_date_time>();
+            return py_create_datetime(datetime_val);
+        }
+
         case ignite_type::DECIMAL:
+        case ignite_type::NUMBER:
+
+        case ignite_type::TIMESTAMP:
+        case ignite_type::BITMASK:
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
-        case ignite_type::NUMBER:
         default: {
             // TODO: IGNITE-22745 Provide wider data types support
             auto err_msg = "The type is not supported yet: " + std::to_string(int(value.get_type()));

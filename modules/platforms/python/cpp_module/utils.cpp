@@ -98,10 +98,10 @@ PyObject* py_create_uuid(ignite::bytes_view bytes) {
 }
 
 PyObject* py_create_date(const ignite::ignite_date &value) {
-    auto uuid_class = py_get_class(MODULE_NAME, "DATE");
-    if (!uuid_class)
+    auto date_class = py_get_class(MODULE_NAME, "DATE");
+    if (!date_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(date_class); });
 
     PyObject* year = PyLong_FromLong(value.get_year());
     if (!year)
@@ -109,14 +109,14 @@ PyObject* py_create_date(const ignite::ignite_date &value) {
     auto year_guard = ignite::detail::defer([&]{ Py_DECREF(year); });
 
     PyObject* month = PyLong_FromLong(value.get_month());
-    if (!year)
+    if (!month)
         return nullptr;
     auto month_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
 
     PyObject* day = PyLong_FromLong(value.get_day_of_month());
-    if (!year)
+    if (!day)
         return nullptr;
-    auto day_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
+    auto day_guard = ignite::detail::defer([&]{ Py_DECREF(day); });
 
     auto args = PyTuple_Pack(3, year, month, day);
     if (!args)
@@ -132,14 +132,14 @@ PyObject* py_create_date(const ignite::ignite_date &value) {
         return nullptr;
     auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
 
-    return PyObject_Call(uuid_class, args, kwargs);
+    return PyObject_Call(date_class, args, kwargs);
 }
 
 PyObject* py_create_time(const ignite::ignite_time &value) {
-    auto uuid_class = py_get_class(MODULE_NAME, "TIME");
-    if (!uuid_class)
+    auto time_class = py_get_class(MODULE_NAME, "TIME");
+    if (!time_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(time_class); });
 
     PyObject* hour = PyLong_FromLong(value.get_hour());
     if (!hour)
@@ -176,5 +176,67 @@ PyObject* py_create_time(const ignite::ignite_time &value) {
         return nullptr;
     auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
 
-    return PyObject_Call(uuid_class, args, kwargs);
+    return PyObject_Call(time_class, args, kwargs);
+}
+
+PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
+    auto datetime_class = py_get_class(MODULE_NAME, "DATETIME");
+    if (!datetime_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
+
+    PyObject* year = PyLong_FromLong(value.get_year());
+    if (!year)
+        return nullptr;
+    auto year_guard = ignite::detail::defer([&]{ Py_DECREF(year); });
+
+    PyObject* month = PyLong_FromLong(value.get_month());
+    if (!month)
+        return nullptr;
+    auto month_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
+
+    PyObject* day = PyLong_FromLong(value.get_day_of_month());
+    if (!day)
+        return nullptr;
+    auto day_guard = ignite::detail::defer([&]{ Py_DECREF(day); });
+
+    PyObject* hour = PyLong_FromLong(value.get_hour());
+    if (!hour)
+        return nullptr;
+    auto hour_guard = ignite::detail::defer([&]{ Py_DECREF(hour); });
+
+    PyObject* minute = PyLong_FromLong(value.get_minute());
+    if (!minute)
+        return nullptr;
+    auto minute_guard = ignite::detail::defer([&]{ Py_DECREF(minute); });
+
+    PyObject* second = PyLong_FromLong(value.get_second());
+    if (!second)
+        return nullptr;
+    auto second_guard = ignite::detail::defer([&]{ Py_DECREF(second); });
+
+    PyObject* u_second = PyLong_FromLong(value.get_nano() / 1000);
+    if (!u_second)
+        return nullptr;
+    auto u_second_guard = ignite::detail::defer([&]{ Py_DECREF(u_second); });
+
+    auto args = PyTuple_Pack(7, year, month, day, hour, minute, second, u_second);
+    if (!args)
+        return nullptr;
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    year_guard.release();
+    month_guard.release();
+    day_guard.release();
+    hour_guard.release();
+    minute_guard.release();
+    second_guard.release();
+    u_second_guard.release();
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+
+    return PyObject_Call(datetime_class, args, kwargs);
 }
