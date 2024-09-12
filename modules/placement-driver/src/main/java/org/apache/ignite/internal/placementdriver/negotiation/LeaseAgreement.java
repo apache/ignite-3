@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;

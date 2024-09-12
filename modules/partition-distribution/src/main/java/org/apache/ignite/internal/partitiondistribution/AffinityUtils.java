@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity;
+package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
