@@ -342,11 +342,7 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
-        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
-        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
-            RexNode boolLiteral = rexBuilder().makeLiteral(true);
-            map.put("rexList", toJson(boolLiteral));
-        }
+        map.put("rexList", toJson(node.rexList));
         return map;
     }
 
