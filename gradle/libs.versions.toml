@@ -81,7 +81,7 @@ guava = "33.3.0-jre"
 jna = "5.14.0"
 tree-sitter = "0.23.0"
 tree-sitter-json = "0.21.0a"
-tree-sitter-sql = "gh-pages-a"
+tree-sitter-sql = "gh-pages"
 tree-sitter-hocon = "master-a"
 
 #Tools
