@@ -27,10 +27,7 @@ import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -64,7 +61,7 @@ public class CheckpointPagesWriter implements Runnable {
      * Size of a batch of pages that we drain from a single checkpoint buffer at the same time. The value of {@code 10} is chosen
      * arbitrarily. We may reconsider it in <a href="https://issues.apache.org/jira/browse/IGNITE-23106">IGNITE-23106</a> if necessary.
      *
-     * @see #drainCheckpointBuffers(ByteBuffer, Map)
+     * @see #drainCheckpointBuffers(ByteBuffer)
      */
     private static final int CP_BUFFER_PAGES_BATCH_THRESHOLD = 10;
 
@@ -77,7 +74,7 @@ public class CheckpointPagesWriter implements Runnable {
     /**
      * List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      *
-     * @see #drainCheckpointBuffers(ByteBuffer, Map)
+     * @see #drainCheckpointBuffers(ByteBuffer)
      */
     private final List<PersistentPageMemory> pageMemoryList;
 
@@ -181,7 +178,7 @@ public class CheckpointPagesWriter implements Runnable {
                 writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
             }
 
-            var pageIdsToRetry = new HashMap<PersistentPageMemory, List<FullPageId>>();
+            var pageIdsToRetry = new ArrayList<FullPageId>();
 
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
                 updateHeartbeat.run();
@@ -196,7 +193,7 @@ public class CheckpointPagesWriter implements Runnable {
                 writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageIdsToRetry);
             }
 
-            writeRetryDirtyPages(pageIdsToRetry, tmpWriteBuf);
+            writeRetryDirtyPages(pageMemory, pageIdsToRetry, tmpWriteBuf);
         } finally {
             checkpointProgress.onFinishPartitionProcessing(partitionId);
         }
@@ -206,19 +203,19 @@ public class CheckpointPagesWriter implements Runnable {
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer tmpWriteBuf,
-            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry
+            List<FullPageId> pageIdsToRetry
     ) throws IgniteInternalCheckedException {
         PageStoreWriter pageStoreWriter = createPageStoreWriter(pageMemory, pageIdsToRetry);
 
         // Should also be done for partitions that will be destroyed to remove their pages from the data region.
         pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
 
-        // TODO: IGNITE-23115 починить
-        drainCheckpointBuffers(tmpWriteBuf, new HashMap<>());
+        drainCheckpointBuffers(tmpWriteBuf);
     }
 
     private void writeRetryDirtyPages(
-            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry,
+            PersistentPageMemory pageMemory,
+            List<FullPageId> pageIdsToRetry,
             ByteBuffer tmpWriteBuf
     ) throws IgniteInternalCheckedException {
         while (!pageIdsToRetry.isEmpty()) {
@@ -227,18 +224,16 @@ public class CheckpointPagesWriter implements Runnable {
                         + "unsuccessful page write lock acquisition and will be retried [pageCount={}]", pageIdsToRetry.size());
             }
 
-            var newPageIdsToRetry = new HashMap<PersistentPageMemory, List<FullPageId>>();
+            var newPageIdsToRetry = new ArrayList<FullPageId>();
 
-            for (Entry<PersistentPageMemory, List<FullPageId>> entry : pageIdsToRetry.entrySet()) {
-                for (FullPageId pageId : entry.getValue()) {
-                    if (shutdownNow.getAsBoolean()) {
-                        return;
-                    }
-
-                    updateHeartbeat.run();
-
-                    writeDirtyPage(entry.getKey(), pageId, tmpWriteBuf, newPageIdsToRetry);
+            for (FullPageId pageId : pageIdsToRetry) {
+                if (shutdownNow.getAsBoolean()) {
+                    return;
                 }
+
+                updateHeartbeat.run();
+
+                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, newPageIdsToRetry);
             }
 
             pageIdsToRetry = newPageIdsToRetry;
@@ -249,10 +244,7 @@ public class CheckpointPagesWriter implements Runnable {
      * Checkpoints parts of checkpoint buffers if they are close to overflow. Uses
      * {@link PersistentPageMemory#isCpBufferOverflowThresholdExceeded()} to detect that.
      */
-    private void drainCheckpointBuffers(
-            ByteBuffer tmpWriteBuf,
-            Map<PersistentPageMemory, PageStoreWriter> pageStoreWriters
-    ) throws IgniteInternalCheckedException {
+    private void drainCheckpointBuffers(ByteBuffer tmpWriteBuf) throws IgniteInternalCheckedException {
         PageStoreWriter pageStoreWriter;
         boolean retry = true;
 
@@ -287,10 +279,7 @@ public class CheckpointPagesWriter implements Runnable {
                         writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
                     }
 
-                    pageStoreWriter = pageStoreWriters.computeIfAbsent(
-                            pageMemory,
-                            pm -> createPageStoreWriter(pm, null)
-                    );
+                    pageStoreWriter = createPageStoreWriter(pageMemory, null);
 
                     pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
                 }
@@ -317,12 +306,12 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private PageStoreWriter createPageStoreWriter(
             PersistentPageMemory pageMemory,
-            @Nullable Map<PersistentPageMemory, List<FullPageId>> pagesToRetry
+            @Nullable List<FullPageId> pagesToRetry
     ) {
         return (fullPageId, buf, tag) -> {
             if (tag == TRY_AGAIN_TAG) {
                 if (pagesToRetry != null) {
-                    pagesToRetry.computeIfAbsent(pageMemory, k -> new ArrayList<>()).add(fullPageId);
+                    pagesToRetry.add(fullPageId);
                 }
 
                 return;
