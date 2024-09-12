@@ -115,6 +115,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
+            idToMemberMap.remove(member.id());
+
             fireDisappearedEvent(member);
         }
 
