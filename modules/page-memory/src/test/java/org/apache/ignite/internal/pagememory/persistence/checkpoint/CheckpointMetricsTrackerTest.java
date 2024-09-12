@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -42,15 +40,13 @@ public class CheckpointMetricsTrackerTest {
 
         assertThat(checkpointStartTime, allOf(greaterThan(0L), lessThanOrEqualTo(coarseCurrentTimeMillis())));
 
-        assertThat(tracker.totalDuration(), lessThan(0L));
-
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onCheckpointEnd();
 
         assertThat(tracker.checkpointStartTime(), equalTo(checkpointStartTime));
 
-        assertThat(tracker.totalDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.totalDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -87,110 +83,101 @@ public class CheckpointMetricsTrackerTest {
     void testSplitAndSortCheckpointPages() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.splitAndSortCheckpointPagesDuration(), equalTo(0L));
+        assertThat(tracker.splitAndSortCheckpointPagesDuration(NANOSECONDS), equalTo(0L));
 
         tracker.onSplitAndSortCheckpointPagesStart();
 
-        assertThat(tracker.splitAndSortCheckpointPagesDuration(), lessThan(0L));
-
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onSplitAndSortCheckpointPagesEnd();
 
-        assertThat(tracker.splitAndSortCheckpointPagesDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.splitAndSortCheckpointPagesDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test
     void testFsync() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.fsyncDuration(), equalTo(0L));
+        assertThat(tracker.fsyncDuration(NANOSECONDS), equalTo(0L));
 
         tracker.onFsyncStart();
 
-        assertThat(tracker.fsyncDuration(), lessThan(0L));
-
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onCheckpointEnd();
 
-        assertThat(tracker.fsyncDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.fsyncDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test
     void testPagesWrite() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.pagesWriteDuration(), equalTo(0L));
+        assertThat(tracker.pagesWriteDuration(NANOSECONDS), equalTo(0L));
 
         tracker.onPagesWriteStart();
 
-        assertThat(tracker.pagesWriteDuration(), lessThan(0L));
-
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onFsyncStart();
 
-        assertThat(tracker.pagesWriteDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.pagesWriteDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test
     void testOnMarkCheckpointBegin() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.onMarkCheckpointBeginDuration(), equalTo(0L));
+        assertThat(tracker.onMarkCheckpointBeginDuration(NANOSECONDS), equalTo(0L));
 
         tracker.onMarkCheckpointBeginStart();
 
-        assertThat(tracker.onMarkCheckpointBeginDuration(), lessThan(0L));
-
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onMarkCheckpointBeginEnd();
 
-        assertThat(tracker.onMarkCheckpointBeginDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.onMarkCheckpointBeginDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test
     void testWriteLock() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.beforeWriteLockDuration(), lessThan(0L));
-        assertThat(tracker.writeLockWaitDuration(), equalTo(0L));
-        assertThat(tracker.writeLockHoldDuration(), equalTo(0L));
+        assertThat(tracker.writeLockWaitDuration(NANOSECONDS), equalTo(0L));
+        assertThat(tracker.writeLockHoldDuration(NANOSECONDS), equalTo(0L));
 
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onWriteLockWaitStart();
 
-        long beforeWriteLockDuration = tracker.beforeWriteLockDuration();
+        long beforeWriteLockDuration = tracker.beforeWriteLockDuration(NANOSECONDS);
 
         assertThat(beforeWriteLockDuration, greaterThanOrEqualTo(1L));
-        assertThat(tracker.writeLockWaitDuration(), lessThan(0L));
-        assertThat(tracker.writeLockHoldDuration(), equalTo(0L));
+        assertThat(tracker.writeLockHoldDuration(NANOSECONDS), equalTo(0L));
 
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onMarkCheckpointBeginStart();
 
-        long writeLockWaitDuration = tracker.writeLockWaitDuration();
+        long writeLockWaitDuration = tracker.writeLockWaitDuration(NANOSECONDS);
 
-        assertThat(tracker.beforeWriteLockDuration(), equalTo(beforeWriteLockDuration));
+        assertThat(tracker.beforeWriteLockDuration(NANOSECONDS), equalTo(beforeWriteLockDuration));
         assertThat(writeLockWaitDuration, greaterThanOrEqualTo(1L));
-        assertThat(tracker.writeLockHoldDuration(), lessThan(0L));
 
-        waitForChangeCoarseCurrentTimeMillis();
+        waitForTimeChange();
 
         tracker.onWriteLockRelease();
 
-        assertThat(tracker.beforeWriteLockDuration(), equalTo(beforeWriteLockDuration));
-        assertThat(tracker.writeLockWaitDuration(), equalTo(writeLockWaitDuration));
-        assertThat(tracker.writeLockHoldDuration(), greaterThanOrEqualTo(1L));
+        assertThat(tracker.beforeWriteLockDuration(NANOSECONDS), equalTo(beforeWriteLockDuration));
+        assertThat(tracker.writeLockWaitDuration(NANOSECONDS), equalTo(writeLockWaitDuration));
+        assertThat(tracker.writeLockHoldDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
-    private void waitForChangeCoarseCurrentTimeMillis() throws Exception {
-        long coarseCurrentTimeMillis = coarseCurrentTimeMillis();
+    private static void waitForTimeChange() throws Exception {
+        long start = System.nanoTime();
 
-        assertTrue(waitForCondition(() -> coarseCurrentTimeMillis() != coarseCurrentTimeMillis, 5, 100));
+        while (System.nanoTime() == start) {
+            Thread.onSpinWait();
+        }
     }
 }

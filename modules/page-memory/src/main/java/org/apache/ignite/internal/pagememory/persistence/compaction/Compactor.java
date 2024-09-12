@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
+import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -220,12 +222,13 @@ public class Compactor extends IgniteWorker {
                 break;
             }
 
-            // TODO Expand the comment. https://issues.apache.org/jira/browse/IGNITE-23056
+            String compactionId = UUID.randomUUID().toString();
+
             if (LOG.isInfoEnabled()) {
-                LOG.info("Starting new compaction round [files={}]", queue.size());
+                LOG.info("Starting new compaction round [compactionId={}, files={}]", compactionId, queue.size());
             }
 
-            long start = System.nanoTime();
+            CompactionMetricsTracker tracker = new CompactionMetricsTracker();
 
             updateHeartbeat();
 
@@ -252,7 +255,11 @@ public class Compactor extends IgniteWorker {
                             partitionCompactionInProgressMap.incrementPartitionProcessingCounter(groupPartitionId);
 
                             try {
-                                mergeDeltaFileToMainFile(toMerge.groupPartitionFilePageStore.pageStore(), toMerge.deltaFilePageStoreIo);
+                                mergeDeltaFileToMainFile(
+                                        toMerge.groupPartitionFilePageStore.pageStore(),
+                                        toMerge.deltaFilePageStoreIo,
+                                        tracker
+                                );
                             } finally {
                                 partitionCompactionInProgressMap.decrementPartitionProcessingCounter(groupPartitionId);
                             }
@@ -280,9 +287,19 @@ public class Compactor extends IgniteWorker {
             // Wait and check for errors.
             CompletableFuture.allOf(futures).join();
 
-            // TODO Expand the comment. https://issues.apache.org/jira/browse/IGNITE-23056, handle an exception too.
+            tracker.onCompactionEnd();
+
             if (LOG.isInfoEnabled()) {
-                LOG.info("Compaction round finished [duration={}ms]", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+                float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
+                float avgWriteSpeedInBytes = pageSize * tracker.dataPagesWritten() / totalDurationInSeconds;
+
+                LOG.info(
+                        "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
+                        compactionId,
+                        tracker.dataPagesWritten(),
+                        tracker.totalDuration(MILLISECONDS),
+                        WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                );
             }
         }
     }
@@ -353,11 +370,13 @@ public class Compactor extends IgniteWorker {
      *
      * @param filePageStore File page store.
      * @param deltaFilePageStore Delta file page store.
+     * @param tracker Metrics tracker.
      * @throws Throwable If failed.
      */
     void mergeDeltaFileToMainFile(
             FilePageStore filePageStore,
-            DeltaFilePageStoreIo deltaFilePageStore
+            DeltaFilePageStoreIo deltaFilePageStore,
+            CompactionMetricsTracker tracker
     ) throws Throwable {
         // Copy pages deltaFilePageStore -> filePageStore.
         ByteBuffer buffer = getThreadLocalBuffer(pageSize);
@@ -396,6 +415,8 @@ public class Compactor extends IgniteWorker {
             }
 
             filePageStore.write(pageId, buffer.rewind(), true);
+
+            tracker.onDataPageWritten();
         }
 
         // Fsync the file page store.

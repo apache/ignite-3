@@ -119,7 +119,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                     return true;
                 });
 
-        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo);
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
         verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class), anyBoolean());
@@ -165,13 +165,17 @@ public class CompactorTest extends BaseIgniteAbstractTest {
             return null;
         })
                 .when(compactor)
-                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class), any(CompactionMetricsTracker.class));
 
         compactor.doCompaction();
 
         verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
-        verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+        verify(compactor, times(1)).mergeDeltaFileToMainFile(
+                any(FilePageStore.class),
+                any(DeltaFilePageStoreIo.class),
+                any(CompactionMetricsTracker.class)
+        );
     }
 
     @Test
