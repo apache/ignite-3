@@ -99,7 +99,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
                 return nullptr;
             }
             // To be called when the scope is left.
-            ignite::detail::defer([&] { Py_DECREF(str_array); });
+            auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
             auto *data = PyBytes_AsString(str_array);
             auto len = PyBytes_Size(str_array);

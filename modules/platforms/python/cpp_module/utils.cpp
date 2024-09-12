@@ -73,17 +73,17 @@ PyObject* py_create_uuid(ignite::bytes_view bytes) {
     auto uuid_class = py_get_class(MODULE_NAME, "UUID");
     if (!uuid_class)
         return nullptr;
-    ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
 
     auto args = PyTuple_New(0);
     if (!args)
         return nullptr;
-    ignite::detail::defer([&]{ Py_DECREF(args); });
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
 
     auto kwargs = PyDict_New();
     if (!kwargs)
         return nullptr;
-    ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
 
     PyObject* py_bytes = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     if (!py_bytes)
@@ -93,6 +93,52 @@ PyObject* py_create_uuid(ignite::bytes_view bytes) {
         Py_DECREF(py_bytes);
         return nullptr;
     }
+
+    return PyObject_Call(uuid_class, args, kwargs);
+}
+
+PyObject* py_create_date(const ignite::ignite_date &value) {
+    auto uuid_class = py_get_class(MODULE_NAME, "DATE");
+    if (!uuid_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+
+    PyObject* year = PyLong_FromLong(value.get_year());
+    if (!year)
+        return nullptr;
+    auto year_guard = ignite::detail::defer([&]{ Py_DECREF(year); });
+
+    PyObject* month = PyLong_FromLong(value.get_month());
+    if (!year)
+        return nullptr;
+    auto month_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
+
+    PyObject* day = PyLong_FromLong(value.get_day_of_month());
+    if (!year)
+        return nullptr;
+    auto day_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
+
+    auto args = PyTuple_New(3);
+    if (!args)
+        return nullptr;
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    if (PyTuple_SetItem(args, 0, year) < 0)
+        return nullptr;
+    year_guard.release();
+
+    if (PyTuple_SetItem(args, 1, month) < 0)
+        return nullptr;
+    month_guard.release();
+
+    if (PyTuple_SetItem(args, 2, day) < 0)
+        return nullptr;
+    day_guard.release();
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
 
     return PyObject_Call(uuid_class, args, kwargs);
 }

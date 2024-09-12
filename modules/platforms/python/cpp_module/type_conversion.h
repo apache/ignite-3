@@ -98,7 +98,11 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_uuid({buf, sizeof(buf)});
         }
 
-        case ignite_type::DATE:
+        case ignite_type::DATE: {
+            auto &date_val = value.get<ignite::ignite_date>();
+            return py_create_date(date_val);
+        }
+
         case ignite_type::TIMESTAMP:
         case ignite_type::TIME:
         case ignite_type::DATETIME:
@@ -163,7 +167,7 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
             throw ignite::ignite_error("Can not convert string to UTF-8");
         }
         // To be called when the scope is left.
-        ignite::detail::defer([&] { Py_DECREF(str_array); });
+        auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
         auto *data = PyBytes_AsString(str_array);
         auto len = PyBytes_Size(str_array);

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ignite/common/bytes_view.h>
+#include <ignite/common/ignite_date.h>
 
 #include <Python.h>
 
@@ -67,3 +68,10 @@ PyObject* py_get_class(const char* module_name, const char* class_name);
  * @return A new instance of pyignite3.UUID.
  */
 PyObject* py_create_uuid(ignite::bytes_view bytes);
+
+/**
+ * Create a new instance of pyignite3.DATE from an ignite_date.
+ * @param value Date.
+ * @return A new instance of pyignite3.DATE.
+ */
+PyObject* py_create_date(const ignite::ignite_date &value);
