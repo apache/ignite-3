@@ -58,6 +58,7 @@ import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
@@ -78,6 +79,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Database options. */
     private DBOptions dbOptions;
+
+    /** Write options to use in writes to database. */
+    private WriteOptions writeOptions;
 
     /** Configuration column family handle. */
     private ColumnFamilyHandle confHandle;
@@ -116,6 +120,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param factoryName Name of the log factory, will be used in logs.
      * @param nodeName Node name.
      * @param logPath Function to get path to the log storage.
+     * @param fsync If should fsync after each write to database.
      */
     public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath, boolean fsync) {
         this.factoryName = factoryName;
@@ -149,6 +154,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
         this.dbOptions = createDbOptions();
+
+        this.writeOptions = new WriteOptions().setSync(dbOptions.useFsync());
 
         this.cfOption = createColumnFamilyOptions();
 
@@ -206,16 +213,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         closables.add(dbOptions);
         closables.add(cfOption);
         closables.add(flushListener);
+        closables.add(writeOptions);
 
         RocksUtils.closeAll(closables);
     }
 
-    /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
         assert raftOptions.isSync() == dbOptions.useFsync() : "Sync options must be the same";
 
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, writeOptions, executorService);
     }
 
     @Override

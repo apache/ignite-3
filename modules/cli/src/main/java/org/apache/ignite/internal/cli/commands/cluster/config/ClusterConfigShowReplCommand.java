@@ -58,13 +58,12 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show cluster config"))
-                .verbose(verbose)
                 .print(format.decorator())
-                .start();
+        );
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {

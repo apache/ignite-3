@@ -44,14 +44,10 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> PartitionStatesCallInput.of(options, clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new TableDecorator(options.plain()))
-                .verbose(verbose)
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list partition states"))
-                .build()
-                .runPipeline();
+        );
     }
 }

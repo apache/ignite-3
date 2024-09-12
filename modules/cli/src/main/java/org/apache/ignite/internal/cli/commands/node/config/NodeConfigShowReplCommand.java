@@ -54,12 +54,11 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigShowCallInput)
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .print(format.decorator())
-                .start();
+        );
     }
 
     private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {

@@ -139,7 +139,7 @@ public enum Options {
         public static final String VERBOSE_OPTION_SHORT = "-v";
 
         /** Verbose option description. */
-        public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls."
+        public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls. "
                 + "This flag is useful for debugging";
 
         /** Help option long name. */

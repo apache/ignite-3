@@ -49,12 +49,11 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::buildCallInput)
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private ClusterInitCallInput buildCallInput(String clusterUrl) {

@@ -28,6 +28,14 @@ import org.apache.ignite.internal.raft.WriteCommand;
  */
 public interface RaftGroupListener {
     /**
+     * Exception type that should be used by {@link #onRead(Iterator)} and {@link #onWrite(Iterator)} to complete their closures, in cases
+     * when these methods have been invoked on a listener that's already shut down.
+     */
+    class ShutdownException extends RuntimeException {
+        private static final long serialVersionUID = 5354137682604995519L;
+    }
+
+    /**
      * The callback to apply read commands.
      *
      * <p>If the runtime exception is thrown during iteration all unprocessed read requests will be aborted with the STM exception.

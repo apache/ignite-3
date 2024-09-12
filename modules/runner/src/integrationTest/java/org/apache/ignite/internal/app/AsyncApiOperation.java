@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.compute.JobTarget.anyNode;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
@@ -28,8 +29,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
@@ -128,7 +132,17 @@ enum AsyncApiOperation {
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), refs.selectIdsStatement)),
     SQL_EXECUTE_BATCH(refs -> refs.sql.executeBatchAsync(null, UPDATE_QUERY, BatchedArguments.of(999))),
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatchAsync(null, refs.updateStatement, BatchedArguments.of(999))),
-    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScriptAsync(SELECT_IDS_QUERY));
+    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScriptAsync(SELECT_IDS_QUERY)),
+
+    COMPUTE_EXECUTE(refs -> refs.compute.executeAsync(
+            anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null
+    )),
+    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcastAsync(
+            Set.copyOf(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
+    COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null));
 
     private final Function<References, CompletableFuture<?>> action;
 

@@ -50,20 +50,17 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
     private String version;
 
     @Inject
-    private UndeployUnitCall undeployUnitCall;
+    private UndeployUnitCall call;
 
     @Override
     public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(undeployUnitCall)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
                         .clusterUrl(clusterUrl.getClusterUrl())
                         .build())
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot undeploy unit"))
-                .build().runPipeline();
+        );
     }
 }

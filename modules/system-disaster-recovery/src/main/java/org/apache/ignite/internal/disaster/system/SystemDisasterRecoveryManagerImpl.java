@@ -36,9 +36,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermRequestMessage;
+import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessageBuilder;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
@@ -61,6 +65,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     private final TopologyService topologyService;
     private final MessagingService messagingService;
     private final ServerRestarter restarter;
+    private final Supplier<CompletableFuture<IndexWithTerm>> metastorageIndexWithTerm;
 
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private static final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
@@ -76,12 +81,14 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             TopologyService topologyService,
             MessagingService messagingService,
             VaultManager vaultManager,
-            ServerRestarter restarter
+            ServerRestarter restarter,
+            Supplier<CompletableFuture<IndexWithTerm>> metastorageIndexWithTerm
     ) {
         this.thisNodeName = thisNodeName;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
         this.restarter = restarter;
+        this.metastorageIndexWithTerm = metastorageIndexWithTerm;
 
         storage = new SystemDisasterRecoveryStorage(vaultManager);
         restartExecutor = new ThreadPerTaskExecutor(thisNodeName + "-restart-");
@@ -93,6 +100,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             if (message instanceof ResetClusterMessage) {
                 assert correlationId != null;
                 handleResetClusterMessage((ResetClusterMessage) message, sender, correlationId);
+            } else if (message instanceof MetastorageIndexTermRequestMessage) {
+                assert correlationId != null;
+                handleMetastorageIndexTermRequest(sender, correlationId);
             }
         });
 
@@ -110,6 +120,18 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                         }
                     }, restartExecutor);
         });
+    }
+
+    private void handleMetastorageIndexTermRequest(ClusterNode sender, long correlationId) {
+        metastorageIndexWithTerm.get()
+                .thenAccept(indexWithTerm -> {
+                    MetastorageIndexTermResponseMessage response = messagesFactory.metastorageIndexTermResponseMessage()
+                            .raftIndex(indexWithTerm.index())
+                            .raftTerm(indexWithTerm.term())
+                            .build();
+
+                    messagingService.respond(sender, response, correlationId);
+                });
     }
 
     private static SuccessResponseMessage successResponseMessage() {

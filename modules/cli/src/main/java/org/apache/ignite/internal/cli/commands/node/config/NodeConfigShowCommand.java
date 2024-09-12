@@ -51,14 +51,10 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(format.decorator())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 
     private NodeConfigShowCallInput buildCallInput() {

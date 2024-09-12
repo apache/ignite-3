@@ -54,11 +54,10 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfConnected(connectCallInput(nodeUrl.toString()))
+        runFlow(question.askQuestionIfConnected(connectCallInput(nodeUrl.toString()))
                 .then(Flows.fromCall(connectCall))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private ConnectCallInput connectCallInput(String nodeUrl) {
@@ -66,6 +65,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
                 .url(nodeUrl)
                 .username(connectOptions != null ? connectOptions.username() : null)
                 .password(connectOptions != null ? connectOptions.password() : null)
+                .checkClusterInit(true)
                 .build();
     }
 }

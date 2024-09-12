@@ -14,5 +14,44 @@
 # limitations under the License.
 import logging
 
+import pyignite3
+import pytest
+
+from tests.util import check_cluster_started, start_cluster_gen, server_addresses_basic
+
 logger = logging.getLogger('pyignite3')
 logger.setLevel(logging.DEBUG)
+
+
+@pytest.fixture()
+def table_name(request):
+    return request.node.originalname
+
+
+@pytest.fixture()
+def connection():
+    conn = pyignite3.connect(address=server_addresses_basic)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture()
+def cursor(connection):
+    cursor = connection.cursor()
+    yield cursor
+    cursor.close()
+
+
+@pytest.fixture()
+def drop_table_cleanup(cursor, table_name):
+    yield None
+    cursor.execute(f'drop table if exists {table_name}')
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cluster():
+    if not check_cluster_started():
+        yield from start_cluster_gen()
+    else:
+        yield None
+

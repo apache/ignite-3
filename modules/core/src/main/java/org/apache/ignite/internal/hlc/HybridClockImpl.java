@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.lang.Math.max;
-import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
@@ -60,9 +59,14 @@ public class HybridClockImpl implements HybridClock {
         this.latestTime = currentTime();
     }
 
-    private static long currentTime() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23117 Use currentTimeMillis instead.
-        return systemUTC().instant().toEpochMilli() << LOGICAL_TIME_BITS_SIZE;
+    /**
+     * System current time in milliseconds shifting left to free insignificant bytes.
+     * This method is marked with a public modifier to mock in tests because there is no way to mock currentTimeMillis.
+     *
+     * @return Current time in milliseconds shifted right on two bytes.
+     */
+    public static long currentTime() {
+        return System.currentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override

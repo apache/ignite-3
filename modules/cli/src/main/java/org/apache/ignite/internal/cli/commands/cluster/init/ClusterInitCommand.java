@@ -45,13 +45,9 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 
     private ClusterInitCallInput buildCallInput() {

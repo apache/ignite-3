@@ -57,7 +57,7 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runna
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(clusterUrl -> UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
@@ -65,8 +65,7 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runna
                         .build())
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot undeploy unit"))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 }
