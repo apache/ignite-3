@@ -656,8 +656,10 @@ public class NodeImpl implements Node, RaftServerService {
     private boolean initLogStorage() {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
-        //this.logManager = new LogManagerImpl();
-        this.logManager = new StripeAwareLogManager();
+
+        // Shared event loop not supports currently cross partition shared log.
+        this.logManager = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP) ?
+            new LogManagerImpl() : new StripeAwareLogManager();
 
         LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
