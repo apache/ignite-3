@@ -167,15 +167,17 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 writtenFullPageIds.getAllValues(),
                 equalTo(List.of(
                         // At the beginning, we write the partition meta for each new partition.
-                        fullPageId(0, 0, 0),
+                        new FullPageId(pageId(0, FLAG_AUX, 0), 0),
                         // Order is different because the first 3 pages we have to try to write to the page store 2 times.
                         fullPageId4, fullPageId5,
-                        fullPageId(0, 1, 0),
-                        fullPageId6, fullPageId1, fullPageId2, fullPageId3
+                        fullPageId1, fullPageId2, fullPageId3,
+                        // At the beginning, we write the partition meta for each new partition.
+                        new FullPageId(pageId(1, FLAG_AUX, 0), 0),
+                        fullPageId6
                 ))
         );
 
-        verify(beforePageWrite, times(11)).run();
+        verify(beforePageWrite, times(13)).run();
 
         verify(threadBuf, times(2)).get();
 
@@ -200,6 +202,13 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory, new FullPageId(pageId(0, FLAG_DATA, 1), 0))
+        ));
+
+        CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
+        checkpointProgress.pagesToWrite(checkpointDirtyPages);
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new GroupPartitionId(0, 0)))),
@@ -208,7 +217,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
-                new CheckpointProgressImpl(0),
+                checkpointProgress,
                 createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
