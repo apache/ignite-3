@@ -157,6 +157,7 @@ public class CheckpointManager {
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
                 compactor,
+                pageSize,
                 checkpointConfig,
                 logSyncer
         );
