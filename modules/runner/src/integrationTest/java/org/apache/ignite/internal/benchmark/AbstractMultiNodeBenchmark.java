@@ -71,7 +71,7 @@ public class AbstractMultiNodeBenchmark {
     protected static Ignite publicIgnite;
     protected static IgniteImpl igniteImpl;
 
-    @Param({"false"})
+    @Param({"false", "true"})
     private boolean fsync;
 
     /**
