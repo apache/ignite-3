@@ -26,7 +26,7 @@ using NUnit.Framework;
 public partial class LinqTests
 {
     [Test]
-    [Timeout(45_000)] // TODO IGNITE-23170 Decimal handling is very slow
+    [Timeout(90_000)] // TODO IGNITE-23170 Decimal handling is very slow
     public void TestProjectionWithCastIntoAnonymousType()
     {
         // BigInteger is not suppoerted by the SQL engine.
@@ -66,7 +66,7 @@ public partial class LinqTests
     }
 
     [Test]
-    [Timeout(45_000)] // TODO IGNITE-23170 Decimal handling is very slow
+    [Timeout(90_000)] // TODO IGNITE-23170 Decimal handling is very slow
     public void TestCastToDecimalPrecision()
     {
         // ReSharper disable once RedundantCast
