@@ -29,9 +29,11 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -195,48 +197,6 @@ public class StripedDisruptor<T extends INodeIdAware> {
         exceptionHandlers.clear();
     }
 
-    /**
-     * Subscribes an event handler to one stripe of the Striped disruptor. The stripe is determined by a group id.
-     *
-     * @param nodeId Node id.
-     * @param handler Event handler for the group specified.
-     * @return Disruptor queue appropriate to the group.
-     */
-    public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler) {
-        return subscribe(nodeId, handler, null);
-    }
-
-    /**
-     * TODO FIXME remove
-     * Subscribes an event handler and a exception handler to one stripe of the Striped disruptor. The stripe is determined by a group id.
-     *
-     * @param nodeId Node id.
-     * @param handler Event handler for the group specified.
-     * @param exceptionHandler Exception handler for the group specified.
-     * @return Disruptor queue appropriate to the group.
-     */
-    public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler, BiConsumer<T, Throwable> exceptionHandler) {
-        assert getStripe(nodeId) == -1 : "The double subscriber for the one replication group [nodeId=" + nodeId + "].";
-
-        int stripeId = nextStripeToSubscribe();
-
-        stripeMapper.put(nodeId, stripeId);
-
-        queues[stripeId].publishEvent((event, sequence) -> {
-            event.reset();
-
-            event.setEvtType(SUBSCRIBE);
-            event.setNodeId(nodeId);
-            event.setHandler((EventHandler<INodeIdAware>) handler);
-        });
-
-        if (exceptionHandler != null) {
-            exceptionHandlers.get(stripeId).subscribe(nodeId, exceptionHandler);
-        }
-
-        return queues[stripeId];
-    }
-
     public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler, DisruptorEventSourceType type,
             BiConsumer<T, Throwable> exceptionHandler) {
         int stripeId = getStripe(nodeId);
@@ -258,6 +218,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
         });
 
         if (exceptionHandler != null) {
+            // TODO is this correct?
             exceptionHandlers.get(stripeId).subscribe(nodeId, exceptionHandler);
         }
 
@@ -267,7 +228,9 @@ public class StripedDisruptor<T extends INodeIdAware> {
     public void unsubscribe(NodeId nodeId, DisruptorEventSourceType type) {
         int stripeId = getStripe(nodeId);
 
-        assert stripeId != -1 : "The replication group has not subscribed yet [nodeId=" + nodeId + "].";
+        if (stripeId == -1) {
+            return; // Already unsubscribed.
+        }
 
         //stripeMapper.remove(nodeId);
 
@@ -276,31 +239,6 @@ public class StripedDisruptor<T extends INodeIdAware> {
 
             event.setEvtType(SUBSCRIBE);
             event.setSrcType(type);
-            event.setNodeId(nodeId);
-            event.setHandler(null);
-        });
-
-        exceptionHandlers.get(stripeId).unsubscribe(nodeId);
-    }
-
-    /**
-     * TODO remove
-     * Unsubscribes group for the Striped disruptor.
-     *
-     * @param nodeId Node id.
-     */
-    public void unsubscribe(NodeId nodeId) {
-        int stripeId = getStripe(nodeId);
-
-        assert stripeId != -1 : "The replication group has not subscribed yet [nodeId=" + nodeId + "].";
-
-        stripeMapper.remove(nodeId);
-
-        queues[stripeId].publishEvent((event, sequence) -> {
-            event.reset();
-
-            event.setEvtType(SUBSCRIBE);
-            event.setSrcType(null);
             event.setNodeId(nodeId);
             event.setHandler(null);
         });
@@ -332,8 +270,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
      * Event handler for stripe of the Striped disruptor. It routes an event to the event handler for a group.
      */
     private class StripeEntryHandler implements EventHandler<T> {
-        // TODO enummap.
-        private final Map<NodeId, Map<DisruptorEventSourceType, EventHandler<T>>> subscribers = new HashMap<>();
+        private final Map<NodeId, EnumMap<DisruptorEventSourceType, EventHandler<T>>> subscribers = new HashMap<>();
 
         /** Holds last unprocessed event in non shared event loop mode. */
         private final Map<NodeId, T> eventCache = new HashMap<>();
@@ -359,7 +296,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
-            // LOG.info("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch + " e=" + event.toString());
+             LOG.info("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch + " e=" + event.toString());
 
             if (event.getEvtType() == SUBSCRIBE) {
                 if (endOfBatch ) {
@@ -379,7 +316,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 } else {
                     subscribers.compute(event.nodeId(), (k, v) -> {
                         if (v == null) {
-                            v = new HashMap<>();
+                            v = new EnumMap<>(DisruptorEventSourceType.class);
                         }
 
                         EventHandler<T> prev = v.put(event.getSrcType(), (EventHandler<T>) event.getHandler());
@@ -467,8 +404,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
 
         private void consumeBatch(NodeId nodeId, long sequence) throws Exception {
             if (shared) {
-                List<T> cached = sharedEventCache.get(nodeId);
-                if (cached != null) {
+                for (Entry<NodeId, List<T>> entry : sharedEventCache.entrySet()) {
+                    List<T> cached = entry.getValue();
                     for (int i = 0; i < cached.size(); i++) {
                         T t = cached.get(i);
 
@@ -485,20 +422,30 @@ public class StripedDisruptor<T extends INodeIdAware> {
                             }
                         }
 
-                        EventHandler<T> grpHandler = subscribers.get(nodeId).get(t.getSrcType());
-
-                        if (grpHandler != null) {
-                            grpHandler.onEvent(t, sequence, endB);
-                        }
+                        EnumMap<DisruptorEventSourceType, EventHandler<T>> map = subscribers.get(t.nodeId());
+                        assert map != null : "Event handler is not registered for group " + t.nodeId() + ":" + t.getSrcType();
+                        EventHandler<T> grpHandler = map.get(t.getSrcType());
+                        assert grpHandler != null :
+                                "Event handler is not registered for group " + t.nodeId() + ":" + t.getSrcType();
+                        grpHandler.onEvent(t, sequence, endB);
                     }
-
-                    cached.clear();
                 }
+
+                sharedEventCache.clear();
             } else {
                 for (Map.Entry<NodeId, T> grpEvent : eventCache.entrySet()) {
-                    EventHandler<T> grpHandler = subscribers.get(grpEvent.getValue().nodeId()).get(grpEvent.getValue().getSrcType());
+                    T prevEvent = grpEvent.getValue();
 
-                    if (grpHandler != null) {
+                    EnumMap<DisruptorEventSourceType, EventHandler<T>> map = subscribers.get(prevEvent.nodeId());
+
+                    assert map != null : "Event handler is not registered for group " + prevEvent.nodeId() + ":" + prevEvent.getSrcType();
+
+                    EventHandler<T> grpHandler = map.get(grpEvent.getValue().getSrcType());
+
+                    assert grpHandler != null :
+                            "Event handler is not registered for group " + prevEvent.nodeId() + ":" + prevEvent.getSrcType();
+
+//                    if (grpHandler != null) {
 //                                if (metrics != null && metrics.enabled()) {
 //                                    metrics.hitToStripe(stripeId);
 //
@@ -506,7 +453,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
 //                                }
 
                         grpHandler.onEvent(grpEvent.getValue(), sequence, true);
-                    }
+//                    }
                 }
 
                 //currentBatchSizes.clear();
@@ -538,9 +485,16 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 T prevEvent = eventCache.put(pushNodeId, event);
 
                 if (prevEvent != null) {
-                    EventHandler<T> grpHandler = subscribers.get(prevEvent.nodeId()).get(prevEvent.getSrcType());
+                    EnumMap<DisruptorEventSourceType,EventHandler<T>> map = subscribers.get(prevEvent.nodeId());
 
-                    if (grpHandler != null) {
+                    assert map != null : "Event handler is not registered for group " + prevEvent.nodeId() + ":" + prevEvent.getSrcType();
+
+                    EventHandler<T> grpHandler = map.get(prevEvent.getSrcType());
+
+                    assert grpHandler != null :
+                            "Event handler is not registered for type " + prevEvent.nodeId() + ":" + prevEvent.getSrcType();
+
+//                    if (grpHandler != null) {
 //                    if (metrics != null && metrics.enabled()) {
 //                        metrics.hitToStripe(stripeId);
 //
@@ -554,7 +508,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
 //                    }
 
                         grpHandler.onEvent(prevEvent, sequence, false);
-                    }
+//                    }
                 }
             }
         }
