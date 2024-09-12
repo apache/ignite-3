@@ -21,6 +21,7 @@
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_date_time.h>
+#include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/big_decimal.h>
 
 #include <Python.h>
@@ -92,6 +93,13 @@ PyObject* py_create_time(const ignite::ignite_time &value);
  * @return A new instance of pyignite3.DATETIME.
  */
 PyObject* py_create_datetime(const ignite::ignite_date_time &value);
+
+/**
+ * Create a new instance of pyignite3.DATETIME from an ignite_timestamp.
+ * @param value Timestamp.
+ * @return A new instance of pyignite3.DATETIME.
+ */
+PyObject* py_create_datetime(const ignite::ignite_timestamp &value);
 
 /**
  * Create a new instance of pyignite3.NUMBER from a string.

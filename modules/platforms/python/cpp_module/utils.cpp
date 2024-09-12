@@ -241,6 +241,31 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
     return PyObject_Call(datetime_class, args, kwargs);
 }
 
+PyObject* py_create_datetime(const ignite::ignite_timestamp &value) {
+    // TODO: Cache classes and functions for re-use
+    auto datetime_class = py_get_class(MODULE_NAME, "DATETIME");
+    if (!datetime_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
+
+    PyObject* second = PyLong_FromLongLong(value.get_epoch_second());
+    if (!second)
+        return nullptr;
+    auto second_guard = ignite::detail::defer([&]{ Py_DECREF(second); });
+
+    PyObject* u_second = PyLong_FromLongLong(value.get_nano() / 1000);
+    if (!u_second)
+        return nullptr;
+    auto u_second_guard = ignite::detail::defer([&]{ Py_DECREF(u_second); });
+
+    PyObject* constructor_name = PyUnicode_FromString("fromtimestamp");
+    if (!constructor_name)
+        return nullptr;
+    auto constructor_name_guard = ignite::detail::defer([&]{ Py_DECREF(constructor_name); });
+
+    return PyObject_CallMethodObjArgs(datetime_class, constructor_name, second, nullptr);
+}
+
 PyObject* py_create_number(std::string_view value) {
     auto number_class = py_get_class(MODULE_NAME, "NUMBER");
     if (!number_class)

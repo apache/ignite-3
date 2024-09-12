@@ -114,6 +114,11 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_datetime(datetime_val);
         }
 
+        case ignite_type::TIMESTAMP:  {
+            auto &timestamp_val = value.get<ignite::ignite_timestamp>();
+            return py_create_datetime(timestamp_val);
+        }
+
         case ignite_type::DECIMAL: {
             auto &decimal_val = value.get<ignite::big_decimal>();
             std::stringstream converter;
@@ -122,7 +127,6 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_number(str);
         }
 
-        case ignite_type::TIMESTAMP:
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
         default: {
