@@ -120,6 +120,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         );
@@ -154,6 +155,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         ));
@@ -259,6 +261,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         );
@@ -289,6 +292,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         ));
@@ -380,6 +384,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 compactor,
+                PAGE_SIZE,
                 checkpointConfig,
                 mockLogSyncer
         ));
@@ -411,6 +416,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         ));
@@ -437,6 +443,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         );
@@ -479,6 +486,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
+                PAGE_SIZE,
                 checkpointConfig,
                 mock(LogSyncer.class)
         );

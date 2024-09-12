@@ -17,30 +17,14 @@
 
 package org.apache.ignite.internal.disaster.system.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message Group for disaster recovery of system groups.
+ * A command to make a node become a Metastorage Raft group leader.
  */
-@MessageGroup(groupType = 15, groupName = "SystemDisasterRecoveryMessages")
-public class SystemDisasterRecoveryMessageGroup {
-    /**
-     * Message type for {@link ResetClusterMessage}.
-     */
-    public static final short RESET_CLUSTER = 1;
-
-    /**
-     * Message type for {@link MetastorageIndexTermRequestMessage}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_REQUEST = 2;
-
-    /**
-     * Message type for {@link MetastorageIndexTermResponseMessage}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
-
-    /**
-     * Message type for {@link BecomeMetastorageLeaderMessage}.
-     */
-    public static final short BECOME_METASTORAGE_LEADER = 4;
+@Transferable(SystemDisasterRecoveryMessageGroup.BECOME_METASTORAGE_LEADER)
+public interface BecomeMetastorageLeaderMessage extends NetworkMessage {
+    /** Whether leader secondary duties (managing learners, propagating idle safe time) should be paused. */
+    boolean pauseLeaderSecondaryDuties();
 }
