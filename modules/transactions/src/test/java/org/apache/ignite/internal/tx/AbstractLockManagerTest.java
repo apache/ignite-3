@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
 import static org.apache.ignite.internal.tx.LockMode.IX;
@@ -1087,6 +1089,35 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.release(txId2, key, X);
 
         assertTrue(lockManager.isEmpty());
+    }
+
+    @Test
+    public void testAcquireLockAfterFail() {
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        ;
+        UUID tx3 = TestTransactionIds.newTransactionId();
+        ;
+
+        var key = new LockKey(0);
+
+        assertThat(lockManager.acquire(tx1, key, S), willCompleteSuccessfully());
+        assertThat(lockManager.acquire(tx2, key, IS), willCompleteSuccessfully());
+
+        assertThat(lockManager.acquire(tx2, key, X), willThrow(LockException.class));
+
+        assertThat(lockManager.acquire(tx2, key, S), willCompleteSuccessfully());
+
+        assertThat(lockManager.acquire(tx3, key, S), willCompleteSuccessfully());
+
+        lockManager.releaseAll(tx1);
+
+        CompletableFuture<?> f = lockManager.acquire(tx2, key, X);
+        assertFalse(f.isDone());
+
+        lockManager.releaseAll(tx3);
+
+        assertThat(f, willCompleteSuccessfully());
     }
 
     /**
