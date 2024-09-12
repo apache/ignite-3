@@ -105,6 +105,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
 
         Node node3 = startNode();
 
+        // Make sure the leader does not manage learners (as we requested it to pause secondary duties).
         assertFalse(
                 waitForCondition(() -> learnersAt(node0).contains(node3.name()), SECONDS.toMillis(3)),
                 "The leader still manages learners"
