@@ -56,10 +56,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessageBuilder;
@@ -67,6 +67,7 @@ import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecovery
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.impl.MetastorageGroupMaintenance;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -126,7 +127,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private ServerRestarter restarter;
 
     @Mock
-    private Supplier<CompletableFuture<IndexWithTerm>> metastorageIndexWithTerm;
+    private MetastorageGroupMaintenance metastorageMaintenance;
 
     private SystemDisasterRecoveryManagerImpl manager;
 
@@ -166,7 +167,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 messagingService,
                 vaultManager,
                 restarter,
-                metastorageIndexWithTerm
+                metastorageMaintenance
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
     }
@@ -320,16 +321,28 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         verify(restarter).initiateRestart();
     }
 
-    @ParameterizedTest
-    @EnumSource(ResetCluster.class)
-    void resetClusterInitiatesRestartWhenMajorityOfCmgNodesRespondsWithOk(ResetCluster action) {
+    @Test
+    void repairCmgInitiatesRestartWhenMajorityOfCmgNodesRespondsWithOk() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
         prepareNodeStateForClusterReset();
 
         respondSuccessfullyFrom(thisNode, node2);
         respondWithExceptionFrom(node3, node4, node5);
 
-        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name(), node3.name()));
+        CompletableFuture<Void> future = manager.resetCluster(List.of(thisNodeName, node2.name(), node3.name()));
+        assertThat(future, willCompleteSuccessfully());
+
+        verify(restarter).initiateRestart();
+    }
+
+    @Test
+    void repairMgInitiatesRestartWhenAllParticipatingNodesRespondWithOk() {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
+        prepareNodeStateForClusterReset();
+
+        respondSuccessfullyFrom(thisNode, node2, node3, node4, node5);
+
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node2.name(), node3.name()), 1);
         assertThat(future, willCompleteSuccessfully());
 
         verify(restarter).initiateRestart();
@@ -357,19 +370,37 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(failedFuture(new TimeoutException()));
     }
 
-    @ParameterizedTest
-    @EnumSource(ResetCluster.class)
-    @DisplayName("resetCluster() fails and does not restart when majority of new CMG nodes do not respond")
-    void resetClusterFailsWhenNewCmgMajorityDoesNotRespond(ResetCluster action) {
+    @Test
+    @DisplayName("resetCluster() fails and does not restart node when majority of new CMG nodes do not respond")
+    void repairCmgFailsWhenNewCmgMajorityDoesNotRespond() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
         prepareNodeStateForClusterReset();
 
         respondSuccessfullyFrom(thisNode, node4, node5);
         respondWithExceptionFrom(node2, node3);
 
-        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name(), node3.name()));
+        CompletableFuture<Void> future = manager.resetCluster(List.of(thisNodeName, node2.name(), node3.name()));
         ClusterResetException ex = assertWillThrow(future, ClusterResetException.class);
         assertThat(ex.getMessage(), is("Did not get successful responses from new CMG majority, failing cluster reset."));
+
+        verify(restarter, never()).initiateRestart();
+    }
+
+    @Test
+    @DisplayName("resetClusterRepairingMetastorage() fails and does not restart node when any participating node does not respond")
+    void resetClusterFailsWhenNewCmgMajorityDoesNotRespond() {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
+        prepareNodeStateForClusterReset();
+
+        respondSuccessfullyFrom(thisNode, node3, node4, node5);
+        respondWithExceptionFrom(node2);
+
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node2.name(), node3.name()), 1);
+        ClusterResetException ex = assertWillThrow(future, ClusterResetException.class);
+        assertThat(
+                ex.getMessage(),
+                is("Did not get successful response from at least one node, failing cluster reset [failedNode=node2].")
+        );
 
         verify(restarter, never()).initiateRestart();
     }
@@ -596,7 +627,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsIndexAndTerm() {
-        when(metastorageIndexWithTerm.get()).thenReturn(completedFuture(new IndexWithTerm(234, 2)));
+        when(metastorageMaintenance.raftNodeIndex()).thenReturn(completedFuture(new IndexWithTerm(234, 2)));
 
         NetworkMessageHandler handler = extractMessageHandler();
         handler.onReceived(messagesFactory.metastorageIndexTermRequestMessage().build(), thisNode, 123L);
@@ -607,6 +638,21 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         MetastorageIndexTermResponseMessage response = captor.getValue();
         assertThat(response.raftIndex(), is(234L));
         assertThat(response.raftTerm(), is(2L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void initiatesBecomingMetastorageLeader(boolean pauseLeaderSecondaryDuties) {
+        when(metastorageMaintenance.becomeLonelyLeader(pauseLeaderSecondaryDuties)).thenReturn(nullCompletedFuture());
+
+        NetworkMessageHandler handler = extractMessageHandler();
+        BecomeMetastorageLeaderMessage message = messagesFactory.becomeMetastorageLeaderMessage()
+                .pauseLeaderSecondaryDuties(pauseLeaderSecondaryDuties)
+                .build();
+        handler.onReceived(message, thisNode, 123L);
+
+        ArgumentCaptor<SuccessResponseMessage> captor = ArgumentCaptor.forClass(SuccessResponseMessage.class);
+        verify(messagingService).respond(eq(thisNode), captor.capture(), eq(123L));
     }
 
     private enum ResetCluster {

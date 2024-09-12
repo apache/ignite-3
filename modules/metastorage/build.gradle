@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
