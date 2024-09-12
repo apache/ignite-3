@@ -33,9 +33,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -95,13 +97,31 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testPutNull() {
+    public void testPutNullAsKeyIsForbidden() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> kvView.put(null, null, Tuple.create()));
+        assertThat(ex.getMessage(), containsString("key"));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16707")
+    public void testPutNullAsValueIsForbidden() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+        Tuple key = defaultTupleKey();
+
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> kvView.put(null, key, null));
+        assertThat(ex.getMessage(), containsString("change me"));
+    }
+
+    @Test
+    public void testPutEmptyTuple() {
         Table table = defaultTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         Tuple key = defaultTupleKey();
 
-        kvView.put(null, key, null);
+        kvView.put(null, key, Tuple.create());
         Tuple resVal = kvView.get(null, key);
 
         assertNull(resVal.stringValue("name"));
@@ -329,5 +349,101 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         assertNotNull(res2);
         assertEquals("1", res2.stringValue(0));
         assertEquals("3", kvView.get(null, tupleKey(1L)).stringValue(0));
+    }
+
+    @Test
+    public void testGetNullable() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple existingKey = tupleKey(DEFAULT_ID);
+        Tuple nonExistingKey = tupleKey(-1L);
+
+        kvView.put(null, existingKey, Tuple.create());
+        kvView.remove(null, nonExistingKey);
+
+        NullableValue<Tuple> emptyTuple = kvView.getNullable(null, existingKey);
+        NullableValue<Tuple> missingVal = kvView.getNullable(null, nonExistingKey);
+
+        assertNull(missingVal);
+
+        assertNotNull(emptyTuple);
+        assertNotNull(emptyTuple.get());
+        assertEquals(1, emptyTuple.get().columnCount());
+        assertNull(emptyTuple.get().value(0));
+        assertNull(emptyTuple.get().stringValue("name"));
+    }
+
+    @Test
+    public void testGetNullableAndPut() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple existingKey = tupleKey(DEFAULT_ID);
+        Tuple nonExistingKey = tupleKey(-1L);
+
+        kvView.put(null, existingKey, Tuple.create());
+        kvView.remove(null, nonExistingKey);
+
+        NullableValue<Tuple> emptyTuple = kvView.getNullableAndPut(null, existingKey, tupleVal(DEFAULT_NAME));
+        NullableValue<Tuple> missingVal = kvView.getNullableAndPut(null, nonExistingKey, tupleVal(DEFAULT_NAME));
+
+        assertNull(missingVal);
+
+        assertNotNull(emptyTuple);
+        assertNotNull(emptyTuple.get());
+        assertEquals(1, emptyTuple.get().columnCount());
+        assertNull(emptyTuple.get().value(0));
+        assertNull(emptyTuple.get().stringValue("name"));
+
+        Tuple val = kvView.get(null, existingKey);
+        assertEquals(DEFAULT_NAME, val.stringValue("name"));
+    }
+
+    @Test
+    public void testGetNullableAndRemove() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple existingKey = tupleKey(DEFAULT_ID);
+        Tuple nonExistingKey = tupleKey(-1L);
+
+        kvView.put(null, existingKey, Tuple.create());
+        kvView.remove(null, nonExistingKey);
+
+        NullableValue<Tuple> emptyTuple = kvView.getNullableAndRemove(null, existingKey);
+        NullableValue<Tuple> missingVal = kvView.getNullableAndRemove(null, nonExistingKey);
+
+        assertNull(missingVal);
+
+        assertNotNull(emptyTuple);
+        assertNotNull(emptyTuple.get());
+        assertEquals(1, emptyTuple.get().columnCount());
+        assertNull(emptyTuple.get().value(0));
+        assertNull(emptyTuple.get().stringValue("name"));
+
+        assertNull(kvView.get(null, existingKey));
+    }
+
+    @Test
+    public void testGetNullableAndReplace() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple existingKey = tupleKey(DEFAULT_ID);
+        Tuple nonExistingKey = tupleKey(-1L);
+
+        kvView.put(null, existingKey, Tuple.create());
+        kvView.remove(null, nonExistingKey);
+
+        NullableValue<Tuple> emptyTuple = kvView.getNullableAndReplace(null, existingKey, tupleVal(DEFAULT_NAME));
+        NullableValue<Tuple> missingVal = kvView.getNullableAndReplace(null, nonExistingKey, tupleVal(DEFAULT_NAME));
+
+        assertNull(missingVal);
+
+        assertNotNull(emptyTuple);
+        assertNotNull(emptyTuple.get());
+        assertEquals(1, emptyTuple.get().columnCount());
+        assertNull(emptyTuple.get().value(0));
+        assertNull(emptyTuple.get().stringValue("name"));
+
+        Tuple val = kvView.get(null, existingKey);
+        assertEquals(DEFAULT_NAME, val.stringValue("name"));
     }
 }
