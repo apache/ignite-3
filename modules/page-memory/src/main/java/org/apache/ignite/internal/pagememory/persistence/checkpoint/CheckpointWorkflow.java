@@ -415,7 +415,7 @@ class CheckpointWorkflow {
 
         int realPagesArrSize = 0;
 
-        // Collects dirty pages into an arrays (then we will sort them) and dirty partitions.
+        // Collects dirty pages into an array (then we will sort them) and collects dirty partitions.
         for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
             var pageIds = new FullPageId[dataRegionDirtyPages.dirtyPages.size()];
 

@@ -315,7 +315,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(progressImpl, times(1)).pagesToWrite(any(CheckpointDirtyPages.class));
         verify(progressImpl, times(1)).initCounters(anyInt());
 
-        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, 0, 0);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(dirtyPages));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
@@ -409,15 +409,18 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCreateAndSortCheckpointDirtyPages() throws Exception {
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
+
         DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
-                mock(PersistentPageMemory.class),
+                pageMemory0,
                 of(10, 10, 2), of(10, 10, 1), of(10, 10, 0),
                 of(10, 5, 100), of(10, 5, 99),
                 of(10, 1, 50), of(10, 1, 51), of(10, 1, 99)
         );
 
         DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
-                mock(PersistentPageMemory.class),
+                pageMemory1,
                 of(77, 5, 100), of(77, 5, 99),
                 of(88, 1, 51), of(88, 1, 50), of(88, 1, 99),
                 of(66, 33, 0), of(66, 33, 1), of(66, 33, 2)
@@ -436,32 +439,32 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 new DataRegionsDirtyPages(List.of(dataRegionDirtyPages0, dataRegionDirtyPages1))
         );
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 10, 1);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 1, 50), of(10, 1, 51), of(10, 1, 99))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 10, 5);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 5, 99), of(10, 5, 100))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 10, 10);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 10, 0), of(10, 10, 1), of(10, 10, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 66, 33);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(66, 33, 0), of(66, 33, 1), of(66, 33, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 77, 5);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(77, 5, 99), of(77, 5, 100))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 88, 1);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(88, 1, 50), of(88, 1, 51), of(88, 1, 99))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
@@ -483,16 +486,19 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         workflow.start();
 
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
+
         CheckpointDirtyPages sortCheckpointDirtyPages = workflow.createAndSortCheckpointDirtyPages(new DataRegionsDirtyPages(List.of(
-                createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages1),
-                createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages0)
+                createDataRegionDirtyPages(pageMemory1, dirtyPages1),
+                createDataRegionDirtyPages(pageMemory0, dirtyPages0)
         )));
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 1, 1);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(dirtyPages1)));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 0, 0);
 
         assertThat(
                 toListDirtyPageIds(dirtyPagesView),
@@ -534,7 +540,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, checkpoint.dirtyPagesSize);
 
-        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
 
         assertNotNull(dirtyPagesView);
         assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId)));
@@ -577,7 +583,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         assertEquals(2, checkpoint.dirtyPagesSize);
 
-        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
 
         assertNotNull(dirtyPagesView);
         assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId, dataPageId)));

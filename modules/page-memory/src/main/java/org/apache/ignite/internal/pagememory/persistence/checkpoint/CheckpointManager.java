@@ -317,7 +317,18 @@ public class CheckpointManager {
 
         CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
                 index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
-                () -> pageIndexesForDeltaFilePageStore(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()))
+                () -> {
+                    CheckpointDirtyPagesView partitionView = pagesToWrite.getPartitionView(
+                            pageMemory,
+                            pageId.groupId(),
+                            pageId.partitionId()
+                    );
+
+                    assert partitionView != null : String.format("Unable to find view for dirty pages: [patitionId=%s, pageMemory=%s]",
+                            GroupPartitionId.convert(pageId), pageMemory);
+
+                    return pageIndexesForDeltaFilePageStore(partitionView);
+                }
         );
 
         deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);

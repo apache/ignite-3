@@ -51,8 +51,8 @@ import org.junit.jupiter.api.Test;
 public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
     @Test
     void testDirtyPagesCount() {
-        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
         DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(of(0, 0, 0), of(0, 0, 1));
+        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
 
         assertEquals(0, EMPTY.dirtyPagesCount());
         assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).dirtyPagesCount());
@@ -127,53 +127,6 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
                 toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 3, 2)),
                 equalTo(toListDirtyPagePair(equalsByGroupAndPartition(3, 2), dirtyPages3))
         );
-    }
-
-    @Test
-    void testNextPartitionView() {
-        assertNull(EMPTY.nextPartitionView(null));
-
-        DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(of(0, 0, 0));
-        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(of(5, 0, 0));
-        DirtyPagesAndPartitions dirtyPages2 = createDirtyPagesAndPartitions(of(1, 0, 0), of(1, 0, 1));
-        DirtyPagesAndPartitions dirtyPages3 = createDirtyPagesAndPartitions(
-                of(2, 0, 0), of(2, 0, 1),
-                of(2, 1, 1),
-                of(3, 2, 2), of(3, 2, 3)
-        );
-
-        var checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
-
-        CheckpointDirtyPagesView view = checkpointDirtyPages.nextPartitionView(null);
-
-        assertThat(toListDirtyPagePair(view), equalTo(toListDirtyPagePair(dirtyPages0)));
-
-        assertThat(
-                toListDirtyPagePair(view = checkpointDirtyPages.nextPartitionView(view)),
-                equalTo(toListDirtyPagePair(dirtyPages1))
-        );
-
-        assertThat(
-                toListDirtyPagePair(view = checkpointDirtyPages.nextPartitionView(view)),
-                equalTo(toListDirtyPagePair(dirtyPages2))
-        );
-
-        assertThat(
-                toListDirtyPagePair(view = checkpointDirtyPages.nextPartitionView(view)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 0), dirtyPages3))
-        );
-
-        assertThat(
-                toListDirtyPagePair(view = checkpointDirtyPages.nextPartitionView(view)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 1), dirtyPages3))
-        );
-
-        assertThat(
-                toListDirtyPagePair(view = checkpointDirtyPages.nextPartitionView(view)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(3, 2), dirtyPages3))
-        );
-
-        assertNull(checkpointDirtyPages.nextPartitionView(view));
     }
 
     @Test
