@@ -46,7 +46,7 @@ public class ProblemMatcher extends TypeSafeMatcher<Problem> {
 
     private Matcher<UUID> traceIdMatcher = AnythingMatcher.anything();
 
-    private Matcher<Collection<InvalidParam>> invalidParamsMatcher = AnythingMatcher.anything();
+    private Matcher<Iterable<? extends InvalidParam>> invalidParamsMatcher = AnythingMatcher.anything();
 
     /**
      * Creates a matcher for {@link Problem}.
@@ -124,7 +124,7 @@ public class ProblemMatcher extends TypeSafeMatcher<Problem> {
         return withInvalidParams(equalTo(invalidParams));
     }
 
-    public ProblemMatcher withInvalidParams(Matcher<Collection<InvalidParam>> matcher) {
+    public ProblemMatcher withInvalidParams(Matcher<Iterable<? extends InvalidParam>> matcher) {
         this.invalidParamsMatcher = matcher;
         return this;
     }
