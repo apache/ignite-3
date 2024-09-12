@@ -373,7 +373,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     private static String findAnyFailedNodeName(Map<String, CompletableFuture<NetworkMessage>> responseFutures) {
         return responseFutures.entrySet().stream()
                 .filter(entry -> entry.getValue().isCompletedExceptionally())
-                .findAny().orElseThrow().getKey();
+                .findAny()
+                .orElseThrow(() -> new AssertionError("At least one failed future must be present"))
+                .getKey();
     }
 
     @Override
