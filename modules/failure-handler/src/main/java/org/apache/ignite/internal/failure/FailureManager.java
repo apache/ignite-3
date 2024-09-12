@@ -43,11 +43,11 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * General failure processing API.
+ * General failure processing implementation.
  */
-public class FailureProcessor implements IgniteComponent {
+public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(FailureProcessor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(FailureManager.class);
 
     /** Failure log message. */
     private static final String FAILURE_LOG_MSG = "Critical system error detected. "
@@ -77,7 +77,7 @@ public class FailureProcessor implements IgniteComponent {
      *
      * @param handler Handler.
      */
-    public FailureProcessor(FailureHandler handler) {
+    public FailureManager(FailureHandler handler) {
         this.nodeStopper = () -> {};
         this.handler = handler;
         this.configuration = null;
@@ -89,7 +89,7 @@ public class FailureProcessor implements IgniteComponent {
      * @param nodeStopper Node stopper.
      * @param configuration Failure processor configuration.
      */
-    public FailureProcessor(NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
+    public FailureManager(NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
     }
@@ -121,6 +121,7 @@ public class FailureProcessor implements IgniteComponent {
      * @param failureCtx Failure context.
      * @return {@code True} If this very call led to Ignite node invalidation.
      */
+    @Override
     public boolean process(FailureContext failureCtx) {
         return process(failureCtx, handler);
     }

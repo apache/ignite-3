@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -124,7 +124,7 @@ public class TestNode implements LifecycleAware {
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
 
-        FailureProcessor failureProcessor = new FailureProcessor(
+        FailureManager failureManager = new FailureManager(
                 new AbstractFailureHandler() {
                     @Override
                     public boolean handle(FailureContext failureCtx) {
@@ -132,7 +132,7 @@ public class TestNode implements LifecycleAware {
                         return true;
                     }
                 });
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 

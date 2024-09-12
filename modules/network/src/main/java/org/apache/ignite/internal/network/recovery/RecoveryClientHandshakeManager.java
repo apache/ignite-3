@@ -36,7 +36,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -115,7 +115,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private RecoveryDescriptor recoveryDescriptor;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -123,7 +123,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @param localNode {@link ClusterNode} representing this node.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public RecoveryClientHandshakeManager(
             ClusterNode localNode,
@@ -134,7 +134,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
@@ -143,7 +143,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -395,7 +395,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         if (!ignorable) {
-            failureProcessor.process(
+            failureManager.process(
                     new FailureContext(CRITICAL_ERROR, new HandshakeException("Handshake rejected by server: " + msg.message())));
         }
     }

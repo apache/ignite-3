@@ -56,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -107,7 +107,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 lowWatermarkConfig,
                 clockService,
                 vaultManager,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 messagingService
         );
 

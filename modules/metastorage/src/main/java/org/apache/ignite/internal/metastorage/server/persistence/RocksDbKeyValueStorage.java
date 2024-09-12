@@ -65,7 +65,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -243,10 +243,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureManager failureManager) {
         this.dbPath = dbPath;
 
-        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
 
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
     }

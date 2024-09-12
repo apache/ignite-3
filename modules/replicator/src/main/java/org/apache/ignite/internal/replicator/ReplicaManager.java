@@ -64,7 +64,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -195,7 +195,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final Executor requestsExecutor;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
@@ -229,7 +229,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
@@ -248,7 +248,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PlacementDriver placementDriver,
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
@@ -266,7 +266,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 placementDriver,
                 requestsExecutor,
                 idleSafeTimePropagationPeriodMsSupplier,
-                failureProcessor,
+                failureManager,
                 raftCommandsMarshaller,
                 raftGroupServiceFactory,
                 raftManager,
@@ -289,7 +289,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
@@ -305,7 +305,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PlacementDriver placementDriver,
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
@@ -323,7 +323,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
@@ -1106,7 +1106,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } catch (Error e) {
                 LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
         }
     }
