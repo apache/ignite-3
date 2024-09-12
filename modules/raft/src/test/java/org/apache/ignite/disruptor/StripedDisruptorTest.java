@@ -54,7 +54,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for striped disruptor.
  */
-@WithSystemProperty(key = "IGNITE_USE_SHARED_EVENT_LOOP", value = "false")
 public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
      * Checks the correctness of disruptor batching in a handler. This test creates only one stripe in order to the real Disruptor is shared

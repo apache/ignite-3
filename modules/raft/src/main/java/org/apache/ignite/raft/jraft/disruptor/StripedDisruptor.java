@@ -296,15 +296,16 @@ public class StripedDisruptor<T extends INodeIdAware> {
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
-            // LOG.info("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch + " e=" + event.toString());
 
             if (event.getEvtType() == SUBSCRIBE) {
                 if (endOfBatch ) {
-                    consumeBatch(event.nodeId(), sequence);
+                    consumeBatch( sequence);
                 }
 
                 if (event.getHandler() == null) {
                     subscribers.compute(event.nodeId(), (k, v) -> {
+                        assert v != null;
+
                         v.remove(event.getSrcType());
 
                         if (v.isEmpty()) {
@@ -330,7 +331,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 internalBatching(event, sequence);
 
                 if (endOfBatch) {
-                    consumeBatch(event.nodeId(), sequence);
+                    consumeBatch( sequence);
                 }
             }
         }
@@ -402,7 +403,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
 //            eventCache.clear();
 //        }
 
-        private void consumeBatch(NodeId nodeId, long sequence) throws Exception {
+        private void consumeBatch(long sequence) throws Exception {
             if (shared) {
                 for (Entry<NodeId, List<T>> entry : sharedEventCache.entrySet()) {
                     List<T> cached = entry.getValue();
