@@ -81,6 +81,13 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final List<ElectionListener> electionListeners;
 
+    /**
+     * Becomes {@code true} when the node, even being formally a leader, should not perform secondary leader duties (these are managing
+     * learners and propagating idle safe time through Metastorage).
+     *
+     * <p>The flag is raised when we appoint a node as a leader forcefully via resetPeers(). The flag gets cleared when first non-forced
+     * configuration update comes after forcing leadership.
+     */
     private final BooleanSupplier leaderSecondaryDutiesPaused;
 
     /**
