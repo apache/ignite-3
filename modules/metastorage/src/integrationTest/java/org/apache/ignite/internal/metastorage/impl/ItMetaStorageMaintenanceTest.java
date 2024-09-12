@@ -59,6 +59,11 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         assertThatMetastorageHasMajority(node0);
     }
 
+    /**
+     * Starts 3 voting Raft nodes. 'Voting' here is opposed to a 'learner' node which does not vote.
+     *
+     * @throws NodeStoppingException If a node is being stopped.
+     */
     private void start3VotingNodes() throws NodeStoppingException {
         Node node0 = startNode();
         Node node1 = startNode();
