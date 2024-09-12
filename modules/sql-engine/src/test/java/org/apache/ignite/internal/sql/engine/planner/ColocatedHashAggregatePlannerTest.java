@@ -64,17 +64,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
-     * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
-     */
-    @Test
-    public void selectWithSubquerySingleValueAggregate() throws Exception {
-        checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
-        checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
-        checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
-        checkSimpleAggSingle(TestCase.CASE_27C, hasSingleValueAggregate());
-    }
-
-    /**
      * Validates a plan for simple query with DISTINCT aggregates.
      *
      * @see #minMaxDistinctAggregate()
@@ -245,6 +234,17 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkSimpleAggSingle(TestCase.CASE_14);
         checkSimpleAggHash(TestCase.CASE_14A);
         checkSimpleAggHash(TestCase.CASE_14B);
+    }
+
+    /**
+     * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
+     */
+    @Test
+    public void subqueryWithSingleValueAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27C, hasSingleValueAggregate());
     }
 
     /**

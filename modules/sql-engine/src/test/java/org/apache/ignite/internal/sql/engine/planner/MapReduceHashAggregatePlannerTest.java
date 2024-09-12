@@ -247,7 +247,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
      * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
      */
     @Test
-    public void selectWithSubquerySingleValueAggregate() throws Exception {
+    public void subqueryWithSingleValueAggregate() throws Exception {
         checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
         checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
         checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
