@@ -56,7 +56,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -434,12 +433,13 @@ public class Checkpointer extends IgniteWorker {
 
         List<PersistentPageMemory> pageMemoryList = checkpointDirtyPages.dirtyPageMemoryInstances();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
+                = checkpointDirtyPages.toDirtyPartitionQueue();
 
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    writePageIds,
+                    dirtyPartitionQueue,
                     pageMemoryList,
                     updatedPartitions,
                     futures[i] = new CompletableFuture<>(),

@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.Partition
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -70,13 +72,8 @@ public class CheckpointPagesWriter implements Runnable {
     /** Checkpoint specific metrics tracker. */
     private final CheckpointMetricsTracker tracker;
 
-    /**
-     * Queue of dirty page IDs to write under this task.
-     *
-     * <p>Overall pages to write may be greater than this queue, since it may be necessary to retire write some pages due to unsuccessful
-     * page write lock acquisition
-     */
-    private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
+    /** Queue of dirty partitions IDs to write under this task. */
+    private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue;
 
     /**
      * List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
@@ -116,7 +113,7 @@ public class CheckpointPagesWriter implements Runnable {
      * Creates task for write pages.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param writePageIds Queue of dirty page IDs to write.
+     * @param dirtyPartitionQueue Queue of dirty partition IDs to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
      * @param doneFut Done future.
@@ -130,7 +127,7 @@ public class CheckpointPagesWriter implements Runnable {
      */
     CheckpointPagesWriter(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
             ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneFut,
@@ -143,7 +140,7 @@ public class CheckpointPagesWriter implements Runnable {
             BooleanSupplier shutdownNow
     ) {
         this.tracker = tracker;
-        this.writePageIds = writePageIds;
+        this.dirtyPartitionQueue = dirtyPartitionQueue;
         this.pageMemoryList = pageMemoryList;
         this.updatedPartitions = updatedPartitions;
         this.doneFut = doneFut;
@@ -156,10 +153,9 @@ public class CheckpointPagesWriter implements Runnable {
         this.shutdownNow = shutdownNow;
     }
 
-    @Override
-    public void run() {
+    void run0() {
         try {
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> pageIdsToRetry = writePages(writePageIds);
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> pageIdsToRetry = writePages(null);
 
             while (!pageIdsToRetry.isEmpty()) {
                 if (LOG.isInfoEnabled()) {
@@ -173,6 +169,99 @@ public class CheckpointPagesWriter implements Runnable {
             doneFut.complete(null);
         } catch (Throwable e) {
             doneFut.completeExceptionally(e);
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            var queueResult = new Result<PersistentPageMemory, GroupPartitionId>();
+
+            while (!shutdownNow.getAsBoolean() && dirtyPartitionQueue.next(queueResult)) {
+                updateHeartbeat.run();
+
+                writeDirtyPages(queueResult.getKey(), queueResult.getValue());
+            }
+
+            doneFut.complete(null);
+        } catch (Throwable e) {
+            doneFut.completeExceptionally(e);
+        }
+    }
+
+    private void writeDirtyPages(PersistentPageMemory pageMemory, GroupPartitionId partitionId) throws IgniteInternalCheckedException {
+        CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
+
+        checkpointProgress.onStartPartitionProcessing(partitionId);
+
+        try {
+            ByteBuffer tmpWriteBuf = threadBuf.get();
+
+            if (shouldWriteMetaPage(partitionId)) {
+                writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+            }
+
+            var pageIdsToRetry = new HashMap<PersistentPageMemory, List<FullPageId>>();
+
+            for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
+                updateHeartbeat.run();
+
+                FullPageId pageId = checkpointDirtyPagesView.get(i);
+
+                if (pageId.pageIdx() == 0) {
+                    // Skip meta-pages, they are written by "writePartitionMeta".
+                    continue;
+                }
+
+                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageIdsToRetry);
+            }
+
+            writeRetryDirtyPages(pageIdsToRetry, tmpWriteBuf);
+        } finally {
+            checkpointProgress.onFinishPartitionProcessing(partitionId);
+        }
+    }
+
+    private void writeDirtyPage(
+            PersistentPageMemory pageMemory,
+            FullPageId pageId,
+            ByteBuffer tmpWriteBuf,
+            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry
+    ) throws IgniteInternalCheckedException {
+        PageStoreWriter pageStoreWriter = createPageStoreWriter(pageMemory, pageIdsToRetry);
+
+        // Should also be done for partitions that will be destroyed to remove their pages from the data region.
+        pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
+
+        // TODO: IGNITE-23115 починить
+        drainCheckpointBuffers(tmpWriteBuf, new HashMap<>());
+    }
+
+    private void writeRetryDirtyPages(
+            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry,
+            ByteBuffer tmpWriteBuf
+    ) throws IgniteInternalCheckedException {
+        while (!pageIdsToRetry.isEmpty()) {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Checkpoint pages were not written yet due to "
+                        + "unsuccessful page write lock acquisition and will be retried [pageCount={}]", pageIdsToRetry.size());
+            }
+
+            var newPageIdsToRetry = new HashMap<PersistentPageMemory, List<FullPageId>>();
+
+            for (Entry<PersistentPageMemory, List<FullPageId>> entry : pageIdsToRetry.entrySet()) {
+                for (FullPageId pageId : entry.getValue()) {
+                    if (shutdownNow.getAsBoolean()) {
+                        return;
+                    }
+
+                    updateHeartbeat.run();
+
+                    writeDirtyPage(entry.getKey(), pageId, tmpWriteBuf, newPageIdsToRetry);
+                }
+            }
+
+            pageIdsToRetry = newPageIdsToRetry;
         }
     }
 
@@ -387,5 +476,22 @@ public class CheckpointPagesWriter implements Runnable {
 
     private static GroupPartitionId toPartitionId(FullPageId pageId) {
         return new GroupPartitionId(pageId.groupId(), pageId.partitionId());
+    }
+
+    private CheckpointDirtyPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
+        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.pagesToWrite();
+
+        assert checkpointDirtyPages != null;
+
+        CheckpointDirtyPagesView partitionView = checkpointDirtyPages.getPartitionView(
+                pageMemory,
+                partitionId.getGroupId(),
+                partitionId.getPartitionId()
+        );
+
+        assert partitionView != null : String.format("Unable to find view for dirty pages: [patitionId=%s, pageMemory=%s]", partitionId,
+                pageMemory);
+
+        return partitionView;
     }
 }

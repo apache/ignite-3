@@ -69,17 +69,6 @@ class CheckpointDirtyPages {
         return dirtyPagesCount;
     }
 
-    /**
-     * Returns a queue of dirty page IDs to be written to a checkpoint.
-     */
-    public IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> toDirtyPageIdQueue() {
-        List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPageIds = dirtyPagesAndPartitions.stream()
-                .map(pages -> new IgniteBiTuple<>(pages.pageMemory, pages.dirtyPages))
-                .collect(toList());
-
-        return new IgniteConcurrentMultiPairQueue<>(dirtyPageIds);
-    }
-
     /** Creates a concurrent queue of dirty partitions to be written to at checkpoint. */
     public IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> toDirtyPartitionQueue() {
         List<IgniteBiTuple<PersistentPageMemory, GroupPartitionId[]>> dirtyPartitions = dirtyPagesAndPartitions.stream()
