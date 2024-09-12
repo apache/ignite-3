@@ -122,16 +122,7 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_number(str);
         }
 
-        case ignite_type::NUMBER: {
-            auto &big_integer_val = value.get<ignite::big_integer>();
-            std::stringstream converter;
-            converter << big_integer_val;
-            auto str = converter.str();
-            return py_create_number(str);
-        }
-
         case ignite_type::TIMESTAMP:
-        case ignite_type::BITMASK:
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
         default: {
