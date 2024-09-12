@@ -37,9 +37,12 @@ test_data = [
     ("SELECT 'c4a0327c-44be-416d-ae90-75c05079789f'::UUID", uuid.UUID('c4a0327c-44be-416d-ae90-75c05079789f')),
     ("SELECT '00000000-0000-0000-0000-000000000001'::UUID", uuid.UUID('00000000-0000-0000-0000-000000000001')),
     ("SELECT '10101010-1010-1010-1010-101010101010'::UUID", uuid.UUID('10101010-1010-1010-1010-101010101010')),
-    ("SELECT DATE '1969-07-20'", datetime.date(1969, 7, 20)),
-    ("SELECT DATE '1525-01-01'", datetime.date(1525, 1, 1)),
-    ("SELECT DATE '2024-09-12'", datetime.date(2024, 9, 12)),
+    ("SELECT DATE'1969-07-20'", datetime.date(1969, 7, 20)),
+    ("SELECT DATE'1525-01-01'", datetime.date(1525, 1, 1)),
+    ("SELECT DATE'2024-09-12'", datetime.date(2024, 9, 12)),
+    ("SELECT TIME'20:17:40'", datetime.time(20, 17, 40)),
+    ("SELECT TIME'07:59:13'", datetime.time(7, 59, 13)),
+    ("SELECT TIME'00:00:00'", datetime.time(0, 0, 0)),
 ]
 
 

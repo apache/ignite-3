@@ -103,8 +103,12 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
             return py_create_date(date_val);
         }
 
+        case ignite_type::TIME: {
+            auto &time_val = value.get<ignite::ignite_time>();
+            return py_create_time(time_val);
+        }
+
         case ignite_type::TIMESTAMP:
-        case ignite_type::TIME:
         case ignite_type::DATETIME:
         case ignite_type::BITMASK:
         case ignite_type::DECIMAL:

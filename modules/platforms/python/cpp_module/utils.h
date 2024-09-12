@@ -19,6 +19,7 @@
 
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
+#include <ignite/common/ignite_time.h>
 
 #include <Python.h>
 
@@ -75,3 +76,10 @@ PyObject* py_create_uuid(ignite::bytes_view bytes);
  * @return A new instance of pyignite3.DATE.
  */
 PyObject* py_create_date(const ignite::ignite_date &value);
+
+/**
+ * Create a new instance of pyignite3.TIME from an ignite_date.
+ * @param value Time.
+ * @return A new instance of pyignite3.TIME.
+ */
+PyObject* py_create_time(const ignite::ignite_time &value);

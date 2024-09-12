@@ -118,22 +118,58 @@ PyObject* py_create_date(const ignite::ignite_date &value) {
         return nullptr;
     auto day_guard = ignite::detail::defer([&]{ Py_DECREF(month); });
 
-    auto args = PyTuple_New(3);
+    auto args = PyTuple_Pack(3, year, month, day);
     if (!args)
         return nullptr;
     auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
 
-    if (PyTuple_SetItem(args, 0, year) < 0)
-        return nullptr;
     year_guard.release();
-
-    if (PyTuple_SetItem(args, 1, month) < 0)
-        return nullptr;
     month_guard.release();
-
-    if (PyTuple_SetItem(args, 2, day) < 0)
-        return nullptr;
     day_guard.release();
+
+    auto kwargs = PyDict_New();
+    if (!kwargs)
+        return nullptr;
+    auto kwargs_guard = ignite::detail::defer([&]{ Py_DECREF(kwargs); });
+
+    return PyObject_Call(uuid_class, args, kwargs);
+}
+
+PyObject* py_create_time(const ignite::ignite_time &value) {
+    auto uuid_class = py_get_class(MODULE_NAME, "TIME");
+    if (!uuid_class)
+        return nullptr;
+    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
+
+    PyObject* hour = PyLong_FromLong(value.get_hour());
+    if (!hour)
+        return nullptr;
+    auto hour_guard = ignite::detail::defer([&]{ Py_DECREF(hour); });
+
+    PyObject* minute = PyLong_FromLong(value.get_minute());
+    if (!minute)
+        return nullptr;
+    auto minute_guard = ignite::detail::defer([&]{ Py_DECREF(minute); });
+
+    PyObject* second = PyLong_FromLong(value.get_second());
+    if (!second)
+        return nullptr;
+    auto second_guard = ignite::detail::defer([&]{ Py_DECREF(second); });
+
+    PyObject* u_second = PyLong_FromLong(value.get_nano() / 1000);
+    if (!u_second)
+        return nullptr;
+    auto u_second_guard = ignite::detail::defer([&]{ Py_DECREF(u_second); });
+
+    auto args = PyTuple_Pack(4, hour, minute, second, u_second);
+    if (!args)
+        return nullptr;
+    auto args_guard = ignite::detail::defer([&]{ Py_DECREF(args); });
+
+    hour_guard.release();
+    minute_guard.release();
+    second_guard.release();
+    u_second_guard.release();
 
     auto kwargs = PyDict_New();
     if (!kwargs)
