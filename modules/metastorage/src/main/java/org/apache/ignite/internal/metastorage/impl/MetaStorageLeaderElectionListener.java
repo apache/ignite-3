@@ -204,12 +204,6 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
      * Executes the given action if the current node is the Meta Storage leader.
      */
     private void execute(Action action) {
-        if (leaderSecondaryDutiesPaused.getAsBoolean()) {
-            LOG.info("Skipping Meta Storage configuration update because the leader's secondary duties are paused");
-
-            return;
-        }
-
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping Meta Storage configuration update because the node is stopping");
 
@@ -217,6 +211,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         }
 
         try {
+            if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+                LOG.info("Skipping Meta Storage configuration update because the leader's secondary duties are paused");
+
+                return;
+            }
+
             synchronized (serializationFutureMux) {
                 // We are definitely not a leader if the serialization future has not been initialized.
                 if (serializationFuture == null) {
