@@ -159,32 +159,12 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         return;
     }
 
-    if (PyBool_Check(obj)) {
-        bool val = (obj == Py_True);
-        if (claim) {
-            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
-            builder.claim_bool(val);
-        } else {
-            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
-            builder.append_bool(val);
-        }
-        return;
-    }
-
-    if (PyBytes_Check(obj)) {
-        auto *data = reinterpret_cast<std::byte*>(PyBytes_AsString(obj));
-        auto len = PyBytes_Size(obj);
-        ignite::bytes_view view(data, len);
-
-        if (claim) {
-            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
-            builder.claim_varlen(view);
-        } else {
-            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
-            builder.append_varlen(view);
-        }
-        return;
-    }
+//    NUMBER = decimal.Decimal
+//    DATE = datetime.date
+//    TIME = datetime.time
+//    DATETIME = datetime.datetime
+//    DURATION = datetime.timedelta
+//    UUID = uuid.UUID
 
     if (PyUnicode_Check(obj)) {
         auto str_array = PyUnicode_AsUTF8String(obj);
@@ -204,6 +184,33 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         } else {
             ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::STRING);
             builder.append_varlen(view);
+        }
+        return;
+    }
+
+    if (PyBytes_Check(obj)) {
+        auto *data = reinterpret_cast<std::byte*>(PyBytes_AsString(obj));
+        auto len = PyBytes_Size(obj);
+        ignite::bytes_view view(data, len);
+
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
+            builder.claim_varlen(view);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BYTE_ARRAY);
+            builder.append_varlen(view);
+        }
+        return;
+    }
+
+    if (PyBool_Check(obj)) {
+        bool val = (obj == Py_True);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
+            builder.claim_bool(val);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::BOOLEAN);
+            builder.append_bool(val);
         }
         return;
     }

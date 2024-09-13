@@ -22,6 +22,12 @@
 
 #include <Python.h>
 
+#define LAZY_INIT_MODULE_CLASS(class_name)          \
+    static PyObject* instance{nullptr};             \
+    if (!instance)                                  \
+        instance = py_get_module_class(class_name); \
+    return instance
+
 bool check_errors(ignite::diagnosable& diag) {
     auto &records = diag.get_diagnostic_records();
     if (records.is_successful())
@@ -57,23 +63,62 @@ const char* py_object_get_typename(PyObject* obj) {
     return obj->ob_type->tp_name;
 }
 
-PyObject* py_get_class(const char* module_name, const char* class_name) {
-    auto pyignite3_mod = PyImport_ImportModule(module_name);
+PyObject* py_get_module() {
+    static PyObject* instance{nullptr};
+    // No need for sync here - Python is single-threaded
+    if (!instance) {
+        instance = PyImport_ImportModule(MODULE_NAME);
+    }
+    return instance;
+}
 
+PyObject* py_get_class(const char* module_name, const char* class_name) {
+    auto module_obj = PyImport_ImportModule(module_name);
+    if (!module_obj)
+        return nullptr;
+
+    auto class_obj = PyObject_GetAttrString(module_obj, class_name);
+    Py_DECREF(module_obj);
+
+    return class_obj;
+}
+
+PyObject* py_get_module_class(const char* class_name) {
+    auto pyignite3_mod = py_get_module();
     if (!pyignite3_mod)
         return nullptr;
 
-    auto conn_class = PyObject_GetAttrString(pyignite3_mod, class_name);
-    Py_DECREF(pyignite3_mod);
+    return PyObject_GetAttrString(pyignite3_mod, class_name);
+}
 
-    return conn_class;
+PyObject* py_get_module_uuid_class() {
+    LAZY_INIT_MODULE_CLASS("UUID");
+}
+
+PyObject* py_get_module_date_class() {
+    LAZY_INIT_MODULE_CLASS("DATE");
+}
+
+PyObject* py_get_module_time_class() {
+    LAZY_INIT_MODULE_CLASS("TIME");
+}
+
+PyObject* py_get_module_datetime_class() {
+    LAZY_INIT_MODULE_CLASS("DATETIME");
+}
+
+PyObject* py_get_module_number_class() {
+    LAZY_INIT_MODULE_CLASS("NUMBER");
+}
+
+PyObject* py_get_module_duration_class() {
+    LAZY_INIT_MODULE_CLASS("DURATION");
 }
 
 PyObject* py_create_uuid(ignite::bytes_view bytes) {
-    auto uuid_class = py_get_class(MODULE_NAME, "UUID");
+    auto uuid_class = py_get_module_uuid_class();
     if (!uuid_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(uuid_class); });
 
     auto args = PyTuple_New(0);
     if (!args)
@@ -98,10 +143,9 @@ PyObject* py_create_uuid(ignite::bytes_view bytes) {
 }
 
 PyObject* py_create_date(const ignite::ignite_date &value) {
-    auto date_class = py_get_class(MODULE_NAME, "DATE");
+    auto date_class = py_get_module_date_class();
     if (!date_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(date_class); });
 
     PyObject* year = PyLong_FromLong(value.get_year());
     if (!year)
@@ -136,10 +180,9 @@ PyObject* py_create_date(const ignite::ignite_date &value) {
 }
 
 PyObject* py_create_time(const ignite::ignite_time &value) {
-    auto time_class = py_get_class(MODULE_NAME, "TIME");
+    auto time_class = py_get_module_time_class();
     if (!time_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(time_class); });
 
     PyObject* hour = PyLong_FromLong(value.get_hour());
     if (!hour)
@@ -180,7 +223,7 @@ PyObject* py_create_time(const ignite::ignite_time &value) {
 }
 
 PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
-    auto datetime_class = py_get_class(MODULE_NAME, "DATETIME");
+    auto datetime_class = py_get_module_datetime_class();
     if (!datetime_class)
         return nullptr;
     auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
@@ -243,10 +286,9 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
 
 PyObject* py_create_datetime(const ignite::ignite_timestamp &value) {
     // TODO: Cache classes and functions for re-use
-    auto datetime_class = py_get_class(MODULE_NAME, "DATETIME");
+    auto datetime_class = py_get_module_datetime_class();
     if (!datetime_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
 
     PyObject* second = PyLong_FromLongLong(value.get_epoch_second());
     if (!second)
@@ -267,10 +309,9 @@ PyObject* py_create_datetime(const ignite::ignite_timestamp &value) {
 }
 
 PyObject* py_create_number(std::string_view value) {
-    auto number_class = py_get_class(MODULE_NAME, "NUMBER");
+    auto number_class = py_get_module_number_class();
     if (!number_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(number_class); });
 
     PyObject* str_obj = PyUnicode_FromStringAndSize(value.data(), value.size());
     if (!str_obj)
@@ -293,10 +334,9 @@ PyObject* py_create_number(std::string_view value) {
 }
 
 PyObject* py_create_timedelta(const ignite::ignite_duration &value) {
-    auto duration_class = py_get_class(MODULE_NAME, "DURATION");
+    auto duration_class = py_get_module_duration_class();
     if (!duration_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(duration_class); });
 
     auto args = PyTuple_New(0);
     if (!args)

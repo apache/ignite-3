@@ -59,6 +59,13 @@ bool check_errors(ignite::diagnosable& diag);
 const char* py_object_get_typename(PyObject* obj);
 
 /**
+ * Get the the module instance.
+ *
+ * @return Client's module.
+ */
+PyObject* py_get_module();
+
+/**
  * Get a Python's class instance.
  *
  * @param module_name Module name.
@@ -66,6 +73,62 @@ const char* py_object_get_typename(PyObject* obj);
  * @return
  */
 PyObject* py_get_class(const char* module_name, const char* class_name);
+
+/**
+ * Get a Python's class instance from the Client's module.
+ *
+ * @param class_name Class name.
+ * @return Client's module.
+ */
+PyObject* py_get_module_class(const char* class_name);
+
+/**
+ * Get module's UUID class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return UUID class.
+ */
+PyObject* py_get_module_uuid_class();
+
+/**
+ * Get module's DATE class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return DATE class.
+ */
+PyObject* py_get_module_date_class();
+
+/**
+ * Get module's TIME class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return TIME class.
+ */
+PyObject* py_get_module_time_class();
+
+/**
+ * Get module's DATETIME class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return DATETIME class.
+ */
+PyObject* py_get_module_datetime_class();
+
+/**
+ * Get module's NUMBER class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return NUMBER class.
+ */
+PyObject* py_get_module_number_class();
+
+/**
+ * Get module's DURATION class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return DURATION class.
+ */
+PyObject* py_get_module_duration_class();
 
 /**
  * Create a new instance of pyignite3.UUID from an array of bytes.

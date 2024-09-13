@@ -32,7 +32,7 @@
 static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     std::unique_ptr<ignite::sql_connection> conn)
 {
-    auto conn_class = py_get_class(MODULE_NAME, "Connection");
+    auto conn_class = py_get_module_class("Connection");
     if (!conn_class)
         return nullptr;
 
