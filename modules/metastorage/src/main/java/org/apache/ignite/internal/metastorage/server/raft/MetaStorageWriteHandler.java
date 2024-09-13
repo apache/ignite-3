@@ -136,6 +136,10 @@ public class MetaStorageWriteHandler {
 
                     // Ignore the command if it has been sent by a stale leader.
                     if (clo.term() != syncTimeCommand.initiatorTerm()) {
+                        LOG.info("Sync time command closure term {}, initiator term {}, ignoring the command",
+                                clo.term(), syncTimeCommand.initiatorTerm()
+                        );
+
                         clo.result(null);
 
                         return;

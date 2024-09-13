@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,7 +34,10 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -158,13 +162,30 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
-        HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();
+
+        causeSafeTimeCommandsIssuedBeforePausingToBeApplied(node0);
 
         // Make sure the leader does not propagate Metastorage SafeTime (as we requested it to pause secondary duties).
+        HybridTimestamp timeAtStart = clusterTime0.currentSafeTime();
         assertFalse(
-                waitForCondition(() -> clusterTime0.currentSafeTime().longValue() > timeBeforeOp.longValue(), SECONDS.toMillis(2)),
-                "The leader still propagates safetime"
+                waitForCondition(() -> clusterTime0.currentSafeTime().longValue() > timeAtStart.longValue(), SECONDS.toMillis(2)),
+                () -> "The leader still propagates safetime " + clusterTime0.currentSafeTime()
         );
+    }
+
+    private static void causeSafeTimeCommandsIssuedBeforePausingToBeApplied(Node node) {
+        // We execute a PUT command and then wait for SafeTime to be advanced. This guarantees that idle SafeTime propagation
+        // commands before pausing idle SafeTime propagation get executed and we don't get a non-relevant test failure.
+        assertThat(node.metaStorageManager.put(new ByteArray("abc"), ArrayUtils.BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
+
+        // TODO: IGNITE-15723 After a component factory is implemented, need to get rid of reflection here.
+        var storage = (SimpleInMemoryKeyValueStorage) getFieldValue(node.metaStorageManager, MetaStorageManagerImpl.class, "storage");
+        var watchProcessor = (WatchProcessor) getFieldValue(storage, SimpleInMemoryKeyValueStorage.class, "watchProcessor");
+
+        CompletableFuture<Void> notificationFuture = getFieldValue(watchProcessor, WatchProcessor.class, "notificationFuture");
+        if (notificationFuture != null) {
+            assertThat(notificationFuture, willCompleteSuccessfully());
+        }
     }
 
     @Test
