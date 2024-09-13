@@ -22,7 +22,7 @@ import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.internal.util.GridUnsafe;import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
@@ -69,20 +69,19 @@ public class SegmentFile extends AbstractFile {
         this.writeLock.lock();
         try {
             assert (logIndex > getLastLogIndex());
-            final byte[] writeData = encodeData(data);
-            return doAppend(logIndex, writeData);
+
+            return doAppend(logIndex, addr -> {
+                GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
+                GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
+                // Name is stupid and confusing, but it's a right code for the moment.
+                GridUnsafe.putIntLittleEndian(addr + 2, data.length);
+                GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, addr + 6, data.length);
+
+                return getWriteBytes(data);
+            });
         } finally {
             this.writeLock.unlock();
         }
-    }
-
-    private byte[] encodeData(final byte[] data) {
-        ByteBuffer buffer = ByteBuffer.allocate(getWriteBytes(data));
-        buffer.put(RECORD_MAGIC_BYTES);
-        buffer.putInt(data.length);
-        buffer.put(data);
-        buffer.flip();
-        return buffer.array();
     }
 
     /**

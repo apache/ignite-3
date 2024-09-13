@@ -28,6 +28,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogStorage;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -58,7 +59,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
 /**
  * A logStorage implemented by java
  */
-public class LogitLogStorage implements LogStorage {
+public class LogitLogStorage implements LogStorage, StripeAwareLogStorage {
     private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorage.class);
 
     private static final String           INDEX_STORE_PATH       = "LogIndex";
@@ -371,6 +372,24 @@ public class LogitLogStorage implements LogStorage {
             }
         } finally {
             this.readLock.unlock();
+        }
+    }
+
+    private final List<LogEntry> batch = new ArrayList<>();
+
+    @Override
+    public boolean appendEntriesToBatch(List<LogEntry> entries) {
+        batch.addAll(entries);
+
+        return true;
+    }
+
+    @Override
+    public void commitWriteBatch() {
+        try {
+            appendEntries(batch);
+        } finally {
+            batch.clear();
         }
     }
 

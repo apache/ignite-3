@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import java.util.function.LongToIntFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -262,10 +263,10 @@ public abstract class AbstractFile extends ReferenceResource {
     /**
      * Append data to file end
      * @param logIndex logEntry index
-     * @param data data array
+     * @param append Data append function
      * @return wrote position
      */
-    protected int doAppend(final long logIndex, final byte[] data) {
+    protected int doAppend(final long logIndex, LongToIntFunction append) {
         this.writeLock.lock();
         try {
             int wrotePos = getWrotePosition();
@@ -277,8 +278,11 @@ public abstract class AbstractFile extends ReferenceResource {
             }
             // Write data and update header
             final ByteBuffer buffer = sliceByteBuffer();
-            put(buffer, wrotePos, data);
-            setWrotePosition(wrotePos + data.length);
+
+            long pointer = GridUnsafe.bufferAddress(buffer) + wrotePos;
+            int length = append.applyAsInt(pointer);
+            setWrotePosition(wrotePos + length);
+
             this.header.setLastLogIndex(logIndex);
             return wrotePos;
         } finally {
