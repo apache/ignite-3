@@ -26,7 +26,6 @@ using NUnit.Framework;
 public partial class LinqTests
 {
     [Test]
-    [Timeout(90_000)] // TODO IGNITE-23170 Decimal handling is very slow
     public void TestProjectionWithCastIntoAnonymousType()
     {
         // BigInteger is not suppoerted by the SQL engine.
@@ -39,7 +38,7 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 200m
+                Decimal0 = (decimal?)(x.Val / 200m)
             })
             .OrderByDescending(x => x.Long)
             .Take(1);
@@ -59,7 +58,7 @@ public partial class LinqTests
             "cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, " +
             "(cast(_T0.VAL as double) / ?) as DOUBLE, " +
-            "(cast(_T0.VAL as decimal(60, 30)) / ?) as DECIMAL0 " +
+            "cast((cast(_T0.VAL as decimal(60, 30)) / ?) as decimal(60, 30)) as DECIMAL0 " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
