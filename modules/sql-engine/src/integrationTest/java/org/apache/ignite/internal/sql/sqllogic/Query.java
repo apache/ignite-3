@@ -336,7 +336,7 @@ final class Query extends Command {
                             row.get(j)
                     );
                 } catch (AssertionError ex) {
-                    AssertionError extended = new AssertionError("Returned results: " + res);
+                    AssertionError extended = new AssertionError("Invalid results: " + res);
                     ex.addSuppressed(extended);
                     throw ex;
                 }
