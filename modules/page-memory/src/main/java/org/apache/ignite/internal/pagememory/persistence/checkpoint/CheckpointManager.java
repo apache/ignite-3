@@ -309,7 +309,10 @@ public class CheckpointManager {
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
-        assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
+        if (!lastCheckpointProgress.inProgress()) {
+            // Checkpoint is already finished concurrently.
+            return;
+        }
 
         CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
 

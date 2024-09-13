@@ -22,8 +22,10 @@ import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.GridUnsafe;import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
 
@@ -78,6 +80,33 @@ public class SegmentFile extends AbstractFile {
                 GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, addr + 6, data.length);
 
                 return getWriteBytes(data);
+            });
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    /**
+     *
+     * Write the data and return it's wrote position.
+     * @param logIndex the log index
+     * @param data     data to write
+     * @return the wrote position
+     */
+    public int appendData(final long logIndex, V1Encoder encoder, LogEntry entry, int entrySize) {
+        this.writeLock.lock();
+        try {
+            assert (logIndex > getLastLogIndex());
+
+            return doAppend(logIndex, addr -> {
+                GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
+                GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
+                // Name is stupid and confusing, but it's a right code for the moment.
+                GridUnsafe.putIntLittleEndian(addr + 2, entrySize);
+
+                encoder.append(addr + 6, entry);
+
+                return entrySize + 6;
             });
         } finally {
             this.writeLock.unlock();
