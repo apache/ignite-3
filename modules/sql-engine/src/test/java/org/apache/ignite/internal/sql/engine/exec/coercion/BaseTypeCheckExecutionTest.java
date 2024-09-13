@@ -33,7 +33,9 @@ import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.Matcher;
 
 /** Base class for check execution results of numeric operations. */
@@ -93,7 +95,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     }
 
     static class ClusterWrapper implements AutoCloseable {
-        private TestCluster cluster;
+        private final TestCluster cluster;
 
         ClusterWrapper(TestCluster cluster) {
             this.cluster = cluster;
@@ -104,10 +106,12 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         void process(String sql, Matcher<Object> resultMatcher) {
             var gatewayNode = cluster.node("N1");
             var plan = gatewayNode.prepare(sql);
+            ResultSetMetadata resultMeta = plan.metadata();
+            ColumnMetadata colMeta = resultMeta.columns().get(0);
 
             for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
                 assertNotNull(row);
-                assertThat(row.get(0), resultMatcher);
+                assertThat(new Pair<>(row.get(0), colMeta), resultMatcher);
             }
         }
 

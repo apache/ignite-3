@@ -36,6 +36,7 @@ import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -251,8 +252,9 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
             @Override
             public boolean matches(Object actual) {
                 assert actual != null;
-                this.actual = actual;
-                return compResult.equals(actual);
+                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
+                this.actual = pair.getFirst();
+                return compResult.equals(this.actual);
             }
 
             @Override
@@ -268,27 +270,37 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
             ClassInfoHolder innerClassInfo;
             int precision = 0;
             int scale = 0;
+            ColumnMetadata colMeta;
 
             @Override
             public boolean matches(Object actual) {
                 assert actual != null;
-                this.actual = actual;
+                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
+                this.actual = pair.getFirst();
+                colMeta = pair.getSecond();
 
-                if (actual instanceof BigDecimal) {
-                    precision = ((BigDecimal) actual).precision();
-                    scale = ((BigDecimal) actual).scale();
+                boolean checkPrecisionScale = false;
+
+                if (this.actual instanceof BigDecimal) {
+                    precision = ((BigDecimal) this.actual).precision();
+                    scale = ((BigDecimal) this.actual).scale();
+                    checkPrecisionScale = true;
                 }
 
                 innerClassInfo = TYPES_MAPPING.get(op).get(typesPair);
 
-                return innerClassInfo.clazz.isInstance(actual) && innerClassInfo.precision == precision
+                boolean precCheck = checkPrecisionScale ? colMeta.precision() >= precision && colMeta.scale() >= scale : true;
+
+                // negative scale in meta for operations with integer and real\double types.
+                return precCheck && innerClassInfo.clazz.isInstance(this.actual)
+                        && innerClassInfo.precision == precision
                         && innerClassInfo.scale == scale;
             }
 
             @Override
             public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}'", innerClassInfo,
-                        actual.getClass(), precision, scale));
+                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}', column meta: {}",
+                        innerClassInfo, actual.getClass(), precision, scale, colMeta));
             }
         };
     }
