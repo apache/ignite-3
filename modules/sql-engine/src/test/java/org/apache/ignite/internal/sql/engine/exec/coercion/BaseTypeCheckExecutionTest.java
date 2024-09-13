@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -36,7 +37,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matcher;
 
 /** Base class for check execution results of numeric operations. */
-class BaseTypeCheckExecutionTest {
+class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     static Pair<Object, Object> generateDifferentValues(TypePair typePair) {
         Object objFirst = SqlTestUtils.generateValueByType(typePair.first());
         assert objFirst != null;
