@@ -254,7 +254,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
 
         short valScale = shortValue(begin, begin + 2);
 
-        assert valScale <= scale : "Invalid scale: " + valScale + " (expected: <= " + scale + ")";
+        assert scale < 0 || valScale <= scale : "Invalid scale: " + valScale + " (expected: <= " + scale + ")";
 
         return new BigDecimal(numberValue(begin + 2, end), valScale);
     }
