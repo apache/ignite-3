@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -104,14 +104,14 @@ public class WatchProcessor implements ManuallyCloseable {
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Creates a new instance.
      *
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
      */
-    public WatchProcessor(String nodeName, EntryReader entryReader, FailureProcessor failureProcessor) {
+    public WatchProcessor(String nodeName, EntryReader entryReader, FailureManager failureManager) {
         this.entryReader = entryReader;
 
         this.watchExecutor = Executors.newFixedThreadPool(
@@ -119,7 +119,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
         );
 
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     /** Adds a watch. */
@@ -194,7 +194,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                         watchAndEvents,
                                         newRevision,
                                         time,
-                                        failureProcessor);
+                                        failureManager);
 
                                 // Revision update is triggered strictly after all watch listeners have been notified.
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
@@ -209,7 +209,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                     maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos);
 
                                     if (e != null) {
-                                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
                                     }
                                 });
 
@@ -226,7 +226,7 @@ public class WatchProcessor implements ManuallyCloseable {
             List<WatchAndEvents> watchAndEventsList,
             long revision,
             HybridTimestamp time,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         if (watchAndEventsList.isEmpty()) {
             return nullCompletedFuture();
@@ -250,7 +250,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                 }
 
                                 if (!(e instanceof NodeStoppingException)) {
-                                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
                                 }
 
                                 watchAndEvents.watch.onError(e);
@@ -261,7 +261,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
                 notifyWatchFuture = failedFuture(throwable);
 
-                failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
             }
 
             notifyWatchFutures[i] = notifyWatchFuture;
@@ -344,7 +344,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 .thenRunAsync(() -> revisionCallback.onSafeTimeAdvanced(time), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
                     }
                 });
     }

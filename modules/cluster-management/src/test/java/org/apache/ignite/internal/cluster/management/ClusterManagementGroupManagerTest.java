@@ -37,7 +37,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateC
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -79,7 +79,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterStateStorage clusterStateStorage,
             @Mock LogicalTopology logicalTopology,
             @Mock NodeAttributes nodeAttributes,
-            @Mock FailureProcessor failureProcessor,
+            @Mock FailureManager failureManager,
             @Mock RaftGroupService raftGroupService
     ) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
@@ -111,7 +111,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 nodeAttributes,
-                failureProcessor,
+                failureManager,
                 new ClusterIdHolder(),
                 RaftGroupOptionsConfigurer.EMPTY
         );

@@ -60,6 +60,7 @@ public class IndexUtils {
         if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
             table.registerSortedIndex(
                     (StorageSortedIndexDescriptor) storageIndexDescriptor,
+                    indexDescriptor.unique(),
                     tableRowConverter,
                     partitionSet
             );

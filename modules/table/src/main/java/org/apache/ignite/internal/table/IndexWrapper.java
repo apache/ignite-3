@@ -56,8 +56,12 @@ abstract class IndexWrapper {
 
     /** {@link IndexWrapper} for sorted indexes. */
     static class SortedIndexWrapper extends IndexWrapper {
-        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver) {
+        private final boolean unique;
+
+        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver, boolean unique) {
             super(tbl, lockManager, indexId, indexRowResolver);
+
+            this.unique = unique;
         }
 
         @Override
@@ -84,7 +88,8 @@ abstract class IndexWrapper {
                     partitionId,
                     lockManager,
                     (SortedIndexStorage) index,
-                    indexRowResolver
+                    indexRowResolver,
+                    unique
             );
         }
     }

@@ -261,6 +261,7 @@ public class TableImpl implements TableViewInternal {
     @Override
     public void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
+            boolean unique,
             ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     ) {
@@ -271,7 +272,7 @@ public class TableImpl implements TableViewInternal {
             tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor);
         });
 
-        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver));
+        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
 
     @Override

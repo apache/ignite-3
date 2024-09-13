@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -33,6 +33,6 @@ public class ItMetaStorageSafeTimePropagationRocksDbTest extends ItMetaStorageSa
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor());
+        return new RocksDbKeyValueStorage("test", workDir, new NoOpFailureManager());
     }
 }

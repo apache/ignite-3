@@ -42,7 +42,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -99,7 +99,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private @Nullable LongConsumer recoveryRevisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
-        this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureProcessor());
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureManager());
     }
 
     @Override

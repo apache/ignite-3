@@ -32,7 +32,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
@@ -184,7 +184,7 @@ public class ClusterServiceTestUtils {
                 staleIds,
                 clusterIdSupplier,
                 new NoOpCriticalWorkerRegistry(),
-                new FailureProcessor(new NoOpFailureHandler())
+                new FailureManager(new NoOpFailureHandler())
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";

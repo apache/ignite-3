@@ -124,7 +124,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -365,7 +365,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPoolsManager = new ThreadPoolsManager(name);
 
-        var failureProcessor = new NoOpFailureProcessor();
+        var failureProcessor = new NoOpFailureManager();
 
         var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPoolsManager.commonScheduler(), failureProcessor);
 
@@ -471,7 +471,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureProcessor());
+        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureManager());
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 

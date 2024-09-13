@@ -160,7 +160,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 pendingReqs,
                 // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
                 // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                false
+                false,
+                null
         );
 
         asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null

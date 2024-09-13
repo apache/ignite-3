@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -45,7 +45,7 @@ public interface DataStorageModule {
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
      * @param clock Hybrid Logical Clock.
      * @throws StorageException If there is an error when creating the storage engine.
@@ -55,7 +55,7 @@ public interface DataStorageModule {
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             LogSyncer logSyncer,
             HybridClock clock
     ) throws StorageException;
