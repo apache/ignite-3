@@ -337,8 +337,8 @@ final class Query extends Command {
                     );
                 } catch (AssertionError ex) {
                     AssertionError extended = new AssertionError("Returned results: " + res);
-                    extended.addSuppressed(ex);
-                    throw extended;
+                    ex.addSuppressed(extended);
+                    throw ex;
                 }
             }
         }
