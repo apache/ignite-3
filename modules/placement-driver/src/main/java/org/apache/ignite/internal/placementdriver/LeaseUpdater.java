@@ -388,7 +388,7 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId = entry.getKey();
                 Set<Assignment> assignments = entry.getValue().nodes();
 
-                Lease lease = leaseTracker.getLease(grpId);
+                Lease lease = leasesCurrent.leaseByGroupId().get(grpId);
 
                 if (lease.isAccepted() && !isLeaseOutdated(lease)) {
                     activeLeasesCount++;
