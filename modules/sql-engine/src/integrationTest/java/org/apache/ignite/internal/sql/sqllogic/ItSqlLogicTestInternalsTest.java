@@ -61,7 +61,7 @@ public class ItSqlLogicTestInternalsTest extends BaseIgniteAbstractTest {
                 assertThrowsWithCause(
                         () -> qry.checkResultTuples(ctx, res),
                         AssertionError.class,
-                        "Returned results"
+                        "Invalid results"
                 );
 
                 List<List<?>> resMore = List.of(List.of(1, 1), List.of(1, 2), List.of(2, 3));
