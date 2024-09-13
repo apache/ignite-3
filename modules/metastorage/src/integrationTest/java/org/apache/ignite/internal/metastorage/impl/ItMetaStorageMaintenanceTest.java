@@ -165,7 +165,6 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
 
         causeSafeTimeCommandsIssuedBeforePausingToBeApplied(node0);
 
-
         // Make sure the leader does not propagate Metastorage SafeTime (as we requested it to pause secondary duties).
         HybridTimestamp timeAtStart = clusterTime0.currentSafeTime();
         assertFalse(
