@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -388,7 +390,7 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId = entry.getKey();
                 Set<Assignment> assignments = entry.getValue().nodes();
 
-                Lease lease = leasesCurrent.leaseByGroupId().get(grpId);
+                Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
 
                 if (lease.isAccepted() && !isLeaseOutdated(lease)) {
                     activeLeasesCount++;
