@@ -117,7 +117,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         }
     }
 
-    static class ClassInfoHolder{
+    static class ClassInfoHolder {
         Class<?> clazz;
         int precision;
         int scale;
