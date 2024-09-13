@@ -17,26 +17,27 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
-import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_NAME;
-import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_TYPE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Message group for placement driver messages.
+ * Response to {@link StopLeaseProlongationMessage}.
  */
-@MessageGroup(groupType = GROUP_TYPE, groupName = GROUP_NAME)
-public interface PlacementDriverMessageGroup {
-    /** Placement driver message group type. */
-    short GROUP_TYPE = 11;
+@Transferable(PlacementDriverMessageGroup.STOP_LEASE_PROLONGATION_RESPONSE)
+public interface StopLeaseProlongationMessageResponse extends PlacementDriverMessage {
+    /**
+     * Lease expiration time of denied lease.
+     *
+     * @return Lease expiration time of denied lease.
+     */
+    @Nullable
+    Long deniedLeaseExpirationTimeLong();
 
-    String GROUP_NAME = "PlacementDriverMessages";
-
-    short LEASE_GRANTED_MESSAGE = 0;
-
-    short LEASE_GRANTED_MESSAGE_RESPONSE = 1;
-
-    short STOP_LEASE_PROLONGATION = 2;
-
-    short STOP_LEASE_PROLONGATION_RESPONSE = 3;
+    @Nullable
+    default HybridTimestamp deniedLeaseExpirationTime() {
+        return nullableHybridTimestamp(deniedLeaseExpirationTimeLong());
+    }
 }
