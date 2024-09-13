@@ -402,7 +402,7 @@ public class RelJsonReader {
             RelDataType type = relJson.toType(Commons.typeFactory(), jsonAggCall.get("type"));
             String name = (String) jsonAggCall.get("name");
 
-            List<RexNode> rexList = Commons.transform((List<Object>)jsonAggCall.get("rexList"),
+            List<RexNode> rexList = Commons.transform((List<Object>) jsonAggCall.get("rexList"),
                     node -> relJson.toRex(this, node));
 
             return AggregateCall.create(aggregation, distinct, false, false,
