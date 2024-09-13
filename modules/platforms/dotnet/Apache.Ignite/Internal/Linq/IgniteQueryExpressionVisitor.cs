@@ -483,7 +483,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             {
                 // .NET decimal has 28-29 digit precision, Ignite CatalogUtils.MAX_DECIMAL_PRECISION = Short.MAX_VALUE = 32767.
                 // Use 30 to avoid rounding errors, but not greater to avoid performance issues.
-                ResultBuilder.Append(" as decimal(30))");
+                ResultBuilder.Append(" as decimal(60, 30))");
             }
             else
             {

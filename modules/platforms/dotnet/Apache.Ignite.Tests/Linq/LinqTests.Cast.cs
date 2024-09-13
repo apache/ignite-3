@@ -59,7 +59,7 @@ public partial class LinqTests
             "cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, " +
             "(cast(_T0.VAL as double) / ?) as DOUBLE, " +
-            "(cast(_T0.VAL as decimal(30)) / ?) as DECIMAL0 " +
+            "(cast(_T0.VAL as decimal(60, 30)) / ?) as DECIMAL0 " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
@@ -81,7 +81,7 @@ public partial class LinqTests
         // Assert.AreEqual(900m / 33m, res[0]);
         Assert.AreEqual(27.27272727272727m, res[0]);
 
-        StringAssert.Contains("(cast(_T0.VAL as decimal(30)) / ?)", query.ToString());
+        StringAssert.Contains("(cast(_T0.VAL as decimal(60, 30)) / ?)", query.ToString());
     }
 
     [Test]
