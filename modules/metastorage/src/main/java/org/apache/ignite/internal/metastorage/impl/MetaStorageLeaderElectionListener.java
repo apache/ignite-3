@@ -122,51 +122,71 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     public void onLeaderElected(ClusterNode node, long term) {
         electionListeners.forEach(listener -> listener.onLeaderElected(node));
 
+        boolean weAreNewLeader = node.name().equals(nodeName);
+
         synchronized (serializationFutureMux) {
-            if (node.name().equals(nodeName)) {
+            boolean weWerePreviousLeader = serializationFuture != null;
+
+            if (weWerePreviousLeader) {
+                if (weAreNewLeader) {
+                    LOG.info("Node leadership is refreshed, stopping Idle Safe Time scheduler to restart it with new term");
+                } else {
+                    LOG.info("Node has lost the leadership, stopping Idle Safe Time scheduler");
+                }
+
+                // Stop SafeTime propagation even if we are still the leader as term used for propagation is to be refreshed.
+                clusterTime.stopSafeTimeScheduler();
+
+                if (!weAreNewLeader) {
+                    LOG.info("Node has lost the leadership, stopping learners management");
+
+                    thisNodeTerm = null;
+
+                    logicalTopologyService.removeEventListener(logicalTopologyEventListener);
+
+                    serializationFuture.cancel(false);
+
+                    serializationFuture = null;
+                }
+            }
+
+            if (weAreNewLeader) {
                 // We are the new leader. This does not necessarily mean we weren't previous leader (one node might
                 // be a leader 2 times in a row at least as a result of Metastorage repair).
                 LOG.info("Node has been elected as the leader, starting secondary duties");
 
+                LOG.info("Starting Idle Safe Time scheduler");
+                startSafeTimeScheduler(term);
+
                 thisNodeTerm = term;
 
-                if (serializationFuture == null) {
+                if (!weWerePreviousLeader) {
+                    LOG.info("Node has been elected as the leader (and it wasn't previous leader), so starting learners management");
+
                     // The node was not previous leader, and it becomes a leader.
                     logicalTopologyService.addEventListener(logicalTopologyEventListener);
 
-                    LOG.info("Starting Idle Safe Time scheduler");
-
-                    metaStorageSvcFut
-                            .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
-                                clusterTime.startSafeTimeScheduler(
-                                        safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, term, service),
-                                        metaStorageConfiguration
-                                );
-                            })
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    LOG.error("Unable to start Idle Safe Time scheduler", e);
-                                }
-                            });
+                    // Update learner configuration (in case we missed some topology updates between elections).
+                    serializationFuture = (serializationFuture == null ? nullCompletedFuture() : serializationFuture)
+                            .thenCompose(unused -> updateLearnersIfSecondaryDutiesAreNotPaused(term));
                 }
-
-                // Update learner configuration (in case we missed some topology updates between elections).
-                serializationFuture = (serializationFuture == null ? nullCompletedFuture() : serializationFuture)
-                        .thenCompose(unused -> updateLearnersIfSecondaryDutiesAreNotPaused(term));
-            } else if (serializationFuture != null) {
-                LOG.info("Node has lost the leadership, stopping Idle Safe Time scheduler");
-
-                thisNodeTerm = null;
-
-                logicalTopologyService.removeEventListener(logicalTopologyEventListener);
-
-                clusterTime.stopSafeTimeScheduler();
-
-                serializationFuture.cancel(false);
-
-                serializationFuture = null;
             }
         }
+    }
+
+    private void startSafeTimeScheduler(long term) {
+        metaStorageSvcFut
+                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                    clusterTime.startSafeTimeScheduler(
+                            safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, term, service),
+                            metaStorageConfiguration
+                    );
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to start Idle Safe Time scheduler", e);
+                    }
+                });
     }
 
     private CompletableFuture<Void> updateLearnersIfSecondaryDutiesAreNotPaused(long term) {
