@@ -44,7 +44,7 @@ public class ReplicationConfigurationSchema {
     /** The interval in milliseconds that is used in the beginning of lease granting process. */
     @Value(hasDefault = true)
     @Range(min = 5000)
-    public long leaseAgreementAcceptanceTimeLimit = 120_000;
+    public long leaseAgreementAcceptanceTimeLimit = 10_000;
 
     /** Lease holding interval. */
     @Value(hasDefault = true)
