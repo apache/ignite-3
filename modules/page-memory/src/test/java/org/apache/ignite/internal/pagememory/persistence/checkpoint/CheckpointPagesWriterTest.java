@@ -170,16 +170,17 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         new FullPageId(pageId(0, FLAG_AUX, 0), 0),
                         // Order is different because the first 3 pages we have to try to write to the page store 2 times.
                         fullPageId4, fullPageId5,
-                        fullPageId1, fullPageId2, fullPageId3,
                         // At the beginning, we write the partition meta for each new partition.
                         new FullPageId(pageId(1, FLAG_AUX, 0), 0),
-                        fullPageId6
+                        fullPageId6,
+                        // Now the retry pages.
+                        fullPageId1, fullPageId2, fullPageId3
                 ))
         );
 
-        verify(beforePageWrite, times(13)).run();
+        verify(beforePageWrite, times(14)).run();
 
-        verify(threadBuf, times(2)).get();
+        verify(threadBuf, times(1)).get();
 
         verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
         verify(partitionMeta1, times(1)).metaSnapshot(any(UUID.class));
