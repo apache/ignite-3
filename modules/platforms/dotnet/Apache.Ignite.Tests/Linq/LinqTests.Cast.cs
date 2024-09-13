@@ -66,13 +66,12 @@ public partial class LinqTests
     }
 
     [Test]
-    [Timeout(90_000)] // TODO IGNITE-23170 Decimal handling is very slow
     public void TestCastToDecimalPrecision()
     {
         // ReSharper disable once RedundantCast
         var query = PocoIntView.AsQueryable()
             .OrderByDescending(x => x.Val)
-            .Select(x => (decimal?)x.Val / 33m)
+            .Select(x => (decimal?)(x.Val / 33m))
             .Take(1);
 
         var res = query.ToList();
@@ -81,7 +80,7 @@ public partial class LinqTests
         // Assert.AreEqual(900m / 33m, res[0]);
         Assert.AreEqual(27.27272727272727m, res[0]);
 
-        StringAssert.Contains("(cast(_T0.VAL as decimal(60, 30)) / ?)", query.ToString());
+        StringAssert.Contains("select cast((cast(_T0.VAL as decimal(60, 30)) / ?) as decimal(60, 30))", query.ToString());
     }
 
     [Test]
