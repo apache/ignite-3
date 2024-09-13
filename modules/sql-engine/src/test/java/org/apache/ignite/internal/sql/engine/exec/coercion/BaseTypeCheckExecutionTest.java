@@ -115,4 +115,33 @@ class BaseTypeCheckExecutionTest {
             cluster.stop();
         }
     }
+
+    static class ClassInfoHolder{
+        Class<?> clazz;
+        int precision;
+        int scale;
+
+        ClassInfoHolder(Class<?> clazz, int precision, int scale) {
+            this.clazz = clazz;
+            this.precision = precision;
+            this.scale = scale;
+        }
+
+        ClassInfoHolder(Class<?> clazz) {
+            this.clazz = clazz;
+        }
+
+        @Override
+        public String toString() {
+            return "class: " + clazz + ", precision: " + precision + ", scale: " + scale;
+        }
+    }
+
+    static ClassInfoHolder classInfo(Class<?> clazz) {
+        return new ClassInfoHolder(clazz);
+    }
+
+    static ClassInfoHolder classInfo(Class<?> clazz, int precision, int scale) {
+        return new ClassInfoHolder(clazz, precision, scale);
+    }
 }

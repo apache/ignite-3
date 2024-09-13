@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.exec.coercion.BaseTypeCheckExecutionTest.generateConstantValueByType;
-import static org.apache.ignite.internal.sql.engine.exec.coercion.BaseTypeCheckExecutionTest.generateDifferentValues;
-import static org.apache.ignite.internal.sql.engine.exec.coercion.BaseTypeCheckExecutionTest.testCluster;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -31,12 +28,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.exec.coercion.BaseTypeCheckExecutionTest.ClusterWrapper;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -51,10 +46,27 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Check execution and return results for numeric operations. */
-public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
+public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
     private static final Set<NativeType> FRACTIONAL_TYPES = Set.of(NativeTypes.DOUBLE, NativeTypes.FLOAT);
 
-    private static final Map<NumericPair, Class<?>> NUMERIC_OP_TYPES = new EnumMap<>(NumericPair.class);
+    private static final Map<NumericPair, ClassInfoHolder> NUMERIC_OP_TYPES_SUM = new EnumMap<>(NumericPair.class);
+    private static final Map<NumericPair, ClassInfoHolder> NUMERIC_OP_TYPES_SUBTRACT = new EnumMap<>(NumericPair.class);
+    private static final Map<NumericPair, ClassInfoHolder> NUMERIC_OP_TYPES_MULT = new EnumMap<>(NumericPair.class);
+    private static final Map<NumericPair, ClassInfoHolder> NUMERIC_OP_TYPES_DIV = new EnumMap<>(NumericPair.class);
+    private static final Map<NumericPair, ClassInfoHolder> NUMERIC_OP_TYPES_MODULO = new EnumMap<>(NumericPair.class);
+
+    enum Operation {
+        SUM, SUBTRACT, MULT, DIV, MODULO
+    }
+
+    private static final Map<Operation, Map<NumericPair, ClassInfoHolder>> TYPES_MAPPING = Map.of(
+            Operation.SUM, NUMERIC_OP_TYPES_SUM,
+            Operation.SUBTRACT, NUMERIC_OP_TYPES_SUBTRACT,
+            Operation.MULT, NUMERIC_OP_TYPES_MULT,
+            Operation.DIV, NUMERIC_OP_TYPES_DIV,
+            Operation.MODULO, NUMERIC_OP_TYPES_MODULO
+    );
+
 
     @ParameterizedTest
     @MethodSource("comparisonWithEqArgs")
@@ -75,7 +87,6 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("sumArgs")
     public void sumOp(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
-        // IGNITE-23192, eqDataProvider (generate small numeric, no overflow is possible) need to be changed for binOpDataProvider
         try (ClusterWrapper testCluster = testCluster(typePair, eqDataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
         }
@@ -83,7 +94,6 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("subtractArgs")
-    // IGNITE-23192, eqDataProvider (generate small numeric, no overflow is possible) need to be changed for binOpDataProvider
     public void subtractOp(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, eqDataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
@@ -103,7 +113,6 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("multArgs")
-    // IGNITE-23192, eqDataProvider (generate small numeric, no overflow is possible) need to be changed for binOpDataProvider
     public void multOp(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, eqDataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
@@ -118,22 +127,24 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
             return;
         }
 
-        try (ClusterWrapper testCluster = testCluster(typePair, binOpDataProvider(typePair))) {
+        try (ClusterWrapper testCluster = testCluster(typePair, eqDataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
         }
     }
 
     /**
-     * This test ensures that {@link #NUMERIC_OP_TYPES} doesn't miss any type pair from {@link NumericPair}.
+     * This test ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
     void argsIncludesAllTypePairs() {
-        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
+        for (Map<NumericPair, ClassInfoHolder> ent : TYPES_MAPPING.values()) {
+            EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
-        remainingPairs.removeAll(NUMERIC_OP_TYPES.keySet());
+            remainingPairs.removeAll(ent.keySet());
 
-        assertTrue(remainingPairs.isEmpty(), () ->
-                "Not all types are enlisted, remaining: " + remainingPairs);
+            assertTrue(remainingPairs.isEmpty(), () ->
+                    "Not all types are enlisted, remaining: " + remainingPairs);
+        }
     }
 
     private static DataProvider<Object[]> eqDataProvider(TypePair typePair) {
@@ -181,23 +192,23 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
     }
 
     private static Stream<Arguments> sumArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 + c2 FROM t").type(a));
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 + c2 FROM t").type(a, Operation.SUM));
     }
 
     private static Stream<Arguments> subtractArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 - c2 FROM t").type(a));
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 - c2 FROM t").type(a, Operation.SUBTRACT));
     }
 
     private static Stream<Arguments> multArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 * c2 FROM t").type(a));
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 * c2 FROM t").type(a, Operation.MULT));
     }
 
     private static Stream<Arguments> divArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 / c2 FROM t").type(a));
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 / c2 FROM t").type(a, Operation.DIV));
     }
 
     private static Stream<Arguments> moduloArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 % c2 FROM t").type(a));
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 % c2 FROM t").type(a, Operation.MODULO));
     }
 
     private static ExecutionResultBuilder forTypePair(TypePair typePair, String exp) {
@@ -226,8 +237,8 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
             return Arguments.of(pair, expression, opMatcher);
         }
 
-        Arguments type(NumericPair type) {
-            opMatcher = ofType(type);
+        Arguments type(NumericPair type, Operation op) {
+            opMatcher = ofType(type, op);
 
             return Arguments.of(pair, expression, opMatcher);
         }
@@ -251,162 +262,720 @@ public class NumericComparisonExecutionTest extends BaseIgniteAbstractTest {
         };
     }
 
-    private static Matcher<Object> ofType(NumericPair typesPair) {
+    private static Matcher<Object> ofType(NumericPair typesPair, Operation op) {
         return new BaseMatcher<>() {
             Object actual;
-            Class<?> innerClazz;
+            ClassInfoHolder innerClassInfo;
+            int precision = 0;
+            int scale = 0;
 
             @Override
             public boolean matches(Object actual) {
                 assert actual != null;
                 this.actual = actual;
 
-                Class<?> innerClazz = NUMERIC_OP_TYPES.get(typesPair);
+                if (actual instanceof BigDecimal) {
+                    precision = ((BigDecimal) actual).precision();
+                    scale = ((BigDecimal) actual).scale();
+                }
 
-                return innerClazz.isInstance(actual);
+                innerClassInfo = TYPES_MAPPING.get(op).get(typesPair);
+
+                return innerClassInfo.clazz.isInstance(actual) && innerClassInfo.precision == precision
+                        && innerClassInfo.scale == scale;
             }
 
             @Override
             public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}'", innerClazz, actual.getClass()));
+                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}'", innerClassInfo,
+                        actual.getClass(), precision, scale));
             }
         };
     }
 
     static {
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_TINYINT, Byte.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_SMALLINT, Short.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_INT, Integer.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_BIGINT, Long.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_1_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_REAL, Float.class);
-        NUMERIC_OP_TYPES.put(NumericPair.TINYINT_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_TINYINT, classInfo(Byte.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.TINYINT_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_SMALLINT, Short.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_INT, Integer.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_BIGINT, Long.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_1_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_REAL, Float.class);
-        NUMERIC_OP_TYPES.put(NumericPair.SMALLINT_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.SMALLINT_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.INT_INT, Integer.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_BIGINT, Long.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_1_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_REAL, Float.class);
-        NUMERIC_OP_TYPES.put(NumericPair.INT_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.INT_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_BIGINT, Long.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_1_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_REAL, Float.class);
-        NUMERIC_OP_TYPES.put(NumericPair.BIGINT_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.BIGINT_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_1_0_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_1_0_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_1_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_1_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_4_3_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_4_3_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_2_0_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_2_0_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_3_1_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_3_1_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_3_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_3_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_0_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_5_0_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_5_0_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_6_1_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_6_1_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_6_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_6_1_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, BigDecimal.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_8_3_REAL, Double.class);
-        NUMERIC_OP_TYPES.put(NumericPair.DECIMAL_8_3_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_8_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DECIMAL_8_3_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.REAL_REAL, Float.class);
-        NUMERIC_OP_TYPES.put(NumericPair.REAL_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.REAL_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.REAL_DOUBLE, classInfo(Double.class));
 
-        NUMERIC_OP_TYPES.put(NumericPair.DOUBLE_DOUBLE, Double.class);
+        NUMERIC_OP_TYPES_SUM.put(NumericPair.DOUBLE_DOUBLE, classInfo(Double.class));
+    }
+
+    static {
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_TINYINT, classInfo(Byte.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.TINYINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.SMALLINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.INT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.BIGINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_1_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_4_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_2_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_3_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_5_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_6_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_6_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_8_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DECIMAL_8_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.REAL_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.REAL_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_SUBTRACT.put(NumericPair.DOUBLE_DOUBLE, classInfo(Double.class));
+    }
+
+    static {
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_TINYINT, classInfo(Byte.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.TINYINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.SMALLINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.INT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.BIGINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_1_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_4_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_2_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_3_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_5_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, classInfo(BigDecimal.class, 4, 2));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, classInfo(BigDecimal.class, 6, 4));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_6_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_6_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, classInfo(BigDecimal.class, 8, 6));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_8_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DECIMAL_8_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.REAL_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.REAL_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MULT.put(NumericPair.DOUBLE_DOUBLE, classInfo(Double.class));
+    }
+
+    static {
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_TINYINT, classInfo(Byte.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.TINYINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.SMALLINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.INT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.BIGINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_1_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_4_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_2_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_3_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, classInfo(BigDecimal.class, 2, 0));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_5_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, classInfo(BigDecimal.class, 3, 1));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_6_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_6_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, classInfo(BigDecimal.class, 5, 3));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_8_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DECIMAL_8_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.REAL_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.REAL_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_DIV.put(NumericPair.DOUBLE_DOUBLE, classInfo(Double.class));
+    }
+
+    static {
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_TINYINT, classInfo(Byte.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.TINYINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_SMALLINT, classInfo(Short.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.SMALLINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_INT, classInfo(Integer.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.INT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_BIGINT, classInfo(Long.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.BIGINT_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_1_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_4_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_2_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_3_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0, classInfo(BigDecimal.class, 1, 0));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_0_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_5_0_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1, classInfo(BigDecimal.class, 1, 1));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_6_1_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_6_1_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3, classInfo(BigDecimal.class, 1, 3));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_8_3_REAL, classInfo(Double.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DECIMAL_8_3_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.REAL_REAL, classInfo(Float.class));
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.REAL_DOUBLE, classInfo(Double.class));
+
+        NUMERIC_OP_TYPES_MODULO.put(NumericPair.DOUBLE_DOUBLE, classInfo(Double.class));
     }
 }
