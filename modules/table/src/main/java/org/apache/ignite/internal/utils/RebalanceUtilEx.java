@@ -37,7 +37,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -134,7 +134,7 @@ public class RebalanceUtilEx {
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

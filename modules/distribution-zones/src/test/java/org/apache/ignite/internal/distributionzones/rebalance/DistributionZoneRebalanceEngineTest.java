@@ -21,7 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.partitiondistribution.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
@@ -62,7 +62,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -570,7 +570,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> initialDataNodes = Set.of("node0");
         List<Set<Assignment>> initialAssignments =
-                AffinityUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+                PartitionDistributionUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();

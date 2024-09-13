@@ -78,7 +78,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -533,7 +533,7 @@ public class PartitionReplicaLifecycleManager  extends
                     catalogVersion,
                     zoneId
             ).thenApply(dataNodes ->
-                    AffinityUtils.calculateAssignmentForPartition(
+                    PartitionDistributionUtils.calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
                             zoneDescriptor.replicas()
@@ -685,7 +685,7 @@ public class PartitionReplicaLifecycleManager  extends
             long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                    .thenApply(dataNodes -> PartitionDistributionUtils.calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()

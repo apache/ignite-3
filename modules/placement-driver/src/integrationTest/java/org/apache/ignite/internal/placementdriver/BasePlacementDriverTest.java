@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -49,7 +49,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
             int tableId,
             List<String> dataNodes,
             long assignmentsTimestamp) {
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 

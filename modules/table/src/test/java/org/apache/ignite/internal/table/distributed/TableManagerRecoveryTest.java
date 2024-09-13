@@ -60,7 +60,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -295,14 +295,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
+        try (MockedStatic<PartitionDistributionUtils> affinityServiceMock = mockStatic(PartitionDistributionUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
             for (int part = 0; part < PARTITIONS; part++) {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
 
-            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
+            affinityServiceMock.when(() -> PartitionDistributionUtils.calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
 

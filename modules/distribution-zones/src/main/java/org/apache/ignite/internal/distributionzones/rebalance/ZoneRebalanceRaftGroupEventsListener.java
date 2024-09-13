@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -565,7 +565,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

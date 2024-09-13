@@ -50,7 +50,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -157,7 +157,7 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> partAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 

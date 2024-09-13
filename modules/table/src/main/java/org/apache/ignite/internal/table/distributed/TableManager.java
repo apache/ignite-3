@@ -96,7 +96,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -1307,7 +1307,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     catalogVersion,
                     tableDescriptor.zoneId()
             ).thenApply(dataNodes ->
-                    AffinityUtils.calculateAssignmentForPartition(
+                    PartitionDistributionUtils.calculateAssignmentForPartition(
                             dataNodes,
                             tablePartitionId.partitionId(),
                             zoneDescriptor.replicas()
@@ -1673,7 +1673,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                    .thenApply(dataNodes -> PartitionDistributionUtils.calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()

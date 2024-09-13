@@ -26,13 +26,13 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests scenarios for an affinity service. Please pay attention that given test doesn't check Rendezvous or any other affinity function it
- * just checks {@link AffinityUtils} logic.
+ * Tests scenarios for an distribution service. Please pay attention that given test doesn't check Rendezvous or any other
+ * distribution function it just checks {@link PartitionDistributionUtils} logic.
  */
-public class AffinityServiceTest {
+public class PartitionDistributionServiceTest {
     @Test
     public void testCalculatedAssignmentHappyPath() {
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
                 Arrays.asList("node0", "node1"),
                 10,
                 3
@@ -47,7 +47,7 @@ public class AffinityServiceTest {
 
     @Test
     public void testEmptyBaselineAssignmentsCalculation() {
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(
                 Collections.emptyList(),
                 10,
                 3

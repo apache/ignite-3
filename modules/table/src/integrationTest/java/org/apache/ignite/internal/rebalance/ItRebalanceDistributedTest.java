@@ -94,7 +94,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -893,8 +893,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataNodes.add(getNode(i).name);
         }
 
-        Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
-        Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
+        Set<Assignment> pendingAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
+        Set<Assignment> plannedAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
         Node node0 = getNode(0);
 

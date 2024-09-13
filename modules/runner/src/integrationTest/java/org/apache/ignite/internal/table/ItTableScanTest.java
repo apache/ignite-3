@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.partitiondistribution.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;

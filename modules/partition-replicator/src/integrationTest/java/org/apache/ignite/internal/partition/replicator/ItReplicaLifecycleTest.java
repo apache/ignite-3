@@ -74,7 +74,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -372,7 +372,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) PartitionDistributionUtils.calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
@@ -594,7 +594,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) PartitionDistributionUtils.calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());

@@ -27,11 +27,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Stateless affinity utils that produces helper methods for an affinity assignments calculation.
+ * Stateless distribution utils that produces helper methods for an assignments distribution calculation.
  */
-public class AffinityUtils {
+public class PartitionDistributionUtils {
     /**
-     * Calculates affinity assignments.
+     * Calculates assignments distribution.
      *
      * @param dataNodes Data nodes.
      * @param partitions Partitions count.
@@ -39,7 +39,7 @@ public class AffinityUtils {
      * @return List assignments by partition.
      */
     public static List<Set<Assignment>> calculateAssignments(Collection<String> dataNodes, int partitions, int replicas) {
-        List<Set<String>> affinityNodes = RendezvousAffinityFunction.assignPartitions(
+        List<Set<String>> nodes = RendezvousDistributionFunction.assignPartitions(
                 dataNodes,
                 partitions,
                 replicas,
@@ -48,11 +48,11 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return affinityNodes.stream().map(AffinityUtils::dataNodesToAssignments).collect(toList());
+        return nodes.stream().map(PartitionDistributionUtils::dataNodesToAssignments).collect(toList());
     }
 
     /**
-     * Calculates affinity assignments for a single partition.
+     * Calculates assignments distribution for a single partition.
      *
      * @param dataNodes Data nodes.
      * @param partitionId Partition id.
@@ -60,7 +60,7 @@ public class AffinityUtils {
      * @return Set of assignments.
      */
     public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partitionId, int replicas) {
-        Set<String> affinityNodes = RendezvousAffinityFunction.assignPartition(
+        Set<String> nodes = RendezvousDistributionFunction.assignPartition(
                 partitionId,
                 new ArrayList<>(dataNodes),
                 replicas,
@@ -70,7 +70,7 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return dataNodesToAssignments(affinityNodes);
+        return dataNodesToAssignments(nodes);
     }
 
     private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {

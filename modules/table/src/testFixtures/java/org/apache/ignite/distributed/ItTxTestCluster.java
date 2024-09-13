@@ -62,7 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -591,7 +591,7 @@ public class ItTxTestCluster {
         lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
         lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
-        List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> calculatedAssignments = PartitionDistributionUtils.calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
                 1,
                 replicas

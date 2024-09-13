@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -156,7 +156,7 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> partAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 

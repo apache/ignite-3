@@ -65,7 +65,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.RendezvousAffinityFunction;
+import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -168,7 +168,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     /**
      * Tests the scenario in which a 5-nodes cluster loses 2 nodes, making one of its partitions unavailable for writes. In this situation
      * write should not work, because "changePeers" cannot happen and group leader will not be elected. Partition 0 in this test is always
-     * assigned to nodes 0, 1 and 4, according to the {@link RendezvousAffinityFunction}.
+     * assigned to nodes 0, 1 and 4, according to the {@link RendezvousDistributionFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -215,7 +215,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     /**
      * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
-     * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousAffinityFunction}.
+     * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousDistributionFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -252,7 +252,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     /**
      * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition
      * using a disaster recovery API. In this test, assignments will be (0, 2, 4) and (1, 2, 4), according to
-     * {@link RendezvousAffinityFunction}.
+     * {@link RendezvousDistributionFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 2)

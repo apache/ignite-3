@@ -51,7 +51,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.partitiondistribution.AffinityUtils;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -359,7 +359,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             int replicas,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+        Set<Assignment> calcAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {
