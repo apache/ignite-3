@@ -139,8 +139,15 @@ public class TransactionInflights {
     }
 
     void markReadOnlyTxFinished(UUID txId) {
-        var ctx = txCtxMap.computeIfAbsent(txId, k -> new ReadOnlyTxContext());
-        ctx.finishTx(null);
+        txCtxMap.compute(txId, (k, ctx) -> {
+            if (ctx == null) {
+                ctx = new ReadOnlyTxContext();
+            }
+
+            ctx.finishTx(null);
+
+            return ctx;
+        });
     }
 
     ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
