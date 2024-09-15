@@ -295,14 +295,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        try (MockedStatic<PartitionDistributionUtils> affinityServiceMock = mockStatic(PartitionDistributionUtils.class)) {
+        try (MockedStatic<PartitionDistributionUtils> partitionDistributionServiceMock = mockStatic(PartitionDistributionUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
             for (int part = 0; part < PARTITIONS; part++) {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
 
-            affinityServiceMock.when(() -> PartitionDistributionUtils.calculateAssignments(any(), anyInt(), anyInt()))
+            partitionDistributionServiceMock.when(() -> PartitionDistributionUtils.calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
 
