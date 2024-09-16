@@ -159,7 +159,32 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         return;
     }
 
-//    NUMBER = decimal.Decimal
+    if (PyObject_IsInstance(obj, py_get_module_number_class())) {
+        auto obj_str = PyObject_Str(obj);
+        if (!obj_str) {
+            throw ignite::ignite_error("Can not convert NUMBER to str");
+        }
+        auto obj_str_guard = ignite::detail::defer([&] { Py_DECREF(obj_str); });
+
+        auto str_array = PyUnicode_AsUTF8String(obj_str);
+        if (!str_array) {
+            throw ignite::ignite_error("Can not convert NUMBER string to UTF-8");
+        }
+        auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
+
+        auto *data = PyBytes_AsString(str_array);
+        auto len = PyBytes_Size(str_array);
+
+        ignite::big_decimal value(data, len);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::NUMBER);
+            builder.claim_number(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::NUMBER);
+            builder.append_number(value);
+        }
+        return;
+    }
 
     if (PyObject_IsInstance(obj, py_get_module_duration_class())) {
         auto days = py_get_attr_int(obj, "days");

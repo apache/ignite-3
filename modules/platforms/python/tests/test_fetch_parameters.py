@@ -64,6 +64,13 @@ test_data = [
     pyignite3.DURATION(seconds=123456789),
     pyignite3.DURATION(seconds=987654321, milliseconds=123),
     pyignite3.DURATION(days=145, seconds=987654321, milliseconds=123),
+    pyignite3.NUMBER('1111111111111111111111111111111'),
+    pyignite3.NUMBER('11111111111111.11111111111111111'),
+    pyignite3.NUMBER('0.000000000000000000000000000001'),
+    pyignite3.NUMBER('123.456789'),
+    pyignite3.NUMBER('-123.456789'),
+    pyignite3.NUMBER(1),
+    pyignite3.NUMBER(0),
 ]
 
 
