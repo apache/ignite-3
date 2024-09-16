@@ -19,6 +19,8 @@ namespace Apache.Ignite.Tests
 {
     using System.Linq;
     using System.Threading.Tasks;
+    using Internal;
+    using Internal.Buffers;
     using NUnit.Framework;
 
     /// <summary>
@@ -61,6 +63,24 @@ namespace Apache.Ignite.Tests
                            $"Address = {address} }} ] }}";
 
             Assert.AreEqual(expected, client.ToString());
+        }
+
+        [Test]
+        public async Task TestHeartbeat()
+        {
+            using var client = await IgniteClient.StartAsync(GetConfig());
+            IgniteClientInternal clientInternal = (IgniteClientInternal)client;
+
+            var sockets = clientInternal.Socket.GetSockets().ToList();
+
+            using var payload = new PooledArrayBuffer();
+            payload.MessageWriter.Write("foo bar baz");
+
+            foreach (var socket in sockets)
+            {
+                await socket.HeartbeatAsync();
+                await socket.HeartbeatAsync(payload);
+            }
         }
     }
 }

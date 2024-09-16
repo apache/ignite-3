@@ -21,18 +21,20 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
+import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -54,24 +56,25 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     @IgniteToStringExclude
     private final CatalogTableSchemaVersions schemaVersions;
 
+    @IgniteToStringInclude
     private final List<CatalogTableColumnDescriptor> columns;
+
     @IgniteToStringInclude
     private final List<String> primaryKeyColumns;
+
     @IgniteToStringInclude
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private Map<String, CatalogTableColumnDescriptor> columnsMap;
+    private final Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsMap;
 
-    private long creationToken;
-
-    private String storageProfile;
+    private final String storageProfile;
 
     /**
      * Constructor for new table.
      *
-     * @param id Table id.
-     * @param pkIndexId Primary key index id.
+     * @param id Table ID.
+     * @param pkIndexId Primary key index ID.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
@@ -89,23 +92,32 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             @Nullable List<String> colocationCols,
             String storageProfile
     ) {
-        this(id, schemaId, pkIndexId, name, zoneId, columns, pkCols, colocationCols,
+        this(
+                id,
+                schemaId,
+                pkIndexId,
+                name,
+                zoneId,
+                columns,
+                pkCols,
+                colocationCols,
                 new CatalogTableSchemaVersions(new TableVersion(columns)),
-                storageProfile, INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN);
+                storageProfile,
+                INITIAL_CAUSALITY_TOKEN
+        );
     }
 
     /**
      * Internal constructor.
      *
-     * @param id Table id.
-     * @param pkIndexId Primary key index id.
+     * @param id Table ID.
+     * @param pkIndexId Primary key index ID.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param storageProfile Storage profile.
      * @param causalityToken Token of the update of the descriptor.
-     * @param creationToken Token of the creation of the table descriptor.
      */
     private CatalogTableDescriptor(
             int id,
@@ -118,8 +130,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            long causalityToken,
-            long creationToken
+            long causalityToken
     ) {
         super(id, Type.TABLE, name, causalityToken);
 
@@ -128,11 +139,17 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
+
+        Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
+        for (int i = 0; i < columns.size(); i++) {
+            CatalogTableColumnDescriptor column = columns.get(i);
+            columnMap.put(column.name(), new BasicEntry<>(i, column));
+        }
+
+        this.columnsMap = columnMap;
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
-        this.creationToken = creationToken;
     }
 
     /**
@@ -150,59 +167,108 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 : schemaVersions.append(new TableVersion(columns), tableVersion);
 
         return new CatalogTableDescriptor(
-                id(), schemaId, pkIndexId, name, zoneId, columns, primaryKeyColumns, colocationColumns,
+                id(),
+                schemaId,
+                pkIndexId,
+                name,
+                zoneId,
+                columns,
+                primaryKeyColumns,
+                colocationColumns,
                 newSchemaVersions,
-                storageProfile, causalityToken, creationToken
+                storageProfile,
+                causalityToken
         );
     }
 
     /**
-     * Returns column descriptor for column with given name.
+     * Returns an identifier of a schema this table descriptor belongs to.
      */
-    public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
-        return columnsMap.get(columnName);
-    }
-
     public int schemaId() {
         return schemaId;
     }
 
+    /**
+     * Returns versions of this table descriptor.
+     */
     public CatalogTableSchemaVersions schemaVersions() {
         return schemaVersions;
     }
 
+    /**
+     * Returns an identifier of a distribution zone this table descriptor belongs to.
+     */
     public int zoneId() {
         return zoneId;
     }
 
+    /**
+     * Returns a identifier of the primary key index.
+     */
     public int primaryKeyIndexId() {
         return pkIndexId;
     }
 
+    /**
+     * Returns a version of this table descriptor.
+     */
     public int tableVersion() {
         return schemaVersions.latestVersion();
     }
 
+    /**
+     * Returns a list primary key column names.
+     */
     public List<String> primaryKeyColumns() {
         return primaryKeyColumns;
     }
 
+    /**
+     * Returns a list colocation key column names.
+     */
     public List<String> colocationColumns() {
         return colocationColumns;
     }
 
+    /**
+     * Returns a list column descriptors for the table.
+     */
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
-    public CatalogTableColumnDescriptor column(String name) {
-        return columnsMap.get(name);
+    /** Returns a column descriptor for column with given name, {@code null} if absent. */
+    public @Nullable CatalogTableColumnDescriptor column(String name) {
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
     }
 
+    /**
+     * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
+     */
+    public int columnIndex(String name) {
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getKey();
+        } else {
+            return -1;
+        }
+    }
+
+    /**
+     * Returns {@code true} if this the given column is a part of the primary key.
+     */
     public boolean isPrimaryKeyColumn(String name) {
         return primaryKeyColumns.contains(name);
     }
 
+    /**
+     * Returns {@code true} if this the given column is a part of collocation key.
+     */
     public boolean isColocationColumn(String name) {
         return colocationColumns.contains(name);
     }
@@ -212,19 +278,11 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return S.toString(CatalogTableDescriptor.class, this, super.toString());
     }
 
-    public long creationToken() {
-        return creationToken;
-    }
-
+    /**
+     * Returns a name of a storage profile.
+     */
     public String storageProfile() {
         return storageProfile;
-    }
-
-    @Override
-    public void updateToken(long updateToken) {
-        super.updateToken(updateToken);
-
-        this.creationToken = this.creationToken == INITIAL_CAUSALITY_TOKEN ? updateToken : this.creationToken;
     }
 
     /**
@@ -269,8 +327,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 }
             }
 
-            long creationToken = input.readLong();
-
             return new CatalogTableDescriptor(
                     id,
                     schemaId,
@@ -282,8 +338,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                     colocationColumns,
                     schemaVersions,
                     storageProfile,
-                    updateToken,
-                    creationToken
+                    updateToken
             );
         }
 
@@ -313,8 +368,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 output.writeInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
             }
-
-            output.writeLong(descriptor.creationToken());
         }
 
         private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {

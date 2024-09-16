@@ -59,8 +59,6 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     /** Length of the fixed part of the key: Table ID + Index ID + Partition ID + Hash. */
     public static final int FIXED_PREFIX_LENGTH = PREFIX_WITH_IDS_LENGTH + Integer.BYTES;
 
-    private final StorageHashIndexDescriptor descriptor;
-
     private final ColumnFamily indexCf;
 
     /** Constant prefix of every index key. */
@@ -82,9 +80,8 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
             ColumnFamily indexCf,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(tableId, descriptor.id(), partitionId, indexMetaStorage, descriptor.isPk());
+        super(descriptor, tableId, partitionId, indexMetaStorage);
 
-        this.descriptor = descriptor;
         this.indexCf = indexCf;
 
         this.constantPrefix = ByteBuffer.allocate(PREFIX_WITH_IDS_LENGTH)
@@ -97,7 +94,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public StorageHashIndexDescriptor indexDescriptor() {
-        return descriptor;
+        return (StorageHashIndexDescriptor) descriptor;
     }
 
     @Override

@@ -20,12 +20,10 @@ package org.apache.ignite.internal.marshaller;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -80,10 +78,6 @@ public class ValidationUtils {
                 return cls == UUID.class;
             case BYTE_ARR:
                 return cls == byte[].class;
-            case BITSET:
-                return cls == BitSet.class;
-            case NUMBER:
-                return cls == BigInteger.class;
             case DECIMAL:
                 return cls == BigDecimal.class;
             case DATE:

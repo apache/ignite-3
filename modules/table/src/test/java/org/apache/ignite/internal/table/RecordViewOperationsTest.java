@@ -434,10 +434,7 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
-
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !unsupported.contains(t))
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

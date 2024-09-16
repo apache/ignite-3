@@ -51,14 +51,11 @@ public class CliConfigProfileCreateCommand extends BaseCommand implements Callab
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(CliConfigProfileCreateCallInput.builder()
                         .profileName(profileName)
                         .copyFrom(copyFrom)
                         .activate(activate)::build)
-                .errOutput(spec.commandLine().getErr())
-                .output(spec.commandLine().getOut())
-                .verbose(verbose)
-                .build().runPipeline();
+        );
     }
 }

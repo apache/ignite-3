@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,5 +34,18 @@ class OperationTypeTest {
         assertEquals(1, OperationType.PUT.ordinal());
 
         assertEquals(2, OperationType.REMOVE.ordinal());
+    }
+
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @Test
+    void testFromOrdinal() {
+        assertEquals(OperationType.NO_OP, OperationType.fromOrdinal(0));
+
+        assertEquals(OperationType.PUT, OperationType.fromOrdinal(1));
+
+        assertEquals(OperationType.REMOVE, OperationType.fromOrdinal(2));
+
+        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(-1));
+        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(3));
     }
 }

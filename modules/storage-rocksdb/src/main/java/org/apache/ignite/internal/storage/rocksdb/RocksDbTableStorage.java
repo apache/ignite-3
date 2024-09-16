@@ -137,6 +137,13 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     /**
+     * Returns a column family handle for data CF.
+     */
+    ColumnFamilyHandle dataCfHandle() {
+        return rocksDb.dataCf.handle();
+    }
+
+    /**
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
      * achieve this.
      *

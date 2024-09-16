@@ -60,7 +60,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<JobState?> GetStatusAsync()
+    public async Task<JobState?> GetStateAsync()
     {
         var finalStatus = _finalStatus;
         if (finalStatus != null)
@@ -68,7 +68,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
             return finalStatus;
         }
 
-        var status = await _compute.GetJobStatusAsync(Id).ConfigureAwait(false);
+        var status = await _compute.GetJobStateAsync(Id).ConfigureAwait(false);
         if (status is { Status: JobStatus.Completed or JobStatus.Failed or JobStatus.Canceled })
         {
             // Can't be transitioned to another state, cache it.

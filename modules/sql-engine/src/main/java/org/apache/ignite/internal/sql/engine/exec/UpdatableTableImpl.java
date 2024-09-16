@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.rowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidatorErrorMessages;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -123,7 +125,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -154,7 +156,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestTypeInt(RW_UPSERT_ALL.ordinal())
+                    .requestType(RW_UPSERT_ALL)
                     .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
@@ -204,7 +206,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         validateNotNullConstraint(ectx.rowHandler(), row);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         RowT validatedRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
@@ -235,7 +237,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -260,7 +262,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestTypeInt(RW_INSERT_ALL.ordinal())
+                    .requestType(RW_INSERT_ALL)
                     .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
@@ -330,7 +332,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
-                    .requestTypeInt(RW_DELETE_ALL.ordinal())
+                    .requestType(RW_DELETE_ALL)
                     .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
@@ -354,7 +356,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowHandler();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.rowType(typeFactory, null)));
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType(desc, typeFactory)));
                     RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
@@ -408,8 +410,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColumnDescriptor column = desc.columnDescriptor(i);
 
             if (!column.nullable() && rowHandler.isNull(i, row)) {
-                String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
-                throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);
+                Exception ex = Static.RESOURCE.columnNotNullable(column.name()).ex();
+                String originalMessage = ex.getMessage();
+
+                String resolvedMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(originalMessage);
+
+                throw new SqlException(CONSTRAINT_VIOLATION_ERR, resolvedMessage != null ? resolvedMessage : originalMessage);
             }
         }
     }
@@ -420,7 +426,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                 return rowSchema;
             }
 
-            RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+            RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
             rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
             return rowSchema;
         };

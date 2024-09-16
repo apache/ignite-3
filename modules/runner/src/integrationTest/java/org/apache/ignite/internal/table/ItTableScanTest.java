@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
@@ -48,6 +49,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -122,7 +124,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     public void afterTest() {
-        CLUSTER.runningNodes().forEach(this::checkResourcesAreReleased);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(this::checkResourcesAreReleased);
 
         clearData(table);
     }
@@ -750,7 +752,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         InternalTransaction tx = null;
 
         if (readOnly) {
-            IgniteImpl ignite = CLUSTER.aliveNode();
+            IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
             var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
 
@@ -782,7 +784,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.cancel();
 
-        CLUSTER.runningNodes().forEach(this::checkCursorsAreClosed);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(this::checkCursorsAreClosed);
 
         if (tx != null) {
             tx.rollback();
@@ -923,7 +925,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        CatalogManager catalogManager = (CLUSTER.aliveNode()).catalogManager();
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
         int catalogVersion = catalogManager.latestCatalogVersion();
 
@@ -1014,7 +1016,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        IgniteImpl ignite = CLUSTER.aliveNode();
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 

@@ -44,7 +44,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -58,10 +57,10 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
@@ -86,7 +85,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteTransactionsImpl igniteTransactions;
 
     /** Cluster ID supplier. */
-    private final Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier;
+    private final Supplier<ClusterInfo> clusterInfoSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -139,7 +138,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
-     * @param clusterTagSupplier ClusterTag supplier.
+     * @param clusterInfoSupplier ClusterInfo supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
@@ -153,7 +152,7 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier,
+            Supplier<ClusterInfo> clusterInfoSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -169,7 +168,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
-        assert clusterTagSupplier != null;
+        assert clusterInfoSupplier != null;
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
@@ -186,7 +185,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
         this.bootstrapFactory = bootstrapFactory;
-        this.clusterTagSupplier = clusterTagSupplier;
+        this.clusterInfoSupplier = clusterInfoSupplier;
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
@@ -276,7 +275,6 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
-        CompletableFuture<ClusterTag> clusterTag = clusterTagSupplier.get();
         CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
@@ -310,8 +308,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                 ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                             }
 
-                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
-                                    configuration, clusterTag, connectionId);
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, connectionId);
 
                             //noinspection TestOnlyProblems
                             handler = messageHandler;
@@ -372,10 +369,7 @@ public class ClientHandlerModule implements IgniteComponent {
         return result;
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(
-            ClientConnectorView configuration,
-            CompletableFuture<ClusterTag> clusterTag,
-            long connectionId) {
+    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
@@ -383,7 +377,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 configuration,
                 igniteCompute,
                 clusterService,
-                clusterTag,
+                clusterInfoSupplier,
                 metrics,
                 authenticationManager,
                 clockService,

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -54,9 +56,12 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.first());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
+        // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
+        // take it into consideration.
+        boolean closerToBound = pair.first().spec() == NativeTypeSpec.INT16;
 
-        assertPlan("INSERT INTO T VALUES(" + val + "," + val + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
+        String value = generateLiteral(pair.second(), closerToBound);
+        assertPlan("INSERT INTO T VALUES(" + value + "," + value + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -67,7 +72,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.first());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
+        Object val = SqlTestUtils.generateValueByType(pair.second());
         assertPlan("INSERT INTO T VALUES(?, ?)", schema, keyValOperandMatcher(operandMatcher)::matches, List.of(val, val));
     }
 
@@ -118,7 +123,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT8)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT8)),
@@ -127,7 +132,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT8)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT8)),
@@ -160,7 +165,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT16)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT16)),
@@ -169,7 +174,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT16)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT16)),
@@ -199,7 +204,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -208,7 +213,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -217,7 +222,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_6_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -235,7 +240,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -244,7 +249,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -253,7 +258,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_6_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -268,13 +273,13 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_1_0)),
@@ -301,10 +306,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
-                        .opMatches(castTo(Types.DECIMAL_2_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_2_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_2_1)),
@@ -331,7 +336,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_4_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_4_3)),
@@ -358,13 +363,13 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_2_0)),
@@ -382,10 +387,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
-                        .opMatches(castTo(Types.DECIMAL_3_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_3_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_3_1)),
@@ -403,7 +408,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_5_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_5_3)),
@@ -421,13 +426,13 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_REAL)
                         .opMatches(castTo(Types.DECIMAL_5_0)),
@@ -436,10 +441,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
-                        .opMatches(castTo(Types.DECIMAL_6_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_6_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_REAL)
                         .opMatches(castTo(Types.DECIMAL_6_1)),
@@ -448,7 +453,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_8_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_REAL)
                         .opMatches(castTo(Types.DECIMAL_8_3)),
@@ -469,10 +474,55 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
 
     private static Stream<Arguments> argsDyn() {
         // Difference between the original parameters.
-        Map<NumericPair, Arguments> diff = Map.of(
-                NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT))
-        );
+        Map<NumericPair, Arguments> map = new EnumMap<>(NumericPair.class);
+        map.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
+        map.put(NumericPair.TINYINT_DECIMAL_1_0, forTypePair(NumericPair.TINYINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_2_0, forTypePair(NumericPair.TINYINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT8)));
+        map.put(NumericPair.INT_DECIMAL_1_0, forTypePair(NumericPair.INT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_2_0, forTypePair(NumericPair.INT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_5_0, forTypePair(NumericPair.INT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT32)));
+        map.put(NumericPair.SMALLINT_DECIMAL_1_0, forTypePair(NumericPair.SMALLINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_2_0, forTypePair(NumericPair.SMALLINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT16)));
+        map.put(NumericPair.BIGINT_DECIMAL_1_0, forTypePair(NumericPair.BIGINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_2_0, forTypePair(NumericPair.BIGINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_5_0, forTypePair(NumericPair.BIGINT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT64)));
+        map.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0).opMatches(castTo((Types.DECIMAL_1_0))));
+        map.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1).opMatches(castTo((Types.DECIMAL_1_0))));
+        map.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3).opMatches(castTo((Types.DECIMAL_1_0))));
+        map.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1).opMatches(castTo((Types.DECIMAL_2_1))));
+        map.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3).opMatches(castTo((Types.DECIMAL_2_1))));
+        map.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3).opMatches(castTo((Types.DECIMAL_4_3))));
+        map.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0).opMatches(castTo((Types.DECIMAL_2_0))));
+        map.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1).opMatches(castTo((Types.DECIMAL_2_0))));
+        map.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3).opMatches(castTo((Types.DECIMAL_2_0))));
+        map.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1).opMatches(castTo((Types.DECIMAL_3_1))));
+        map.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3).opMatches(castTo((Types.DECIMAL_3_1))));
+        map.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3).opMatches(castTo((Types.DECIMAL_5_3))));
+        map.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0).opMatches(castTo((Types.DECIMAL_5_0))));
+        map.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1).opMatches(castTo((Types.DECIMAL_5_0))));
+        map.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3).opMatches(castTo((Types.DECIMAL_5_0))));
+        map.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1).opMatches(castTo((Types.DECIMAL_6_1))));
+        map.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3).opMatches(castTo((Types.DECIMAL_6_1))));
+        map.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(castTo((Types.DECIMAL_8_3))));
 
-        return args().map(v -> diff.getOrDefault(v.get()[0], v));
+        return args().map(v -> map.getOrDefault(v.get()[0], v));
     }
 }

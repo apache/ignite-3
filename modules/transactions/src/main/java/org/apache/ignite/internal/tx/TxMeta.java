@@ -82,7 +82,7 @@ public class TxMeta implements TransactionMeta {
         }
 
         return txMessagesFactory.txMetaMessage()
-                .txStateInt(txState.ordinal())
+                .txState(txState)
                 .commitTimestamp(commitTimestamp)
                 .enlistedPartitions(enlistedPartitionMessages)
                 .build();

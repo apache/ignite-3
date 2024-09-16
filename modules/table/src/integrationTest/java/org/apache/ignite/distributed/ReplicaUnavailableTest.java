@@ -46,16 +46,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -69,9 +68,14 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -174,12 +178,18 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         raftManager = mock(Loza.class);
         raftClient = mock(TopologyAwareRaftGroupService.class);
-        when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
+        when(raftManager.startRaftGroupNode(
+                any(RaftNodeId.class),
+                any(PeersAndLearners.class),
+                any(RaftGroupListener.class),
+                any(RaftGroupEventsListener.class),
+                any(RaftGroupOptions.class),
+                any(TopologyAwareRaftGroupServiceFactory.class))
+        )
+                .thenReturn(completedFuture(raftClient));
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
@@ -198,10 +208,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new NoOpFailureProcessor(),
+                new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
+                RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool()
         );
@@ -243,12 +254,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         });
 
                         replicaManager.startReplica(
-                                tablePartitionId,
-                                newConfiguration,
-                                (unused) -> { },
+                                mock(RaftGroupEventsListener.class),
+                                mock(RaftGroupListener.class),
+                                false,
+                                null,
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L),
-                                completedFuture(mock(TopologyAwareRaftGroupService.class))
+                                tablePartitionId,
+                                newConfiguration
                         );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
@@ -274,7 +287,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
-                .requestTypeInt(RW_GET.ordinal())
+                .requestType(RW_GET)
                 .enlistmentConsistencyToken(1L)
                 .coordinatorId(clusterService.topologyService().localMember().id())
                 .build();
@@ -361,12 +374,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
                     replicaManager.startReplica(
-                            tablePartitionId,
-                            newConfiguration,
-                            (unused) -> { },
+                            mock(RaftGroupEventsListener.class),
+                            mock(RaftGroupListener.class),
+                            false,
+                            null,
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L),
-                            completedFuture(mock(TopologyAwareRaftGroupService.class))
+                            tablePartitionId,
+                            newConfiguration
                     );
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);

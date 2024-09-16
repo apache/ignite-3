@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -25,8 +26,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +45,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -54,7 +59,9 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -72,6 +79,9 @@ public class LeaseUpdater {
     /** Negative value means that printing statistics is disabled. */
     private static final int LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties
             .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
+
+    /** Message factory. */
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
@@ -218,34 +228,54 @@ public class LeaseUpdater {
      * @param grpId Replication group id.
      * @param lease Lease to deny.
      * @param redirectProposal Consistent id of the cluster node proposed for redirection.
-     * @return Future completes true when the lease will not prolong in the future, false otherwise.
+     * @return Future that contains the expiration time of denied lease, of {@code null} if lease denial failed.
      */
-    private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
+    private CompletableFuture<HybridTimestamp> denyLease(ReplicationGroupId grpId, Lease lease, @Nullable String redirectProposal) {
         Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.cancelAgreement(grpId);
 
         Leases leasesCurrent = leaseTracker.leasesCurrent();
 
-        Collection<Lease> leases = leasesCurrent.leaseByGroupId().values();
+        Collection<Lease> currentLeases = leasesCurrent.leaseByGroupId().values();
 
+        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
+
+        IgniteBiTuple<List<Lease>, Boolean> renewedLeasesTup = replaceProlongableLeaseInCollection(currentLeases, deniedLease);
+
+        if (!renewedLeasesTup.get2()) {
+            return nullCompletedFuture();
+        } else {
+            return msManager.invoke(
+                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
+                    put(key, new LeaseBatch(renewedLeasesTup.get1()).bytes()),
+                    noop()
+            ).thenApply(res -> {
+                if (res) {
+                    return deniedLease.getExpirationTime();
+                } else {
+                    return null;
+                }
+            });
+        }
+    }
+
+    private static IgniteBiTuple<List<Lease>, Boolean> replaceProlongableLeaseInCollection(Collection<Lease> leases, Lease newLease) {
         List<Lease> renewedLeases = new ArrayList<>();
+        boolean replaced = false;
 
         for (Lease ls : leases) {
-            if (ls.replicationGroupId().equals(grpId)) {
-                renewedLeases.add(deniedLease);
+            if (ls.replicationGroupId().equals(newLease.replicationGroupId())
+                    && ls.getStartTime().equals(newLease.getStartTime())
+                    && ls.isProlongable()) {
+                renewedLeases.add(newLease);
+                replaced = true;
             } else {
                 renewedLeases.add(ls);
             }
         }
 
-        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
-
-        return msManager.invoke(
-                or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
-                put(key, new LeaseBatch(renewedLeases).bytes()),
-                noop()
-        );
+        return new IgniteBiTuple<>(renewedLeases, replaced);
     }
 
     /**
@@ -360,7 +390,7 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId = entry.getKey();
                 Set<Assignment> assignments = entry.getValue().nodes();
 
-                Lease lease = leaseTracker.getLease(grpId);
+                Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
 
                 if (lease.isAccepted() && !isLeaseOutdated(lease)) {
                     activeLeasesCount++;
@@ -371,36 +401,24 @@ public class LeaseUpdater {
 
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
-                    if (agreement.isAccepted()) {
+                    if (lease.isProlongable() && agreement.isAccepted()) {
                         Lease negotiatedLease = agreement.getLease();
 
-                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can contain
-                        // stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is guaranteed to be
-                        // already written to meta storage before negotiation begins, and in this case its start time would be
-                        // greater than lease's.
+                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can
+                        // contain stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is
+                        // guaranteed to be already written to meta storage before negotiation begins, and in this case its start time
+                        // would be greater than lease's.
                         assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
-                                    + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
+                                + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
                         publishLease(grpId, negotiatedLease, renewedLeases);
 
                         continue;
-                    } else if (agreement.isDeclined()) {
+                    } else if (!lease.isProlongable() || agreement.isDeclined()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
-                        ClusterNode candidate = nextLeaseHolder(assignments, grpId, agreement.getRedirectTo());
-
-                        if (candidate == null) {
-                            leaseUpdateStatistics.onLeaseWithoutCandidate();
-
-                            continue;
-                        }
-
-                        // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases);
-
-                        boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
-
-                        toBeNegotiated.put(grpId, force);
+                        // Also, if the lease was denied, we create the new one.
+                        chooseCandidateAndCreateNewLease(grpId, lease, agreement, assignments, renewedLeases, toBeNegotiated);
 
                         continue;
                     }
@@ -452,6 +470,11 @@ public class LeaseUpdater {
                 );
             }
 
+            if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
+                LOG.debug("No leases to update found.");
+                return;
+            }
+
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
@@ -480,6 +503,40 @@ public class LeaseUpdater {
                     leaseNegotiator.negotiate(lease, force);
                 }
             });
+        }
+
+        private void chooseCandidateAndCreateNewLease(
+                ReplicationGroupId grpId,
+                Lease lease,
+                LeaseAgreement agreement,
+                Set<Assignment> assignments,
+                Map<ReplicationGroupId, Lease> renewedLeases,
+                Map<ReplicationGroupId, Boolean> toBeNegotiated
+        ) {
+            String proposedCandidate = null;
+
+            if (agreement.isDeclined()) {
+                proposedCandidate = agreement.getRedirectTo();
+            }
+
+            if (proposedCandidate == null) {
+                proposedCandidate = lease.isProlongable() ? lease.getLeaseholder() : lease.proposedCandidate();
+            }
+
+            ClusterNode candidate = nextLeaseHolder(assignments, grpId, proposedCandidate);
+
+            if (candidate == null) {
+                leaseUpdateStatistics.onLeaseWithoutCandidate();
+
+                return;
+            }
+
+            // New lease is granted.
+            writeNewLease(grpId, candidate, renewedLeases);
+
+            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
+
+            toBeNegotiated.put(grpId, force);
         }
 
         /**
@@ -631,7 +688,7 @@ public class LeaseUpdater {
             }
 
             try {
-                processMessageInternal(sender.name(), msg);
+                processMessageInternal(sender.name(), msg, correlationId);
             } finally {
                 stateChangingLock.leaveBusy();
             }
@@ -642,21 +699,35 @@ public class LeaseUpdater {
          *
          * @param sender Sender node name.
          * @param msg Message.
+         * @param correlationId Correlation id.
          */
-        private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
+        private void processMessageInternal(String sender, PlacementDriverActorMessage msg, @Nullable Long correlationId) {
             ReplicationGroupId grpId = msg.groupId();
 
             Lease lease = leaseTracker.getLease(grpId);
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
+                if (sender.equals(lease.getLeaseholder())) {
                     StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
 
-                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
+                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((deniedLeaseExpTime, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
-                            LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, leaseStartTime={}, leaseExpirationTime={}, "
+                                            + "sender={}, denied={}]", grpId, lease.getStartTime(), deniedLeaseExpTime, sender,
+                                    deniedLeaseExpTime != null);
+                        }
+
+                        if (correlationId != null) {
+                            Long deniedLeaseExpTimeLong = deniedLeaseExpTime == null ? null : deniedLeaseExpTime.longValue();
+
+                            StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                                    .stopLeaseProlongationMessageResponse()
+                                    .deniedLeaseExpirationTimeLong(deniedLeaseExpTimeLong)
+                                    .build();
+
+                            clusterService.messagingService().respond(sender, response, correlationId);
                         }
                     });
                 }

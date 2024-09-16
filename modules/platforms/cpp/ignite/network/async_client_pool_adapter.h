@@ -45,7 +45,7 @@ public:
      * @param addrs Addresses to connect to.
      * @param conn_limit Connection upper limit. Zero means limit is disabled.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     void start(std::vector<tcp_range> addrs, uint32_t conn_limit) override;
 
@@ -68,7 +68,7 @@ public:
      * @param data Data to be sent.
      * @return @c true if connection is present and @c false otherwise.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     bool send(uint64_t id, std::vector<std::byte> &&data) override;
 

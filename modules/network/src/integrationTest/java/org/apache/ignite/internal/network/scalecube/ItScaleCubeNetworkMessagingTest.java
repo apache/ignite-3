@@ -52,6 +52,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -60,12 +61,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -84,6 +88,7 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.ConnectorKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
@@ -108,6 +113,8 @@ import reactor.core.publisher.Mono;
 class ItScaleCubeNetworkMessagingTest {
     /** Message sent to establish a connection. */
     private static final String TRAILBLAZER = "trailblazer";
+
+    private static final int INITIAL_PORT = 3344;
 
     /**
      * Test cluster.
@@ -1066,6 +1073,41 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
 
+    @Test
+    public void nodesWithDifferentClusterIdsCannotCommunicate() throws Exception {
+        Map<NetworkAddress, ClusterIdSupplier> clusterIdSupplierMap = new ConcurrentHashMap<>();
+
+        testCluster = new Cluster(2, testInfo, addr -> clusterIdSupplierMap.computeIfAbsent(addr, k -> new SameRandomClusterIdSupplier()));
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different clusterIDs are able to communicate"
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void nodeWithNonNullClusterIdCanCommunicateNodeWithNullClusterId(boolean nullFirst) throws Exception {
+        Map<NetworkAddress, ClusterIdSupplier> clusterIdSupplierMap = new ConcurrentHashMap<>();
+
+        testCluster = new Cluster(2, testInfo, addr -> clusterIdSupplierMap.computeIfAbsent(addr, k -> {
+            if (nullFirst ^ (k.port() == INITIAL_PORT)) {
+                return ConstantClusterIdSupplier.withoutClusterId();
+            } else {
+                return new SameRandomClusterIdSupplier();
+            }
+        }));
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertTrue(
+                waitForCondition(testCluster::allMembersSeeEachOther, SECONDS.toMillis(10)),
+                "Nodes are not able to communicate"
+        );
+    }
+
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
         CountDownLatch disappeared = new CountDownLatch(testCluster.members.size() - 1);
 
@@ -1219,6 +1261,8 @@ class ItScaleCubeNetworkMessagingTest {
      * Wrapper for a cluster.
      */
     private static final class Cluster {
+        private static final ClusterIdSupplier normalClusterIdSupplier = new SameRandomClusterIdSupplier();
+
         /** Members of the cluster. */
         final List<ClusterService> members;
 
@@ -1232,14 +1276,25 @@ class ItScaleCubeNetworkMessagingTest {
          * @param testInfo   Test info.
          */
         Cluster(int numOfNodes, TestInfo testInfo) {
-            int initialPort = 3344;
+            this(numOfNodes, testInfo, addr -> normalClusterIdSupplier);
+        }
+
+        /**
+         * Creates a test cluster with the given amount of members.
+         *
+         * @param numOfNodes Amount of cluster members.
+         * @param testInfo   Test info.
+         * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
+         */
+        Cluster(int numOfNodes, TestInfo testInfo, Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory) {
+            int initialPort = INITIAL_PORT;
 
             List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
 
             this.nodeFinder = new StaticNodeFinder(addresses);
 
             members = addresses.stream()
-                    .map(addr -> startNode(testInfo, addr))
+                    .map(addr -> startNode(testInfo, addr, clusterIdSupplierFactory))
                     .collect(toUnmodifiableList());
         }
 
@@ -1247,11 +1302,17 @@ class ItScaleCubeNetworkMessagingTest {
          * Start cluster node.
          *
          * @param testInfo Test info.
-         * @param addr     Node address.
+         * @param addr Node address.
+         * @param clusterIdSupplierFactory Factory of cluster ID suppliers.
          * @return Started cluster node.
          */
-        private ClusterService startNode(TestInfo testInfo, NetworkAddress addr) {
-            return ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
+        private ClusterService startNode(
+                TestInfo testInfo,
+                NetworkAddress addr,
+                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory
+        ) {
+            ClusterIdSupplier clusterIdSupplier = clusterIdSupplierFactory.apply(addr);
+            return ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder, new InMemoryStaleIds(), clusterIdSupplier);
         }
 
         /**
@@ -1273,6 +1334,13 @@ class ItScaleCubeNetworkMessagingTest {
                     .mapToInt(m -> m.topologyService().allMembers().size())
                     .sum();
             return totalMembersSeen == members.size() * members.size();
+        }
+
+        private boolean anyMembersSeeEachOther() {
+            int totalMembersSeen = members.stream()
+                    .mapToInt(m -> m.topologyService().allMembers().size())
+                    .sum();
+            return totalMembersSeen > members.size();
         }
 
         /**
@@ -1298,5 +1366,14 @@ class ItScaleCubeNetworkMessagingTest {
         };
 
         abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient);
+    }
+
+    private static class SameRandomClusterIdSupplier implements ClusterIdSupplier {
+        private final UUID clusterId = UUID.randomUUID();
+
+        @Override
+        public @Nullable UUID clusterId() {
+            return clusterId;
+        }
     }
 }

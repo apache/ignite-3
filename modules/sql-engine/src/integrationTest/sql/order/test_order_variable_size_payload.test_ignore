@@ -2,7 +2,6 @@
 # description: Test ORDER BY keyword (variable size sorting/payload columns)
 # group: [order]
 # Ignore https://issues.apache.org/jira/browse/IGNITE-17437
-# Ignore https://issues.apache.org/jira/browse/IGNITE-17268
 
 # payload string that is longer than the 8MB initial string size - this tests whether RowChunk dynamically increases block capacity
 statement ok
@@ -50,7 +49,7 @@ statement ok
 INSERT INTO test1 VALUES ('2'), (NULL), ('355555552'), ('1'), ('35555556'), ('10'), ('355555553'), ('355555551')
 
 query I
-SELECT * FROM test1 ORDER BY s
+SELECT * FROM test1 ORDER BY s NULLS FIRST
 ----
 NULL
 1
@@ -63,10 +62,16 @@ NULL
 
 # sort on 10000 strings
 statement ok
-CREATE TABLE test2 AS (SELECT CAST(range AS VARCHAR) r, random() rand FROM range(10000))
+CREATE TABLE test2(r VARCHAR, rand DOUBLE)
 
 statement ok
-CREATE TABLE test2_1 AS (SELECT * FROM test2 ORDER BY r)
+INSERT INTO test2 SELECT x::VARCHAR r, rand() rand FROM table(system_range(1, 10000))
+
+statement ok
+CREATE TABLE test2_1(r VARCHAR, rand DOUBLE)
+
+statement ok
+INSERT INTO test2_1 (SELECT * FROM test2 ORDER BY r)
 
 query T
 SELECT count(*) FROM test2_1
@@ -75,10 +80,16 @@ SELECT count(*) FROM test2_1
 
 # string payload
 statement ok
-CREATE TABLE test3 AS (SELECT CAST(range AS VARCHAR) r, random() rand FROM range(10000))
+CREATE TABLE test3(r VARCHAR, rand DOUBLE)
 
 statement ok
-CREATE TABLE test3_1 AS (SELECT * FROM test3 ORDER BY rand)
+INSERT INTO test3 SELECT x::VARCHAR r, rand() rand FROM table(system_range(1, 10000))
+
+statement ok
+CREATE TABLE test3_1(r VARCHAR, rand DOUBLE)
+
+statement ok
+INSERT INTO test3_1 (SELECT * FROM test3 ORDER BY rand)
 
 query T
 SELECT count(*) FROM test3_1
@@ -206,23 +217,7 @@ statement ok
 CREATE TABLE test6 (i1 INT, s1 VARCHAR, i2 int, s2 VARCHAR)
 
 statement ok
-INSERT INTO test6 VALUES
-(6, '0reallylongstring1', 3, '1reallylongstring8'),
-(6, '0reallylongstring1', 3, '1reallylongstring7'),
-(6, '0reallylongstring1', 4, '1reallylongstring8'),
-(6, '0reallylongstring1', 4, '1reallylongstring7'),
-(6, '0reallylongstring2', 3, '1reallylongstring8'),
-(6, '0reallylongstring2', 3, '1reallylongstring7'),
-(6, '0reallylongstring2', 4, '1reallylongstring8'),
-(6, '0reallylongstring2', 4, '1reallylongstring7'),
-(5, '0reallylongstring1', 3, '1reallylongstring8'),
-(5, '0reallylongstring1', 3, '1reallylongstring7'),
-(5, '0reallylongstring1', 4, '1reallylongstring8'),
-(5, '0reallylongstring1', 4, '1reallylongstring7'),
-(5, '0reallylongstring2', 3, '1reallylongstring8'),
-(5, '0reallylongstring2', 3, '1reallylongstring7'),
-(5, '0reallylongstring2', 4, '1reallylongstring8'),
-(5, '0reallylongstring2', 4, '1reallylongstring7')
+INSERT INTO test6 VALUES (6, '0reallylongstring1', 3, '1reallylongstring8'), (6, '0reallylongstring1', 3, '1reallylongstring7'),(6, '0reallylongstring1', 4, '1reallylongstring8'),(6, '0reallylongstring1', 4, '1reallylongstring7'),(6, '0reallylongstring2', 3, '1reallylongstring8'),(6, '0reallylongstring2', 3, '1reallylongstring7'),(6, '0reallylongstring2', 4, '1reallylongstring8'),(6, '0reallylongstring2', 4, '1reallylongstring7'),(5, '0reallylongstring1', 3, '1reallylongstring8'),(5, '0reallylongstring1', 3, '1reallylongstring7'),(5, '0reallylongstring1', 4, '1reallylongstring8'),(5, '0reallylongstring1', 4, '1reallylongstring7'),(5, '0reallylongstring2', 3, '1reallylongstring8'),(5, '0reallylongstring2', 3, '1reallylongstring7'),(5, '0reallylongstring2', 4, '1reallylongstring8'),(5, '0reallylongstring2', 4, '1reallylongstring7')
 
 query IIII
 SELECT i1, s1, i2, s2 FROM test6 ORDER BY i1, s1, i2, s2
@@ -397,7 +392,10 @@ NULL	[[d, d, d]]
 
 # lists longer than STANDARD_VECTOR_SIZE
 statement ok
-CREATE TABLE test9 AS (SELECT range % 4 i, range j FROM range(5000));
+CREATE TABLE test9(i INT, j INT)
+
+statement ok
+INSERT INTO test9 (SELECT x % 4 i, x j FROM table(system_range(1, 5000)))
 
 statement ok
 INSERT INTO test9 VALUES (0, NULL), (1, NULL), (2, NULL), (3, NULL)

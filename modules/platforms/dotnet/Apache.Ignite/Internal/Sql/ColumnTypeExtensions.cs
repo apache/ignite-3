@@ -18,10 +18,8 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using Ignite.Sql;
 using NodaTime;
 
@@ -31,11 +29,11 @@ using NodaTime;
 internal static class ColumnTypeExtensions
 {
     private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
-        Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
+        Enum.GetValues<ColumnType>()
+            .ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
         Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Period && x != ColumnType.Duration)
             .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
@@ -59,12 +57,10 @@ internal static class ColumnTypeExtensions
         ColumnType.Datetime => typeof(LocalDateTime),
         ColumnType.Timestamp => typeof(Instant),
         ColumnType.Uuid => typeof(Guid),
-        ColumnType.Bitmask => typeof(BitArray),
         ColumnType.String => typeof(string),
         ColumnType.ByteArray => typeof(byte[]),
         ColumnType.Period => typeof(Period),
         ColumnType.Duration => typeof(Duration),
-        ColumnType.Number => typeof(BigInteger),
         _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
 
@@ -102,10 +98,8 @@ internal static class ColumnTypeExtensions
         ColumnType.Datetime => "timestamp",
         ColumnType.Timestamp => "timestamp_tz",
         ColumnType.Uuid => "uuid",
-        ColumnType.Bitmask => "bitmap",
         ColumnType.String => "varchar",
         ColumnType.ByteArray => "varbinary",
-        ColumnType.Number => "numeric",
         ColumnType.Period => "interval",
         ColumnType.Duration => "duration",
         _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")

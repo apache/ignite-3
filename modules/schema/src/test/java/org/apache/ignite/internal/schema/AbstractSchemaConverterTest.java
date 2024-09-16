@@ -71,8 +71,6 @@ public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
 
         var missedTypes = new HashSet<>(Arrays.asList(NativeTypeSpec.values()));
-        missedTypes.remove(NativeTypeSpec.NUMBER);
-        missedTypes.remove(NativeTypeSpec.BITMASK);
 
         missedTypes.removeAll(tmp.keySet());
 

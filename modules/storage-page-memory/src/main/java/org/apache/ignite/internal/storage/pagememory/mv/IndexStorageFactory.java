@@ -279,7 +279,7 @@ class IndexStorageFactory {
 
             IndexType indexType = descriptor instanceof StorageHashIndexDescriptor ? IndexType.HASH : IndexType.SORTED;
 
-            UUID nextRowIdUuidToBuild = descriptor.isPk() ? null : initialRowIdToBuild(partitionId).uuid();
+            UUID nextRowIdUuidToBuild = descriptor.mustBeBuilt() ? initialRowIdToBuild(partitionId).uuid() : null;
 
             var indexMeta = new IndexMeta(descriptor.id(), indexType, metaPageId, nextRowIdUuidToBuild);
 

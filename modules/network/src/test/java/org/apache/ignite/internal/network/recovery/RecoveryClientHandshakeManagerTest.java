@@ -47,9 +47,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
@@ -90,6 +91,9 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
+    private static final UUID CORRECT_CLUSTER_ID = new UUID(11, 12);
+    private static final UUID WRONG_CLUSTER_ID = new UUID(13, 14);
+
     @Mock
     private Channel thisChannel;
     @Mock
@@ -123,7 +127,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final AtomicBoolean clientHandshakeManagerStopping = new AtomicBoolean(false);
 
     @Mock
-    private FailureProcessor failureProcessor;
+    private FailureManager failureManager;
 
     @BeforeEach
     void initMocks() {
@@ -188,9 +192,10 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 () -> List.of(thisChannel.eventLoop()),
                 new AllIdsAreFresh(),
+                new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                failureProcessor
+                failureManager
         );
 
         manager.onInit(thisContext);
@@ -199,6 +204,10 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static HandshakeStartMessage handshakeStartMessageFrom(UUID serverLaunchId) {
+        return handshakeStartMessageFrom(serverLaunchId, CORRECT_CLUSTER_ID);
+    }
+
+    private static HandshakeStartMessage handshakeStartMessageFrom(UUID serverLaunchId, UUID serverClusterId) {
         return MESSAGE_FACTORY.handshakeStartMessage()
                 .serverNode(
                         MESSAGE_FACTORY.clusterNodeMessage()
@@ -208,6 +217,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                                 .port(PORT)
                                 .build()
                 )
+                .serverClusterId(serverClusterId)
                 .build();
     }
 
@@ -298,6 +308,22 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(localHandshakeFuture, willThrow(NodeStoppingException.class));
         assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(NodeStoppingException.class));
+
+        assertThat(recoveryDescriptor.holder(), is(nullValue()));
+    }
+
+    @Test
+    void failsHandshakeIfServerClusterIdDiffersFromOurs() {
+        RecoveryClientHandshakeManager manager = clientHandshakeManager(LOWER_ID);
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        manager.onMessage(handshakeStartMessageFrom(HIGHER_ID, WRONG_CLUSTER_ID));
+
+        assertHandshakeRejectedMessageIsSentWithReason(HandshakeRejectionReason.CLUSTER_ID_MISMATCH);
+
+        assertThat(localHandshakeFuture, willThrow(HandshakeException.class));
+        assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(HandshakeException.class));
 
         assertThat(recoveryDescriptor.holder(), is(nullValue()));
     }

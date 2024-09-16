@@ -38,7 +38,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -72,7 +72,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Low watermark updating occurs in the following cases (will only be updated if the new value is greater than the existing one):</p>
  * <ul>
  *     <li>By calling {@link #updateAndNotify(HybridTimestamp)}.</li>
- *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateFrequency} milliseconds, a new value will be created in
+ *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateInterval} milliseconds, a new value will be created in
  *     {@link #createNewLowWatermarkCandidate()}.</li>
  * </ul>
  *
@@ -110,7 +110,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
@@ -127,20 +127,20 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
      * @param lowWatermarkConfig Low watermark configuration.
      * @param clockService A hybrid logical clock.
      * @param vaultManager Vault manager.
-     * @param failureProcessor Failure processor tha is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public LowWatermarkImpl(
             String nodeName,
             LowWatermarkConfiguration lowWatermarkConfig,
             ClockService clockService,
             VaultManager vaultManager,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             MessagingService messagingService
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
         this.clockService = clockService;
         this.vaultManager = vaultManager;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.messagingService = messagingService;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
@@ -214,7 +214,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
                 () -> updateLowWatermark(createNewLowWatermarkCandidate()),
-                lowWatermarkConfig.updateFrequency().value(),
+                lowWatermarkConfig.updateInterval().value(),
                 TimeUnit.MILLISECONDS
         );
 
@@ -311,7 +311,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                                 if (!(throwable instanceof NodeStoppingException)) {
                                     LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
 
-                                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+                                    failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
 
                                     inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                                 }

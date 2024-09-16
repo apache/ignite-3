@@ -46,12 +46,11 @@ public class RestartPartitionsReplCommand extends BaseCommand implements Runnabl
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(url -> RestartPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot restart partitions"))
                 .print()
-                .start();
+        );
     }
 }

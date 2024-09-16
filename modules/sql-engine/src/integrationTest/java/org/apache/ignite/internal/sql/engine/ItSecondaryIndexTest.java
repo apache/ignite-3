@@ -838,7 +838,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
         // Not nullable column, filter is always - false.
         assertQuery("SELECT * FROM T1 WHERE id IS NULL")
-                .matches(QueryChecker.matches(".*filters=\\[false\\].*"))
+                .matches(QueryChecker.matches(".*tuples=\\[\\[\\]\\].*"))
                 .check();
     }
 

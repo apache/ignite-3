@@ -22,6 +22,8 @@
 #include <future>
 #include <memory>
 #include <utility>
+#include <optional>
+#include <string>
 
 namespace ignite::detail {
 
@@ -53,6 +55,20 @@ std::future<T> make_future_value(T value) {
     promise.set_value(std::move(value));
 
     return promise.get_future();
+}
+
+/**
+ * Get environment variable.
+ *
+ * @param name Variable name.
+ * @return Variable value if it is set, or @c std::nullopt otherwise.
+ */
+inline std::optional<std::string> get_env(const std::string &name) {
+    const char *env = std::getenv(name.c_str());
+    if (!env)
+        return {};
+
+    return env;
 }
 
 } // namespace ignite::detail

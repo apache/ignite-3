@@ -18,11 +18,9 @@
 namespace Apache.Ignite.Tests.Proto;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -276,8 +274,6 @@ public class ColocationHashTests : IgniteTestsBase
             Guid => ColumnType.Uuid,
             byte[] => ColumnType.ByteArray,
             string => ColumnType.String,
-            BigInteger => ColumnType.Number,
-            BitArray => ColumnType.Bitmask,
             LocalTime => ColumnType.Time,
             LocalDate => ColumnType.Date,
             LocalDateTime => ColumnType.Datetime,

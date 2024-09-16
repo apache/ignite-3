@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
@@ -27,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -66,8 +64,11 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     private final Map<String, RocksDbKeyValueStorage> storageByName = new HashMap<>();
 
     /** After each. */
+    @Override
     @AfterEach
-    void tearDown() throws Exception {
+    public void afterTest() throws Exception {
+        super.afterTest();
+
         IgniteUtils.closeAll(storageByName.values().stream().map(storage -> storage::close));
     }
 
@@ -149,23 +150,18 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
+    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
-            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureProcessor());
+            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureManager());
 
             s.start();
 
             return s;
         });
 
-        return new MetaStorageListener(
-                storage,
-                new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()),
-                raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-        );
+        return new MetaStorageListener(storage, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()));
     }
 
     /** {@inheritDoc} */

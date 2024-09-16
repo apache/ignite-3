@@ -47,6 +47,7 @@ dependencies {
     implementation libs.tree.sitter
     implementation libs.tree.sitter.sql
     implementation libs.tree.sitter.json
+    implementation libs.tree.sitter.hocon
 
     implementation libs.fliptables
     implementation libs.jline.core

@@ -724,6 +724,11 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         }
 
         @Override
+        public RelDataType rowTypeForUpdate(IgniteTypeFactory factory) {
+            return protoType.apply(factory);
+        }
+
+        @Override
         public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
             throw new AssertionError();
         }

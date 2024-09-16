@@ -36,10 +36,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -80,6 +82,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
+
+    private final ClusterIdSupplier clusterIdSupplier;
 
     private final BooleanSupplier stopping;
 
@@ -111,7 +115,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private RecoveryDescriptor recoveryDescriptor;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -119,7 +123,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @param localNode {@link ClusterNode} representing this node.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public RecoveryClientHandshakeManager(
             ClusterNode localNode,
@@ -127,17 +131,19 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
+            ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
+        this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -311,6 +317,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return true;
         }
 
+        if (clusterIdMismatch(message.serverClusterId(), clusterIdSupplier.clusterId())) {
+            handleClusterIdMismatch(message);
+
+            return true;
+        }
+
         if (stopping.getAsBoolean()) {
             handleRefusalToEstablishConnectionDueToStopping(message);
 
@@ -327,11 +339,23 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         );
     }
 
+    private static boolean clusterIdMismatch(@Nullable UUID serverClusterId, @Nullable UUID clientClusterId) {
+        return serverClusterId != null && clientClusterId != null && !serverClusterId.equals(clientClusterId);
+    }
+
     private void handleStaleServerId(HandshakeStartMessage msg) {
         String message = msg.serverNode().name() + ":" + msg.serverNode().id()
                 + " is stale, server should be restarted so that clients can connect";
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
+    }
+
+    private void handleClusterIdMismatch(HandshakeStartMessage msg) {
+        String message = msg.serverNode().name() + ":" + msg.serverNode().id()
+                + " belongs to cluster " + msg.serverClusterId() + " which is different from this one " + clusterIdSupplier.clusterId()
+                + ", connection rejected; should CMG/MG repair be finished?";
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.CLUSTER_ID_MISMATCH, HandshakeException::new);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
@@ -371,7 +395,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         if (!ignorable) {
-            failureProcessor.process(
+            failureManager.process(
                     new FailureContext(CRITICAL_ERROR, new HandshakeException("Handshake rejected by server: " + msg.message())));
         }
     }

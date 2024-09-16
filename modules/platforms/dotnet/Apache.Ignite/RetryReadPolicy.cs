@@ -56,6 +56,7 @@ namespace Apache.Ignite
                 ClientOperationType.TupleGetAndDelete => false,
                 ClientOperationType.TupleContainsKey => false,
                 ClientOperationType.ComputeExecute => false,
+                ClientOperationType.ComputeExecuteMapReduce => false,
                 ClientOperationType.SqlExecute => false,
                 ClientOperationType.SqlExecuteScript => false,
                 ClientOperationType.ComputeCancel => false,

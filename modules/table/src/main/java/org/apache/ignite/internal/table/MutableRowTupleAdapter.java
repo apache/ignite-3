@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
@@ -219,18 +218,6 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     @Override
     public UUID uuidValue(int columnIndex) {
         return tuple != null ? tuple.uuidValue(columnIndex) : super.uuidValue(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null ? tuple.bitmaskValue(columnName) : super.bitmaskValue(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null ? tuple.bitmaskValue(columnIndex) : super.bitmaskValue(columnIndex);
     }
 
     /** {@inheritDoc} */

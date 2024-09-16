@@ -38,7 +38,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var clientCfg = new IgniteClientConfiguration
             {
-                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString(), server3.Node.Address.ToString() }
+                Endpoints = { server1.Node.Address.ToString()!, server2.Node.Address.ToString()!, server3.Node.Address.ToString()! }
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
@@ -89,7 +89,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var clientCfg = new IgniteClientConfiguration
             {
-                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString() },
+                Endpoints = { server1.Node.Address.ToString()!, server2.Node.Address.ToString()! },
                 RetryPolicy = new RetryLimitPolicy { RetryLimit = 2 }
             };
 

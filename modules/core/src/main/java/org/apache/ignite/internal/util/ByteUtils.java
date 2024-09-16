@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -269,6 +270,26 @@ public class ByteUtils {
     }
 
     /**
+     * Deserializes an object from byte array using native java serialization mechanism.
+     *
+     * @param bytes Byte array.
+     * @param from – the offset in the buffer of the first byte to read.
+     * @param length – the maximum number of bytes to read from the buffer.
+     * @return Object.
+     */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22894 Extend test coverage.
+    public static <T> T fromBytes(byte[] bytes, int from, int length) {
+        try (
+                var bis = new ByteArrayInputStream(bytes, from, length);
+                var in = new ObjectInputStream(bis)
+        ) {
+            return (T) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IgniteInternalException("Could not deserialize an object", e);
+        }
+    }
+
+    /**
      * Converts a string to a byte array using {@link StandardCharsets#UTF_8}, {@code null} if {@code s} is {@code null}.
      *
      * @param s String to convert.
@@ -323,5 +344,27 @@ public class ByteUtils {
         }
 
         return unmodifiableList(result);
+    }
+
+    /**
+     * Converts a UUID to bytes.
+     */
+    public static byte[] uuidToBytes(UUID uuid) {
+        byte[] bytes = new byte[2 * Long.BYTES];
+
+        putLongToBytes(uuid.getMostSignificantBits(), bytes, 0);
+        putLongToBytes(uuid.getLeastSignificantBits(), bytes, Long.BYTES);
+
+        return bytes;
+    }
+
+    /**
+     * Converts a UUID back from bytes.
+     */
+    public static UUID bytesToUuid(byte[] bytes) {
+        long higher = bytesToLong(bytes, 0);
+        long lower = bytesToLong(bytes, Long.BYTES);
+
+        return new UUID(higher, lower);
     }
 }

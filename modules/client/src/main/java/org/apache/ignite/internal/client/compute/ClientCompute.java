@@ -42,11 +42,13 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -120,14 +122,14 @@ public class ClientCompute implements IgniteCompute {
                 return new ClientJobExecution<>(
                         ch,
                         doExecuteColocatedAsync(
-                        colocatedTarget.tableName(),
-                        colocatedTarget.key(),
-                        mapper,
-                        descriptor.units(),
-                        descriptor.jobClassName(),
-                        descriptor.options(),
-                        descriptor.argumentMarshaller(),
-                        arg
+                                colocatedTarget.tableName(),
+                                colocatedTarget.key(),
+                                mapper,
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                descriptor.argumentMarshaller(),
+                                arg
                         ),
                         descriptor.resultMarshaller());
             } else {
@@ -223,26 +225,33 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(taskClassName);
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        Objects.requireNonNull(taskDescriptor);
 
-        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args, null));
+        return new ClientTaskExecution<>(
+                ch,
+                doExecuteMapReduceAsync(
+                        taskDescriptor.units(), taskDescriptor.taskClassName(), arg,
+                        taskDescriptor.splitJobArgumentMarshaller()
+                ),
+                taskDescriptor.reduceJobResultMarshaller()
+        );
     }
 
     @Override
-    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return sync(executeMapReduceAsync(units, taskClassName, args));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
-    private <T> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
+    private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
             List<DeploymentUnit> units,
             String taskClassName,
-            T args,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
+            @Nullable T arg,
+            @Nullable Marshaller<T, byte[]> argumentMarshaller
+    ) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
-                w -> packTask(w.out(), units, taskClassName, args, marshaller),
+                w -> packTask(w.out(), units, taskClassName, arg, (Marshaller<Object, byte[]>) argumentMarshaller),
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,
@@ -421,17 +430,17 @@ public class ClientCompute implements IgniteCompute {
         w.packString(jobClassName);
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
-        w.packObjectAsBinaryTuple(args, marshaller);
+        ClientComputeJobPacker.packJobArgument(args, marshaller, w);
     }
 
     private static void packTask(ClientMessagePacker w,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object args,
+            @Nullable Object arg,
             @Nullable Marshaller<Object, byte[]> marshaller) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
-        w.packObjectAsBinaryTuple(args, marshaller);
+        ClientComputeJobPacker.packJobArgument(arg, marshaller, w);
     }
 
     /**

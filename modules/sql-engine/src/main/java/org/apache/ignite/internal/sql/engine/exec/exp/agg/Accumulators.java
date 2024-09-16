@@ -27,16 +27,17 @@ import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -102,13 +103,17 @@ public class Accumulators {
 
     private Supplier<Accumulator> avgFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
+            case TINYINT:
+            case SMALLINT:
+            case INTEGER:
             case BIGINT:
+                return () -> DecimalAvg.FACTORY.apply(0);
             case DECIMAL:
-                return DecimalAvg.FACTORY;
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200 Add support for interval types.
+                return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
             case DOUBLE:
             case REAL:
             case FLOAT:
-            case INTEGER:
             default:
                 // IgniteCustomType: AVG for a custom type should go here.
                 if (call.type.getSqlTypeName() == ANY) {
@@ -305,11 +310,20 @@ public class Accumulators {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class DecimalAvg implements Accumulator {
-        public static final Supplier<Accumulator> FACTORY = DecimalAvg::new;
+        public static final IntFunction<Accumulator> FACTORY = DecimalAvg::new;
 
         private BigDecimal sum = BigDecimal.ZERO;
 
         private BigDecimal cnt = BigDecimal.ZERO;
+
+        private final int precision;
+
+        private final int scale;
+
+        DecimalAvg(int scale) {
+            this.precision = RelDataType.PRECISION_NOT_SPECIFIED;
+            this.scale = scale;
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -327,7 +341,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : sum.divide(cnt, MathContext.DECIMAL64);
+            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, precision, scale);
         }
 
         /** {@inheritDoc} */
@@ -339,7 +353,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL, precision, scale), true);
         }
     }
 
@@ -530,7 +544,7 @@ public class Accumulators {
     private static class DecimalSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
 
-        private BigDecimal sum;
+        private BigDecimal sum = BigDecimal.ZERO;
 
         /** {@inheritDoc} */
         @Override
@@ -541,13 +555,13 @@ public class Accumulators {
                 return;
             }
 
-            sum = sum == null ? in : sum.add(in);
+            sum = sum.add(in);
         }
 
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return sum != null ? sum : BigDecimal.ZERO;
+            return sum;
         }
 
         /** {@inheritDoc} */
@@ -559,7 +573,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), false);
         }
     }
 

@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
 using Ignite.Sql;
+using Marshalling;
 using NodaTime;
 
 /// <summary>

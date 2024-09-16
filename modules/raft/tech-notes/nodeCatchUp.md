@@ -4,7 +4,7 @@
 
 We have a closure named `NodeImpl.OnCaughtUp`, which is responsible for the catching up process for every stale node/replicator on a leader.
 This closure is created every time we call `NodeImpl.ConfigurationCtx#addNewPeers` which happens on a raft configuration change, for example
-when we call `NodeImpl#changePeers`. In `NodeImpl.ConfigurationCtx#addNewPeers` method we assign `OnCaughtUp` closure with a corresponding
+when we call `NodeImpl#changePeerAndLearners`. In `NodeImpl.ConfigurationCtx#addNewPeers` method we assign `OnCaughtUp` closure with a corresponding
 replicator for a stale node. This is done inside `ReplicatorGroupImpl#waitCaughtUp`
 by calling `Replicator#waitForCaughtUp`. To be more precise, we save the closure in a field `Replicator#catchUpClosure` and also we schedule
 timer on a replicator to call `Replicator#onCatchUpTimedOut` (by default it is called after election timeout).

@@ -81,7 +81,19 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @return Future that's completed when flushing of the data is completed.
      * @see MvPartitionStorage#flush()
      */
-    CompletableFuture<Void> flush();
+    default CompletableFuture<Void> flush() {
+        return flush(true);
+    }
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     * This feature allows implementing a batch flush for several partitions at once.
+     *
+     * @param trigger {@code true} if the flush should be explicitly triggered, otherwise
+     *         the future for the next scheduled flush will be returned.
+     * @see MvPartitionStorage#flush(boolean)
+     */
+    CompletableFuture<Void> flush(boolean trigger);
 
     /**
      * Index of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
@@ -220,8 +232,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * Updates the current lease start time in the storage.
      *
      * @param leaseStartTime Lease start time.
+     * @param primaryReplicaNodeId Primary replica node id.
+     * @param primaryReplicaNodeName Primary replica node name.
      */
-    void updateLease(long leaseStartTime);
+    void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    );
 
     /**
      * Return the start time of the known lease for this replication group.
@@ -229,4 +247,18 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @return Lease start time.
      */
     long leaseStartTime();
+
+    /**
+     * Return the node id of the known lease for this replication group.
+     *
+     * @return Primary replica node id.
+     */
+    String primaryReplicaNodeId();
+
+    /**
+     * Return the node name of the known lease for this replication group.
+     *
+     * @return Primary replica node name.
+     */
+    String primaryReplicaNodeName();
 }

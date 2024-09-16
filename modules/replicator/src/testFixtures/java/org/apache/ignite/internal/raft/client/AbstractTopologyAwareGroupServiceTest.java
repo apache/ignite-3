@@ -56,11 +56,13 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -101,6 +103,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     private final Map<NetworkAddress, ClusterService> clusterServices = new HashMap<>();
 
     private final Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
+
+    private final Map<NetworkAddress, LogStorageFactory> logStorageFactories = new HashMap<>();
 
     private final List<TopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
@@ -226,7 +230,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 isServerAddress,
                 nodes,
                 null,
-                new LogicalTopologyServiceTestImpl(clientClusterService),
+                new TestLogicalTopologyService(clientClusterService),
                 false
         );
 
@@ -291,6 +295,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertThat(raftServiceToStop.stopAsync(componentContext), willCompleteSuccessfully());
 
         afterNodeStop(leader.name());
+
+        var logStorageToStop = logStorageFactories.remove(new NetworkAddress("localhost", leader.address().port()));
+        assertThat(logStorageToStop.stopAsync(componentContext), willCompleteSuccessfully());
 
         CompletableFuture<Void> stopFuture =
                 clusterServices.remove(new NetworkAddress("localhost", leader.address().port()))
@@ -373,11 +380,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 assertThat(raftServers.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
             }
-
+            if (logStorageFactories.containsKey(addr)) {
+                assertThat(logStorageFactories.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
+            }
             assertThat(clusterServices.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
         }
 
         raftServers.clear();
+        logStorageFactories.clear();
         clusterServices.clear();
     }
 
@@ -415,7 +425,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         for (NetworkAddress addr : addresses) {
             ClusterService cluster = clusterServices.get(addr);
 
-            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(cluster);
+            LogicalTopologyService logicalTopologyService = new TestLogicalTopologyService(cluster);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -430,10 +440,19 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 NodeOptions nodeOptions = new NodeOptions();
                 nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
+                Path workingDir = dataPath.resolve("partitions");
+
+                LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                        cluster.nodeName(),
+                        workingDir.resolve("log")
+                );
+
+                logStorageFactories.put(addr, partitionsLogStorageFactory);
+
+                assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
                 var raftServer = TestJraftServerFactory.create(
                         cluster,
-                        dataPath,
-                        raftConfiguration,
                         nodeOptions,
                         eventsClientListener
                 );
@@ -443,7 +462,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         new RaftNodeId(GROUP_ID, localPeer),
                         peersAndLearners,
                         new TestRaftGroupListener(),
-                        RaftGroupOptions.defaults().commandsMarshaller(commandsMarshaller)
+                        RaftGroupOptions.defaults()
+                                .commandsMarshaller(commandsMarshaller)
+                                .setLogStorageFactory(partitionsLogStorageFactory)
+                                .serverDataPath(workingDir.resolve("meta"))
                 );
 
                 raftServers.put(addr, raftServer);

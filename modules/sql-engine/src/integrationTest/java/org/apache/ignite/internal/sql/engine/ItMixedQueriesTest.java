@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -213,7 +213,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     public void testIgniteSchemaAwaresAlterTableCommand(int nodeToExecuteSelectsIndex) {
-        IgniteImpl nodeToExecuteSelects = CLUSTER.node(nodeToExecuteSelectsIndex);
+        Ignite nodeToExecuteSelects = CLUSTER.node(nodeToExecuteSelectsIndex);
 
         String selectAllQry = "select * from test_tbl";
 

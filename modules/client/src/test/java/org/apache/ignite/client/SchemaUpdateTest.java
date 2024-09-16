@@ -43,7 +43,7 @@ public class SchemaUpdateTest extends BaseIgniteAbstractTest {
     private IgniteClient client;
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         if (client != null) {
             client.close();
         }

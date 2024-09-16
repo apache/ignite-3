@@ -102,6 +102,20 @@ public:
     static std::vector<std::string> get_node_addrs() { return ignite_runner::get_node_addrs(); }
 
     /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::SSL_NODE_ADDRS; }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::SSL_NODE_CA_ADDRS; }
+
+    /**
      * Clear table @c TABLE_1.
      */
     static void clear_table1() {
@@ -110,6 +124,38 @@ public:
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
         client.get_sql().execute(nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
+    }
+
+    /**
+     * Get a path to a SSL file.
+     * @param file
+     * @return
+     */
+    static std::string get_ssl_file(const std::string& file)
+    {
+        auto test_dir = resolve_test_dir();
+        auto ssl_files_dir = test_dir / "client-test" / "ssl";
+        if (!std::filesystem::is_directory(ssl_files_dir))
+            throw ignite_error("Can not find an 'ssl' directory in the current 'tests' directory: " + ssl_files_dir.string());
+
+        return (ssl_files_dir / file).string();
+    }
+
+    /**
+     * Try connect to ssl server successfully.
+     * @param timeout Timeout.
+     * @return Client.
+     */
+    static ignite_client connect_successfully_to_ssl_server(std::chrono::seconds timeout) {
+        ignite_client_configuration cfg{get_ssl_node_addrs()};
+        cfg.set_logger(get_logger());
+
+        cfg.set_ssl_mode(ssl_mode::REQUIRE);
+        cfg.set_ssl_cert_file(get_ssl_file("client.pem"));
+        cfg.set_ssl_key_file(get_ssl_file("client.pem"));
+        cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
+
+        return ignite_client::start(cfg, timeout);
     }
 };
 

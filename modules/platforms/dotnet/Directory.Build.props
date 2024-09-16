@@ -34,11 +34,15 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <PackageTags>Apache;Ignite;In-Memory;Distributed;Computing;SQL;NoSQL;Database;</PackageTags>
         <Description>.NET client for Apache Ignite. Ignite is a distributed database for high-performance computing with in-memory speed.</Description>
+
+        <NuGetAudit>true</NuGetAudit>
+        <NuGetAuditMode>all</NuGetAuditMode> <!-- Direct and transitive dependencies -->
+        <NuGetAuditLevel>low</NuGetAuditLevel> <!-- Fail on low+ severity issues -->
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0"/>
-        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.435" PrivateAssets="all"/>
+        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all"/>
     </ItemGroup>
 
     <ItemGroup>

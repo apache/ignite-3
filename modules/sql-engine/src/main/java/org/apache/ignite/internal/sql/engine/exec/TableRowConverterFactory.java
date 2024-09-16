@@ -27,4 +27,8 @@ import org.jetbrains.annotations.Nullable;
 @FunctionalInterface
 public interface TableRowConverterFactory {
     TableRowConverter create(@Nullable BitSet requiredColumns);
+
+    default TableRowConverter create(BitSet requiredColumns, int partId) {
+        return create(requiredColumns);
+    }
 }

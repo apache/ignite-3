@@ -48,6 +48,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -59,6 +61,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -89,9 +93,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     private static final List<NetworkAddress> ADDRS = List.of(
-            new NetworkAddress("localhost", 5000),
             new NetworkAddress("localhost", 5001),
-            new NetworkAddress("localhost", 5002)
+            new NetworkAddress("localhost", 5002),
+            new NetworkAddress("localhost", 5003)
     );
 
     @InjectConfiguration
@@ -105,12 +109,23 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         final Loza loza;
 
+        final LogStorageFactory logStorageFactory;
+
+        ComponentWorkingDir partitionsWorkDir;
+
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = TestLozaFactory.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
+            partitionsWorkDir = new ComponentWorkingDir(raftDir);
+
+            logStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.raftLogPath()
+            );
+
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
         }
 
         String consistentId() {
@@ -122,7 +137,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, logStorageFactory, loza), willCompleteSuccessfully());
         }
 
         @Override
@@ -134,6 +149,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     loza == null ? null : () -> assertThat(loza.stopAsync(componentContext), willCompleteSuccessfully()),
+                    logStorageFactory == null ? null : () -> logStorageFactory.stopAsync(componentContext),
                     clusterService == null ? null :
                             () -> assertThat(clusterService.stopAsync(componentContext), willCompleteSuccessfully())
             );
@@ -333,7 +349,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests adding a new learner using {@link RaftGroupService#changePeersAsync} to an Ignite node that is already running a Raft peer.
+     * Tests adding a new learner using {@link RaftGroupService#changePeersAndLearnersAsync} to an Ignite node that is already running a
+     * Raft peer.
      */
     @Test
     void testChangePeersToAddLearnerToSameNodeAsPeer() throws InterruptedException {
@@ -368,7 +385,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         PeersAndLearners newConfiguration = createConfiguration(followers, List.of(learner, newLearner));
 
         CompletableFuture<Void> changePeersFuture = learnerService.thenCompose(s -> s.refreshAndGetLeaderWithTerm()
-                .thenCompose(leaderWithTerm -> s.changePeersAsync(newConfiguration, leaderWithTerm.term())
+                .thenCompose(leaderWithTerm -> s.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
         ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
@@ -409,7 +426,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     new RaftNodeId(RAFT_GROUP_ID, serverPeer),
                     memberConfiguration,
                     listener,
-                    RaftGroupEventsListener.noopLsnr
+                    RaftGroupEventsListener.noopLsnr,
+                    RaftGroupOptionsConfigHelper.configureProperties(node.logStorageFactory, node.partitionsWorkDir.metaPath())
             );
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);

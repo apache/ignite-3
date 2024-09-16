@@ -27,5 +27,5 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 public class VolatileRaftConfigurationSchema {
     /** Config of log storage budget. */
     @ConfigValue
-    public LogStorageBudgetConfigurationSchema logStorage;
+    public LogStorageBudgetConfigurationSchema logStorageBudget;
 }

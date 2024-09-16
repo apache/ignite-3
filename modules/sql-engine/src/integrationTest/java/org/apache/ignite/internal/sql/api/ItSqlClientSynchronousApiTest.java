@@ -36,7 +36,7 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @AfterAll
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 

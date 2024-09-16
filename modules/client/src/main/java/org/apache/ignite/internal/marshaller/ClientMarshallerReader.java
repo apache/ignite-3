@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -173,20 +171,6 @@ public class ClientMarshallerReader implements MarshallerReader {
     public byte[] readBytes() {
         var idx = nextSchemaIndex();
         return unpacker.hasNullValue(idx) ? null : unpacker.bytesValue(idx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet readBitSet() {
-        var idx = nextSchemaIndex();
-        return unpacker.hasNullValue(idx) ? null : unpacker.bitmaskValue(idx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigInteger readBigInt() {
-        var idx = nextSchemaIndex();
-        return unpacker.hasNullValue(idx) ? null : unpacker.numberValue(idx);
     }
 
     /** {@inheritDoc} */

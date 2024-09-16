@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.catalog.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
@@ -28,7 +27,7 @@ import org.apache.ignite.configuration.validation.Range;
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-98%3A+Schema+Synchronization">Schema Synchronization IEP</a>
  */
-@ConfigurationRoot(rootName = "schemaSync", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class SchemaSynchronizationConfigurationSchema {
     /** Delay Duration (ms), see the spec for details. */
     @Value(hasDefault = true)

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -28,7 +27,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -244,18 +242,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
-     * @return Element value.
-     */
-    @Deprecated(forRemoval = true)
-    public @Nullable BigInteger numberValue(int index) {
-        seek(index);
-        return begin == end ? null : numberValue(begin, end);
-    }
-
-    /**
-     * Reads value of specified element.
-     *
-     * @param index Element index.
      * @param scale Decimal scale. If equal to {@link Integer#MIN_VALUE}, then the value will be returned with whatever scale it is
      *         stored in.
      * @return Element value.
@@ -304,18 +290,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public @Nullable UUID uuidValue(int index) {
         seek(index);
         return begin == end ? null : uuidValue(begin, end);
-    }
-
-    /**
-     * Reads value of specified element.
-     *
-     * @param index Element index.
-     * @return Element value.
-     */
-    @Deprecated(forRemoval = true)
-    public @Nullable BitSet bitmaskValue(int index) {
-        seek(index);
-        return begin == end ? null : bitmaskValue(begin, end);
     }
 
     /**

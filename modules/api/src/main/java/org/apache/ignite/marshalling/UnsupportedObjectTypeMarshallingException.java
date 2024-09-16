@@ -27,16 +27,21 @@ import org.apache.ignite.lang.IgniteException;
 public class UnsupportedObjectTypeMarshallingException extends IgniteException {
     private static final long serialVersionUID = -8131613381875542450L;
 
+
     /**
      * Creates an exception with the given unsupported type.
      *
      * @param unsupportedType Unsupported type.
      */
     public UnsupportedObjectTypeMarshallingException(Class<?> unsupportedType) {
-        super(
-                Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR,
-                "Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaller that can handle this type."
-        );
+        this("Unsupported object type: " + unsupportedType.getName() + ". Please, define a marshaller that can handle this type.");
+    }
+
+    /**
+     * Creates an exception with the given unsupported type.
+     */
+    public UnsupportedObjectTypeMarshallingException(String msg) {
+        super(Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR, msg);
     }
 
     /**

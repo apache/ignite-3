@@ -230,7 +230,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     private void checkMeta(ResultSetMetaData meta) throws SQLException {
         assertNotNull(meta);
 
-        assertEquals(15, meta.getColumnCount());
+        assertEquals(16, meta.getColumnCount());
 
         assertEquals("METATEST", meta.getTableName(1).toUpperCase());
 
@@ -246,6 +246,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         checkMeta(meta, i++, "DATE_COL", Types.DATE, "DATE", java.sql.Date.class);
         checkMeta(meta, i++, "TIME_COL", Types.TIME, "TIME", java.sql.Time.class);
         checkMeta(meta, i++, "TIMESTAMP_COL", Types.TIMESTAMP, "TIMESTAMP", java.sql.Timestamp.class);
+        checkMeta(meta, i++, "TIMESTAMP_WITH_LOCAL_TIME_ZONE_COL", Types.OTHER, "TIMESTAMP WITH LOCAL TIME ZONE", java.sql.Timestamp.class);
         checkMeta(meta, i++, "UUID_COL", Types.OTHER, "UUID", UUID.class);
         checkMeta(meta, i++, "VARCHAR_COL", Types.VARCHAR, "VARCHAR", String.class);
         checkMeta(meta, i++, "VARBINARY_COL", Types.VARBINARY, "VARBINARY", byte[].class);
@@ -268,13 +269,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             // Add columns with All supported types.
             EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.TIMESTAMP, ColumnType.DURATION,
-                            ColumnType.BITMASK, ColumnType.NUMBER,
-                            ColumnType.PERIOD, ColumnType.NULL);
+                    .of(ColumnType.DURATION, ColumnType.PERIOD, ColumnType.NULL);
             Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
                     .forEach(t -> {
                         String type = SqlTestUtils.toSqlType(t);
-                        joiner.add(type + "_COL " + type);
+                        joiner.add(type.replace(' ', '_') + "_COL " + type);
                     });
             joiner.add("id INT PRIMARY KEY");
 

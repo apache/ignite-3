@@ -46,7 +46,7 @@ public class ItClusterStateHttpServerFilterInitializedTest extends ClusterPerCla
                 Arguments.of("node/state"),
                 Arguments.of("configuration/cluster"),
                 Arguments.of("configuration/node"),
-                Arguments.of("configuration/node/rest"),
+                Arguments.of("configuration/node/ignite.rest"),
                 Arguments.of("cluster/topology/logical"),
                 Arguments.of("cluster/topology/physical")
         );

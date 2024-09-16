@@ -88,18 +88,6 @@ public enum NativeTypeSpec {
     BYTES(false),
 
     /**
-     * Native type representing a bitmask.
-     */
-    @Deprecated(forRemoval = true)
-    BITMASK(true),
-
-    /**
-     * Native type representing a BigInteger.
-     */
-    @Deprecated(forRemoval = true)
-    NUMBER(false),
-
-    /**
      * Native type representing a timezone-free date.
      */
     DATE(true),
@@ -339,6 +327,52 @@ public enum NativeTypeSpec {
      */
     public static @Nullable NativeTypeSpec fromObject(@Nullable Object val) {
         return val != null ? fromClass(val.getClass()) : null;
+    }
+
+    /**
+     * Returns a {@link NativeTypeSpec} that corresponds to the given {@link ColumnType}.
+     *
+     * @param columnType Column type.
+     *
+     * @return Native type.
+     * @throws IllegalArgumentException if ColumnType is {@link ColumnType#NULL} or is not supported.
+     */
+    public static NativeTypeSpec fromColumnType(ColumnType columnType) {
+        switch (columnType) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case INT8:
+                return INT8;
+            case INT16:
+                return INT16;
+            case INT32:
+                return INT32;
+            case INT64:
+                return INT64;
+            case FLOAT:
+                return FLOAT;
+            case DOUBLE:
+                return DOUBLE;
+            case DECIMAL:
+                return DECIMAL;
+            case DATE:
+                return DATE;
+            case TIME:
+                return TIME;
+            case DATETIME:
+                return DATETIME;
+            case TIMESTAMP:
+                return TIMESTAMP;
+            case UUID:
+                return UUID;
+            case STRING:
+                return STRING;
+            case BYTE_ARRAY:
+                return BYTES;
+            case NULL:
+            default:
+                throw new IllegalArgumentException("No native type spec for column type: " + columnType);
+        }
     }
 
     /** {@inheritDoc} */

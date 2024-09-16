@@ -43,7 +43,7 @@ public interface CheckpointProgress {
     /**
      * Returns future which can be used for detection when current checkpoint reaches the specific state.
      */
-    CompletableFuture<?> futureFor(CheckpointState state);
+    CompletableFuture<Void> futureFor(CheckpointState state);
 
     /**
      * Returns number of dirty pages in current checkpoint. If checkpoint is not running, returns {@code 0}.

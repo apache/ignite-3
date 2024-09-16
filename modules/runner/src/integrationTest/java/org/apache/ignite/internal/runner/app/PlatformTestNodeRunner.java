@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -47,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -54,6 +56,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -61,12 +65,19 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.configuration.ClusterChange;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -74,7 +85,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
@@ -84,6 +95,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -127,7 +140,7 @@ public class PlatformTestNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            NODE_NAME, "{\n"
+            NODE_NAME, "ignite {\n"
                     + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
@@ -139,7 +152,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10300\n"
                     + "}",
 
-            NODE_NAME2, "{\n"
+            NODE_NAME2, "ignite {\n"
                     + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
@@ -151,7 +164,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10301\n"
                     + "}",
 
-            NODE_NAME3, "{\n"
+            NODE_NAME3, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
                     + "    \"idleTimeout\":6000,"
@@ -173,7 +186,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10303\n"
                     + "}",
 
-            NODE_NAME4, "{\n"
+            NODE_NAME4, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
                     + "    \"idleTimeout\":6000,"
@@ -231,7 +244,7 @@ public class PlatformTestNodeRunner {
         createTables(startedNodes.get(0));
 
         String ports = startedNodes.stream()
-                .map(n -> String.valueOf(getPort((IgniteImpl) n)))
+                .map(n -> String.valueOf(getPort(unwrapIgniteImpl(n))))
                 .collect(Collectors.joining(","));
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
@@ -294,7 +307,7 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        IgniteImpl ignite = ((IgniteImpl) node);
+        IgniteImpl ignite = unwrapIgniteImpl(node);
 
         createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 
@@ -370,7 +383,6 @@ public class PlatformTestNodeRunner {
                 List.of(keyCol)
         );
 
-        // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         createTable(
                 ignite.catalogManager(),
                 SqlCommon.DEFAULT_SCHEMA_NAME,
@@ -723,11 +735,12 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
             boolean enable = flag != 0;
-            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
+            @SuppressWarnings("resource") IgniteImpl ignite = unwrapIgniteImpl(context.ignite());
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {
-                        SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
+                        ClusterChange clusterChange = root.changeRoot(ClusterConfiguration.KEY);
+                        SecurityChange securityChange = ((SecurityExtensionChange) clusterChange).changeSecurity();
                         securityChange.changeEnabled(enable);
                         securityChange.changeAuthentication().changeProviders().update("default", defaultProviderChange -> {
                             defaultProviderChange.convert(BasicAuthenticationProviderChange.class).changeUsers(users -> {
@@ -839,6 +852,131 @@ public class PlatformTestNodeRunner {
             Partition partition = table.partitionManager().partitionAsync(key).join();
 
             return completedFuture(((HashPartition) partition).partitionId());
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
+            return completedFuture(context.ignite().clusterNodes().stream()
+                    .map(node -> MapReduceJob.<Integer, Void>builder()
+                            .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(input)
+                            .build())
+                    .collect(toList()));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
+            return completedFuture(null);
+        }
+    }
+
+    private static class SleepJob implements ComputeJob<Integer, Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+            try {
+                Thread.sleep(args);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
+        }
+    }
+
+
+    private static class Nested {
+        public UUID id;
+        public BigDecimal price;
+    }
+
+    private static class MyArg {
+        public int id;
+        public String name;
+        public Nested nested;
+    }
+
+    private static class MyResult {
+        public String data;
+        public Nested nested;
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class JsonMarshallerJob implements ComputeJob<MyArg, MyResult> {
+        @Override
+        public @Nullable CompletableFuture<MyResult> executeAsync(JobExecutionContext context, MyArg arg) {
+            var res = new MyResult();
+
+            res.data = arg.name + "_" + arg.id;
+            res.nested = arg.nested;
+
+            return completedFuture(res);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class ToStringMarshallerJob implements ComputeJob<Nested, Nested> {
+        @Override
+        public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
+            if (arg == null) {
+                return completedFuture(null);
+            }
+
+            arg.price = arg.price.add(BigDecimal.ONE);
+
+            return completedFuture(arg);
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> inputMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> resultMarshaller() {
+            return new ToStringMarshaller();
+        }
+    }
+
+    private static class ToStringMarshaller implements Marshaller<Nested, byte[]> {
+        @Override
+        public byte[] marshal(Nested object) throws UnsupportedObjectTypeMarshallingException {
+            if (object == null) {
+                return null;
+            }
+
+            var str = object.id + ":" + object.price;
+
+            return str.getBytes(StandardCharsets.US_ASCII);
+        }
+
+        @Override
+        public @Nullable Nested unmarshal(byte[] raw) throws UnsupportedObjectTypeMarshallingException {
+            if (raw == null) {
+                return null;
+            }
+
+            var str = new String(raw, StandardCharsets.US_ASCII);
+            var parts = str.split(":");
+
+            var res = new Nested();
+            res.id = java.util.UUID.fromString(parts[0]);
+            res.price = new BigDecimal(parts[1]);
+
+            return res;
         }
     }
 }

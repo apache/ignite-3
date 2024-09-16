@@ -225,7 +225,8 @@ enum class code : underlying_t {
 
     // Marshalling group. Group code: 22
     COMMON = 0x160001,
-    UNSUPPORTED_OBJECT_TYPE = 0x160002
+    UNSUPPORTED_OBJECT_TYPE = 0x160002,
+    UNMARSHALLING = 0x160003
 };
 
 } // namespace error

@@ -37,9 +37,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -104,7 +103,6 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -117,11 +115,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
-import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
@@ -129,7 +127,6 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationPr
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -144,11 +141,19 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles messages from thin clients.
+ *
+ * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements EventListener<AuthenticationEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
+
+    private static final byte STATE_BEFORE_HANDSHAKE = 0;
+
+    private static final byte STATE_HANDSHAKE_REQUESTED = 1;
+
+    private static final byte STATE_HANDSHAKE_RESPONSE_SENT = 2;
 
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
@@ -178,7 +183,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final CompletableFuture<ClusterTag> clusterTag;
+    private final Supplier<ClusterInfo> clusterInfoSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -188,8 +193,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Context. */
     private ClientContext clientContext;
 
-    /** Read-write lock. Protects {@link #clientContext}. */
-    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    /** Current state. */
+    private byte state = STATE_BEFORE_HANDSHAKE;
 
     /** Chanel handler context. */
     private volatile ChannelHandlerContext channelHandlerContext;
@@ -215,7 +220,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param configuration Configuration.
      * @param compute Compute.
      * @param clusterService Cluster.
-     * @param clusterTag Cluster tag.
+     * @param clusterInfoSupplier Cluster info supplier.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
@@ -227,7 +232,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientConnectorView configuration,
             IgniteComputeInternal compute,
             ClusterService clusterService,
-            CompletableFuture<ClusterTag> clusterTag,
+            Supplier<ClusterInfo> clusterInfoSupplier,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             ClockService clockService,
@@ -242,7 +247,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
-        assert clusterTag != null;
+        assert clusterInfoSupplier != null;
         assert metrics != null;
         assert authenticationManager != null;
         assert clockService != null;
@@ -256,7 +261,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.compute = compute;
         this.clusterService = clusterService;
         this.queryProcessor = processor;
-        this.clusterTag = clusterTag;
+        this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
@@ -278,16 +283,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
-        authenticationEventsToSubscribe().forEach(event -> {
-            authenticationManager.listen(event, this);
-        });
+        authenticationEventsToSubscribe().forEach(event -> authenticationManager.listen(event, this));
     }
 
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) {
-        authenticationEventsToSubscribe().forEach(event -> {
-            authenticationManager.removeListener(event, this);
-        });
+        authenticationEventsToSubscribe().forEach(event -> authenticationManager.removeListener(event, this));
     }
 
     @Override
@@ -306,17 +307,32 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
-        var unpacker = getUnpacker(byteBuf);
+        var unpacker = new ClientMessageUnpacker(byteBuf);
         metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
         // Packer buffer is released by Netty on send, or by inner exception handlers below.
         var packer = getPacker(ctx.alloc());
 
-        if (clientContext == null) {
-            metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-            handshake(ctx, unpacker, packer);
-        } else {
-            processOperation(ctx, unpacker, packer);
+        switch (state) {
+            case STATE_BEFORE_HANDSHAKE:
+                state = STATE_HANDSHAKE_REQUESTED;
+                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                handshake(ctx, unpacker, packer);
+
+                break;
+
+            case STATE_HANDSHAKE_REQUESTED:
+                // Handshake is in progress, any messages are not allowed.
+                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+
+            case STATE_HANDSHAKE_RESPONSE_SENT:
+                assert clientContext != null : "Client context != null";
+                processOperation(ctx, unpacker, packer);
+
+                break;
+
+            default:
+                throw new IllegalStateException("Unexpected state: " + state);
         }
     }
 
@@ -348,81 +364,96 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
 
-            // It's necessary to perform authentication and update the client context while holding a write lock.
-            // This prevents a race condition where authentication succeeds but the context isn't updated in time.
-            // In such a scenario, we might receive an authentication event and attempt to close the connection,
-            // but fail because the context is still null.
-            readWriteLock.writeLock().lock();
-            try {
-                AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-                UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
-                clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
+            authenticationManager
+                    .authenticateAsync(createAuthenticationRequest(extensions))
+                    .handleAsync((user, err) -> {
+                        if (err != null) {
+                            handshakeError(ctx, packer, err);
+                        } else {
+                            clientContext = new ClientContext(clientVer, clientCode, features, user);
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                        + clientContext);
-            }
+                            sendHandshakeResponse(ctx, packer);
+                        }
 
-            // Response.
-            ProtocolVersion.LATEST_VER.pack(packer);
-            packer.packNil(); // No error.
-
-            packer.packLong(configuration.idleTimeout());
-
-            ClusterNode localMember = clusterService.topologyService().localMember();
-            packer.packString(localMember.id());
-            packer.packString(localMember.name());
-
-            ClusterTag tag = clusterTag.join();
-            packer.packUuid(tag.clusterId());
-            packer.packString(tag.clusterName());
-
-            packer.packLong(observableTimestamp(null));
-
-            // Pack current version
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.maintenance());
-            packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
-            packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
-
-            packer.packBinaryHeader(0); // Features.
-            packer.packInt(0); // Extensions.
-
-            write(packer, ctx);
-
-            metrics.sessionsAcceptedIncrement();
-            metrics.sessionsActiveIncrement();
-
-            ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
+                        return null;
+                    }, ctx.executor());
         } catch (Throwable t) {
-            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                    + t.getMessage(), t);
-
-            packer.close();
-
-            var errPacker = getPacker(ctx.alloc());
-
-            try {
-                ProtocolVersion.LATEST_VER.pack(errPacker);
-
-                writeErrorCore(t, errPacker);
-
-                write(errPacker, ctx);
-            } catch (Throwable t2) {
-                LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                        + t2.getMessage(), t2);
-
-                errPacker.close();
-                exceptionCaught(ctx, t2);
-            }
-
-            metrics.sessionsRejectedIncrement();
+            handshakeError(ctx, packer, t);
         } finally {
             unpacker.close();
+        }
+    }
+
+    private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
+        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                + t.getMessage(), t);
+
+        packer.close();
+
+        var errPacker = getPacker(ctx.alloc());
+
+        try {
+            ProtocolVersion.LATEST_VER.pack(errPacker);
+
+            writeErrorCore(t, errPacker);
+
+            write(errPacker, ctx);
+        } catch (Throwable t2) {
+            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + t2.getMessage(), t2);
+
+            errPacker.close();
+            exceptionCaught(ctx, t2);
+        }
+
+        metrics.sessionsRejectedIncrement();
+    }
+
+    private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer) {
+        ProtocolVersion.LATEST_VER.pack(packer);
+        packer.packNil(); // No error.
+
+        packer.packLong(configuration.idleTimeout());
+
+        ClusterNode localMember = clusterService.topologyService().localMember();
+        packer.packString(localMember.id());
+        packer.packString(localMember.name());
+
+        ClusterInfo clusterInfo = clusterInfoSupplier.get();
+
+        // Cluster ID history, from the oldest to the newest (cluster ID can change during CMG/MG repair).
+        packer.packInt(clusterInfo.idHistory().size());
+        for (UUID clusterId : clusterInfo.idHistory()) {
+            packer.packUuid(clusterId);
+        }
+
+        // Cluster name never changes.
+        packer.packString(clusterInfo.name());
+
+        packer.packLong(observableTimestamp(null));
+
+        // Pack current version
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.maintenance());
+        packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
+        packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
+
+        packer.packBinaryHeader(0); // Features.
+        packer.packInt(0); // Extensions.
+
+        write(packer, ctx);
+
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
+        metrics.sessionsAcceptedIncrement();
+        metrics.sessionsActiveIncrement();
+
+        ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + clientContext);
         }
     }
 
@@ -549,10 +580,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
-    }
-
-    private static ClientMessageUnpacker getUnpacker(ByteBuf buf) {
-        return new ClientMessageUnpacker(buf);
     }
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
@@ -828,12 +855,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** {@inheritDoc} */
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
@@ -929,11 +950,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     @Override
     public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters) {
-        if (shouldCloseConnection(parameters)) {
-            LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
-                    + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
-            closeConnection();
+        var channelCtx = channelHandlerContext;
+
+        if (channelCtx == null) {
+            // Not connected yet.
+            return falseCompletedFuture();
         }
+
+        // Use Netty executor (single thread) to process the event sequentially with network operations - no need to synchronize.
+        channelCtx.executor().submit(() -> {
+            if (shouldCloseConnection(parameters)) {
+                LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
+                        + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
+
+                closeConnection();
+            }
+        });
+
+        // No need to wait for the event processing to complete, return false to continue listening.
         return falseCompletedFuture();
     }
 
@@ -953,12 +987,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private boolean currentUserAffected(AuthenticationProviderEventParameters parameters) {
-        readWriteLock.readLock().lock();
-        try {
-            return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
+        return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
     }
 
     private boolean currentUserAffected(UserEventParameters parameters) {
@@ -968,8 +997,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void closeConnection() {
-        if (channelHandlerContext != null) {
-            channelHandlerContext.close();
+        ChannelHandlerContext ctx = channelHandlerContext;
+
+        if (ctx != null) {
+            ctx.close();
         }
     }
 

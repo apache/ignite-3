@@ -108,27 +108,6 @@ public:
         // Wait for the server to apply the configuration change and drop the client connection.
         std::this_thread::sleep_for(std::chrono::seconds(10));
 
-        // TODO: IGNITE-18885 C++: Thin 3.0: Add TLS support
-#ifdef MUTED
-        // Check that configuration has been applied to all nodes.
-        auto applied = wait_for_condition(std::chrono::seconds(10), [&] () -> bool {
-            for (const auto &addr : ignite_runner::NODE_ADDRS) {
-                ignite_client_configuration cfg{addr};
-                cfg.set_logger(get_logger());
-
-                if (enable) {
-                   auto auth = std::make_shared<ignite::basic_authenticator>(CORRECT_USERNAME, CORRECT_PASSWORD);
-                   cfg.set_authenticator(auth);
-                }
-
-                auto client = ignite_client::start(cfg, std::chrono::seconds(30));
-            }
-            return true;
-        });
-        if (!applied)
-            throw ignite_error("Auth configuration was not applied within timeout");
-#endif
-
         m_auth_enabled = enable;
     }
 

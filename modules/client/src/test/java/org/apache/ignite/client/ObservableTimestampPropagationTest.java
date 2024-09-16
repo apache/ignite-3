@@ -29,10 +29,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.TransactionOptions;
@@ -71,7 +71,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
-        ReliableChannel ch = IgniteTestUtils.getFieldValue(client, "ch");
+        ReliableChannel ch = ((TcpIgniteClient) client).channel();
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
 
         // +2 because logical time is incremented on every call to nowLong - for replica tracker and for handshake.

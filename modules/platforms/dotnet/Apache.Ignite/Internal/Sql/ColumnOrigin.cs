@@ -15,9 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Sql
-{
-    using Ignite.Sql;
+namespace Apache.Ignite.Internal.Sql;
 
-    internal sealed record ColumnOrigin(string ColumnName, string SchemaName, string TableName) : IColumnOrigin;
-}
+using Ignite.Sql;
+
+/// <summary>
+/// Column origin.
+/// </summary>
+/// <param name="ColumnName">Column name.</param>
+/// <param name="SchemaName">Schema name.</param>
+/// <param name="TableName">Table name.</param>
+internal sealed record ColumnOrigin(string ColumnName, string SchemaName, string TableName) : IColumnOrigin;

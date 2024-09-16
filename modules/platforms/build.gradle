@@ -33,7 +33,6 @@ configurations {
 
 cmakeConfigure.enabled = false
 cmakeBuild.enabled = false
-cmakeClean.enabled = false
 
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
@@ -156,6 +155,16 @@ task createChecksums(type: Checksum) {
 tasks.register('signArtifacts', Sign) {
     sign zipNuGet
     sign zipCppClient
+}
+
+tasks.register('dotnetTest', Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    // Do not require external server, it will be started as part of tests.
+    // Alternatively, start PlatformTestNodeRunner manually before executing this task.
+    environment("IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER", "false")
+
+    commandLine "dotnet", "test", "Apache.Ignite.Tests", "--logger", "console;verbosity=normal"
 }
 
 configurations {

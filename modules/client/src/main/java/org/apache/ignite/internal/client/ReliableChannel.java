@@ -57,6 +57,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -148,16 +149,15 @@ public final class ReliableChannel implements AutoCloseable {
 
         List<ClientChannelHolder> holders = channels;
 
-        IgniteUtils.closeAllManually(
-                () -> {
-                    if (holders != null) {
-                        for (ClientChannelHolder hld : holders) {
-                            hld.close();
-                        }
-                    }
-                },
-                connMgr::stop,
-                () -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
+        List<ManuallyCloseable> closeables = new ArrayList<>();
+        if (holders != null) {
+            for (ClientChannelHolder hld : holders) {
+                closeables.add(hld::close);
+            }
+        }
+        closeables.add(connMgr::stop);
+        closeables.add(() -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
+        IgniteUtils.closeAllManually(closeables);
     }
 
     /**
@@ -198,6 +198,29 @@ public final class ReliableChannel implements AutoCloseable {
 
     public long observableTimestamp() {
         return observableTimestamp.get();
+    }
+
+    /**
+     * Gets active client channels.
+     *
+     * @return List of connected channels.
+     */
+    public List<ClientChannel> channels() {
+        List<ClientChannel> res = new ArrayList<>(channels.size());
+
+        for (var holder : nodeChannelsByName.values()) {
+            var chFut = holder.chFut;
+
+            if (chFut != null) {
+                ClientChannel ch = ClientFutureUtils.getNowSafe(chFut);
+
+                if (ch != null && !ch.closed()) {
+                    res.add(ch);
+                }
+            }
+        }
+
+        return res;
     }
 
     /**
@@ -559,7 +582,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     private CompletableFuture<ClientChannel> getCurChannelAsync() {
         if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed"));
+            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed", null));
         }
 
         curChannelsGuard.readLock().lock();
@@ -806,8 +829,8 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 if (!ignoreThrottling && applyReconnectionThrottling()) {
-                    return CompletableFuture.failedFuture(
-                            new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
+                    return CompletableFuture.failedFuture(new IgniteClientConnectionException(
+                            CONNECTION_ERR, "Reconnect is not allowed due to applied throttling", null));
                 }
 
                 CompletableFuture<ClientChannel> createFut = chFactory.create(
@@ -818,9 +841,11 @@ public final class ReliableChannel implements AutoCloseable {
                         ReliableChannel.this::onObservableTimestampReceived);
 
                 chFut0 = createFut.thenApply(ch -> {
-                    var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
+                    UUID currentClusterId = ch.protocolContext().clusterId();
+                    UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
+                    List<UUID> validClusterIds = ch.protocolContext().clusterIds();
 
-                    if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {
+                    if (oldClusterId != null && !validClusterIds.contains(oldClusterId)) {
                         try {
                             ch.close();
                         } catch (Exception ignored) {
@@ -829,7 +854,8 @@ public final class ReliableChannel implements AutoCloseable {
 
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + String.join(", " + validClusterIds),
+                                ch.endpoint());
                     }
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();

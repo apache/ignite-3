@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -54,7 +54,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
     private final WatchProcessor watchProcessor = new WatchProcessor(
             "test",
             WatchProcessorTest::oldEntry,
-            mock(FailureProcessor.class));
+            mock(FailureManager.class));
 
     private final OnRevisionAppliedCallback revisionCallback = mock(OnRevisionAppliedCallback.class);
 

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
-public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, IgniteComponent {
+public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumBeginTimeProvider, IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -146,6 +147,20 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
         });
     }
 
+    @Override
+    public HybridTimestamp minimumBeginTime() {
+        readWriteLock.writeLock().lock();
+
+        try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22975 Improve minimum begin time determination
+            return txCatalogVersionByBeginTxTs.keySet().stream()
+                    .min(HybridTimestamp::compareTo)
+                    .orElse(clock.now());
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+    }
+
     /**
      * Handles {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} of {@link IndexMessageGroup}.
      *
@@ -172,7 +187,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     /**
-     * Returns {@code true} iff the requested catalog version is active and all RW transactions started on versions strictly before that
+     * Returns {@code true} if the requested catalog version is active and all RW transactions started on versions strictly before that
      * version have finished on the node.
      *
      * @param catalogVersion Catalog version of interest.

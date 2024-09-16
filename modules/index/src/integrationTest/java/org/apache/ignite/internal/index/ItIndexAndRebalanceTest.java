@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -75,7 +77,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         waitForStableAssignmentsChangeInMetastore(TABLE_NAME, 2, 0);
         insertPeople(TABLE_NAME, new Person(2, "2", 12.0));
 
-        for (IgniteImpl node : CLUSTER.runningNodes().collect(toList())) {
+        for (Ignite node : CLUSTER.runningNodes().collect(toList())) {
             // TODO: IGNITE-21710 Understand why the check fails and returns 2 rows instead of 3 from the rebalancing node
             assertQuery(node, format("SELECT * FROM {} WHERE {} > 0.0", TABLE_NAME, COLUMN_NAME))
                     .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
@@ -93,7 +95,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
             int expReplicaCount,
             int partitionId
     ) throws Exception {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         int tableId = getTableIdStrict(node.catalogManager(), tableName, node.clock().nowLong());
 

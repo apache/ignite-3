@@ -1,4 +1,5 @@
 /*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -29,6 +30,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
@@ -48,6 +50,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-client')
 }
 

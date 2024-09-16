@@ -25,6 +25,9 @@ public class MappingParameters {
     /** Empty mapping parameters. */
     public static final MappingParameters EMPTY = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, false);
 
+    /** Allow map on backups. */
+    public static final MappingParameters MAP_ON_BACKUPS = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, true);
+
     private final boolean mapOnBackups;
     private final Object[] dynamicParameters;
 
@@ -38,7 +41,7 @@ public class MappingParameters {
      */
     public static MappingParameters create(Object[] dynamicParameters, boolean mapOnBackups) {
         if (dynamicParameters.length == 0) {
-            return EMPTY;
+            return mapOnBackups ? MAP_ON_BACKUPS : EMPTY;
         } else {
             return new MappingParameters(dynamicParameters, mapOnBackups);
         }

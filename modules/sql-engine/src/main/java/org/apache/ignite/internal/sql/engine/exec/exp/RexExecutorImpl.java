@@ -21,7 +21,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.List;
 import org.apache.calcite.DataContext;
-import org.apache.calcite.adapter.java.JavaTypeFactory;
+import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -193,20 +193,12 @@ public class RexExecutorImpl implements RexExecutor {
                     BuiltInMethod.DATA_CONTEXT_GET.method,
                     Expressions.constant("inputRecord"));
 
-            Expression recFromCtxCasted =
-                    ConverterUtils.convert(recFromCtx, Object[].class);
+            Expression recFromCtxCasted = EnumUtils.convert(recFromCtx, Object[].class);
 
             IndexExpression recordAccess = Expressions.arrayIndex(recFromCtxCasted,
                     Expressions.constant(idx));
-
-            if (storageType == null) {
-                final RelDataType fieldType =
-                        rowType.getFieldList().get(idx).getType();
-
-                storageType = ((JavaTypeFactory) typeFactory).getJavaClass(fieldType);
-            }
-
-            return ConverterUtils.convert(recordAccess, storageType);
+            RelDataType fieldType =  rowType.getFieldList().get(idx).getType();
+            return ConverterUtils.convert(recordAccess, fieldType);
         }
     }
 }

@@ -19,10 +19,9 @@ package org.apache.ignite.internal.network.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -37,8 +36,8 @@ public class NetworkConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(NetworkConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(NetworkExtensionConfigurationSchema.class);
     }
 
     @Override

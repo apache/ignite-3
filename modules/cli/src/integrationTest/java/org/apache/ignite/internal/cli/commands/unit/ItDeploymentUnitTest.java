@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.unit;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -215,7 +216,7 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
             assertDeployed(id);
 
             CLUSTER.runningNodes().forEach(ignite -> {
-                String nodeUrl = "http://" + ignite.restHttpAddress().toString();
+                String nodeUrl = "http://" + unwrapIgniteImpl(ignite).restHttpAddress().toString();
                 execute("node", "unit", "list", "--plain", "--url", nodeUrl, id);
 
                 // Unit is deployed on the node

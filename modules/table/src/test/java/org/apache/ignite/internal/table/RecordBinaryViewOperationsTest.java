@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
@@ -50,8 +49,8 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -280,17 +279,22 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         final Tuple tuple0 = new TestTupleBuilder().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
         final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(null, keyTuple0));
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(null, keyTuple0),
+                "Value type does not match [column='ID', expected=INT64, actual=INT32]");
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1),
+                "Missed key column: ID");
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1));
+        String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
+        String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0), strTooLongErr);
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1), byteArrayTooLongErr);
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple0), strTooLongErr);
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple1), byteArrayTooLongErr);
+
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0), strTooLongErr);
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1), byteArrayTooLongErr);
     }
 
     @Test
@@ -736,17 +740,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         }
     }
 
-    private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
-        Throwable ex = assertThrows(IgniteException.class, executable);
-
-        while (ex.getCause() != null) {
-            if (expectedType.isInstance(ex.getCause())) {
-                return;
-            }
-
-            ex = ex.getCause();
-        }
-
-        fail("Expected cause wasn't found.");
+    private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable, String message) {
+        IgniteTestUtils.assertThrowsWithCause(executable::execute, expectedType, message);
     }
 }

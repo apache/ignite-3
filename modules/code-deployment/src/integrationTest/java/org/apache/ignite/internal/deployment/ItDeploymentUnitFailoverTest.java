@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployment;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,8 +49,8 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
     @Disabled("IGNITE-20204")
     public void testDeployWithNodeStop() {
         int nodeIndex = 1;
-        IgniteImpl node = node(nodeIndex);
-        IgniteImpl cmgNode = node(0);
+        IgniteImpl node = igniteImpl(nodeIndex);
+        IgniteImpl cmgNode = igniteImpl(0);
 
         // Deploy to majority and additional node
         Unit big = files.deployAndVerify(
@@ -66,7 +67,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
         big.waitUnitClean(node);
         big.waitUnitReplica(cmgNode);
 
-        node = startNode(nodeIndex);
+        node = unwrapIgniteImpl(startNode(nodeIndex));
         big.waitUnitReplica(node);
     }
 
@@ -81,16 +82,16 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 false,
                 List.of(files.smallFile()),
                 new NodesToDeploy(List.of(node(nodeIndex).name())),
-                node(0)
+                igniteImpl(0)
         );
 
-        await().until(() -> node(nodeIndex).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED));
+        await().until(() -> igniteImpl(nodeIndex).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED));
 
         stopNode(nodeIndex);
 
         assertThat(unit.undeployAsync(), willCompleteSuccessfully());
 
-        IgniteImpl cmgNode = startNode(nodeIndex);
+        IgniteImpl cmgNode = unwrapIgniteImpl(startNode(nodeIndex));
         unit.waitUnitClean(cmgNode);
     }
 }

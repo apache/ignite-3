@@ -136,7 +136,7 @@ class ComputeJobFailover<R> {
     }
 
     private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
-        if (runningWorkerNode.equals(topologyService.localMember())) {
+        if (runningWorkerNode.id().equals(topologyService.localMember().id())) {
             return computeComponent.executeLocally(
                     jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg()
             );

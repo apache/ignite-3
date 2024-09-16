@@ -28,11 +28,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.marshalling.Marshaller;
 
 /**
  * Compute MapReduce request.
@@ -56,7 +60,8 @@ public class ClientComputeExecuteMapReduceRequest {
         String taskClassName = in.unpackString();
         Object args = unpackPayload(in);
 
-        TaskExecution<Object> execution = compute.submitMapReduce(deploymentUnits, taskClassName, args);
+        TaskExecution<Object> execution = compute.submitMapReduce(
+                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), args);
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
@@ -80,11 +85,13 @@ public class ClientComputeExecuteMapReduceRequest {
     }
 
     static CompletableFuture<Object> sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
+        TaskExecution<Object> t = execution;
         return execution.resultAsync().whenComplete((val, err) ->
-                execution.stateAsync().whenComplete((state, errState) ->
+                t.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
-                                    w.packObjectAsBinaryTuple(val, null);
+                                    Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) t).resultMarshaller();
+                                    ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
                                     packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))

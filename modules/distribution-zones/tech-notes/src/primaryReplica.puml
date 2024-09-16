@@ -17,7 +17,7 @@ Replica2
 Leader for term 2
 ]
 
-PrimaryReplica -> Replica1 : Send a changePeersAsync request (node is the leader at the moment)
+PrimaryReplica -> Replica1 : Send a changePeersAndLearnersAsync request (node is the leader at the moment)
 Replica1 -> Replica1 : Leader was stepped down and new leader election will start.
 Replica2 -> Replica2 : Current node elected as a leader.
 Replica2 -> PrimaryReplica : Send a message about the new leader elected. [see 3.1 details]
@@ -28,7 +28,7 @@ because if the PrimaryReplica fails,
 PlacementDriver will choose another one
 and start rebalance again by himself
 end note
-PrimaryReplica -> Replica2 : Send changePeers to the new leader again
+PrimaryReplica -> Replica2 : Send changePeersAndLearners to the new leader again
 Replica2 -> PrimaryReplica : Rebalance done message
 PrimaryReplica -> PlacementDriver : Rebalance done message. PD than do other operations from the general rebalance diagram.
 @enduml

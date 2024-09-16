@@ -21,12 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
- * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object) IgniteCompute#submitMapReduce} method to run this
- * task.
+ * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(TaskDescriptor, Object)} method to run this task.
  *
  * @param <I> Split task (I)nput type.
  * @param <M> (M)ap job input type.
@@ -53,4 +54,14 @@ public interface MapReduceTask<I, M, T, R> {
      * @return Final task result future.
      */
     CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, T> results);
+
+    /** The marshaller that is called to unmarshal split job argument if not null. */
+    default @Nullable Marshaller<I, byte[]> splitJobInputMarshaller() {
+        return null;
+    }
+
+    /** The marshaller that is called to marshal reduce job result if not null. */
+    default @Nullable Marshaller<R, byte[]> reduceJobResultMarshaller() {
+        return null;
+    }
 }

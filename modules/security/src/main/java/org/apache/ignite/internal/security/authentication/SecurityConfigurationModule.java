@@ -20,16 +20,18 @@ package org.apache.ignite.internal.security.authentication;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster configuration provided by ignite-rest.
@@ -48,13 +50,13 @@ public class SecurityConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(SecurityConfiguration.KEY);
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(AuthenticationProvidersValidatorImpl.INSTANCE);
     }
 
     @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(AuthenticationProvidersValidatorImpl.INSTANCE);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(SecurityExtensionConfigurationSchema.class);
     }
 
     @Override
@@ -64,12 +66,13 @@ public class SecurityConfigurationModule implements ConfigurationModule {
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
-            if (authenticationChange.changeProviders().size() == 0) {
-                authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change ->
+        SecurityExtensionChange securityExtensionChange = (SecurityExtensionChange) rootChange.changeRoot(ClusterConfiguration.KEY);
+        securityExtensionChange.changeSecurity().changeAuthentication().changeProviders(providersChange -> {
+            if (providersChange.isEmpty()) {
+                providersChange.create(DEFAULT_PROVIDER_NAME, change ->
                         change.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users -> users.create(DEFAULT_USERNAME, user ->
-                                        user.changePassword(DEFAULT_PASSWORD))
+                                .changeUsers().create(DEFAULT_USERNAME, user ->
+                                        user.changePassword(DEFAULT_PASSWORD)
                                 )
                 );
             }

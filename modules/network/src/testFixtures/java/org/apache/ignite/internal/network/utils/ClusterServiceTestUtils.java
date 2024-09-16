@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.utils;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 
@@ -28,18 +29,22 @@ import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
@@ -97,9 +102,30 @@ public class ClusterServiceTestUtils {
      * @param staleIds                 Used to track stale launch IDs.
      */
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder, StaleIds staleIds) {
+        return clusterService(testInfo, port, nodeFinder, staleIds, withoutClusterId());
+    }
+
+    /**
+     * Creates a cluster service and required node configuration manager beneath it. Populates node configuration with specified port.
+     * Manages configuration manager lifecycle: on cluster service start starts node configuration manager, on cluster service stop - stops
+     * node configuration manager.
+     *
+     * @param testInfo                 Test info.
+     * @param port                     Local port.
+     * @param nodeFinder               Node finder.
+     * @param staleIds                 Used to track stale launch IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
+     */
+    public static ClusterService clusterService(
+            TestInfo testInfo,
+            int port,
+            NodeFinder nodeFinder,
+            StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier
+    ) {
         String nodeName = testNodeName(testInfo, port);
 
-        return clusterService(nodeName, port, nodeFinder, staleIds);
+        return clusterService(nodeName, port, nodeFinder, staleIds, clusterIdSupplier);
     }
 
     /**
@@ -111,7 +137,7 @@ public class ClusterServiceTestUtils {
      * @return Cluster service instance.
      */
     public static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder) {
-        return clusterService(nodeName, port, nodeFinder, new InMemoryStaleIds());
+        return clusterService(nodeName, port, nodeFinder, new InMemoryStaleIds(), withoutClusterId());
     }
 
     /**
@@ -121,17 +147,30 @@ public class ClusterServiceTestUtils {
      * @param port Local port.
      * @param nodeFinder Node finder.
      * @param staleIds Used to track stale launch IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
      * @return Cluster service instance.
      */
-    private static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder, StaleIds staleIds) {
+    private static ClusterService clusterService(
+            String nodeName,
+            int port,
+            NodeFinder nodeFinder,
+            StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier
+    ) {
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(NetworkExtensionConfigurationSchema.class),
+                List.of()
+        );
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-                Collections.singleton(NetworkConfiguration.KEY),
+                Collections.singleton(NodeConfiguration.KEY),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
-                new ConfigurationTreeGenerator(NetworkConfiguration.KEY),
+                generator,
                 new TestConfigurationValidator()
         );
 
-        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry()
+                .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
@@ -143,8 +182,9 @@ public class ClusterServiceTestUtils {
                 bootstrapFactory,
                 serializationRegistry,
                 staleIds,
+                clusterIdSupplier,
                 new NoOpCriticalWorkerRegistry(),
-                new FailureProcessor(new NoOpFailureHandler())
+                new FailureManager(new NoOpFailureHandler())
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
@@ -164,10 +204,7 @@ public class ClusterServiceTestUtils {
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 nodeConfigurationMgr.startAsync(componentContext).join();
 
-                NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
-                        .getConfiguration(NetworkConfiguration.KEY);
-
-                configuration.change(netCfg ->
+                networkConfiguration.change(netCfg ->
                         netCfg
                                 .changePort(port)
                                 .changeNodeFinder(c -> c

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.file;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 import static org.apache.ignite.internal.network.file.messages.FileHeader.fromPaths;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
@@ -38,7 +39,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -146,14 +146,21 @@ public class FileTransferServiceImpl implements FileTransferService {
                 messagingService,
                 configuration,
                 transferDirectory,
-                new ThreadPoolExecutor(
-                        0,
-                        configuration.value().threadPoolSize(),
-                        0L, TimeUnit.MILLISECONDS,
-                        new LinkedBlockingQueue<>(),
-                        NamedThreadFactory.create(nodeName, "file-transfer", LOG)
-                )
+                createExecutor(nodeName, configuration)
         );
+    }
+
+    private static ExecutorService createExecutor(String nodeName, FileTransferConfiguration configuration) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                configuration.value().threadPoolSize(),
+                configuration.value().threadPoolSize(),
+                10, SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+        );
+        executor.allowCoreThreadTimeOut(true);
+
+        return executor;
     }
 
     /**
@@ -249,7 +256,7 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, SECONDS);
 
         return nullCompletedFuture();
     }

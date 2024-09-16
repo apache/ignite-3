@@ -31,6 +31,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl.TuplePart;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl.ValuesWithStatistics;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -63,7 +64,7 @@ public class TupleMarshallerStatisticsTest {
         assertThat(sizeInBytes(hugeScaledDecimal), is(greaterThan(16384)));
 
         ValuesWithStatistics statistics = new ValuesWithStatistics();
-        marshaller.gatherStatistics(schema.keyColumns(), tuple, statistics);
+        marshaller.gatherStatistics(TuplePart.KEY, tuple, statistics);
         assertThat(statistics.estimatedValueSize(), is(3));
         BigDecimal compactedValue = (BigDecimal) statistics.value("KEY");
         assertNotNull(compactedValue);

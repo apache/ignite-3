@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -38,7 +39,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -723,15 +723,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest(name = "type={0}, literals={1}")
     @MethodSource("rowSourceTestArgs")
     public void testRowSource(ColumnType columnType, boolean literalsOnly) {
-        long seed = System.nanoTime();
+        Object val = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(columnType);
 
-        log.info("Seed: " + seed);
-
-        Random rnd = new Random(seed);
-
-        Object val1 = SqlTestUtils.generateValueByType(rnd.nextInt(), columnType);
-        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val1);
-        assertTrue(expr1 instanceof RexLiteral);
+        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val);
+        assertInstanceOf(RexLiteral.class, expr1);
 
         Object val2 = literalsOnly ? 1 : UUID.randomUUID();
         RexNode expr2 = SqlTestUtils.generateLiteralOrValueExpr(literalsOnly ? ColumnType.INT32 : ColumnType.UUID, val2);
@@ -748,7 +743,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         } else if (columnType == ColumnType.DOUBLE) {
             expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).doubleValue();
         } else {
-            expected = val1 == null ? null : TypeUtils.toInternal(val1, val1.getClass());
+            expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
         }
 
         assertEquals(Arrays.asList(expected, val2), Arrays.asList(actual));
@@ -872,12 +867,8 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
     private static List<Arguments> rowSourceTestArgs() {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
-                // Not supported.
-                ColumnType.NUMBER,
                 // UUID literal doesn't exists.
                 ColumnType.UUID,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
-                ColumnType.BITMASK,
                 // TODO https://issues.apache.org/jira/browse/IGNITE-15200
                 ColumnType.DURATION,
                 ColumnType.PERIOD

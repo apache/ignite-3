@@ -48,6 +48,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
@@ -56,6 +57,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
+    implementation project(':ignite-metastorage-cache')
     implementation project(':ignite-affinity')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
@@ -87,6 +89,8 @@ dependencies {
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-catalog-compaction')
+    implementation project(':ignite-system-disaster-recovery')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -147,6 +151,7 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-metastorage-cache')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
@@ -162,6 +167,8 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-partition-replicator')
+    integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -181,6 +188,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-replicator'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
@@ -232,6 +240,16 @@ tasks.register("runnerPlatformTest", JavaExec) {
 
 tasks.register("runnerPlatformBenchmark", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register("runUpsertBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.benchmark.UpsertKvBenchmark"
 
     jvmArgs += defaultJvmArgs
 

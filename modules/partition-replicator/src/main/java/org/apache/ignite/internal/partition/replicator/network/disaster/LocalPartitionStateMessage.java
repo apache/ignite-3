@@ -30,18 +30,9 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
     /** Partition ID. */
     TablePartitionIdMessage partitionId();
 
-    /** Ordinal of {@link LocalPartitionStateEnum} value. */
-    int stateInt();
+    /** Calculated state of the partition. */
+    LocalPartitionStateEnum state();
 
     /** Index of the last received log entry for this partition. */
     long logIndex();
-
-    /** Calculated state of the partition. */
-    default LocalPartitionStateEnum state() {
-        LocalPartitionStateEnum state = LocalPartitionStateEnum.fromOrdinal(stateInt());
-
-        assert state != null : stateInt();
-
-        return state;
-    }
 }

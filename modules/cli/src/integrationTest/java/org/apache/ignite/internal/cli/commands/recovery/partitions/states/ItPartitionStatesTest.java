@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.recovery.partitions.states;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
@@ -29,7 +30,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 
 import java.util.HashSet;
 import java.util.Set;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,7 +66,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
-        nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toSet());
+        nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
 
     @ParameterizedTest
@@ -119,7 +120,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @Test
     void testLocalPartitionStatesByNodesIsCaseSensitive() {
-        Set<String> nodeNames = Set.of(CLUSTER.node(0).node().name(), CLUSTER.node(1).node().name());
+        Set<String> nodeNames = Set.of(unwrapIgniteImpl(CLUSTER.node(0)).node().name(), unwrapIgniteImpl(CLUSTER.node(1)).node().name());
 
         String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 

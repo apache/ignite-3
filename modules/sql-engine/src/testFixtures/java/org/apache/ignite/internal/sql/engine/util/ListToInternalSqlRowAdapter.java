@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -89,8 +87,6 @@ public class ListToInternalSqlRowAdapter implements InternalSqlRow {
             builder.appendString((String) obj);
         } else if (obj instanceof byte[]) {
             builder.appendBytes((byte[]) obj);
-        } else if (obj instanceof BitSet) {
-            builder.appendBitmask((BitSet) obj);
         } else if (obj instanceof LocalDate) {
             builder.appendDate((LocalDate) obj);
         } else if (obj instanceof LocalTime) {
@@ -99,8 +95,6 @@ public class ListToInternalSqlRowAdapter implements InternalSqlRow {
             builder.appendDateTime((LocalDateTime) obj);
         } else if (obj instanceof Instant) {
             builder.appendTimestamp((Instant) obj);
-        } else if (obj instanceof BigInteger) {
-            builder.appendNumber((BigInteger) obj);
         } else if (obj instanceof Duration) {
             builder.appendDuration((Duration) obj);
         } else if (obj instanceof Period) {

@@ -36,10 +36,10 @@ public interface StreamerOptions {
     int perPartitionParallelOperations();
 
     /**
-     * Gets the auto flush frequency, in milliseconds
+     * Gets the auto flush interval, in milliseconds
      * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
      *
-     * @return Auto flush frequency.
+     * @return Auto flush interval.
      */
-    int autoFlushFrequency();
+    int autoFlushInterval();
 }

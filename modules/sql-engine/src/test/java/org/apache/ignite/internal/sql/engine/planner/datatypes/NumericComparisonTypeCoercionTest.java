@@ -40,20 +40,20 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<Arguments> args() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)
-                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT8))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT8)),
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.TINYINT_SMALLINT)
                         .firstOpMatches(castTo(NativeTypes.INT16))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT16)),
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.TINYINT_INT)
                         .firstOpMatches(castTo(NativeTypes.INT32))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT32)),
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.TINYINT_BIGINT)
                         .firstOpMatches(castTo(NativeTypes.INT64))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
                         .firstOpMatches(castTo(Types.DECIMAL_3_0))
@@ -211,8 +211,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
 
                 forTypePair(NumericPair.BIGINT_BIGINT)
-                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.INT64))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.INT64)),
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
                         .firstOpMatches(castTo(Types.DECIMAL_19_0))
@@ -256,7 +256,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.BIGINT_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_1_0))
@@ -300,7 +300,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_1_0_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
@@ -341,7 +341,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_2_1_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
@@ -378,7 +378,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_4_3_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
@@ -411,7 +411,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_2_0_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
@@ -440,7 +440,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_3_1_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
@@ -465,7 +465,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_5_3_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
@@ -486,7 +486,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_5_0_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
@@ -503,7 +503,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_6_1_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
@@ -516,7 +516,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(NumericPair.DECIMAL_8_3_DOUBLE)
                         .firstOpMatches(castTo(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
+                        .secondOpBeSame(),
 
 
                 forTypePair(NumericPair.REAL_REAL)

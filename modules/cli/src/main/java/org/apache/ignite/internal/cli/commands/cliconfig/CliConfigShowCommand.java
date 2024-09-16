@@ -41,13 +41,9 @@ public class CliConfigShowCommand extends BaseCommand implements Callable<Intege
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new StringCallInput(profileName.getProfileName()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new ProfileDecorator())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

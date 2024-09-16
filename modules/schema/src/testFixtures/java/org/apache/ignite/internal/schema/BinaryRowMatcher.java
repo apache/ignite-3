@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.hamcrest.Matchers.is;
-
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.hamcrest.CustomMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,8 +29,17 @@ public class BinaryRowMatcher extends CustomMatcher<BinaryRow> {
     private final @Nullable BinaryRow row;
 
     private BinaryRowMatcher(@Nullable BinaryRow row) {
-        super("Expected row to be equal to " + rowToString(row));
+        super("a row equal to " + rowToString(row));
         this.row = row;
+    }
+
+    @Override
+    public void describeMismatch(Object item, Description description) {
+        if (item instanceof BinaryRow) {
+            description.appendText("but was " + rowToString((BinaryRow) item));
+        } else {
+            super.describeMismatch(item, description);
+        }
     }
 
     public static BinaryRowMatcher equalToRow(@Nullable BinaryRow row) {
@@ -39,7 +47,7 @@ public class BinaryRowMatcher extends CustomMatcher<BinaryRow> {
     }
 
     public static Matcher<BinaryRow> isRow(@Nullable BinaryRow expectedRow) {
-        return is(equalToRow(expectedRow));
+        return equalToRow(expectedRow);
     }
 
     @Override

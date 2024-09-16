@@ -38,7 +38,7 @@ public class ItSslConfigurationValidationTest {
     @ParameterizedTest
     @ValueSource(strings = {"clientConnector", "network", "rest"})
     void clientConnector(String rootKey, TestInfo testInfo, @WorkDirectory Path workDir) {
-        String config = "{\n"
+        String config = "ignite {\n"
                 + "  " + rootKey + ": {\n"
                 + "    ssl: {\n"
                 + "      enabled: true,\n"
@@ -53,6 +53,6 @@ public class ItSslConfigurationValidationTest {
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "Validation did not pass for keys: [" + rootKey + ".ssl.keyStore, Key store file doesn't exist at bad_path]");
+                "Validation did not pass for keys: [ignite." + rootKey + ".ssl.keyStore, Key store file doesn't exist at bad_path]");
     }
 }

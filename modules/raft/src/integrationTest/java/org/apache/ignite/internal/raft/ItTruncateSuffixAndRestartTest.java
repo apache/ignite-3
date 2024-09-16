@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
+import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
@@ -44,9 +45,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -62,6 +64,9 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
+import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -78,9 +83,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.OnHeapLogs;
-import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
-import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -157,6 +159,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
         final Path nodeDir;
 
+        final ComponentWorkingDir partitionsWorkDir;
+
         final Loza raftMgr;
 
         private @Nullable CompletableFuture<RaftGroupService> serviceFuture;
@@ -180,13 +184,17 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     nettyBootstrapFactory,
                     defaultSerializationRegistry(),
                     new InMemoryStaleIds(),
+                    withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
-                    mock(FailureProcessor.class));
+                    mock(FailureManager.class)
+            );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(clusterSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
-            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, nodeDir, hybridClock);
+            partitionsWorkDir = new ComponentWorkingDir(nodeDir);
+
+            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, hybridClock);
 
             assertThat(raftMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(raftMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
@@ -204,7 +212,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                         raftGroupConfiguration,
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
-                        RaftGroupOptions.defaults().setLogStorageFactory(logStorageFactory)
+                        RaftGroupOptions.defaults()
+                                .setLogStorageFactory(logStorageFactory)
+                                .serverDataPath(partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
                 fail(e.getMessage());
@@ -377,6 +387,11 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
             return logStorage;
+        }
+
+        @Override
+        public void destroyLogStorage(String uri) {
+            // No-op.
         }
 
         @Override

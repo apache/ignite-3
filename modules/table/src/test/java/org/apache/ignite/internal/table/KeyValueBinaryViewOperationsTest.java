@@ -54,11 +54,21 @@ import org.junit.jupiter.api.Test;
  * Basic table operations test.
  */
 public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase {
+    /**
+     * Get the view.
+     *
+     * @param schema Schema.
+     * @return View for schema.
+     */
+    private KeyValueView<Tuple, Tuple> view(SchemaDescriptor schema) {
+        return createTable(schema).keyValueView();
+    }
+
     @Test
     public void put() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -93,7 +103,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void putIfAbsent() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -118,7 +128,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void getAndPut() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -141,33 +151,36 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     }
 
     @Test
-    public void unsupportedOperations() {
+    public void nullables() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
-        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullable(null, Tuple.create(Map.of("id", 1L))));
-        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndPut(
-                null,
-                Tuple.create(Map.of("id", 1L)),
-                Tuple.create(Map.of("id", 1L)))
-        );
-        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndReplace(
-                null,
-                Tuple.create(Map.of("id", 1L)),
-                Tuple.create(Map.of("id", 1L)))
-        );
-        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndRemove(
-                null,
-                Tuple.create(Map.of("id", 1L)))
-        );
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple val3 = Tuple.create().set("val", 33L);
+
+        assertNull(tbl.getNullable(null, key));
+
+        tbl.put(null, key, val);
+
+        assertEqualsValues(schema, val, tbl.getNullable(null, key).get());
+
+        assertEqualsValues(schema, val, tbl.getNullableAndPut(null, key, val2).get());
+
+        assertEqualsValues(schema, val2, tbl.getNullableAndReplace(null, key, val3).get());
+
+        assertEqualsValues(schema, val3, tbl.getNullableAndRemove(null, key).get());
+
+        assertNull(tbl.getNullable(null, key));
     }
 
     @Test
     public void getOrDefault() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -207,7 +220,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void contains() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -278,7 +291,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void remove() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -313,7 +326,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void removeExact() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        final KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        final KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -360,7 +373,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void replace() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -390,7 +403,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void replaceExact() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -412,7 +425,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     public void getAll() {
         SchemaDescriptor schema = schemaDescriptor();
 
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         Tuple key1 = Tuple.create().set("id", 1L);
         Tuple key2 = Tuple.create().set("id", 2L);
@@ -437,7 +450,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     @Test
     public void nullKeyValidation() {
         SchemaDescriptor schema = schemaDescriptor();
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple val = Tuple.create().set("val", 11L);
         final Tuple val2 = Tuple.create().set("val", 22L);
@@ -470,7 +483,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
     @Test
     public void nonNullableValueColumn() {
         SchemaDescriptor schema = schemaDescriptor();
-        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+        KeyValueView<Tuple, Tuple> tbl = view(schema);
 
         final Tuple key = Tuple.create().set("id", 11L);
         final Tuple val = Tuple.create().set("val", 22L);

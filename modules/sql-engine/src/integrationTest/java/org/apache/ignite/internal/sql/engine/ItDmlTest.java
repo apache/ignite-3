@@ -21,7 +21,11 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -33,9 +37,11 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -44,6 +50,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -448,14 +455,45 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
     }
 
+    @Test
+    public void testMergeNullCols() {
+        sql("CREATE TABLE test1 (key1 int PRIMARY KEY, val1 int)");
+        sql("CREATE TABLE test2 (key2 int PRIMARY KEY, val2 int)");
+
+        sql("INSERT INTO test1 (key1, val1) VALUES (1, null)");
+        sql("INSERT INTO test2 VALUES (2, null)");
+        sql("INSERT INTO test2 VALUES (1, 5)");
+
+        String mergeStmt = "MERGE INTO {} dst USING test2 src ON dst.key1 = src.key2\n"
+                + "WHEN MATCHED THEN UPDATE SET val1 = 4\n"
+                + "WHEN NOT MATCHED THEN INSERT (key1, val1) VALUES (key2, val2)";
+
+        sql(format(mergeStmt, "test1"));
+
+        assertQuery("SELECT key1, val1 FROM test1 ORDER BY key1")
+                .returns(1, 4)
+                .returns(2, null)
+                .check();
+
+        sql("CREATE TABLE test3 (val1 int, key1 int PRIMARY KEY)");
+        sql("INSERT INTO test3 (key1, val1) VALUES (1, null)");
+
+        sql(format(mergeStmt, "test3"));
+
+        assertQuery("SELECT key1, val1 FROM test3 ORDER BY key1")
+                .returns(1, 4)
+                .returns(2, null)
+                .check();
+    }
+
     /**
      * Test verifies that scan is executed within provided transaction.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 
+        Transaction olderTx = CLUSTER.aliveNode().transactions().begin();
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "INSERT INTO test VALUES (0, 0)");
@@ -463,16 +501,24 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         // just inserted row should be visible within the same transaction
         assertEquals(1, sql(tx, "select * from test").size());
 
-        Transaction anotherTx = CLUSTER.aliveNode().transactions().begin();
-
         // just inserted row should not be visible until related transaction is committed
-        assertEquals(0, sql(anotherTx, "select * from test").size());
+        assertEquals(0,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        CompletableFuture<Integer> selectFut = runAsync(() -> sql(olderTx, "select * from test").size());
+
+        assertFalse(selectFut.isDone());
 
         tx.commit();
 
-        assertEquals(1, sql(anotherTx, "select * from test").size());
+        assertThat(selectFut, willCompleteSuccessfully());
 
-        anotherTx.commit();
+        assertEquals(1, selectFut.join());
+
+        assertEquals(1,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        olderTx.commit();
     }
 
     @Test
@@ -491,6 +537,17 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         Set<?> pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void invalidAliases() {
+        sql("CREATE TABLE T(VAL INT)");
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __p_key is reserved name",
+                () -> sql("select val as \"__p_key\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
+                () -> sql("select val as \"__part\" from t"));
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {
@@ -876,7 +933,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     public void testNoFailHandlerForRuntimeSqlError() {
         InterceptFailHandler interceptor = new InterceptFailHandler();
-        CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(interceptor));
+        CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .forEach(node -> node.failureProcessor().setInterceptor(interceptor));
         try {
             sql("CREATE TABLE test_tbl(ID INT PRIMARY KEY, VAL TINYINT)");
             sql("INSERT INTO test_tbl VALUES (1, 1);");
@@ -887,7 +946,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             assertThrowsSqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value",
                     () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT * FROM TABLE(SYSTEM_RANGE(0, 10))))"));
         } finally {
-            CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(null));
+            CLUSTER.runningNodes()
+                    .map(TestWrappers::unwrapIgniteImpl)
+                    .forEach(node -> node.failureProcessor().setInterceptor(null));
         }
 
         assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");

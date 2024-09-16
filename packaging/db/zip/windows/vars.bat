@@ -32,7 +32,7 @@ set JVM_MIN_MEM=16384m
 set JVM_GC=G1GC
 set JVM_G1HeapRegionSize=32M
 set JVM_GC_LOG_NAME=gc.log
-set JVM_GC_LOG_SIZE=104857600
+set JVM_GC_LOG_SIZE=100m
 set JVM_GC_NUM_LOGS=10
 
 @rem For any additional users settings

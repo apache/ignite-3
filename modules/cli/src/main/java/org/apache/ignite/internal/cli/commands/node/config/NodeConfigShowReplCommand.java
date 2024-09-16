@@ -21,12 +21,10 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.FormatMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -50,25 +48,20 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
     @Inject
     private ConnectToClusterQuestion question;
 
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+    @Mixin
+    private FormatMixin format;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigShowCallInput)
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
-                .print(new JsonDecorator(isHighlightEnabled()))
-                .start();
+                .print(format.decorator())
+        );
     }
 
     private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {
         return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl).build();
-    }
-
-    private boolean isHighlightEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

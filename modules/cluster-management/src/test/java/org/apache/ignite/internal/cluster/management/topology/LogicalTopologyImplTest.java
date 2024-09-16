@@ -53,6 +53,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -97,7 +98,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        topology = new LogicalTopologyImpl(storage);
+        topology = new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier());
 
         topology.addEventListener(listener);
     }

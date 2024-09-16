@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -48,9 +47,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NodeMetadata;
@@ -66,9 +65,6 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -95,8 +91,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                RaftGroupOptionsConfigurer.EMPTY
         );
     }
 
@@ -108,7 +103,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         when(service.run(any(GetCurrentRevisionCommand.class)))
                 .thenAnswer(invocation -> completedFuture(remoteRevision));
 
-        when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
+        when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> completedFuture(service));
 
         return raft;

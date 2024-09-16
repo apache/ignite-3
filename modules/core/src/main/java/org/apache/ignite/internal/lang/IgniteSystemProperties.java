@@ -73,6 +73,12 @@ public final class IgniteSystemProperties {
     /** Name of the property controlling whether, when a thread assertion is triggered, it should also be written to the log. */
     public static final String THREAD_ASSERTIONS_LOG_BEFORE_THROWING = "THREAD_ASSERTIONS_LOG_BEFORE_THROWING";
 
+    /** Skip replication in a benchmark. */
+    public static final String IGNITE_SKIP_REPLICATION_IN_BENCHMARK = "IGNITE_SKIP_REPLICATION_IN_BENCHMARK";
+
+    /** Skip storage update in a benchmark. */
+    public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
+
     /**
      * Enforces singleton.
      */

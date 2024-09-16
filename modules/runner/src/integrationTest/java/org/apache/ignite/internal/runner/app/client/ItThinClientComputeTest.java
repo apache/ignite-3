@@ -78,6 +78,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -92,7 +93,6 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -182,12 +182,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ValueSource(booleans = {true, false})
     void testCancelOnSpecificNodeAsync(boolean asyncJob) {
         int sleepMs = 1_000_000;
-        JobDescriptor sleepJob = JobDescriptor
+        JobDescriptor<Integer, Void> sleepJob = JobDescriptor
                 .builder(asyncJob ? AsyncSleepJob.class : SleepJob.class)
                 .build();
 
-        JobExecution<String> execution1 = client().compute().submit(JobTarget.node(node(0)), sleepJob, sleepMs);
-        JobExecution<String> execution2 = client().compute().submit(JobTarget.node(node(1)), sleepJob, sleepMs);
+        JobExecution<Void> execution1 = client().compute().submit(JobTarget.node(node(0)), sleepJob, sleepMs);
+        JobExecution<Void> execution2 = client().compute().submit(JobTarget.node(node(1)), sleepJob, sleepMs);
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -202,19 +202,19 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void changeJobPriority() {
         int sleepMs = 1_000_000;
-        JobDescriptor sleepJob = JobDescriptor.builder(SleepJob.class).build();
+        JobDescriptor<Integer, Void> sleepJob = JobDescriptor.builder(SleepJob.class).build();
         JobTarget target = JobTarget.node(node(0));
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = client().compute().submit(target, sleepJob, sleepMs);
+        JobExecution<Void> execution1 = client().compute().submit(target, sleepJob, sleepMs);
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more long lasting task
-        JobExecution<String> execution2 = client().compute().submit(target, sleepJob, sleepMs);
+        JobExecution<Void> execution2 = client().compute().submit(target, sleepJob, sleepMs);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = client().compute().submit(target, sleepJob, sleepMs);
+        JobExecution<Void> execution3 = client().compute().submit(target, sleepJob, sleepMs);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 and 3 are not completed, in queue state
@@ -719,7 +719,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduce() throws Exception {
-        TaskExecution<String> execution = client().compute().submitMapReduce(List.of(), MapReduceNodeNameTask.class.getName(), null);
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceNodeNameTask.class).build();
+        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, null);
 
         List<Matcher<? super String>> nodeNames = sortedNodes().stream()
                 .map(ClusterNode::name)
@@ -736,8 +738,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduceWithArgs() {
-        TaskExecution<String> execution = client().compute()
-                .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), "1:2:3.3");
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceArgsTask.class).build();
+        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, "1:2:3.3");
 
         assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
         assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
@@ -745,10 +748,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22596")
-    void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
+    <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
         IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
-                client().compute().submitMapReduce(List.of(), taskClass.getName(), null))
+                igniteCompute.submitMapReduce(taskDescriptor, null))
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -797,7 +801,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
             return completedFuture(
                     Arrays.stream(args.split(":"))
-                            .map(o -> o == null ? "null" : o.toString())
+                            .map(o -> o == null ? "null" : o)
                             .collect(Collectors.joining("_")));
         }
     }
@@ -842,9 +846,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class SleepJob implements ComputeJob<Integer, Void> {
         @Override
-        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer sleepMs) {
             try {
-                Thread.sleep(args);
+                Thread.sleep(sleepMs);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -855,10 +859,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static class AsyncSleepJob implements ComputeJob<Integer, Void> {
         @Override
-        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer sleepMs) {
             return CompletableFuture.runAsync(() -> {
                 try {
-                    Thread.sleep(args);
+                    int limit = sleepMs;
+                    while (limit > 0) {
+                        if (context.isCancelled()) {
+                            return;
+                        }
+                        Thread.sleep(100);
+                        limit -= 100;
+                    }
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }

@@ -88,6 +88,7 @@ public class Main {
         System.out.println(banner(versionProvider));
 
         ReplManager replManager = micronautFactory.create(ReplManager.class);
+        replManager.subscribe();
         replManager.startReplMode();
     }
 
@@ -96,6 +97,7 @@ public class Main {
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
         cmd.setTrimQuotes(true);
+        cmd.setCaseInsensitiveEnumValuesAllowed(true);
         return cmd.execute(args);
     }
 

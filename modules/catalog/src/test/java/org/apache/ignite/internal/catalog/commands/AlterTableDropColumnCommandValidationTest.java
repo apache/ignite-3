@@ -251,7 +251,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas are not allowed"
+                "Operations with system schemas are not allowed"
         );
     }
 

@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Network
 {
     using System;
     using System.Diagnostics;
-    using System.Linq;
     using System.Net;
     using Ignite.Network;
     using Proto.MsgPack;
@@ -36,7 +35,7 @@ namespace Apache.Ignite.Internal.Network
         /// <param name="name">Name.</param>
         /// <param name="endpoint">Endpoint.</param>
         /// <param name="metricsContext">Metrics context.</param>
-        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext? metricsContext = null)
+        internal ClusterNode(string id, string name, EndPoint endpoint, MetricsContext? metricsContext = null)
         {
             Id = id;
             Name = name;
@@ -51,7 +50,7 @@ namespace Apache.Ignite.Internal.Network
         public string Name { get; }
 
         /// <inheritdoc/>
-        public IPEndPoint Address { get; }
+        public EndPoint Address { get; }
 
         /// <summary>
         /// Gets the metric tags.
@@ -93,12 +92,9 @@ namespace Apache.Ignite.Internal.Network
             var addr = r.ReadString();
             var port = r.ReadInt32();
 
-            // TODO IGNITE-22695 .NET: ClusterNode.Address does not support host names
-            var ipAddress = IPAddress.TryParse(addr, out var ip)
-                ? ip
-                : Dns.GetHostEntry(addr).AddressList.FirstOrDefault() ?? IPAddress.Loopback;
-
-            var endPoint = new IPEndPoint(ipAddress, port);
+            EndPoint endPoint = IPAddress.TryParse(addr, out var ip)
+                ? new IPEndPoint(ip, port)
+                : new DnsEndPoint(addr, port);
 
             return new ClusterNode(id, name, endPoint);
         }

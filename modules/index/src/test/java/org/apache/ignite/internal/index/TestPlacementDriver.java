@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation for tests. */
 class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
@@ -53,13 +55,18 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     @Override
+    public @Nullable ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        return primaryReplicaMetaFutureById.get(replicationGroupId).join();
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<TokenizedAssignments> getAssignments(
-            ReplicationGroupId replicationGroupId,
+    public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));

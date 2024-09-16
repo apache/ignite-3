@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedRowsCount;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -120,7 +122,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.updateColumns = updateColumns;
 
         this.mapping = mapping(table.descriptor(), updateColumns);
-        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
+
+        this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
+                        .filter(Predicate.not(ColumnDescriptor::virtual))
+                        .mapToInt(ColumnDescriptor::logicalIndex)
+                        .toArray();
     }
 
     /** {@inheritDoc} */
@@ -355,10 +361,23 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             rowsToUpdate = new ArrayList<>();
 
             for (RowT row : rows) {
-                // this check doesn't seem correct because NULL could be a legit value for column,
-                // but this is how it was implemented before, so I just file an issue to deal with this later
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18883
-                if (handler.get(updateColumnOffset, row) == null) {
+                // Merge operation uses a left join as its input, so in order to distinguish between new rows and modified rows
+                // (rows produced by WHEN MATCHED, and rows produces by WHEN NOT MATCHED clauses)
+                // we need to check all columns of a destination table for null values.
+                //
+                // Since every table has a primary key and all primary keys columns are not nullable, we can assume that
+                // a row is produced by the WHEN NOT MATCHED clause iff every column in the subset of input columns
+                // that belongs to the destination table has a NULL value. Otherwise it belongs to the WHEN MATCH clause.
+
+                boolean insertRow = true;
+                for (int i = updateColumnOffset; i < updateColumnOffset + mapping.length; i++) {
+                    if (!handler.isNull(i, row)) {
+                        insertRow = false;
+                        break;
+                    }
+                }
+
+                if (insertRow) {
                     rowsToInsert.add(row);
                 } else {
                     rowsToUpdate.add(row);
@@ -432,7 +451,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = descriptor.columnsCount();
+        int columnCount = storedRowsCount(descriptor);
 
         int[] mapping = new int[columnCount];
 
@@ -443,6 +462,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         for (int i = 0; i < updateColumns.size(); i++) {
             String columnName = updateColumns.get(i);
             ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
+
+            assert !columnDescriptor.virtual() : "Virtual column can't be updated";
 
             mapping[columnDescriptor.logicalIndex()] = columnCount + i;
         }

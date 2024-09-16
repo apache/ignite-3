@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Compute;
 
 /// <summary>
@@ -37,6 +38,7 @@ public sealed record ReceiverDescriptor<TArg>(
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
+[SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
 public sealed record ReceiverDescriptor<TArg, TResult>(
     string ReceiverClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null);

@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.cli.call.connect;
 
 import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionToStoreCredentials;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;
-import java.util.Objects;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -81,20 +79,16 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.url();
-        SessionInfo sessionInfo = session.info();
-        if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
-            // This username will be used for connect by the connection checker.
-            String username = input.username() != null
-                    ? input.username()
-                    : configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
-            if (Objects.equals(sessionInfo.username(), username)) {
+        try {
+            SessionInfo currentSessionInfo = session.info();
+            // Try without authentication first to check whether the authentication is enabled on the cluster.
+            SessionInfo sessionInfo = connectWithoutAuthentication(input);
+            // If we are already connected, check that the result of the connection attempt is the same.
+            if (currentSessionInfo != null && currentSessionInfo.equals(sessionInfo)) {
                 MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
                 return DefaultCallOutput.success(message.render());
             }
-        }
-        try {
-            // Try without authentication first to check whether the authentication is enabled on the cluster.
-            sessionInfo = connectWithoutAuthentication(input);
+
             if (sessionInfo == null) {
                 // Try with authentication
                 sessionInfo = connectionChecker.checkConnection(input);
@@ -115,7 +109,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             }
 
             askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
-            return connectSuccessCall.execute(sessionInfo);
+            return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
         } catch (Exception e) {
             if (session.info() != null) {
                 eventPublisher.publish(Events.disconnect());

@@ -19,12 +19,14 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
@@ -50,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -90,7 +93,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -101,29 +104,35 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -150,38 +159,47 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -189,13 +207,11 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
-import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -216,12 +232,11 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -270,7 +285,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
+    private static SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -360,6 +375,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
@@ -378,6 +395,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME_3);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
 
@@ -400,6 +419,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
 
@@ -417,6 +438,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
@@ -443,21 +466,31 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
+        electPrimaryReplica(node0);
+
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(node0, 0).stream()
                 .map(Assignment::consistentId)
                 .collect(toSet());
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        Node leaderNode = findNodeByConsistentId(table.tableRaftService().leaderAssignment(0).name());
+        ClusterNode leaderClusterNode = ReplicaTestUtils.leaderAssignment(
+                node1.replicaManager,
+                node1.clusterService.topologyService(),
+                table.tableId(),
+                0
+        );
+
+        Node leaderNode = findNodeByConsistentId(leaderClusterNode.name());
 
         String nonLeaderNodeConsistentId = partitionNodesConsistentIds.stream()
                 .filter(n -> !n.equals(leaderNode.name))
                 .findFirst()
                 .orElseThrow();
 
-        TableViewInternal nonLeaderTable =
-                (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
+        Node nonLeaderNode = findNodeByConsistentId(nonLeaderNodeConsistentId);
+
+        TableViewInternal nonLeaderTable = (TableViewInternal) nonLeaderNode.tableManager.table(TABLE_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -482,10 +515,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(countDownLatch.await(10, SECONDS));
 
-        TableRaftService tableRaftService = nonLeaderTable.internalTable().tableRaftService();
-
         assertThat(
-                tableRaftService.partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)),
+                ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, nonLeaderTable.tableId(), 0)
+                        .map(raftClient -> raftClient.transferLeadership(new Peer(nonLeaderNodeConsistentId)))
+                        .orElse(null),
                 willCompleteSuccessfully()
         );
 
@@ -509,6 +542,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         alterZone(node, ZONE_NAME, 1);
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
+
+        electPrimaryReplica(node);
 
         JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
                 .filter(n -> n.raftManager.localNodes().stream().anyMatch(grp -> grp.toString().contains("_part_")))
@@ -551,6 +586,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
+
+        electPrimaryReplica(node);
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(node, 0);
 
@@ -654,6 +691,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 3);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
@@ -677,6 +716,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
 
         String newNodeNameForAssignment = nodes.stream()
@@ -694,7 +735,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+            int catalogVersion = node.catalogManager.latestCatalogVersion();
+            long timestamp = node.catalogManager.catalog(catalogVersion).time();
+
+            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -743,6 +787,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         var assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
         String nodeNameAssignedBeforeRebalance = assignmentsBeforeRebalance.stream()
                 .findFirst()
@@ -762,13 +808,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+        int catalogVersion = node.catalogManager.latestCatalogVersion();
+        long timestamp = node.catalogManager.catalog(catalogVersion).time();
+
+        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
         AtomicBoolean dropMessages = new AtomicBoolean(true);
 
         // Using this hack we pause rebalance on all nodes
         nodes.forEach(n -> ((DefaultMessagingService) n.clusterService.messagingService())
-                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
+                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAndLearnersAsyncRequest && dropMessages.get())
         );
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
@@ -814,22 +863,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
-        // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
-        TableRaftService tblRaftSvc = node.tableManager.startedTables()
-                                .get(getTableId(node, TABLE_NAME))
-                                .internalTable()
-                .tableRaftService();
-        RaftGroupService groupService;
-        try {
-            groupService = tblRaftSvc.partitionRaftGroupService(0);
-        } catch (IgniteInternalException e) {
-            return false;
-        }
-        List<Peer> peersList = groupService.peers();
-        boolean isUpdated = peersList.stream()
-                                .collect(toSet())
-                .equals(desiredPeers);
-        return isUpdated;
+        return ReplicaTestUtils.getRaftClient(node.replicaManager, getTableId(node, TABLE_NAME), 0)
+                .map(raftClient -> raftClient.peers().stream().collect(toSet()).equals(desiredPeers))
+                .orElse(false);
     }
 
     private void clearSpyInvocations() {
@@ -860,10 +896,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments);
-        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments);
-
         Node node0 = getNode(0);
+
+        int catalogVersion = node0.catalogManager.latestCatalogVersion();
+        long timestamp = node0.catalogManager.catalog(catalogVersion).time();
+
+        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments, timestamp);
+        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
 
         TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 
@@ -883,7 +922,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNode(any(), any(), any(), any(), any(), notNull(TopologyAwareRaftGroupServiceFactory.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(PendingComparableValuesTracker.class), any());
+                    .startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
         }
     }
 
@@ -900,28 +939,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node anyNode = nodes.get(0);
         Set<Assignment> assignments = getPartitionClusterNodes(anyNode, tableName, replicasNum);
         assertTrue(waitForCondition(
-                () -> {
-                    try {
-                        return nodes.stream()
-                                .filter(n -> isNodeInAssignments(n, assignments))
-                                .allMatch(n -> {
-                                    // TODO: will be replaced with replica usage in https://issues.apache.org/jira/browse/IGNITE-22218
-                                    TableRaftService trs = n.tableManager
-                                            .cachedTable(getTableId(n, tableName))
-                                            .internalTable()
-                                            .tableRaftService();
-
-                                    try {
-                                        return trs.partitionRaftGroupService(partNum) != null;
-                                    } catch (IgniteInternalException e) {
-                                        return false;
-                                    }
-                                });
-                    } catch (IgniteInternalException e) {
-                        // Raft group service not found.
-                        return false;
-                    }
-                },
+                () -> nodes.stream()
+                        .filter(n -> isNodeInAssignments(n, assignments))
+                        .allMatch(n -> ReplicaTestUtils.getRaftClient(n.replicaManager, getTableId(n, tableName), partNum).isPresent()),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
@@ -946,6 +966,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private int findNodeIndexByConsistentId(String consistentId) {
         return IntStream.range(0, nodes.size()).filter(i -> getNode(i).name.equals(consistentId)).findFirst().orElseThrow();
+    }
+
+    private void electPrimaryReplica(Node node) {
+        Set<Assignment> assignments = getPartitionClusterNodes(node, 0);
+
+        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+
+        ClusterNode leaseholder = nodes.stream()
+                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
+                .findFirst()
+                .get()
+                .clusterService
+                .topologyService()
+                .localMember();
+
+        node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(leaseholder.name(), leaseholder.id()));
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
@@ -1054,11 +1090,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         private final IndexManager indexManager;
 
         /** Failure processor. */
-        private final FailureProcessor failureProcessor;
+        private final FailureManager failureManager;
 
         private final ScheduledExecutorService rebalanceScheduler;
 
         private final LogStorageFactory logStorageFactory;
+
+        private final LogStorageFactory cmgLogStorageFactory;
+
+        private final LogStorageFactory msLogStorageFactory;
 
         final TestPlacementDriver placementDriver;
 
@@ -1076,13 +1116,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             vaultManager = createVault(dir);
 
+            var clusterIdService = new ClusterIdHolder();
+
             nodeCfgGenerator = new ConfigurationTreeGenerator(
+                    List.of(NodeConfiguration.KEY),
                     List.of(
-                            NetworkConfiguration.KEY,
-                            RestConfiguration.KEY,
-                            ClientConnectorConfiguration.KEY,
-                            StorageConfiguration.KEY),
-                    List.of(
+                            NetworkExtensionConfigurationSchema.class,
+                            RestExtensionConfigurationSchema.class,
+                            ClientConnectorExtensionConfigurationSchema.class,
+                            StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                     ),
@@ -1096,10 +1138,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
-                    List.of(NetworkConfiguration.KEY,
-                            StorageConfiguration.KEY,
-                            RestConfiguration.KEY,
-                            ClientConnectorConfiguration.KEY),
+                    List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
                     new TestConfigurationValidator()
@@ -1108,7 +1147,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     addr.port(),
-                    finder
+                    finder,
+                    new InMemoryStaleIds(),
+                    clusterIdService
             );
 
             lockManager = new HeapLockManager();
@@ -1117,20 +1158,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), dir, raftConfiguration);
+            ComponentWorkingDir partitionsBasePath = partitionsPath(systemConfiguration, dir);
+
+            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
+
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
             raftManager = spy(new Loza(
                     clusterService,
                     metricManager,
                     raftConfiguration,
-                    dir,
                     hybridClock,
                     raftGroupEventsClientListener,
-                    logStorageFactory
+                    new NoOpFailureManager()
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
@@ -1138,24 +1183,34 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new NoOpFailureProcessor();
+            failureManager = new NoOpFailureManager();
+
+            ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
+
+            cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
+                    new SystemDisasterRecoveryStorage(vaultManager),
                     clusterService,
                     clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureManager,
+                    clusterIdService,
+                    cmgRaftConfigurer
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
-                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureProcessor)
+                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureManager)
                     : new SimpleInMemoryKeyValueStorage(name);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1164,6 +1219,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     Loza.FACTORY,
                     raftGroupEventsClientListener
             );
+
+            ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, dir);
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer msRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -1175,8 +1238,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
                     metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
+                    msRaftConfigurer
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
@@ -1207,12 +1269,17 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
-            clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
+            clusterCfgGenerator = new ConfigurationTreeGenerator(
+                    List.of(ClusterConfiguration.KEY),
+                    List.of(
+                            GcExtensionConfigurationSchema.class,
+                            StorageUpdateExtensionConfigurationSchema.class
+                    ),
+                    List.of()
+            );
 
             clusterCfgMgr = new ConfigurationManager(
-                    List.of(
-                            GcConfiguration.KEY
-                    ),
+                    List.of(ClusterConfiguration.KEY),
                     cfgStorage,
                     clusterCfgGenerator,
                     new TestConfigurationValidator()
@@ -1223,7 +1290,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-            GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
+            GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -1241,7 +1308,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null,
-                            failureProcessor,
+                            failureManager,
                             logSyncer,
                             hybridClock
                     ),
@@ -1253,7 +1320,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     gcConfig.lowWatermark(),
                     clockService,
                     vaultManager,
-                    failureProcessor,
+                    failureManager,
                     clusterService.messagingService()
             );
 
@@ -1284,10 +1351,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new NoOpFailureProcessor(),
+                    new NoOpFailureManager(),
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool()
             ));
@@ -1316,7 +1384,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler
             );
 
-            StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
+            StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
+                    .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
             HybridClockImpl clock = new HybridClockImpl();
 
@@ -1363,7 +1432,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             lowWatermark,
                             threadPoolsManager.tableIoExecutor(),
                             rebalanceScheduler,
-                            threadPoolsManager.partitionOperationsExecutor()
+                            threadPoolsManager.partitionOperationsExecutor(),
+                            clockService,
+                            placementDriver,
+                            schemaSyncService
                     )
             ) {
                 @Override
@@ -1425,9 +1497,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
-                    failureProcessor,
+                    failureManager,
                     clusterService,
                     logStorageFactory,
+                    cmgLogStorageFactory,
+                    msLogStorageFactory,
                     raftManager,
                     cmgManager
             );

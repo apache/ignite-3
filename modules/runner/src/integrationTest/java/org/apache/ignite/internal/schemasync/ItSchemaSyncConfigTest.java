@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schemasync;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -26,11 +27,10 @@ import static org.hamcrest.Matchers.is;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("resource")
 class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -39,10 +39,8 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void delayDurationIsImmutable() {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-        SchemaSynchronizationConfiguration config = ignite.clusterConfiguration()
-                .getConfiguration(SchemaSynchronizationConfiguration.KEY);
+        SchemaSynchronizationConfiguration config = unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration()
+                .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         ConfigurationChangeException ex = assertWillThrowFast(
                 config.delayDuration().update(config.delayDuration().value() + 100),
@@ -52,17 +50,15 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
         assertThat(ex.getCause(), is(instanceOf(ConfigurationValidationException.class)));
         assertThat(
                 ex.getCause().getMessage(),
-                containsString("Validation did not pass for keys: [schemaSync.delayDuration, 'schemaSync.delayDuration' "
+                containsString("Validation did not pass for keys: [ignite.schemaSync.delayDuration, 'ignite.schemaSync.delayDuration' "
                         + "configuration value is immutable and cannot be updated")
         );
     }
 
     @Test
     void maxClockSkewIsImmutable() {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-        SchemaSynchronizationConfiguration config = ignite.clusterConfiguration()
-                .getConfiguration(SchemaSynchronizationConfiguration.KEY);
+        SchemaSynchronizationConfiguration config = unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration()
+                .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         ConfigurationChangeException ex = assertWillThrowFast(
                 config.maxClockSkew().update(config.maxClockSkew().value() + 100),
@@ -72,7 +68,7 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
         assertThat(ex.getCause(), is(instanceOf(ConfigurationValidationException.class)));
         assertThat(
                 ex.getCause().getMessage(),
-                containsString("Validation did not pass for keys: [schemaSync.maxClockSkew, 'schemaSync.maxClockSkew' "
+                containsString("Validation did not pass for keys: [ignite.schemaSync.maxClockSkew, 'ignite.schemaSync.maxClockSkew' "
                         + "configuration value is immutable and cannot be updated")
         );
     }

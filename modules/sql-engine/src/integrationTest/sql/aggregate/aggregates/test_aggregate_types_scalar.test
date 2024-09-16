@@ -11,10 +11,10 @@ SELECT COUNT(1), COUNT(*), COUNT(NULL), COUNT('hello'), COUNT(DATE '1992-02-02')
 1
 1
 
-statement error
+statement error: Invalid number of arguments to function 'COUNT'. Was expecting 1 argument
 SELECT COUNT(1, 2)
 
-statement error
+statement error: Invalid number of arguments to function 'COUNT'. Was expecting 1 argument
 SELECT COUNT()
 
 query RRR

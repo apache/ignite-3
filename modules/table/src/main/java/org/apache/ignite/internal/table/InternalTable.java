@@ -110,7 +110,7 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx      Transaction or {@code null} for implicit transaction.
      * @return Future that will return rows with all columns filled from the table. The order of collection elements is
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
      *      element at the corresponding index of the resulting collection is {@code null}.
@@ -448,13 +448,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Transaction states' storage.
      */
     TxStateTableStorage txStateStorage();
-
-    /**
-     * Raft service for this table.
-     *
-     * @return Table raft service.
-     */
-    TableRaftService tableRaftService();
 
     // TODO: IGNITE-14488. Add invoke() methods.
 

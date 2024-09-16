@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -31,12 +31,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -57,6 +54,9 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     /** Raft configuration. */
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemConfiguration;
 
     /** Test info. */
     TestInfo testInfo;
@@ -94,10 +94,5 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         clusterServices.add(network);
 
         return network;
-    }
-
-    protected JraftServerImpl jraftServer(int idx, ClusterService service, NodeOptions opts) {
-        Path dataPath = workDir.resolve("node" + idx);
-        return TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts);
     }
 }

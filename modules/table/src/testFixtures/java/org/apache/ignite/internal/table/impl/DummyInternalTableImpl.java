@@ -30,7 +30,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -61,11 +60,13 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -73,6 +74,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -99,7 +102,6 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -144,6 +146,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
 
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     private PartitionListener partitionListener;
 
     private ReplicaListener replicaListener;
@@ -173,6 +177,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         this(
                 replicaSvc,
+                new TestPlacementDriver(LOCAL_NODE),
                 new TestMvPartitionStorage(0),
                 schema,
                 txConfiguration,
@@ -184,6 +189,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
+     * @param placementDriver Placement driver.
      * @param storage Storage.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
@@ -191,6 +197,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
+            PlacementDriver placementDriver,
             MvPartitionStorage storage,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
@@ -203,11 +210,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 null,
                 schema,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(LOCAL_NODE),
+                placementDriver,
                 storageUpdateConfiguration,
                 txConfiguration,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE), CLOCK_SERVICE)
+                new TransactionInflights(placementDriver, CLOCK_SERVICE)
         );
     }
 
@@ -249,12 +256,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 tracker,
                 placementDriver,
-                new TableRaftServiceImpl(
-                        "test",
-                        1,
-                        Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
-                        new SingleClusterNodeResolver(LOCAL_NODE)
-                ),
                 transactionInflights,
                 3_000,
                 0,
@@ -262,7 +263,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(StreamerReceiverRunner.class)
         );
 
-        RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
+        RaftGroupService svc = mock(RaftGroupService.class);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -290,7 +291,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .when(replicaSvc).invoke(anyString(), any());
         }
 
-        AtomicLong raftIndex = new AtomicLong();
+        AtomicLong raftIndex = new AtomicLong(1);
 
         // Delegate directly to listener.
         lenient().doAnswer(
@@ -344,7 +345,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
-        when(pkIndexDescriptor.isPk()).thenReturn(true);
 
         when(pkIndexDescriptor.columns()).then(
                 invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
@@ -388,7 +388,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
-                tableRaftService().partitionRaftGroupService(PART_ID),
+                svc,
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
@@ -406,7 +406,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE),
+                placementDriver,
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,
@@ -423,8 +423,36 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 catalogService,
                 schemaManager,
                 CLOCK_SERVICE,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                LOCAL_NODE.id()
         );
+
+        // Update(All)Command handling requires both information about raft group topology and the primary replica,
+        // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
+        {
+            partitionListener.onConfigurationCommitted(new CommittedConfiguration(
+                    1,
+                    1,
+                    List.of(LOCAL_NODE.name()),
+                    Collections.emptyList(),
+                    null,
+                    null
+            ));
+
+            CompletableFuture<ReplicaMeta> primaryMetaFuture = placementDriver.getPrimaryReplica(groupId, CLOCK.now());
+
+            assertThat(primaryMetaFuture, willCompleteSuccessfully());
+
+            ReplicaMeta primary = primaryMetaFuture.join();
+
+            PrimaryReplicaChangeCommand primaryReplicaChangeCommand = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .leaseStartTime(primary.getStartTime().longValue())
+                    .primaryReplicaNodeId(primary.getLeaseholderId())
+                    .primaryReplicaNodeName(primary.getLeaseholder())
+                    .build();
+
+            assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
+        }
     }
 
     /**

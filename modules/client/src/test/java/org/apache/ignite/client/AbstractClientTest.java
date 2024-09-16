@@ -45,7 +45,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
     protected static TestServer testServer;
 
-    protected static Ignite server;
+    protected static FakeIgnite server;
 
     protected static IgniteClient client;
 
@@ -116,7 +116,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static TestServer startServer(
             long idleTimeout,
-            Ignite ignite
+            FakeIgnite ignite
     ) {
         return startServer(idleTimeout, ignite, null);
     }
@@ -131,7 +131,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static TestServer startServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             String nodeName
     ) {
         return new TestServer(idleTimeout, ignite, null, null, nodeName, clusterId, null, null);

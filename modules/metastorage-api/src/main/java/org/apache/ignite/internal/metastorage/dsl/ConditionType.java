@@ -67,5 +67,22 @@ public enum ConditionType {
     TOMBSTONE,
 
     /** Not-tombstone condition type for a key. */
-    NOT_TOMBSTONE
+    NOT_TOMBSTONE;
+
+    /** Cached array with all enum values. */
+    private static final ConditionType[] VALUES = values();
+
+    /**
+     * Returns the enumerated value from its ordinal.
+     *
+     * @param ordinal Ordinal of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     */
+    public static ConditionType fromOrdinal(int ordinal) throws IllegalArgumentException {
+        if (ordinal < 0 || ordinal >= VALUES.length) {
+            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        }
+
+        return VALUES[ordinal];
+    }
 }

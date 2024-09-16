@@ -285,8 +285,8 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
-     * Issues {@code changePeersAsync} request with same peers; learners are recalculated based on the current peers (which is same as
-     * CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
+     * Issues {@code changePeersAndLearnersAsync} request with same peers; learners are recalculated based on the current peers (which is
+     * same as CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
      *
      * @param term RAFT term in which we operate (used to avoid races when changing peers/learners).
      * @return Future that completes when the request is processed.
@@ -317,7 +317,7 @@ public class CmgRaftService implements ManuallyCloseable {
 
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
-            return raftService.changePeersAsync(newConfiguration, term)
+            return raftService.changePeersAndLearnersAsync(newConfiguration, term)
                     .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
             return raftService.resetLearners(newConfiguration.learners());

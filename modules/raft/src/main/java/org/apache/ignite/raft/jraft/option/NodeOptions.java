@@ -52,7 +52,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private static final int DEFAULT_STRIPES = Utils.cpus();
 
     /** This value is used by default to determine the count of stripes for log manager. */
-    private static final int DEFAULT_LOG_STRIPES_COUNT = 4;
+    private static final int DEFAULT_LOG_STRIPES_COUNT = Math.min(4, DEFAULT_STRIPES);
 
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds

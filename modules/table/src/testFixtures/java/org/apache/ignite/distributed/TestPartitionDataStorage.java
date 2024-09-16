@@ -84,8 +84,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
-        return partitionStorage.flush();
+    public CompletableFuture<Void> flush(boolean trigger) {
+        return partitionStorage.flush(trigger);
     }
 
     @Override
@@ -159,12 +159,26 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
-        partitionStorage.updateLease(leaseStartTime);
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
+        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     @Override
     public long leaseStartTime() {
         return partitionStorage.leaseStartTime();
+    }
+
+    @Override
+    public String primaryReplicaNodeId() {
+        return partitionStorage.primaryReplicaNodeId();
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        return partitionStorage.primaryReplicaNodeName();
     }
 }

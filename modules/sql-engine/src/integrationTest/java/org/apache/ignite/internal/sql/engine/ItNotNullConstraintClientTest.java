@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.junit.jupiter.api.AfterEach;
@@ -32,12 +34,12 @@ public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
     @BeforeEach
     public void startClient() {
         client = IgniteClient.builder()
-                .addresses("localhost:" + CLUSTER.aliveNode().clientAddress().port())
+                .addresses("localhost:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port())
                 .build();
     }
 
     @AfterEach
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 

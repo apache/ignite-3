@@ -491,9 +491,6 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         // Validate all types are tested.
         Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
 
-        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
-        nativeTypes.removeAll(unsupported);
-
         assertEquals(nativeTypes,
                 allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
 

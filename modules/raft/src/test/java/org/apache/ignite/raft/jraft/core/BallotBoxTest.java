@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Closure;
@@ -32,17 +38,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(MockitoExtension.class)
 public class BallotBoxTest extends BaseIgniteAbstractTest {
@@ -61,6 +59,7 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
         this.closureQueue = new ClosureQueueImpl(options);
         opts.setClosureQueue(this.closureQueue);
         opts.setWaiter(this.waiter);
+        opts.setLastCommittedIndex(0);
         box = new BallotBox();
         assertTrue(box.init(opts));
     }
@@ -71,19 +70,34 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
-    @ParameterizedTest
-    @ValueSource(shorts = {0, 1, 3})
-    public void testResetPendingIndex(int quorum) {
+    @Test
+    public void initWithLastCommittedIndex() {
+        BallotBoxOptions opts = new BallotBoxOptions();
+        NodeOptions options = new NodeOptions();
+        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        options.setCommonExecutor(executor);
+        this.closureQueue = new ClosureQueueImpl(options);
+        opts.setClosureQueue(this.closureQueue);
+        opts.setWaiter(this.waiter);
+        opts.setLastCommittedIndex(9);
+        box = new BallotBox();
+        assertTrue(box.init(opts));
+
+        assertEquals(box.getLastCommittedIndex(), 9);
+    }
+
+    @Test
+    public void testResetPendingIndex() {
         assertEquals(0, closureQueue.getFirstIndex());
         assertEquals(0, box.getPendingIndex());
-        assertTrue(box.resetPendingIndex(1, quorum));
+        assertTrue(box.resetPendingIndex(1));
+        assertEquals(0, box.getLastCommittedIndex());
         assertEquals(1, closureQueue.getFirstIndex());
         assertEquals(1, box.getPendingIndex());
     }
 
-    @ParameterizedTest
-    @ValueSource(shorts = {0, 1, 3})
-    public void testAppendPendingTask(int quorum) {
+    @Test
+    public void testAppendPendingTask() {
         assertTrue(this.box.getPendingMetaQueue().isEmpty());
         assertTrue(this.closureQueue.getQueue().isEmpty());
         assertFalse(this.box.appendPendingTask(
@@ -95,7 +109,7 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
 
                 }
             }));
-        assertTrue(box.resetPendingIndex(1, quorum));
+        assertTrue(box.resetPendingIndex(1));
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
@@ -110,21 +124,19 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
         assertEquals(1, this.closureQueue.getQueue().size());
     }
 
-    @ParameterizedTest
-    @ValueSource(shorts = {0, 1, 3})
-    public void testClearPendingTasks(int quorum) {
-        testAppendPendingTask(quorum);
+    @Test
+    public void testClearPendingTasks() {
+        testAppendPendingTask();
         this.box.clearPendingTasks();
         assertTrue(this.box.getPendingMetaQueue().isEmpty());
         assertTrue(this.closureQueue.getQueue().isEmpty());
         assertEquals(0, closureQueue.getFirstIndex());
     }
 
-    @ParameterizedTest
-    @ValueSource(shorts = {0, 1, 3})
-    public void testCommitAt(int quorum) {
+    @Test
+    public void testCommitAt() {
         assertFalse(this.box.commitAt(1, 3, new PeerId("localhost", 8081)));
-        assertTrue(box.resetPendingIndex(1, quorum));
+        assertTrue(box.resetPendingIndex(1));
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
@@ -150,10 +162,9 @@ public class BallotBoxTest extends BaseIgniteAbstractTest {
         Mockito.verify(this.waiter, Mockito.only()).onCommitted(1);
     }
 
-    @ParameterizedTest
-    @ValueSource(shorts = {0, 1, 3})
-    public void testSetLastCommittedIndexHasPending(int quorum) {
-        assertTrue(box.resetPendingIndex(1, quorum));
+    @Test
+    public void testSetLastCommittedIndexHasPending() {
+        assertTrue(box.resetPendingIndex(1));
         assertThrows(IllegalArgumentException.class, () -> this.box.setLastCommittedIndex(1));
     }
 

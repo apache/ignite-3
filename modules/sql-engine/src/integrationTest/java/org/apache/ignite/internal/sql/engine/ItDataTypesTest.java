@@ -233,10 +233,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
         assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20889
-        //  Sql. Change type derivation for literals and expressions for overflowed BIGINT
-        // BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
-        // assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
+        BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
 
         assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
         assertQuery(format("SELECT NULLIF((select {}), 100)", moreThanUpperBoundApprox))
@@ -479,6 +477,26 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    /** Tests conversions int to decimal as dynamic parameters for decode and coalesce functions. */
+    @Test
+    public void testFunctionArgsToNumericImplicitConversion() {
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.00")).check();
+        assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(?, 0, 1.0, 1, 1, 5)").withParams(3).returns(new BigDecimal("5.0")).check();
+        assertQuery("select decode(100, 0, 1, 1, 2)").returns((Object) null).check();
+
+        assertQuery("select coalesce(null, ?, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select coalesce(?, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+    }
+
     /**
      * Test cases for decimal literals.
      */
@@ -487,7 +505,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
 
         assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
-        assertQuery("SELECT DECIMAL '10'").returns(new Integer(("10"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(Integer.valueOf("10")).check();
         assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
 
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();

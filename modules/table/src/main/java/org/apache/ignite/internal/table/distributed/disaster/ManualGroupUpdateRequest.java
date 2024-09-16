@@ -160,7 +160,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                     nodeConsistentIds,
                     msRevision,
                     disasterRecoveryManager.metaStorageManager,
-                    localStatesMap
+                    localStatesMap,
+                    catalog.time()
             );
 
             return allOf(futures);
@@ -188,7 +189,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> aliveNodesConsistentIds,
             long revision,
             MetaStorageManager metaStorageManager,
-            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap
+            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            long assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -217,7 +219,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                             revision,
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                            localStatesMap.get(replicaGrpId)
+                            localStatesMap.get(replicaGrpId),
+                            assignmentsTimestamp
                     )).thenAccept(res -> {
                         DisasterRecoveryManager.LOG.info(
                                 "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
@@ -237,7 +240,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            long assignmentsTimestamp
     ) {
         Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
@@ -256,7 +260,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(partAssignments).toBytes(),
+                    Assignments.forced(partAssignments, assignmentsTimestamp).toBytes(),
                     null
             );
         } else {
@@ -268,8 +272,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(stableAssignments).toBytes(),
-                    Assignments.toBytes(partAssignments)
+                    Assignments.forced(stableAssignments, assignmentsTimestamp).toBytes(),
+                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
 

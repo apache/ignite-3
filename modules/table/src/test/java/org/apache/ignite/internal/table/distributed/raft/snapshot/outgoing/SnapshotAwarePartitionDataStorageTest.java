@@ -101,11 +101,15 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesFlush() {
-        CompletableFuture<Void> future = nullCompletedFuture();
+        CompletableFuture<Void> triggered = nullCompletedFuture();
+        CompletableFuture<Void> notTriggered = nullCompletedFuture();
 
-        when(partitionStorage.flush()).thenReturn(future);
+        when(partitionStorage.flush(true)).thenReturn(triggered);
+        when(partitionStorage.flush(false)).thenReturn(notTriggered);
 
-        assertThat(testedStorage.flush(), is(future));
+        assertThat(testedStorage.flush(), is(triggered));
+        assertThat(testedStorage.flush(true), is(triggered));
+        assertThat(testedStorage.flush(false), is(notTriggered));
     }
 
     @Test

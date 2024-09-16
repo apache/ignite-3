@@ -36,14 +36,21 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.network.NetworkAddress;
@@ -79,6 +86,8 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
      * Servers list.
      */
     private final List<JraftServerImpl> servers = new ArrayList<>();
+
+    private final List<RaftGroupOptionsConfigurer> raftConfigurers = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -134,7 +143,21 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = jraftServer(idx, service, opts);
+        ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("node" + idx));
+
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                workingDir.raftLogPath()
+        );
+
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        RaftGroupOptionsConfigurer partitionsConfigurer =
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+
+        raftConfigurers.add(partitionsConfigurer);
+
+        JraftServerImpl server = TestJraftServerFactory.create(service, opts);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -161,20 +184,30 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), localNode);
 
-            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
+            RaftGroupOptions options = defaults().commandsMarshaller(commandsMarshaller);
+
+            raftConfigurers.get(0).configure(options);
+
+            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), options);
         }, opts -> {});
 
-        servers.forEach(srv -> {
-            String localNodeName = srv.clusterService().topologyService().localMember().name();
+        for (int j = 0; j < servers.size(); j++) {
+            JraftServerImpl server = servers.get(j);
+
+            String localNodeName = server.clusterService().topologyService().localMember().name();
 
             Peer localNode = initialConf.peer(localNodeName);
 
             for (int i = 0; i < 5; i++) {
                 var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group_" + i), localNode);
 
-                srv.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
+                RaftGroupOptions options = defaults().commandsMarshaller(commandsMarshaller);
+
+                raftConfigurers.get(j).configure(options);
+
+                server.startRaftNode(nodeId, initialConf, listenerFactory.get(), options);
             }
-        });
+        }
 
         servers.forEach(srv -> {
             List<RaftGroupService> grp = srv.localNodes().stream().map(srv::raftGroupService).collect(toList());

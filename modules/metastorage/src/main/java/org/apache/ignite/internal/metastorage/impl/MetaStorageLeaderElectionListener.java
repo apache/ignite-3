@@ -25,12 +25,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -80,6 +82,15 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     private final List<ElectionListener> electionListeners;
 
     /**
+     * Becomes {@code true} when the node, even being formally a leader, should not perform secondary leader duties (these are managing
+     * learners and propagating idle safe time through Metastorage).
+     *
+     * <p>The flag is raised when we appoint a node as a leader forcefully via resetPeers(). The flag gets cleared when first non-forced
+     * configuration update comes after forcing leadership.
+     */
+    private final BooleanSupplier leaderSecondaryDutiesPaused;
+
+    /**
      * Leader term if this node is a leader, {@code null} otherwise.
      *
      * <p>Multi-threaded access is guarded by {@code serializationFutureMux}.
@@ -94,7 +105,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             ClusterTimeImpl clusterTime,
             CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
-            List<ElectionListener> electionListeners
+            List<ElectionListener> electionListeners,
+            BooleanSupplier leaderSecondaryDutiesPaused
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
@@ -103,48 +115,88 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.clusterTime = clusterTime;
         this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
         this.electionListeners = electionListeners;
+        this.leaderSecondaryDutiesPaused = leaderSecondaryDutiesPaused;
     }
 
     @Override
     public void onLeaderElected(ClusterNode node, long term) {
         electionListeners.forEach(listener -> listener.onLeaderElected(node));
 
+        boolean weAreNewLeader = node.name().equals(nodeName);
+
         synchronized (serializationFutureMux) {
-            if (node.name().equals(nodeName) && serializationFuture == null) {
-                LOG.info("Node has been elected as the leader, starting Idle Safe Time scheduler");
+            boolean weWerePreviousLeader = serializationFuture != null;
 
-                thisNodeTerm = term;
-
-                logicalTopologyService.addEventListener(logicalTopologyEventListener);
-
-                metaStorageSvcFut
-                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
-                                clusterTime.startSafeTimeScheduler(
-                                        safeTime -> service.syncTime(safeTime, term),
-                                        metaStorageConfiguration
-                                ))
-                        .whenComplete((v, e) -> {
-                            if (e != null) {
-                                LOG.error("Unable to start Idle Safe Time scheduler", e);
-                            }
-                        });
-
-                // Update learner configuration (in case we missed some topology updates between elections).
-                serializationFuture = metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
-            } else if (serializationFuture != null) {
-                LOG.info("Node has lost the leadership, stopping Idle Safe Time scheduler");
+            if (weWerePreviousLeader && !weAreNewLeader) {
+                LOG.info("Node has lost the leadership, stopping doing secondary duties");
 
                 thisNodeTerm = null;
 
-                logicalTopologyService.removeEventListener(logicalTopologyEventListener);
-
                 clusterTime.stopSafeTimeScheduler();
+
+                logicalTopologyService.removeEventListener(logicalTopologyEventListener);
 
                 serializationFuture.cancel(false);
 
                 serializationFuture = null;
             }
+
+            if (weAreNewLeader) {
+                thisNodeTerm = term;
+
+                if (!weWerePreviousLeader) {
+                    LOG.info("Node has been elected as the leader (and it wasn't previous leader), so starting doing secondary duties");
+
+                    startSafeTimeScheduler();
+
+                    // The node was not previous leader, and it becomes a leader.
+                    logicalTopologyService.addEventListener(logicalTopologyEventListener);
+
+                    // Update learner configuration (in case we missed some topology updates between elections).
+                    serializationFuture = (serializationFuture == null ? nullCompletedFuture() : serializationFuture)
+                            .thenCompose(unused -> updateLearnersIfSecondaryDutiesAreNotPaused(term));
+                } else {
+                    LOG.info("Node has been reelected as the leader");
+                }
+            }
         }
+    }
+
+    private void startSafeTimeScheduler() {
+        metaStorageSvcFut
+                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                    clusterTime.startSafeTimeScheduler(
+                            safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
+                            metaStorageConfiguration
+                    );
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to start Idle Safe Time scheduler", e);
+                    }
+                });
+    }
+
+    private CompletableFuture<Void> updateLearnersIfSecondaryDutiesAreNotPaused(long term) {
+        if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+            return nullCompletedFuture();
+        }
+
+        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
+    }
+
+    private CompletableFuture<Void> syncTimeIfSecondaryDutiesAreNotPaused(HybridTimestamp safeTime, MetaStorageServiceImpl service) {
+        if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+            return nullCompletedFuture();
+        }
+
+        Long term = thisNodeTerm;
+        if (term == null) {
+            // We seized to be a leader, do nothing.
+            return nullCompletedFuture();
+        }
+
+        return service.syncTime(safeTime, term);
     }
 
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {
@@ -185,6 +237,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         }
 
         try {
+            if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+                LOG.info("Skipping Meta Storage configuration update because the leader's secondary duties are paused");
+
+                return;
+            }
+
             synchronized (serializationFutureMux) {
                 // We are definitely not a leader if the serialization future has not been initialized.
                 if (serializationFuture == null) {
@@ -246,7 +304,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAsync(newPeerConfiguration, term);
+                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
                 })));
     }
 

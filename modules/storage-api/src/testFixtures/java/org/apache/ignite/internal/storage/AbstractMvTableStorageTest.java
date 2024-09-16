@@ -208,7 +208,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         var testData0 = binaryRow(new TestKey(1, "0"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         RowId rowId0 = new RowId(PARTITION_ID_0);
 
@@ -367,7 +367,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         var catalogSortedIndex2 = new CatalogSortedIndexDescriptor(
@@ -376,7 +377,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         var sortedIndexDescriptor1 = new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndex1);
@@ -418,7 +420,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         var catalogHashIndex2 = new CatalogHashIndexDescriptor(
@@ -427,7 +430,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         var hashIndexDescriptor1 = new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndex1);
@@ -528,7 +532,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -559,7 +563,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -602,7 +606,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageDestroyedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
+        assertThrows(
+                StorageDestroyedException.class,
+                () -> storage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, partId)
+        );
         assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
@@ -1051,7 +1058,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                false
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -1060,7 +1068,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                false
         );
 
         CatalogIndexDescriptor pkIndex = new CatalogHashIndexDescriptor(
@@ -1069,7 +1078,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of(pkColumnName)
+                List.of(pkColumnName),
+                true
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
@@ -1100,7 +1110,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         }
     }
 
-    private static void fillStorages(
+    private void fillStorages(
             MvPartitionStorage mvPartitionStorage,
             @Nullable HashIndexStorage hashIndexStorage,
             @Nullable SortedIndexStorage sortedIndexStorage,
@@ -1125,7 +1135,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {
@@ -1578,7 +1588,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkCursorAfterStartRebalance(sortedIndexStorageTolerantScanCursor);
     }
 
-    @SuppressWarnings({"resource", "deprecation"})
+    @SuppressWarnings("resource")
     private void checkMvPartitionStorageMethodsAfterStartRebalance(MvPartitionStorage storage) {
         checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 

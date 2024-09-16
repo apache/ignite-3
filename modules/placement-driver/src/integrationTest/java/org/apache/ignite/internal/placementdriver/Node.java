@@ -30,6 +30,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 class Node implements AutoCloseable {
@@ -39,6 +40,10 @@ class Node implements AutoCloseable {
 
     final Loza loza;
 
+    LogStorageFactory partitionsLogStorageFactory;
+
+    LogStorageFactory msLogStorageFactory;
+
     final MetaStorageManagerImpl metastore;
 
     final PlacementDriverManager placementDriverManager;
@@ -47,6 +52,8 @@ class Node implements AutoCloseable {
             String name,
             ClusterService clusterService,
             Loza loza,
+            LogStorageFactory partitionsLogStorageFactory,
+            LogStorageFactory msLogStorageFactory,
             MetaStorageManagerImpl metastore,
             PlacementDriverManager placementDriverManager
     ) {
@@ -55,12 +62,14 @@ class Node implements AutoCloseable {
         this.loza = loza;
         this.metastore = metastore;
         this.placementDriverManager = placementDriverManager;
+        this.partitionsLogStorageFactory = partitionsLogStorageFactory;
+        this.msLogStorageFactory = msLogStorageFactory;
     }
 
     CompletableFuture<Void> startAsync() {
         ComponentContext componentContext = new ComponentContext();
 
-        return IgniteUtils.startAsync(componentContext, clusterService, loza, metastore)
+        return IgniteUtils.startAsync(componentContext, clusterService, partitionsLogStorageFactory, msLogStorageFactory, loza, metastore)
                 .thenCompose(unused -> metastore.recoveryFinishedFuture())
                 .thenCompose(unused -> placementDriverManager.startAsync(componentContext))
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
@@ -69,7 +78,8 @@ class Node implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        List<IgniteComponent> igniteComponents = List.of(placementDriverManager, metastore, loza, clusterService);
+        List<IgniteComponent> igniteComponents =
+                List.of(placementDriverManager, metastore, loza, msLogStorageFactory, partitionsLogStorageFactory, clusterService);
 
         closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),

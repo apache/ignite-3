@@ -29,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Network;
     using Microsoft.Extensions.Logging;
     using Network;
@@ -316,6 +317,25 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Gets active sockets.
+        /// </summary>
+        /// <returns>Active sockets.</returns>
+        internal IEnumerable<ClientSocket> GetSockets()
+        {
+            var res = new List<ClientSocket>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false })
+                {
+                    res.Add(endpoint.Socket);
+                }
+            }
+
+            return res;
+        }
+
+        /// <summary>
         /// Gets a socket. Reconnects if necessary.
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>
@@ -510,13 +530,13 @@ namespace Apache.Ignite.Internal
                 {
                     _clusterId = socket.ConnectionContext.ClusterId;
                 }
-                else if (_clusterId != socket.ConnectionContext.ClusterId)
+                else if (!socket.ConnectionContext.ClusterIds.Contains(_clusterId.Value))
                 {
                     socket.Dispose();
 
                     throw new IgniteClientConnectionException(
                         ErrorGroups.Client.ClusterIdMismatch,
-                        $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+                        $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterIds.StringJoin()}");
                 }
 
                 endpoint.Socket = socket;

@@ -93,28 +93,6 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a bitmask type of size {@code bits}. In row will round up to the closest full byte.
-     *
-     * @param bits The number of bits in the bitmask.
-     * @return Native type.
-     */
-    @Deprecated(forRemoval = true)
-    public static NativeType bitmaskOf(int bits) {
-        return new BitmaskNativeType(bits);
-    }
-
-    /**
-     * Creates a number type with maximal precision.
-     *
-     * @param precision The number of digits in the number value.
-     * @return Native type.
-     */
-    @Deprecated(forRemoval = true)
-    public static NativeType numberOf(int precision) {
-        return new NumberNativeType(precision);
-    }
-
-    /**
      * Creates a STRING type with maximal length is {@code len}.
      *
      * @param len Maximum length of the string, {@link Integer#MAX_VALUE} if not defined.

@@ -103,14 +103,12 @@ For example, here is how you can create a new table by using an SQL API:
 
 [source, java]
 ----
-try (ResultSet rs = ignite.sql().createSession().execute(null,
+try (ResultSet rs = ignite.sql().execute(null,
         "CREATE TABLE CREATE TABLE IF NOT EXISTS Person (id int primary key,city_id int,name varchar,age int,company varchar)")
 ) {
     // no-op
 }
 ----
-
-NOTE: Session is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep cursor open.
 
 More examples of working with Ignite can be found in the link:https://github.com/apache/ignite-3/tree/main/examples[examples] repository.
 

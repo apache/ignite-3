@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -46,6 +47,7 @@ dependencies {
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-partition-replicator')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation libs.netty.transport

@@ -20,25 +20,26 @@ package org.apache.ignite.internal.catalog.compaction;
 import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessageGroup;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
-import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeRequest;
-import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeMessage;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -52,9 +53,18 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -72,7 +82,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Routine is triggered after receiving local notification that the low watermark
  *     has been updated on catalog compaction coordinator (metastorage group leader).</li>
  *     <li>Coordinator calculates the minimum required time in the cluster
- *     by sending {@link CatalogMinimumRequiredTimeRequest} to all cluster members.</li>
+ *     by sending {@link CatalogCompactionMinimumTimesRequest} to all cluster members.</li>
  *     <li>If it is considered safe to trim the history up to calculated catalog version
  *     (at least, all partition owners are present in the logical topology), then the catalog is compacted.</li>
  * </ol>
@@ -80,11 +90,15 @@ import org.jetbrains.annotations.TestOnly;
 public class CatalogCompactionRunner implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CatalogCompactionRunner.class);
 
-    private static final CatalogCompactionMessagesFactory MESSAGES_FACTORY = new CatalogCompactionMessagesFactory();
+    private static final CatalogCompactionMessagesFactory COMPACTION_MESSAGES_FACTORY = new CatalogCompactionMessagesFactory();
 
-    private static final long ANSWER_TIMEOUT = 5_000;
+    private static final PartitionReplicationMessagesFactory REPLICATION_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
-    private final CatalogManagerImpl catalogManager;
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final long ANSWER_TIMEOUT = 10_000;
+
+    private final CatalogManagerCompactionFacade catalogManagerFacade;
 
     private final MessagingService messagingService;
 
@@ -102,6 +116,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
+    private final ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider;
+
+    private final ReplicaService replicaService;
+
+    private final SchemaSyncService schemaSyncService;
+
+    private final TopologyService topologyService;
+
+    private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
+
     /**
      * Node that is considered to be a coordinator of compaction process.
      *
@@ -109,9 +133,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
      */
     private volatile @Nullable String compactionCoordinatorNodeName;
 
-    private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
-
     private volatile HybridTimestamp lowWatermark;
+
+    private volatile String localNodeId;
 
     /**
      * Constructs catalog compaction runner.
@@ -122,10 +146,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
             MessagingService messagingService,
             LogicalTopologyService logicalTopologyService,
             PlacementDriver placementDriver,
+            ReplicaService replicaService,
             ClockService clockService,
-            Executor executor
+            SchemaSyncService schemaSyncService,
+            TopologyService topologyService,
+            Executor executor,
+            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider
     ) {
-        this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, clockService, executor, null);
+        this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
+                schemaSyncService, topologyService, executor, activeLocalTxMinimumBeginTimeProvider, null);
     }
 
     /**
@@ -137,33 +166,33 @@ public class CatalogCompactionRunner implements IgniteComponent {
             MessagingService messagingService,
             LogicalTopologyService logicalTopologyService,
             PlacementDriver placementDriver,
+            ReplicaService replicaService,
             ClockService clockService,
+            SchemaSyncService schemaSyncService,
+            TopologyService topologyService,
             Executor executor,
+            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
-        this.messagingService = messagingService;
         this.localNodeName = localNodeName;
+        this.messagingService = messagingService;
         this.logicalTopologyService = logicalTopologyService;
-        this.catalogManager = catalogManager;
+        this.catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
+        this.schemaSyncService = schemaSyncService;
+        this.topologyService = topologyService;
         this.placementDriver = placementDriver;
+        this.replicaService = replicaService;
         this.executor = executor;
+        this.activeLocalTxMinimumBeginTimeProvider = activeLocalTxMinimumBeginTimeProvider;
         this.localMinTimeProvider = localMinTimeProvider == null ? this::determineLocalMinimumRequiredTime : localMinTimeProvider;
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, (message, sender, correlationId) -> {
-            assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
-            assert message.messageType() == CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST : message.messageType();
-            assert correlationId != null;
+        messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, new CatalogCompactionMessageHandler());
 
-            CatalogMinimumRequiredTimeResponse response = MESSAGES_FACTORY.catalogMinimumRequiredTimeResponse()
-                    .timestamp(localMinTimeProvider.time())
-                    .build();
-
-            messagingService.respond(sender, response, correlationId);
-        });
+        localNodeId = topologyService.localMember().id();
 
         return CompletableFutures.nullCompletedFuture();
     }
@@ -198,115 +227,147 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     @TestOnly
-    CompletableFuture<Boolean> lastRunFuture() {
+    synchronized CompletableFuture<Void> lastRunFuture() {
         return lastRunFuture;
     }
 
     /** Starts the catalog compaction routine. */
-    CompletableFuture<Boolean> triggerCompaction(@Nullable HybridTimestamp lwm) {
+    void triggerCompaction(@Nullable HybridTimestamp lwm) {
         if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName)) {
-            return CompletableFutures.falseCompletedFuture();
+            return;
         }
 
-        return inBusyLock(busyLock, () -> {
-            CompletableFuture<Boolean> fut = lastRunFuture;
+        inBusyLock(busyLock, () -> {
+            synchronized (this) {
+                CompletableFuture<Void> fut = lastRunFuture;
 
-            if (!fut.isDone()) {
-                LOG.info("Catalog compaction is already in progress, skipping (timestamp={})", lwm.longValue());
+                if (!fut.isDone()) {
+                    LOG.info("Catalog compaction is already in progress, skipping [timestamp={}].", lwm.longValue());
 
-                return CompletableFutures.falseCompletedFuture();
+                    return;
+                }
+
+                lastRunFuture = startCompaction(logicalTopologyService.localLogicalTopology());
             }
-
-            fut = startCompaction(logicalTopologyService.localLogicalTopology())
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            LOG.warn("Catalog compaction has failed (timestamp={})", ex, lwm.longValue());
-                        } else if (LOG.isDebugEnabled()) {
-                            if (res) {
-                                LOG.debug("Catalog compaction completed successfully (timestamp={})", lwm.longValue());
-                            } else {
-                                LOG.debug("Catalog compaction skipped (timestamp={})", lwm.longValue());
-                            }
-                        }
-                    });
-
-            lastRunFuture = fut;
-
-            return fut;
         });
     }
 
-    private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
+    private CompletableFuture<Void> startCompaction(LogicalTopologySnapshot topologySnapshot) {
         long localMinimum = localMinTimeProvider.time();
 
-        if (catalogByTsNullable(localMinimum) == null) {
-            return CompletableFutures.falseCompletedFuture();
+        if (catalogManagerFacade.catalogByTsNullable(localMinimum) == null) {
+            LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", localMinimum);
+
+            return CompletableFutures.nullCompletedFuture();
         }
 
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinimum)
-                .thenComposeAsync(ts -> {
-                    Catalog catalog = catalogByTsNullable(ts);
+                .thenComposeAsync(timeHolder -> {
+                    long minRequiredTime = timeHolder.minRequiredTime;
+                    long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
+                    Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
+
+                    CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        return CompletableFutures.falseCompletedFuture();
+                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", minRequiredTime);
+
+                        catalogCompactionFut = CompletableFutures.falseCompletedFuture();
+                    } else {
+                        catalogCompactionFut = tryCompactCatalog(catalog, topologySnapshot).whenComplete((res, ex) -> {
+                            if (ex != null) {
+                                LOG.warn("Catalog compaction has failed [timestamp={}].", ex, minRequiredTime);
+                            } else {
+                                if (res) {
+                                    LOG.info("Catalog compaction completed successfully [timestamp={}].", minRequiredTime);
+                                } else {
+                                    LOG.info("Catalog compaction skipped [timestamp={}].", minRequiredTime);
+                                }
+                            }
+                        });
                     }
 
-                    return requiredNodes(catalog)
-                            .thenCompose(requiredNodes -> {
-                                List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
+                    CompletableFuture<Void> propagateToReplicasFut =
+                            propagateTimeToNodes(minActiveTxBeginTime, topologySnapshot.nodes())
+                                    .whenComplete((ignore, ex) -> {
+                                        if (ex != null) {
+                                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                                        }
+                                    });
 
-                                if (!missingNodes.isEmpty()) {
-                                    if (LOG.isDebugEnabled()) {
-                                        LOG.debug("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
-                                    }
-
-                                    return CompletableFutures.falseCompletedFuture();
-                                }
-
-                                return catalogManager.compactCatalog(catalog.time());
-                            });
+                    return CompletableFuture.allOf(
+                            catalogCompactionFut,
+                            propagateToReplicasFut
+                    );
                 }, executor);
     }
 
-    private @Nullable Catalog catalogByTsNullable(long ts) {
-        try {
-            int catalogVer = catalogManager.activeCatalogVersion(ts);
-            return catalogManager.catalog(catalogVer - 1);
-        } catch (IllegalStateException e) {
-            return null;
-        }
-    }
+    CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
+            Collection<? extends ClusterNode> nodes,
+            long localMinimumRequiredTime
+    ) {
+        CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
+        List<CompletableFuture<CatalogCompactionMinimumTimesResponse>> responseFutures = new ArrayList<>(nodes.size() - 1);
 
-    private CompletableFuture<Long> determineGlobalMinimumRequiredTime(Set<LogicalNode> logicalTopologyNodes, long localMinimumTs) {
-        CatalogMinimumRequiredTimeRequest request = MESSAGES_FACTORY.catalogMinimumRequiredTimeRequest().build();
-        List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopologyNodes.size());
-        AtomicLong minimumRequiredTimeHolder = new AtomicLong(Long.MAX_VALUE);
-
-        for (LogicalNode node : logicalTopologyNodes) {
+        for (ClusterNode node : nodes) {
             if (localNodeName.equals(node.name())) {
                 continue;
             }
 
-            CompletableFuture<NetworkMessage> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
-                    .whenComplete((msg, ex) -> {
-                        if (ex != null) {
-                            return;
-                        }
+            CompletableFuture<CatalogCompactionMinimumTimesResponse> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
+                    .thenApply(CatalogCompactionMinimumTimesResponse.class::cast);
 
-                        long time = ((CatalogMinimumRequiredTimeResponse) msg).timestamp();
-                        long prevTime;
-
-                        // Update minimum timestamp.
-                        do {
-                            prevTime = minimumRequiredTimeHolder.get();
-                        } while (time < prevTime && !minimumRequiredTimeHolder.compareAndSet(prevTime, time));
-                    });
-
-            ackFutures.add(fut);
+            responseFutures.add(fut);
         }
 
-        return CompletableFutures.allOf(ackFutures)
-                .thenApply(ignore -> Math.min(minimumRequiredTimeHolder.get(), localMinimumTs));
+        return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
+                .thenApply(ignore -> {
+                    long globalMinimumRequiredTime = localMinimumRequiredTime;
+                    long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
+
+                    for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
+                        CatalogCompactionMinimumTimesResponse response = fut.join();
+
+                        if (response.minimumRequiredTime() < globalMinimumRequiredTime) {
+                            globalMinimumRequiredTime = response.minimumRequiredTime();
+                        }
+
+                        if (response.minimumActiveTxTime() < globalMinimumActiveTxTime) {
+                            globalMinimumActiveTxTime = response.minimumActiveTxTime();
+                        }
+                    }
+
+                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime);
+                });
+    }
+
+    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
+        CatalogCompactionPrepareUpdateTxBeginTimeMessage request = COMPACTION_MESSAGES_FACTORY
+                .catalogCompactionPrepareUpdateTxBeginTimeMessage()
+                .timestamp(timestamp)
+                .build();
+
+        List<CompletableFuture<?>> sendFutures = new ArrayList<>(nodes.size());
+
+        for (ClusterNode node : nodes) {
+            sendFutures.add(messagingService.send(node, request));
+        }
+
+        return CompletableFutures.allOf(sendFutures);
+    }
+
+    CompletableFuture<Void> propagateTimeToLocalReplicas(long txBeginTime) {
+        HybridTimestamp nowTs = clockService.now();
+
+        return schemaSyncService.waitForMetadataCompleteness(nowTs)
+                .thenComposeAsync(ignore -> {
+                    Int2IntMap tablesWithPartitions =
+                            catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
+
+                    ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
+
+                    return invokeOnLocalReplicas(txBeginTime, localNodeId, itr);
+                }, executor);
     }
 
     private long determineLocalMinimumRequiredTime() {
@@ -314,57 +375,63 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return HybridTimestamp.MIN_VALUE.longValue();
     }
 
+    private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
+        return requiredNodes(catalog)
+                .thenCompose(requiredNodes -> {
+                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
+
+                    if (!missingNodes.isEmpty()) {
+                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
+
+                        return CompletableFutures.falseCompletedFuture();
+                    }
+
+                    return catalogManagerFacade.compactCatalog(catalog.version());
+                });
+    }
+
     private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22722 This method needs to be simplified.
-        return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
+        return CompletableFutures.allOf(catalog.tables().stream()
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs))
+                .collect(Collectors.toList())
+        ).thenApply(ignore -> required);
     }
 
-    private CompletableFuture<Set<String>> collectRequiredNodes(
+    private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
-            Iterator<CatalogTableDescriptor> tabItr,
+            CatalogTableDescriptor table,
             Set<String> required,
             HybridTimestamp nowTs
     ) {
-        if (!tabItr.hasNext()) {
-            return CompletableFuture.completedFuture(required);
-        }
-
-        CatalogTableDescriptor table = tabItr.next();
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         assert zone != null : table.zoneId();
 
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
+        int partitions = zone.partitions();
 
-        for (int p = 0; p < zone.partitions(); p++) {
-            ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
+        List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                    .whenComplete((tokenizedAssignments, ex) -> {
-                        if (ex != null) {
-                            return;
-                        }
-
-                        if (tokenizedAssignments == null) {
-                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
-                                    + " (replication group=" + replicationGroupId + ").");
-                        }
-
-                        List<String> assignments = tokenizedAssignments.nodes().stream()
-                                .map(Assignment::consistentId)
-                                .collect(Collectors.toList());
-
-                        required.addAll(assignments);
-                    });
-
-            partitionFutures.add(assignmentsFut);
+        for (int p = 0; p < partitions; p++) {
+            replicationGroupIds.add(new TablePartitionId(table.id(), p));
         }
 
-        return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
+        return placementDriver.getAssignments(replicationGroupIds, nowTs)
+                .thenAccept(tokenizedAssignments -> {
+                    assert tokenizedAssignments.size() == replicationGroupIds.size();
+
+                    for (int p = 0; p < partitions; p++) {
+                        TokenizedAssignments assignment = tokenizedAssignments.get(p);
+                        if (assignment == null) {
+                            throw new IllegalStateException("Cannot get assignments for table "
+                                    + "[group=" + replicationGroupIds.get(p) + ']');
+                        }
+
+                        assignment.nodes().forEach(a -> required.add(a.consistentId()));
+                    }
+                });
     }
 
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
@@ -376,10 +443,113 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    /** Minimum required time supplier. */
+    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, String localNodeId, ObjectIterator<Entry> tabTtr) {
+        if (!tabTtr.hasNext()) {
+            return CompletableFutures.nullCompletedFuture();
+        }
+
+        Entry tableWithPartitions = tabTtr.next();
+        int tableId = tableWithPartitions.getIntKey();
+        int partitions = tableWithPartitions.getIntValue();
+        List<CompletableFuture<?>> partFutures = new ArrayList<>(partitions);
+        HybridTimestamp nowTs = clockService.now();
+
+        for (int p = 0; p < partitions; p++) {
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, p);
+
+            CompletableFuture<?> fut = placementDriver
+                    .getPrimaryReplica(tablePartitionId, nowTs)
+                    .thenCompose(meta -> {
+                        // If primary is not elected yet - we'll update replication groups on next iteration.
+                        if (meta == null || meta.getLeaseholderId() == null) {
+                            return CompletableFutures.nullCompletedFuture();
+                        }
+
+                        // We need to compare leaseHolderId instead of leaseHolder, because after node restart the
+                        // leaseHolder may contain the name of the local node even though the local node is not the primary.
+                        if (!localNodeId.equals(meta.getLeaseholderId())) {
+                            return CompletableFutures.nullCompletedFuture();
+                        }
+
+                        TablePartitionIdMessage partIdMessage = ReplicaMessageUtils.toTablePartitionIdMessage(
+                                REPLICA_MESSAGES_FACTORY,
+                                tablePartitionId
+                        );
+
+                        UpdateMinimumActiveTxBeginTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
+                                .updateMinimumActiveTxBeginTimeReplicaRequest()
+                                .groupId(partIdMessage)
+                                .timestamp(txBeginTime)
+                                .build();
+
+                        return replicaService.invoke(localNodeName, msg);
+                    });
+
+            partFutures.add(fut);
+        }
+
+        return CompletableFutures.allOf(partFutures)
+                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, localNodeId, tabTtr), executor);
+    }
+
+    class CatalogCompactionMessageHandler implements NetworkMessageHandler {
+        @Override
+        public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
+
+            switch (message.messageType()) {
+                case CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST:
+                    assert correlationId != null;
+
+                    handleMinimumTimesRequest(sender, correlationId);
+
+                    break;
+
+                case CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_MESSAGE:
+                    handlePrepareToUpdateTimeOnReplicasMessage(message);
+
+                    break;
+
+                default:
+                    throw new UnsupportedOperationException("Not supported message type: " + message.messageType());
+            }
+        }
+
+        private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
+            CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
+                    .minimumRequiredTime(localMinTimeProvider.time())
+                    .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
+                    .build();
+
+            messagingService.respond(sender, response, correlationId);
+        }
+
+        private void handlePrepareToUpdateTimeOnReplicasMessage(NetworkMessage message) {
+            long txBeginTime = ((CatalogCompactionPrepareUpdateTxBeginTimeMessage) message).timestamp();
+
+            propagateTimeToLocalReplicas(txBeginTime)
+                    .exceptionally(ex -> {
+                        LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+
+                        return null;
+                    });
+        }
+    }
+
+    /** Minimum required time provider. */
     @FunctionalInterface
     interface MinimumRequiredTimeProvider {
         /** Returns minimum required timestamp. */
         long time();
+    }
+
+    static class TimeHolder {
+        final long minRequiredTime;
+        final long minActiveTxBeginTime;
+
+        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime) {
+            this.minRequiredTime = minRequiredTime;
+            this.minActiveTxBeginTime = minActiveTxBeginTime;
+        }
     }
 }

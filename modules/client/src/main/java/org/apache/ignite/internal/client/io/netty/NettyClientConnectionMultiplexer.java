@@ -78,6 +78,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         try {
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
+            bootstrap.option(ChannelOption.TCP_NODELAY, true);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
             bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) clientCfg.connectTimeout());
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
@@ -192,6 +193,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 var err = new IgniteClientConnectionException(
                         Client.CONNECTION_ERR,
                         "Client failed to connect: " + cause.getMessage(),
+                        addr.toString(),
                         cause);
 
                 fut.completeExceptionally(err);

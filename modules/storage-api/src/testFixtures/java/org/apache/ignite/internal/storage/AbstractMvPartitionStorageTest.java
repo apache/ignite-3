@@ -753,7 +753,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        UUID txId2 = UUID.randomUUID();
+        UUID txId2 = newTransactionId();
 
         storage.runConsistently(locker -> {
             addWrite(rowId, binaryRow2, txId2);
@@ -934,8 +934,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testReadingNothingByTxIdWithLowerRowId() {
         RowId higherRowId = new RowId(PARTITION_ID);
         RowId lowerRowId = decrement(higherRowId);
-
-        UUID txId = UUID.randomUUID();
 
         storage.runConsistently(locker -> {
             addWrite(higherRowId, binaryRow, txId);
@@ -1377,20 +1375,29 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     public void testLease() {
         storage.runConsistently(locker -> {
             long lst0 = 1000;
+            String nodeId0 = UUID.randomUUID().toString();
 
             long lst1 = 2000;
+            String nodeId1 = UUID.randomUUID().toString();
 
-            storage.updateLease(lst0);
+            storage.updateLease(lst0, nodeId0, nodeId0 + "name");
 
             assertEquals(lst0, storage.leaseStartTime());
+            assertEquals(nodeId0, storage.primaryReplicaNodeId());
+            assertEquals(nodeId0 + "name", storage.primaryReplicaNodeName());
 
-            storage.updateLease(lst1);
-
-            assertEquals(lst1, storage.leaseStartTime());
-
-            storage.updateLease(0);
+            storage.updateLease(lst1, nodeId1, nodeId1 + "name");
 
             assertEquals(lst1, storage.leaseStartTime());
+            assertEquals(nodeId1, storage.primaryReplicaNodeId());
+            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
+
+            String nodeIdRandom = UUID.randomUUID().toString();
+            storage.updateLease(0, nodeIdRandom, nodeIdRandom + "name");
+
+            assertEquals(lst1, storage.leaseStartTime());
+            assertEquals(nodeId1, storage.primaryReplicaNodeId());
+            assertEquals(nodeId1 + "name", storage.primaryReplicaNodeName());
 
             return null;
         });
@@ -1459,8 +1466,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     public void estimatedSizeNeverFallsBelowZeroUsingCommitWrite() {
         assertThat(storage.estimatedSize(), is(0L));
 
-        UUID txId = UUID.randomUUID();
-
         addWrite(ROW_ID, null, txId);
 
         assertThat(storage.estimatedSize(), is(0L));
@@ -1507,8 +1512,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     public void estimatedSizeIncreasedAfterTombstoneUsingCommiteWrite() {
-        UUID txId = UUID.randomUUID();
-
         addWrite(ROW_ID, binaryRow, txId);
         commitWrite(ROW_ID, clock.now());
 
@@ -1549,8 +1552,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         var rowId1 = new RowId(PARTITION_ID);
         var rowId2 = new RowId(PARTITION_ID);
-
-        UUID txId = UUID.randomUUID();
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow, txId);

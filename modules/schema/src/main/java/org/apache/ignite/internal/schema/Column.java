@@ -23,6 +23,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -207,11 +208,18 @@ public class Column {
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
-            throw new InvalidTypeException("Column's type mismatch ["
-                    + "column=" + this
-                    + ", expectedType=" + type
-                    + ", actualType=" + objType
-                    + ", val=" + val + ']');
+            boolean specMatches = objType.spec() == type.spec();
+
+            if (specMatches &&  type instanceof VarlenNativeType) {
+                String error = format("Value too long [column='{}', type={}]", name, type.displayName());
+                throw new InvalidTypeException(error);
+            } else {
+                String error = format(
+                        "Value type does not match [column='{}', expected={}, actual={}]",
+                        name, type.displayName(), objType.displayName()
+                );
+                throw new InvalidTypeException(error);
+            }
         }
     }
 
@@ -249,5 +257,15 @@ public class Column {
      */
     public static String nullConstraintViolationMessage(String columnName) {
         return format("Column '{}' does not allow NULLs", columnName);
+    }
+
+    /**
+     * Returns an error message for numeric field overflow error.
+     *
+     * @param columnName Column name.
+     * @return Error message.
+     */
+    public static String numericFieldOverflow(String columnName) {
+        return format("Numeric field overflow in column '{}'", columnName);
     }
 }

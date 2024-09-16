@@ -63,6 +63,31 @@ select REPLACE(a, 'H', '') FROM strings WHERE b IS NOT NULL ORDER BY a
 ello
 Motöread
 
+query T
+SELECT REPLACE('12341234', '1', '55')
+----
+5523455234
+
+query T
+SELECT REPLACE(NULL, '1', '5')
+----
+null
+
+query T
+SELECT REPLACE('1', NULL, '5')
+----
+null
+
+query T
+SELECT REPLACE('11', '1', NULL)
+----
+null
+
+query T
+SELECT REPLACE('11', '1', '')
+----
+(empty)
+
 # test incorrect usage of replace
 statement error
 select REPLACE(1)

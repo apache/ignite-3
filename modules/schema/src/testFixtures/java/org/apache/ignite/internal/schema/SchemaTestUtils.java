@@ -190,10 +190,8 @@ public final class SchemaTestUtils {
     public static void ensureAllTypesChecked(Stream<Column> allColumns) {
         Set<NativeTypeSpec> testedTypes = allColumns.map(c -> c.type().spec())
                 .collect(Collectors.toSet());
-        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !unsupported.contains(t))
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

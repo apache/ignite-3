@@ -38,9 +38,9 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Set;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -181,7 +181,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     private static Set<String> nodeNames(int count) {
         return CLUSTER.runningNodes()
-                .map(IgniteImpl::name)
+                .map(Ignite::name)
                 .limit(count)
                 .collect(toSet());
     }

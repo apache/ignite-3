@@ -26,10 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.LongSupplier;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -48,6 +45,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +53,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandler {
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final MetaStorageWriteHandler writeHandler;
 
     /** Storage. */
@@ -67,21 +67,26 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
      */
     public MetaStorageListener(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            ClusterTimeImpl clusterTime
     ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(
-                storage,
-                clusterTime,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
-        );
+        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
     }
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
+        if (!busyLock.enterBusy()) {
+            iter.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onReadBusy(iter);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onReadBusy(Iterator<CommandClosure<ReadCommand>> iter) {
         while (iter.hasNext()) {
             CommandClosure<ReadCommand> clo = iter.next();
 
@@ -167,7 +172,15 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iter) {
-        iter.forEachRemaining(writeHandler::handleWriteCommand);
+        if (!busyLock.enterBusy()) {
+            iter.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            iter.forEachRemaining(writeHandler::handleWriteCommand);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -190,14 +203,6 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onShutdown() {
-    }
-
-    /**
-     * Removes obsolete entries from both volatile and persistent idempotent command cache.
-     */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        writeHandler.evictIdempotentCommandsCache();
+        busyLock.block();
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
@@ -35,8 +36,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -181,14 +184,11 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
-        } else if (marshaller != null) {
-            appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
-            builder.appendBytes(marshaller.marshal(obj));
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
             builder.appendBoolean((Boolean) obj);
@@ -435,11 +435,20 @@ public class ClientBinaryTupleUtils {
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
+            NativeType nativeType = NativeTypes.fromObject(v);
+            // A null is handled separately, so nativeType should not be null.
+            assert nativeType != null;
+
+            NativeTypeSpec actualType = nativeType.spec();
+            NativeTypeSpec expectedType = NativeTypeSpec.fromColumnType(type);
+
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
-            throw new IgniteException(PROTOCOL_ERR, "Column's type mismatch ["
-                    + "column=" + name
-                    + ", expectedType=" + type
-                    + ", actualType=" + v.getClass() + ']', e);
+            String error = format(
+                    "Value type does not match [column='{}', expected={}, actual={}]",
+                    name, expectedType.name(), actualType.name()
+            );
+
+            throw new IgniteException(PROTOCOL_ERR, error, e);
         }
     }
 

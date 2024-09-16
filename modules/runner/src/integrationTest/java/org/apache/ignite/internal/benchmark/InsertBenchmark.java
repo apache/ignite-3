@@ -68,6 +68,9 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "4", "8", "16", "32"})
     private int partitionCount;
 
+    @Param({"1", "2", "3"})
+    private int replicaCount;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
@@ -168,7 +171,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
             statement = sql.createStatement(queryStr);
         }
 
@@ -208,7 +211,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createMultiInsertStatement();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
             statement = sql.createStatement(queryStr);
         }
 
@@ -318,7 +321,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
         private int id = 0;
 
-        private final KeyValueView<Tuple, Tuple> kvView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        private final KeyValueView<Tuple, Tuple> kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
 
         /**
          * Initializes the tuple.
@@ -407,5 +410,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int partitionCount() {
         return partitionCount;
+    }
+
+    @Override
+    protected int replicaCount() {
+        return replicaCount;
     }
 }

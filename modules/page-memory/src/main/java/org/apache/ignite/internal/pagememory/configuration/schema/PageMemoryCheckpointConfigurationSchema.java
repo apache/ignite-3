@@ -26,15 +26,18 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class PageMemoryCheckpointConfigurationSchema {
-    /** Checkpoint frequency in milliseconds. */
+    /** Interval between checkpoints in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long frequency = 180_000;
+    public long interval = 180_000;
 
-    /** Checkpoint frequency deviation. */
+    /**
+     * Max deviation (in percent) of intervals between checkpoints. If this is 20 and {@link #interval} is 1000, then the effective
+     * checkpoint interval values will be between 900 and 1100.
+     */
     @Range(min = 0, max = 100)
     @Value(hasDefault = true)
-    public int frequencyDeviation = 40;
+    public int intervalDeviation = 40;
 
     /** Delay before executing a checkpoint triggered by RAFT. */
     @Range(min = 0)

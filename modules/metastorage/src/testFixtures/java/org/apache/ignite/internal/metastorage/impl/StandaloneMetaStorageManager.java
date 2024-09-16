@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,7 +28,6 @@ import java.io.Serializable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -44,6 +42,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -109,8 +108,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
-                mockRaftConfiguration().retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                RaftGroupOptionsConfigurer.EMPTY
         );
     }
 
@@ -132,8 +130,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
             HybridClock clock,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         super(
                 clusterService,
@@ -145,8 +142,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 raftServiceFactory,
                 new NoOpMetricManager(),
                 configuration,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
+                raftGroupOptionsConfigurer
         );
     }
 
@@ -181,6 +177,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     listenerCaptor.capture(),
                     any(),
+                    any(),
                     any()
             )).thenReturn(completedFuture(raftGroupService));
 
@@ -188,6 +185,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     any(),
                     listenerCaptor.capture(),
+                    any(),
                     any(),
                     any(),
                     any()

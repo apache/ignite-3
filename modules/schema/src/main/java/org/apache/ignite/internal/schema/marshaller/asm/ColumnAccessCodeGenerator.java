@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.schema.marshaller.asm;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.BinaryMode;
@@ -75,10 +73,6 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("uuidValue", "appendUuid", UUID.class, fieldName, colIdx);
             case BYTE_ARR:
                 return new ColumnAccessCodeGenerator("bytesValue", "appendBytes", byte[].class, fieldName, colIdx);
-            case BITSET:
-                return new ColumnAccessCodeGenerator("bitmaskValue", "appendBitmask", BitSet.class, fieldName, colIdx);
-            case NUMBER:
-                return new ColumnAccessCodeGenerator("numberValue", "appendNumber", BigInteger.class, fieldName, colIdx);
             case DECIMAL:
                 return new ColumnAccessCodeGenerator("decimalValue", "appendDecimal", BigDecimal.class, fieldName, colIdx);
             case DATE:

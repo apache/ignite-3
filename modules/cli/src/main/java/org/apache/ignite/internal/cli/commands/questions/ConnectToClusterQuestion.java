@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.cli.commands.questions;
 
+import static org.apache.ignite.internal.cli.call.connect.ConnectionChecker.firstNonNullOrBlankString;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
 import static org.apache.ignite.internal.cli.core.style.element.UiElements.username;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import io.micronaut.http.HttpStatus;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.call.connect.AuthConfig;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectionChecker;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.rest.client.invoker.ApiException;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -61,6 +65,9 @@ public class ConnectToClusterQuestion {
 
     @Inject
     private Session session;
+
+    @Inject
+    private ConnectionChecker connectionChecker;
 
     /**
      * Asks whether the user wants to connect to the default node when user hasn't passed a URL explicitly and we're not connected.
@@ -82,7 +89,9 @@ public class ConnectToClusterQuestion {
         );
 
         return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
-                        () -> ConnectCallInput.builder().url(defaultUrl).build())
+                        // Don't check whether the cluster is initialized or not. This method is called from ordinary commands and they will
+                        // show an error if the cluster is not initialized, duplicating the message.
+                        () -> ConnectCallInput.builder().url(defaultUrl).checkClusterInit(false).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -117,11 +126,10 @@ public class ConnectToClusterQuestion {
 
             String oldUsername = sessionInfo.username();
             // This username will be used for connect by the connection checker.
-            String newUsername = input.username() != null
-                    ? input.username()
-                    : configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+            String newUsername = firstNonNullOrBlankString(input.username(),
+                    configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()));
 
-            if (newUsername != null) {
+            if (newUsername != null && isClusterWithAuthentication(input)) {
                 if (oldUsername == null) {
                     return Flows.acceptQuestion(fromYesNoQuestion(
                             "You are already connected to the %s, do you want to connect as %s?",
@@ -137,6 +145,15 @@ public class ConnectToClusterQuestion {
             }
         }
         return Flows.from(input);
+    }
+
+    private boolean isClusterWithAuthentication(ConnectCallInput connectCallInput) {
+        try {
+            connectionChecker.checkConnectionWithoutAuthentication(connectCallInput);
+            return false;
+        } catch (ApiException e) {
+            return e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode();
+        }
     }
 
     /**
@@ -190,7 +207,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).build())
+        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).checkClusterInit(true).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,

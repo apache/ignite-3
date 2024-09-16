@@ -51,6 +51,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -113,7 +114,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
+    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
@@ -134,7 +135,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
+    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() {
         initServers(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(server3)) {
@@ -151,7 +152,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocated() throws Exception {
+    public void testExecuteColocated() {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
@@ -166,7 +167,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocatedAsync() throws Exception {
+    public void testExecuteColocatedAsync() {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
@@ -195,7 +196,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() throws Exception {
+    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -213,7 +214,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) throws Exception {
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
@@ -252,12 +253,12 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMapReduceExecute() throws Exception {
+    void testMapReduceExecute() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
             Object args = "arg1";
-            String res1 = client.compute().executeMapReduce(List.of(), "job", args);
+            String res1 = client.compute().executeMapReduce(TaskDescriptor.<Object, String>builder("job").build(), args);
             assertEquals("s1", res1);
         }
     }
@@ -267,7 +268,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
-            TaskExecution<Object> task = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> task = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(task.resultAsync(), willBe("s1"));
 
@@ -280,13 +283,15 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMapReduceException() throws Exception {
+    void testMapReduceException() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> execution = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.FAILED)));
@@ -295,7 +300,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testUnitsPropagation() throws Exception {
+    void testUnitsPropagation() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -315,7 +320,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionInJob() throws Exception {
+    void testExceptionInJob() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {

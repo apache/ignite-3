@@ -21,12 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -76,11 +74,14 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
-        RaftGroupService raftSvc = internalTbl.tableRaftService().partitionRaftGroupService(tblPartId.partitionId());
-        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
+
+        long term = 1L;
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.tableRaftService().leaderAssignment(tblPartId.partitionId()), term));
+
+        ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
+
+        tx.enlist(tblPartId, new IgniteBiTuple<>(primaryReplicaNode, term));
 
         return tx;
     }

@@ -50,12 +50,11 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {

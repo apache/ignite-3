@@ -67,13 +67,13 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 
 **Steps**:
 - Start all new needed nodes `partition.assignments.pending / partition.assignments.stable` 
-- After successful starts - check if current node is the leader of raft group (leader response must be updated by current term) and run `RaftGroupService#changePeersAsync(leaderTerm, peers)`. `RaftGroupService#changePeersAsync` from old terms must be skipped.
+- After successful starts - check if current node is the leader of raft group (leader response must be updated by current term) and run `RaftGroupService#changePeersAndLearnersAsync(leaderTerm, peers)`. `RaftGroupService#changePeersAndLearnersAsync` from old terms must be skipped.
 
 **Result**:
 - New needed raft nodes started
 - Change peers state initiated for every raft group
 
-## When RaftGroupService#changePeersAsync done inside the raft group – update assignments, stable key and stop all redundant nodes
+## When RaftGroupService#changePeersAndLearnersAsync done inside the raft group – update assignments, stable key and stop all redundant nodes
 **Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(<applied peers>)`
 
 **Pseudocode**:
@@ -94,8 +94,8 @@ After stable key is updated, corresponding listener for that change is called, s
 
 Failover helpers 
 - `RebalanceRaftGroupEventsListener.onLeaderElected` - must be executed from the new leader when raft group elected the new leader. Maybe we actually need to also check if a new lease is received.
-- `RebalanceRaftGroupEventsListener.onReconfigurationError` - must be executed when any errors during `RaftGroupService#changePeersAsync` occurred. For more info about change peers process, and more specifically, catch up process, see `modules/raft/tech-notes/changePeers.md` and `modules/raft/tech-notes/nodeCatchUp.md`  
-- `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(peers)` - must be executed with the list of new peers when `RaftGroupService#changePeersAsync` has successfully done.
+- `RebalanceRaftGroupEventsListener.onReconfigurationError` - must be executed when any errors during `RaftGroupService#changePeersAndLearnersAsync` occurred. For more info about change peers process, and more specifically, catch up process, see `modules/raft/tech-notes/changePeersAndLearners.md` and `modules/raft/tech-notes/nodeCatchUp.md`  
+- `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(peers)` - must be executed with the list of new peers when `RaftGroupService#changePeersAndLearnersAsync` has successfully done.
 
 ## Cleanup redundant raft nodes (3)
 **Trigger**: Node receive update about partition stable assignments
@@ -110,14 +110,14 @@ Failover helpers
 
 # Failover
 We need to provide Failover thread, which can handle the following cases:
-- `RaftGroupService#changePeersAsync` can't start even catchup process, because of any new raft nodes wasn't started yet for instance.
-- `RaftGroupService#changePeersAsync` failed to complete catchup due to catchup timeout, for example. To check all possible error cases during catch up stage, check `modules/raft/tech-notes/nodeCatchUp.md`
+- `RaftGroupService#changePeersAndLearnersAsync` can't start even catchup process, because of any new raft nodes wasn't started yet for instance.
+- `RaftGroupService#changePeersAndLearnersAsync` failed to complete catchup due to catchup timeout, for example. To check all possible error cases during catch up stage, check `modules/raft/tech-notes/nodeCatchUp.md`
 
 We have the following mechanisms for handling these cases:
 - `RebalanceRaftGroupEventsListener.onReconfigurationError`, which schedules retries, if needed
 - Separate special thread pool processes all needed retries on the current node
-- If a current node is not the leader of partition raft group anymore - it will request `RaftGroupService#changePeersAsync` with legacy term, receive appropriate answer from the leader and stop retries for this partition.
-- If a leader has been changed, new node receives `RebalanceRaftGroupEventsListener.onLeaderElected` invoke and start needed `RaftGroupService#changePeersAsync` from the pending key.
+- If a current node is not the leader of partition raft group anymore - it will request `RaftGroupService#changePeersAndLearnersAsync` with legacy term, receive appropriate answer from the leader and stop retries for this partition.
+- If a leader has been changed, new node receives `RebalanceRaftGroupEventsListener.onLeaderElected` invoke and start needed `RaftGroupService#changePeersAndLearnersAsync` from the pending key.
 - If failover exhaust maximum number for query retries - it must notify node's failure handler about the issue global (details must be specified later)
 
 
@@ -132,7 +132,7 @@ Also, failover mechanism above doesn't use metastore, but raft term and special 
 ## Adjustable `changePeers`
 Algorithm above seems working well, but it has one serious caveat. When the leader is busy by current `changePeers`, we can't start new one.
 That's a big issue - because data rebalance process can be long enough, while all nodes sync raft logs with data. According to 
-https://github.com/apache/ignite-3/blob/main/modules/raft/tech-notes/changePeers.md - we can relatively painless update the peers' list, if leader is in the STAGE_CATCHING_UP phase still. Alternatively, we can cancel current `changePeers`, if it is in the STAGE_CATCHING_UP and run new one
+https://github.com/apache/ignite-3/blob/main/modules/raft/tech-notes/changePeersAndLearners.md - we can relatively painless update the peers' list, if leader is in the STAGE_CATCHING_UP phase still. Alternatively, we can cancel current `changePeers`, if it is in the STAGE_CATCHING_UP and run new one
 
 ### Approach 1. Update the peers' list of current `changePeers`
 This approach can be addressed with different implemetation details, but let's describe the simplest one.
@@ -183,9 +183,9 @@ If the listener return false - we should to await the new peer list, process it 
 Instead of updating current `changePeers` with new peers' list - we can cancel it and start the new one.
 
 For this dish we will need:
-- New raft service's method `cancelChangePeers()`. This method should cancel current `changePeers` if and only if it is in the STAGE_CATCHING_UP phase. Method must return:
-  - true: if no changePeers to cancel or successful cancel occurred.
+- New raft service's method `cancelChangePeersAndLearners()`. This method should cancel current `changePeers` if and only if it is in the STAGE_CATCHING_UP phase. Method must return:
+  - true: if no changePeersAndLearners to cancel or successful cancel occurred.
   - false: if `changePeers` in progress and can't be cancelled (like in approach 1 - if the leader is not in STAGE_CATCHING_UP/STAGE_NONE)
 - Listen the `partition.assignments.planned` key and on update:
-  - Execute `cancelChangePeers()` on the node with the partition leader. If it returns `false` - do nothing.
+  - Execute `cancelChangePeersAndLearners()` on the node with the partition leader. If it returns `false` - do nothing.
   - If it returns `true` - move planned peers to pending in metastore

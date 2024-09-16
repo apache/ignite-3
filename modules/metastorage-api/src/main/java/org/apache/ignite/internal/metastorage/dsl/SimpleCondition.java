@@ -29,16 +29,7 @@ public interface SimpleCondition extends Condition {
     ByteBuffer key();
 
     /** Condition type. */
-    int conditionType();
-
-    /**
-     * Returns condition type.
-     *
-     * @return Condition type.
-     */
-    default ConditionType type() {
-        return ConditionType.values()[conditionType()];
-    }
+    ConditionType type();
 
     /**
      * Represents a condition on an entry revision.

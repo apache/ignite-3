@@ -72,7 +72,7 @@ public class HeartbeatTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
-    public void testInvalidHeartbeatIntervalThrows() throws Exception {
+    public void testInvalidHeartbeatIntervalThrows() {
         try (var srv = new TestServer(300, new FakeIgnite())) {
 
             Builder builder = IgniteClient.builder()
@@ -98,6 +98,7 @@ public class HeartbeatTest extends BaseIgniteAbstractTest {
                     .reconnectThrottlingPeriod(5000)
                     .reconnectThrottlingRetries(0)
                     .heartbeatInterval(50)
+                    .connectTimeout(0)
                     .loggerFactory(loggerFactory);
 
             try (var ignored = builder.build()) {

@@ -44,6 +44,14 @@ public interface IgniteTable extends IgniteDataSource {
     RelDataType rowTypeForInsert(IgniteTypeFactory factory);
 
     /**
+     * Returns row type excluding effectively virtual fields.
+     *
+     * @param factory Type factory.
+     * @return Row type for UPDATE operation.
+     */
+    RelDataType rowTypeForUpdate(IgniteTypeFactory factory);
+
+    /**
      * Returns row type containing only key fields.
      *
      * @param factory Type factory.

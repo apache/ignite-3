@@ -27,6 +27,7 @@ dependencies {
 
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
@@ -45,6 +46,7 @@ dependencies {
     integrationTestImplementation project(':ignite-core')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.auto.service.annotations
 
     testFixturesImplementation project(':ignite-core')

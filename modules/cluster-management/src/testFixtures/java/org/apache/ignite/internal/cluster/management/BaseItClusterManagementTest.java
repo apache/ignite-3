@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -25,10 +24,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -44,9 +43,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     private static final int PORT_BASE = 10000;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -65,16 +61,16 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     }
 
     protected List<MockNode> createNodes(int numNodes) {
-        StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
+        List<NetworkAddress> seedAddresses = createSeedAddresses(numNodes);
+        NodeFinder nodeFinder = new StaticNodeFinder(seedAddresses);
 
         return IntStream.range(0, numNodes)
                 .mapToObj(i -> new MockNode(
                         testInfo,
-                        nodeFinder.findNodes().get(i),
+                        seedAddresses.get(i),
                         nodeFinder,
                         workDir,
                         raftConfiguration,
-                        cmgConfiguration,
                         userNodeAttributes,
                         storageConfiguration
 
@@ -94,10 +90,9 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
         return new MockNode(
                 testInfo,
                 new NetworkAddress("localhost", PORT_BASE + idx),
-                createNodeFinder(clusterSize),
+                new StaticNodeFinder(createSeedAddresses(clusterSize)),
                 workDir,
                 raftConfiguration,
-                cmgConfiguration,
                 userNodeAttributes,
                 storageConfiguration
         );
@@ -108,9 +103,9 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
         closeAll(nodes.parallelStream().map(node -> node::stop));
     }
 
-    private static StaticNodeFinder createNodeFinder(int clusterSize) {
+    private static List<NetworkAddress> createSeedAddresses(int clusterSize) {
         return IntStream.range(0, clusterSize)
                 .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
-                .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
+                .collect(toUnmodifiableList());
     }
 }

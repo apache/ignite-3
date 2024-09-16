@@ -28,7 +28,9 @@ public enum ThreadOperation {
     /** Access TX State storage. */
     TX_STATE_STORAGE_ACCESS,
     /** Make a blocking wait (involving taking a lock or waiting on a conditional variable or waiting for time to pass. */
-    WAIT;
+    WAIT,
+    /** This permission allows tread process RAFT action request. */
+    PROCESS_RAFT_REQ;
 
     /**
      * Empty list of operations denoting that no potentially blocking/time consuming operations are allowed

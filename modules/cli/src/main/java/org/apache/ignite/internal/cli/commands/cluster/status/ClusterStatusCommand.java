@@ -32,7 +32,7 @@ import picocli.CommandLine.Mixin;
  * Command that prints status of ignite cluster.
  */
 @Command(name = "status",
-        aliases = "cluster show", // TODO: https://issues.apache.org/jira/browse/IGNITE-18378
+        aliases = "show", // TODO: https://issues.apache.org/jira/browse/IGNITE-18378
         description = "Prints status of the cluster")
 public class ClusterStatusCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
@@ -45,13 +45,9 @@ public class ClusterStatusCommand extends BaseCommand implements Callable<Intege
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new ClusterStatusDecorator())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

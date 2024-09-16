@@ -22,10 +22,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfigurationSchema;
 import org.apache.ignite.internal.eventlog.config.schema.EventTypeValidatorImpl;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkConfigurationSchema;
 
@@ -40,16 +39,15 @@ public class EventLogConfigurationModule implements ConfigurationModule {
         return ConfigurationType.DISTRIBUTED;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(LogSinkConfigurationSchema.class);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(EventLogExtensionConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(EventLogConfiguration.KEY);
+    public Collection<Class<?>> polymorphicSchemaExtensions() {
+        return List.of(LogSinkConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */

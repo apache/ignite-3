@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
@@ -41,8 +42,8 @@ public class ProtocolContext {
     /** Cluster node. */
     private final ClusterNode clusterNode;
 
-    /** Cluster id. */
-    private final UUID clusterId;
+    /** Cluster ids. */
+    private final List<UUID> clusterIds;
 
     /** Cluster name. */
     private final String clusterName;
@@ -54,22 +55,22 @@ public class ProtocolContext {
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
      * @param clusterNode Cluster node.
-     * @param clusterId Cluster id.
+     * @param clusterIds Cluster ids.
      * @param clusterName Cluster name.
      */
-    public ProtocolContext(
+    ProtocolContext(
             ProtocolVersion ver,
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
             ClusterNode clusterNode,
-            UUID clusterId,
+            List<UUID> clusterIds,
             String clusterName
     ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
-        this.clusterId = clusterId;
+        this.clusterIds = clusterIds;
         this.clusterName = clusterName;
     }
 
@@ -132,12 +133,21 @@ public class ProtocolContext {
     }
 
     /**
-     * Returns cluster id.
+     * Returns cluster ids, from older to newer. The last id is the current cluster id.
      *
-     * @return Cluster id.
+     * @return Cluster ids.
+     */
+    public List<UUID> clusterIds() {
+        return clusterIds;
+    }
+
+    /**
+     * Returns current cluster id.
+     *
+     * @return Current cluster id.
      */
     public UUID clusterId() {
-        return clusterId;
+        return clusterIds.get(clusterIds.size() - 1);
     }
 
     /**

@@ -167,10 +167,16 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
 
-        CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
+        CatalogTableColumnDescriptor desc = table.column("key1");
         assertNotNull(desc);
         // INT32 key
         assertThat(desc.precision(), is(DEFAULT_PRECISION));
+
+        int key1ColIndex = schema.table(TABLE_NAME).columnIndex("key1");
+        assertEquals(0, key1ColIndex);
+
+        int key2ColIndex = schema.table(TABLE_NAME).columnIndex("key2");
+        assertEquals(1, key2ColIndex);
     }
 
     @Test
@@ -322,6 +328,9 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(11, column.length());
         assertEquals(DEFAULT_PRECISION, column.precision());
         assertEquals(DEFAULT_SCALE, column.scale());
+
+        int newColumnIndex = schema.table(TABLE_NAME).columnIndex(NEW_COLUMN_NAME);
+        assertEquals(6, newColumnIndex);
     }
 
     @Test
@@ -514,7 +523,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
         assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
-        assertThat(curDescriptor.creationToken(), is(prevDescriptor.creationToken()));
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));

@@ -66,6 +66,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         return new Builder();
     }
 
+    @Override
+    void close();
+
     /** Client builder. */
     @SuppressWarnings("PublicInnerClass")
     class Builder {

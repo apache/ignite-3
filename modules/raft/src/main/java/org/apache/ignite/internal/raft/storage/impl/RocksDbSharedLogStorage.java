@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -41,7 +42,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Describer;
@@ -94,7 +94,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Shared data column family handle. */
     private final ColumnFamilyHandle dataHandle;
 
-    /** Write options. */
+    /** Shared write options. */
     private final WriteOptions writeOptions;
 
     /** Start prefix. */
@@ -143,7 +143,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
             String groupId,
-            RaftOptions raftOptions,
+            WriteOptions writeOptions,
             Executor executor
     ) {
         Requires.requireNonNull(db);
@@ -165,13 +165,11 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
         this.executor = executor;
-        this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-        this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
+        this.groupStartPrefix = groupStartPrefix(groupId);
+        this.groupEndPrefix = groupEndPrefix(groupId);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
-
-        this.writeOptions = new WriteOptions();
-        this.writeOptions.setSync(raftOptions.isSync());
+        this.writeOptions = writeOptions;
     }
 
     /**
@@ -539,8 +537,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
         try {
             LogEntry entry = getEntry(nextLogIndex);
-            db.deleteRange(dataHandle, groupStartPrefix, groupEndPrefix);
-            db.deleteRange(confHandle, groupStartPrefix, groupEndPrefix);
+            destroyAllEntriesBetween(db, confHandle, dataHandle, groupStartPrefix, groupEndPrefix);
 
             onReset(nextLogIndex);
 
@@ -561,6 +558,17 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } finally {
             this.manageLock.unlock();
         }
+    }
+
+    static void destroyAllEntriesBetween(
+            RocksDB db,
+            ColumnFamilyHandle confHandle,
+            ColumnFamilyHandle dataHandle,
+            byte[] startPrefix,
+            byte[] endPrefix
+    ) throws RocksDBException {
+        db.deleteRange(dataHandle, startPrefix, endPrefix);
+        db.deleteRange(confHandle, startPrefix, endPrefix);
     }
 
     /** {@inheritDoc} */
@@ -654,7 +662,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called upon closing the storage.
      */
     protected void onShutdown() {
-        writeOptions.close();
         groupEndBound.close();
         groupStartBound.close();
     }

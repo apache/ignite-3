@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -91,6 +92,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
+    private final AtomicInteger resolutionCount = new AtomicInteger();
+
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
@@ -104,7 +107,18 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
-        OrphanDetector orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
+        resolutionCount.set(0);
+
+        OrphanDetector orphanDetector = new OrphanDetector(
+                topologyService,
+                replicaService,
+                placementDriverHelper,
+                lockManager,
+                run -> {
+                    resolutionCount.incrementAndGet();
+                    run.run();
+                }
+        );
 
         txStateMetaStorage = new VolatileTxStateMetaStorage();
 
@@ -135,6 +149,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertNull(orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -165,6 +181,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(committedState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -195,6 +213,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(abortedState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -225,6 +245,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(finishingState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -254,6 +276,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(pendingState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -290,5 +314,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         verify(replicaService).invoke(any(ClusterNode.class), any());
 
         assertThat(acquire, willThrow(LockException.class, "Failed to acquire an abandoned lock due to a possible deadlock"));
+
+        assertEquals(1, resolutionCount.get());
     }
 }

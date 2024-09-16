@@ -26,7 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -78,7 +78,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), 2);
 
-        List<String> nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).sorted().collect(toList());
+        List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
 
         String nodeName0 = nodeNames.get(0);
         String nodeName1 = nodeNames.get(1);

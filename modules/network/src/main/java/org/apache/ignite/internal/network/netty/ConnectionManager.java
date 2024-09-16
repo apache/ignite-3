@@ -45,13 +45,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.RecipientLeftException;
@@ -119,6 +120,8 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
+    private final ClusterIdSupplier clusterIdSupplier;
+
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
     private final @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
@@ -140,7 +143,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private final ExecutorService connectionMaintenanceExecutor;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -150,6 +153,8 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
+     * @param failureManager Used to fail the node if a critical failure happens.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -157,7 +162,8 @@ public class ConnectionManager implements ChannelCreationListener {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
-            FailureProcessor failureProcessor
+            ClusterIdSupplier clusterIdSupplier,
+            FailureManager failureManager
     ) {
         this(
                 networkConfiguration,
@@ -165,8 +171,9 @@ public class ConnectionManager implements ChannelCreationListener {
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
+                clusterIdSupplier,
                 null,
-                failureProcessor
+                failureManager
         );
     }
 
@@ -178,7 +185,9 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
+     * @param clusterIdSupplier Supplier of cluster ID.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
+     * @param failureManager Used to fail the node if a critical failure happens.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -186,16 +195,18 @@ public class ConnectionManager implements ChannelCreationListener {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
+            ClusterIdSupplier clusterIdSupplier,
             @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.serializationService = serializationService;
         this.consistentId = consistentId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
+        this.clusterIdSupplier = clusterIdSupplier;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -207,16 +218,19 @@ public class ConnectionManager implements ChannelCreationListener {
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
 
-        // We don't just use Executors#newSingleThreadExecutor() here because it defines corePoolSize=1, so the maintenance thread will
+        // We don't just use Executors#newSingleThreadExecutor() here because the maintenance thread will
         // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
-        connectionMaintenanceExecutor = new ThreadPoolExecutor(
-                0,
+        ThreadPoolExecutor maintenanceExecutor = new ThreadPoolExecutor(
+                1,
                 1,
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
         );
+        maintenanceExecutor.allowCoreThreadTimeOut(true);
+
+        connectionMaintenanceExecutor = maintenanceExecutor;
     }
 
     /**
@@ -495,9 +509,10 @@ public class ConnectionManager implements ChannelCreationListener {
                     descriptorProvider,
                     bootstrapFactory,
                     staleIdDetector,
+                    clusterIdSupplier,
                     this,
                     stopping::get,
-                    failureProcessor
+                    failureManager
             );
         }
 
@@ -518,9 +533,10 @@ public class ConnectionManager implements ChannelCreationListener {
                 descriptorProvider,
                 bootstrapFactory,
                 staleIdDetector,
+                clusterIdSupplier,
                 this,
                 stopping::get,
-                failureProcessor
+                failureManager
         );
     }
 

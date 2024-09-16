@@ -69,7 +69,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         TablePartitionId commitPartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaFinishingMessage()
-                .txStateInt(txState().ordinal())
+                .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
                 .commitTimestamp(commitTimestamp())

@@ -32,8 +32,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -83,6 +86,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -94,6 +98,11 @@ import org.jetbrains.annotations.TestOnly;
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
+
+    /** Undefined value for {@link #minActiveTxBeginTime}. */
+    private static final long UNDEFINED_MIN_TX_TIME = 0L;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -127,6 +136,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final String localNodeId;
+
+    private Set<String> currentGroupTopology;
+
+    /**
+     * Timestamp with minimum starting time among all active RW transactions in the cluster.
+     * This timestamp is used to prevent the catalog from being dropped, which may be used when applying raft commands.
+     */
+    private volatile long minActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -138,7 +157,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
             ClockService clockService,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            String localNodeId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -150,6 +170,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.schemaRegistry = schemaRegistry;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
+        this.localNodeId = localNodeId;
     }
 
     @Override
@@ -163,6 +184,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        if (!busyLock.enterBusy()) {
+            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onWriteBusy(iterator);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
@@ -221,6 +254,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof VacuumTxStatesCommand) {
                     handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -249,9 +284,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                synchronized (safeTime) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
-                }
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -268,7 +301,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true);
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -277,38 +310,42 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(false, storageLeaseStartTime);
+                return new UpdateCommandResult(
+                        false,
+                        storageLeaseStartTime,
+                        isPrimaryInGroupTopology()
+                );
             }
         }
 
         UUID txId = cmd.txId();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
-        synchronized (safeTime) {
-            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(
-                        txId,
-                        cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        cmd.rowToUpdate(),
-                        !cmd.full(),
-                        () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamp(),
-                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-                );
+        assert storage.primaryReplicaNodeId() != null;
+        assert localNodeId != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-            } else {
-                // We MUST bump information about last updated index+term.
-                // See a comment in #onWrite() for explanation.
-                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-            }
+        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+            storageUpdateHandler.handleUpdate(
+                    txId,
+                    cmd.rowUuid(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.rowToUpdate(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    cmd.full() ? cmd.safeTime() : null,
+                    cmd.lastCommitTimestamp(),
+                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+            );
+        } else {
+            // We MUST bump information about last updated index+term.
+            // See a comment in #onWrite() for explanation.
+            // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
+            // to update information about index and term.
+            advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true);
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
     }
 
     /**
@@ -321,7 +358,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true);
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -330,36 +367,37 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(false, storageLeaseStartTime);
+                return new UpdateCommandResult(
+                        false,
+                        storageLeaseStartTime,
+                        isPrimaryInGroupTopology()
+                );
             }
         }
 
         UUID txId = cmd.txId();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
-        synchronized (safeTime) {
-            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(
-                        txId,
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        !cmd.full(),
-                        () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-                );
-
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-            } else {
-                // We MUST bump information about last updated index+term.
-                // See a comment in #onWrite() for explanation.
-                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-            }
+        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
+            storageUpdateHandler.handleUpdateAll(
+                    txId,
+                    cmd.rowsToUpdate(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    cmd.full() ? cmd.safeTime() : null,
+                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+            );
+        } else {
+            // We MUST bump information about last updated index+term.
+            // See a comment in #onWrite() for explanation.
+            // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
+            // to update information about index and term.
+            advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true);
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
     }
 
     /**
@@ -476,6 +514,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onConfigurationCommitted(CommittedConfiguration config) {
+        currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.addAll(config.learners());
+
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
             return;
@@ -538,6 +579,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onShutdown() {
+        busyLock.block();
+
         storage.close();
     }
 
@@ -572,6 +615,21 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     @TestOnly
     public MvPartitionStorage getMvStorage() {
         return storage.getStorage();
+    }
+
+    /**
+     * Returns minimum starting time among all active RW transactions in the cluster,
+     * or {@code null} if the value has not yet been set.
+     */
+    @TestOnly
+    public @Nullable Long minimumActiveTxBeginTime() {
+        long minActiveTxBeginTime0 = minActiveTxBeginTime;
+
+        if (minActiveTxBeginTime0 == UNDEFINED_MIN_TX_TIME) {
+            return null;
+        }
+
+        return minActiveTxBeginTime0;
     }
 
     /**
@@ -642,7 +700,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         storage.runConsistently(locker -> {
-            storage.updateLease(cmd.leaseStartTime());
+            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
 
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -664,6 +722,19 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
+    }
+
+    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        long minActiveTxBeginTime0 = minActiveTxBeginTime;
+
+        assert minActiveTxBeginTime0 <= cmd.timestamp() : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + cmd.timestamp();
+
+        minActiveTxBeginTime = cmd.timestamp();
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
@@ -757,5 +828,30 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
 
         return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
+    }
+
+    /**
+     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context.
+     * On the primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that
+     * populates the raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId,
+     * primaryReplicaNodeName and leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand
+     * processing, given information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
+     *
+     *
+     * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
+     */
+    private boolean isPrimaryInGroupTopology() {
+        assert currentGroupTopology != null : "Current group topology is null";
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23030 Seems that we have a bug. Lease related information is not restored on
+        // TODO snapshot load.
+        if (storage.primaryReplicaNodeName() == null) {
+            return true;
+        } else {
+            // Despite the fact that storage.primaryReplicaNodeName() may itself return null it's never expected to happen
+            // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
+            // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
+            assert storage.primaryReplicaNodeName() != null : "Primary replica node name is null.";
+            return currentGroupTopology.contains(storage.primaryReplicaNodeName());
+        }
     }
 }

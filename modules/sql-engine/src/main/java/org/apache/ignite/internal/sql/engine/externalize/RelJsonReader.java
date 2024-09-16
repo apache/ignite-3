@@ -402,11 +402,11 @@ public class RelJsonReader {
             RelDataType type = relJson.toType(Commons.typeFactory(), jsonAggCall.get("type"));
             String name = (String) jsonAggCall.get("name");
 
-            Object rexList = jsonAggCall.get("rexList");
-            RexNode r0 = relJson.toRex(this, rexList);
+            List<RexNode> rexList = Commons.transform((List<Object>) jsonAggCall.get("rexList"),
+                    node -> relJson.toRex(this, node));
 
             return AggregateCall.create(aggregation, distinct, false, false,
-                    r0 == null ? ImmutableList.of() : List.of(r0), operands, filterOperand == null ? -1 : filterOperand,
+                    rexList, operands, filterOperand == null ? -1 : filterOperand,
                     null, RelCollations.EMPTY, type, name);
         }
     }

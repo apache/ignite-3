@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema.TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,7 +44,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -63,7 +64,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
     private static final String TABLE_NAME = "TEST_TABLE";
 
-    private static String zoneNameForUpdateCatalogVersionOnly = "FAKE_TEST_ZONE";
+    private static final String ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY = "FAKE_TEST_ZONE";
 
     @Override
     protected int initialNodes() {
@@ -72,20 +73,15 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
     @BeforeEach
     void setUp() {
-        if (node() != null) {
-            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
-            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
-            createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
-        }
+        createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TEST_PROFILE_NAME);
+        createZoneOnlyIfNotExists(ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY, 1, 1, TEST_PROFILE_NAME);
+        createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
     }
 
     @AfterEach
     void tearDown() {
-        if (node() != null) {
-            sql("DROP TABLE IF EXISTS " + TABLE_NAME);
-            sql("DROP ZONE IF EXISTS " + zoneName(TABLE_NAME));
-            sql("DROP ZONE IF EXISTS " + zoneNameForUpdateCatalogVersionOnly);
-        }
+        dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
@@ -182,7 +178,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
         var continueUpdateMvPartitionStorageFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Void> awaitStartUpdateAnyMvPartitionStorageFuture = awaitStartUpdateAnyMvPartitionStorage(
+        CompletableFuture<Void> awaitAddWriteCommittedForAnyMvPartitionStorageFuture = awaitAddWriteCommittedForAnyMvPartitionStorage(
                 tableImpl.internalTable().storage(),
                 continueUpdateMvPartitionStorageFuture
         );
@@ -192,7 +188,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
                 Tuple.create().set("ID", 0), Tuple.create().set("NAME", "0").set("SALARY", 0.0)
         );
 
-        assertThat(awaitStartUpdateAnyMvPartitionStorageFuture, willCompleteSuccessfully());
+        assertThat(awaitAddWriteCommittedForAnyMvPartitionStorageFuture, willCompleteSuccessfully());
 
         fakeUpdateCatalog();
 
@@ -253,12 +249,10 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     private static void fakeUpdateCatalog() {
         int oldLatestCatalogVersion = latestCatalogVersion();
 
-        String oldZoneName = zoneNameForUpdateCatalogVersionOnly;
-        String newZoneName = zoneNameForUpdateCatalogVersionOnly + 0;
+        String oldZoneName = ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY;
+        String newZoneName = ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY + 0;
 
         sql(String.format("ALTER ZONE %s RENAME TO %s", oldZoneName, newZoneName));
-
-        zoneNameForUpdateCatalogVersionOnly = newZoneName;
 
         assertThat(latestCatalogVersion(), greaterThan(oldLatestCatalogVersion));
     }
@@ -268,7 +262,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     private static IgniteImpl node() {
-        return CLUSTER.node(0);
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 
     private static boolean isNodeFinishedRwTransactionsStartedBeforeFromNetwork(int catalogVersion) {
@@ -283,7 +277,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         return ((IsNodeFinishedRwTransactionsStartedBeforeResponse) invokeFuture.join()).finished();
     }
 
-    private static CompletableFuture<Void> awaitStartUpdateAnyMvPartitionStorage(
+    private static CompletableFuture<Void> awaitAddWriteCommittedForAnyMvPartitionStorage(
             MvTableStorage mvTableStorage,
             CompletableFuture<Void> continueUpdateFuture
     ) {
@@ -295,13 +289,15 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
                     TestMvPartitionStorage.class
             );
 
+            // Since the update will be one-phase, it will be enough for us to wait for any addWriteCommitted.
+            // Waiting for any runConsistently can lead to flaky fail.
             doAnswer(invocation -> {
                 awaitStartUpdateAnyMvPartitionStorageFuture.complete(null);
 
                 assertThat(continueUpdateFuture, willCompleteSuccessfully());
 
                 return invocation.callRealMethod();
-            }).when(mvPartitionStorage).runConsistently(any());
+            }).when(mvPartitionStorage).addWriteCommitted(any(), any(), any());
         }
 
         return awaitStartUpdateAnyMvPartitionStorageFuture;

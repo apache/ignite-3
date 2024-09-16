@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -50,6 +51,8 @@ public class FakeIgnite implements Ignite {
 
     private final IgniteTables tables;
 
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+
     /**
      * Default constructor.
      */
@@ -65,7 +68,7 @@ public class FakeIgnite implements Ignite {
     public FakeIgnite(String name) {
         this.name = name;
         this.compute = new FakeCompute(name, this);
-        this.tables = new FakeIgniteTables(compute);
+        this.tables = new FakeIgniteTables(compute, placementDriver);
     }
 
     /** {@inheritDoc} */
@@ -121,5 +124,9 @@ public class FakeIgnite implements Ignite {
 
     public HybridTimestampTracker timestampTracker() {
         return hybridTimestampTracker;
+    }
+
+    public FakePlacementDriver placementDriver() {
+        return placementDriver;
     }
 }

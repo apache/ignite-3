@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -144,6 +145,7 @@ public class ClusterInitializer {
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
+                    .clusterId(UUID.randomUUID())
                     .initialClusterConfiguration(initialClusterConfiguration)
                     .build();
 

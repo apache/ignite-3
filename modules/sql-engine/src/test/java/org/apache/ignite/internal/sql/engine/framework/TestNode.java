@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -124,7 +124,7 @@ public class TestNode implements LifecycleAware {
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
 
-        FailureProcessor failureProcessor = new FailureProcessor(
+        FailureManager failureManager = new FailureManager(
                 new AbstractFailureHandler() {
                     @Override
                     public boolean handle(FailureContext failureCtx) {
@@ -132,7 +132,7 @@ public class TestNode implements LifecycleAware {
                         return true;
                     }
                 });
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
@@ -219,7 +219,9 @@ public class TestNode implements LifecycleAware {
      * @return A cursor representing the result.
      */
     public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
-        return executionService.executePlan(plan, createContext(transaction));
+        SqlOperationContext ctx = createContext(transaction).build();
+
+        return executionService.executePlan(plan, ctx);
     }
 
     /**
@@ -238,11 +240,27 @@ public class TestNode implements LifecycleAware {
      * and returns the plan to execute.
      *
      * @param query A query string to prepare.
+     * @param params Query parameters.
      * @return A plan to execute.
      */
-    public QueryPlan prepare(String query) {
+    public QueryPlan prepare(String query, Object... params) {
         ParsedResult parsedResult = parserService.parse(query);
-        SqlOperationContext ctx = createContext();
+        SqlOperationContext ctx = createContext().parameters(params).build();
+
+        return await(prepareService.prepareAsync(parsedResult, ctx));
+    }
+
+    /**
+     * Prepares (aka parses, validates, and optimizes) the given query string
+     * and returns the plan to execute.
+     *
+     * @param query A query string to prepare.
+     * @param txContext Transaction context.
+     * @return A plan to execute.
+     */
+    public QueryPlan prepare(String query, @Nullable QueryTransactionContext txContext) {
+        ParsedResult parsedResult = parserService.parse(query);
+        SqlOperationContext ctx = createContext().txContext(txContext).build();
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
     }
@@ -255,7 +273,9 @@ public class TestNode implements LifecycleAware {
      * @return A plan to execute.
      */
     public QueryPlan prepare(ParsedResult parsedResult) {
-        return await(prepareService.prepareAsync(parsedResult, createContext()));
+        SqlOperationContext ctx = createContext().build();
+
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /**
@@ -274,7 +294,7 @@ public class TestNode implements LifecycleAware {
             }
 
             ParsedResult parsedResult = parserService.parse(statement);
-            SqlOperationContext ctx = createContext();
+            SqlOperationContext ctx = createContext().build();
 
             QueryPlan plan = await(prepareService.prepareAsync(parsedResult, ctx));
 
@@ -288,15 +308,15 @@ public class TestNode implements LifecycleAware {
         }
     }
 
-    private SqlOperationContext createContext() {
+    private SqlOperationContext.Builder createContext() {
         return createContext(ImplicitTxContext.INSTANCE);
     }
 
-    private SqlOperationContext createContext(@Nullable InternalTransaction tx) {
+    private SqlOperationContext.Builder createContext(@Nullable InternalTransaction tx) {
         return createContext(tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx));
     }
 
-    private SqlOperationContext createContext(QueryTransactionContext txContext) {
+    private SqlOperationContext.Builder createContext(QueryTransactionContext txContext, Object... params) {
         return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
@@ -304,8 +324,8 @@ public class TestNode implements LifecycleAware {
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .txContext(txContext)
-                .prefetchCallback(new PrefetchCallback())
-                .build();
+                .parameters(params)
+                .prefetchCallback(new PrefetchCallback());
     }
 
     private <T extends LifecycleAware> T registerService(T service) {

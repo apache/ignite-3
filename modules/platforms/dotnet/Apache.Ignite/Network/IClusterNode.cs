@@ -37,6 +37,6 @@ namespace Apache.Ignite.Network
         /// <summary>
         /// Gets the node address.
         /// </summary>
-        IPEndPoint Address { get; }
+        EndPoint Address { get; }
     }
 }

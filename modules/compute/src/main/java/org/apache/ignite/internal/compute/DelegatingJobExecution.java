@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class DelegatingJobExecution<R> implements JobExecution<R> {
+class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
     private final CompletableFuture<JobExecutionInternal<R>> delegate;
 
     DelegatingJobExecution(CompletableFuture<JobExecutionInternal<R>> delegate) {
@@ -53,5 +55,14 @@ class DelegatingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
+    }
+
+    @Override
+    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        try {
+            return delegate.thenApply(JobExecutionInternal::resultMarshaller).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

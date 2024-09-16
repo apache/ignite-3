@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -275,18 +274,6 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public LocalDate dateValue(String columnName) {
         return value(columnName);
     }
@@ -369,6 +356,14 @@ class TupleImpl implements Tuple, Serializable {
         for (int i = 0; i < colNames.size(); i++) {
             colMapping.put(colNames.get(i), i);
         }
+    }
+
+    <T> @Nullable T valueOrDefaultSkipNormalization(String columnName, @Nullable T def) {
+        Objects.requireNonNull(columnName);
+
+        Integer idx = colMapping.get(columnName);
+
+        return (idx == null) ? def : (T) colValues.get(idx);
     }
 
     /** {@inheritDoc} */

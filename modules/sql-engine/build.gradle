@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-network')
     implementation project(':ignite-index')
     implementation project(':ignite-table')
@@ -81,6 +82,7 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-catalog')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-raft-api')
@@ -106,6 +108,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
+    testImplementation(testFixtures(project(':ignite-metrics')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core

@@ -21,7 +21,6 @@ import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterConfigurationSchema;
 import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterConfigurationSchema;
@@ -37,10 +36,9 @@ public class MetricConfigurationModule implements ConfigurationModule {
         return ConfigurationType.DISTRIBUTED;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(MetricConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(MetricExtensionConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */

@@ -42,6 +42,7 @@ dependencies {
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-configuration-root')
     testImplementation project(':ignite-sql-engine')
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-table')

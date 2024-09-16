@@ -19,13 +19,11 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.ObjectModel;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
-    using Internal.Common;
     using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
@@ -518,10 +516,10 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestCustomDecimalScale()
         {
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (cast(10 as decimal(20, 10)) / ?)", 3m);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select cast((10 / ?) as decimal(20, 5))", 3m);
             IIgniteTuple res = await resultSet.SingleAsync();
 
-            Assert.AreEqual(3.333333333333333m, res[0]);
+            Assert.AreEqual(3.33333m, res[0]);
         }
 
         [Test]

@@ -22,6 +22,8 @@
 #include "ignite/common/detail/server_version.h"
 #include "ignite/common/uuid.h"
 
+#include <vector>
+
 namespace ignite::protocol {
 
 /**
@@ -46,18 +48,18 @@ public:
     void set_version(protocol_version ver) { m_version = ver; }
 
     /**
-     * Get cluster ID.
+     * Get cluster IDs.
      *
-     * @return Cluster ID.
+     * @return Cluster IDs.
      */
-    [[nodiscard]] uuid get_cluster_id() const { return m_cluster_id; }
+    [[nodiscard]] const std::vector<uuid> &get_cluster_ids() const { return m_cluster_ids; }
 
     /**
-     * Set Cluster ID.
+     * Set Cluster IDs.
      *
-     * @param id Cluster ID to set.
+     * @param ids Cluster IDs to set.
      */
-    void set_cluster_id(uuid id) { m_cluster_id = id; }
+    void set_cluster_ids(std::vector<uuid> &&ids) { m_cluster_ids = std::move(ids); }
 
     /**
      * Get server version.
@@ -91,8 +93,8 @@ private:
     /** Protocol version. */
     protocol_version m_version{protocol_version::get_current()};
 
-    /** Cluster ID. */
-    uuid m_cluster_id;
+    /** Cluster IDs. */
+    std::vector<uuid> m_cluster_ids;
 
     /** Server version. */
     detail::server_version m_server_version{};

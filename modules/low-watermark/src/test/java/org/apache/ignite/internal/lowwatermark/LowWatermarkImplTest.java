@@ -56,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -107,7 +107,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 lowWatermarkConfig,
                 clockService,
                 vaultManager,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 messagingService
         );
 
@@ -202,14 +202,14 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     /** Let's make sure that the low watermark update happens one by one and not in parallel. */
     @Test
     void testUpdateWatermarkSequentially() throws Exception {
-        assertThat(lowWatermarkConfig.updateFrequency().update(10L), willSucceedFast());
+        assertThat(lowWatermarkConfig.updateInterval().update(10L), willSucceedFast());
 
         var onLwmChangedLatch = new CountDownLatch(3);
 
         var onLwmChangedFinishFuture = new CompletableFuture<>();
 
         try {
-            assertThat(lowWatermarkConfig.updateFrequency().update(100L), willSucceedFast());
+            assertThat(lowWatermarkConfig.updateInterval().update(100L), willSucceedFast());
 
             when(lwmChangedListener.notify(any())).then(invocation -> {
                 onLwmChangedLatch.countDown();

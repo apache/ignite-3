@@ -21,19 +21,12 @@
 
 #include <future>
 #include <string>
+#include <filesystem>
 #include <type_traits>
 
 #include <cstdio>
 
 namespace ignite {
-
-/**
- * Get environment variable.
- *
- * @param name Variable name.
- * @return Variable value if it is set, or @c std::nullopt otherwise.
- */
-std::optional<std::string> get_env(const std::string &name);
 
 /**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
@@ -47,6 +40,14 @@ std::optional<std::string> get_env(const std::string &name);
  * @return Resolved Ignite home.
  */
 std::string resolve_ignite_home(const std::string &path = "");
+
+
+/**
+ * Resolve test directory. Relies on Ignite Home resolving inside.
+ *
+ * @return Resolved tests directory path.
+ */
+std::filesystem::path resolve_test_dir();
 
 /**
  * Check async operation result and propagate error to the promise if there is

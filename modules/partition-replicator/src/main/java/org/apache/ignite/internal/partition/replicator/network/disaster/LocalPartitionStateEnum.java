@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
 import org.apache.ignite.raft.jraft.core.State;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Enum for states of local partitions.
@@ -71,8 +70,17 @@ public enum LocalPartitionStateEnum {
         }
     }
 
-    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
-    public static @Nullable LocalPartitionStateEnum fromOrdinal(int ordinal) {
-        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
+    /**
+     * Returns the enumerated value from its ordinal.
+     *
+     * @param ordinal Ordinal of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     */
+    public static LocalPartitionStateEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
+        if (ordinal < 0 || ordinal >= VALUES.length) {
+            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        }
+
+        return VALUES[ordinal];
     }
 }

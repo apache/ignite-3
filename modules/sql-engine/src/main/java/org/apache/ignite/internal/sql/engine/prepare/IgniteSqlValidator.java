@@ -33,6 +33,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,9 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.runtime.PairList;
+import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -67,14 +71,17 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql.validate.AliasNamespace;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
@@ -174,6 +181,33 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return result;
     }
 
+    @Override
+    protected void registerNamespace(
+            @Nullable SqlValidatorScope usingScope,
+            @Nullable String alias,
+            SqlValidatorNamespace ns,
+            boolean forceNullable
+    ) {
+        if (ns instanceof AliasNamespace) {
+            SqlNode call = ns.getNode();
+            SqlNode enclosingNode = ns.getEnclosingNode();
+
+            assert call instanceof SqlCall;
+            assert enclosingNode != null;
+
+            // Calcite's implementation lacks notion of system/hidden columns,
+            // which is required to properly derive table type for column 
+            // renaming in FROM clause.
+            ns = new IgniteAliasNamespace(
+                    (SqlValidatorImpl) ns.getValidator(),
+                    (SqlCall) call,
+                    enclosingNode
+            );
+        }
+
+        super.registerNamespace(usingScope, alias, ns, forceNullable);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void validateInsert(SqlInsert insert) {
@@ -202,45 +236,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         syncSelectList(select, call);
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected void checkTypeAssignment(
-            SqlValidatorScope sourceScope,
-            SqlValidatorTable table,
-            RelDataType sourceRowType,
-            RelDataType targetRowType,
-            SqlNode query
-    ) {
-        boolean coerced = false;
-
-        if (query instanceof SqlUpdate) {
-            SqlNodeList targetColumnList =
-                    requireNonNull(((SqlUpdate) query).getTargetColumnList());
-            int targetColumnCount = targetColumnList.size();
-            targetRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, targetRowType,
-                            targetColumnCount);
-            sourceRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType,
-                            targetColumnCount);
+    public void validateWithItem(SqlWithItem withItem) {
+        if (withItem.recursive.booleanValue()) {
+            // pass withItem.recursive instead of withItem, so exception message
+            // will point to keyword RECURSIVE rather than name of the CTE
+            throw newValidationError(withItem.recursive,
+                    IgniteResource.INSTANCE.recursiveQueryIsNotSupported());
         }
 
-        // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
-        // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
-        if (config().typeCoercionEnabled()) {
-            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
-                    sourceRowType, targetRowType, null)) {
-                if ((query.getKind() == SqlKind.INSERT || query.getKind() == SqlKind.UPDATE)
-                        && targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)
-                        && sourceRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
-                    coerced = getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
-                }
-            }
-        }
-
-        if (!coerced) {
-            doCheckTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
-        }
+        super.validateWithItem(withItem);
     }
 
     /** {@inheritDoc} */
@@ -259,6 +264,28 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             syncSelectList(select, update);
         }
     }
+
+    @Override
+    public CalciteContextException newValidationError(
+            SqlNode node,
+            Resources.ExInst<SqlValidatorException> e
+    ) {
+        CalciteContextException ex = super.newValidationError(node, e);
+
+        String newMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(ex.getMessage());
+
+        CalciteContextException newEx;
+        if (newMessage != null) {
+            newEx = new IgniteContextException(newMessage, ex.getCause());
+            newEx.setPosition(ex.getPosLine(), ex.getPosColumn(), ex.getEndPosLine(), ex.getEndPosColumn());
+            newEx.setOriginalStatement(ex.getOriginalStatement());
+        } else {
+            newEx = ex;
+        }
+
+        return newEx;
+    }
+
 
     private IgniteTable getTableForModification(SqlIdentifier identifier) {
         SqlValidatorTable table = getCatalogReader().getTable(identifier.names);
@@ -381,6 +408,42 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
+    @Override
+    protected RelDataType createTargetRowType(SqlValidatorTable table,
+            @Nullable SqlNodeList targetColumnList, boolean append) {
+        RelDataType baseRowType = table.unwrap(IgniteTable.class).rowTypeForInsert((IgniteTypeFactory) typeFactory);
+        if (targetColumnList == null) {
+            return baseRowType;
+        }
+        List<RelDataTypeField> targetFields = baseRowType.getFieldList();
+        final PairList<String, RelDataType> fields = PairList.of();
+        if (append) {
+            for (RelDataTypeField targetField : targetFields) {
+                fields.add(SqlUtil.deriveAliasFromOrdinal(fields.size()),
+                        targetField.getType());
+            }
+        }
+        final Set<Integer> assignedFields = new HashSet<>();
+        final RelOptTable relOptTable = table instanceof RelOptTable
+                ? ((RelOptTable) table) : null;
+        for (SqlNode node : targetColumnList) {
+            SqlIdentifier id = (SqlIdentifier) node;
+            RelDataTypeField targetField =
+                    SqlValidatorUtil.getTargetField(
+                            baseRowType, typeFactory, id, getCatalogReader(), relOptTable);
+            if (targetField == null) {
+                throw newValidationError(id,
+                        RESOURCE.unknownTargetColumn(id.toString()));
+            }
+            if (!assignedFields.add(targetField.getIndex())) {
+                throw newValidationError(id,
+                        RESOURCE.duplicateTargetColumn(targetField.getName()));
+            }
+            fields.add(targetField);
+        }
+        return typeFactory.createStructType(fields);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
@@ -392,7 +455,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        igniteTable.getRowType(typeFactory)
+        igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -876,8 +939,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return (IgniteTypeFactory) typeFactory;
     }
 
-    private boolean isSystemFieldName(String alias) {
-        return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+    public static boolean isSystemFieldName(String alias) {
+        return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
+                || alias.equals(Commons.PART_COL_NAME);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.
@@ -930,6 +994,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateCall(SqlCall call, SqlValidatorScope scope) {
+        if (call.getKind() == SqlKind.AS) {
+            String alias = deriveAlias(call, 0);
+
+            if (isSystemFieldName(alias)) {
+                throw newValidationError(call, IgniteResource.INSTANCE.illegalAlias(alias));
+            }
+        }
+
         CallScope callScope = callScopes.peek();
         boolean validatingRowOperator = call.getOperator() == SqlStdOperatorTable.ROW;
         boolean insideValues = callScope == CallScope.VALUES;

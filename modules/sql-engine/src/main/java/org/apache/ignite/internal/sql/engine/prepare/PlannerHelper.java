@@ -19,13 +19,16 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
+import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
@@ -34,19 +37,43 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexSlot;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDynamicParam;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOrderBy;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class that encapsulates the query optimization pipeline.
@@ -83,6 +110,12 @@ public final class PlannerHelper {
      */
     public static IgniteRel optimize(SqlNode sqlNode, IgnitePlanner planner) {
         try {
+            IgniteRel result = tryOptimizeFast(sqlNode, planner);
+
+            if (result != null) {
+                return result;
+            }
+
             // Convert to Relational operators graph
             RelRoot root = planner.rel(sqlNode);
 
@@ -137,35 +170,115 @@ public final class PlannerHelper {
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
-            IgniteRel igniteRel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
+            result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
                 List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
+                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
 
                 for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(igniteRel, field));
+                    projects.add(rexBuilder.makeInputRef(result, field));
                 }
 
-                igniteRel = new IgniteProject(igniteRel.getCluster(), desired, igniteRel, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
             }
 
-            return igniteRel;
+            return result;
         } catch (Throwable ex) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Unexpected error at query optimizer", ex);
                 LOG.debug(planner.dump());
             }
 
-            if (ex instanceof CannotPlanException) {
-                throw ex;
-            } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
+            if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
                 SqlException sqlEx = (SqlException) ex.getCause();
                 throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
-            } else {
-                throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
             }
+
+            throw ex;
         }
+    }
+
+    private static @Nullable IgniteRel tryOptimizeFast(SqlNode sqlNode, IgnitePlanner planner) {
+        if (!fastQueryOptimizationEnabled()) {
+            return null;
+        }
+
+        if (sqlNode instanceof SqlInsert) {
+            return tryOptimizeInsert((SqlInsert) sqlNode, planner);
+        }
+
+        return null;
+    }
+
+    private static @Nullable IgniteRel tryOptimizeInsert(SqlInsert insertNode, IgnitePlanner planner) {
+        SqlNode sourceNode = insertNode.getSource();
+
+        if (!(sourceNode instanceof SqlBasicCall && sourceNode.getKind() == SqlKind.VALUES)) {
+            // only simple `INSERT INTO ... VALUES (...)` statement is supported at the moment
+            return null;
+        }
+
+        List<SqlNode> rowConstructors = ((SqlBasicCall) sourceNode).getOperandList();
+
+        if (rowConstructors.size() != 1) {
+            // multirow insert currently are not supported by IgniteKeyValueModify 
+            return null;
+        }
+
+        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        RelOptTable targetTable = converter.getTargetTable(insertNode);
+        IgniteTable igniteTable = targetTable.unwrap(IgniteTable.class);
+
+        assert igniteTable != null;
+
+        TableDescriptor descriptor = igniteTable.descriptor();
+        SqlBasicCall rowConstructor = (SqlBasicCall) rowConstructors.get(0);
+
+        Map<String, RexNode> columnToExpression = new HashMap<>();
+        for (int i = 0; i < rowConstructor.getOperandList().size(); i++) {
+            String columnName = ((SqlIdentifier) insertNode.getTargetColumnList().get(i)).getSimple();
+            SqlNode operand = rowConstructor.operand(i);
+
+            if (operand.getKind() == SqlKind.DEFAULT) {
+                // We don't need special processing for explicit default.
+                // Let's just skip it, default value will be resolved in the
+                // next for-loop
+                continue;
+            }
+
+            if (SubQueryChecker.hasSubQuery(operand)) {
+                // can't deal with sub-query
+                return null;
+            }
+
+            RexNode expression = converter.convertExpression(operand);
+
+            columnToExpression.put(columnName, expression);
+        }
+
+        List<RexNode> expressions = new ArrayList<>();
+        for (ColumnDescriptor column : descriptor) {
+            if (column.virtual()) {
+                continue;
+            }
+
+            RexNode expression = columnToExpression.get(column.name());
+
+            if (expression == null) {
+                expression = descriptor.newColumnDefaultValue(targetTable, column.logicalIndex(), converter);
+            }
+
+            expressions.add(expression);
+        }
+
+        return new IgniteKeyValueModify(
+                planner.cluster(),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                targetTable,
+                Operation.PUT,
+                expressions
+        );
     }
 
     private static boolean hasTooMuchJoins(RelNode rel) {
@@ -218,6 +331,184 @@ public final class PlannerHelper {
 
         int sizeOfBiggestJoin() {
             return Math.max(countOfSources, maxCountOfSourcesInSubQuery);
+        }
+    }
+
+    private static class SubQueryChecker extends SqlShuttle {
+        private static final SubQueryChecker INSTANCE = new SubQueryChecker();
+
+        static boolean hasSubQuery(SqlNode node) {
+            try {
+                node.accept(INSTANCE);
+            } catch (ControlFlowException e) {
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override public @Nullable SqlNode visit(SqlCall call) {
+            if (call.getKind() == SqlKind.SCALAR_QUERY) {
+                throw new ControlFlowException();
+            }
+
+            return super.visit(call);
+        }
+    }
+
+    /**
+     * Tries to optimize a query that looks like {@code SELECT count(*)}.
+     *
+     * @param planner Planner.
+     * @param node Query node.
+     * @return Plan node with list of aliases, if the optimization is applicable.
+     */
+    public static @Nullable Pair<IgniteRel, List<String>> tryOptimizeSelectCount(
+            IgnitePlanner planner,
+            SqlNode node
+    ) {
+        SqlSelect select = getSelectCountOptimizationNode(node);
+        if (select == null) {
+            return null;
+        }
+
+        assert select.getFrom() != null : "FROM is missing";
+
+        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+
+        // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
+        SqlNode from = SqlUtil.stripAs(select.getFrom());
+        RelOptTable targetTable = converter.getTargetTable(from);
+
+        IgniteDataSource dataSource = targetTable.unwrap(IgniteDataSource.class);
+        if (!(dataSource instanceof IgniteTable)) {
+            return null;
+        }
+
+        IgniteTypeFactory typeFactory = planner.getTypeFactory();
+
+        // SELECT COUNT(*) ... row type
+        RelDataType countResultType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+
+        // Build projection
+        // Rewrites SELECT count(*) ... as Project(exprs = [lit, $0, ... ]), where $0 references a row that stores a count.
+        // So we can feed results of get count operation into a projection to compute final results.
+
+        List<RexNode> expressions = new ArrayList<>();
+        List<String> expressionNames = new ArrayList<>();
+        boolean countAdded = false;
+
+        for (SqlNode selectItem : select.getSelectList()) {
+            SqlNode expr = SqlUtil.stripAs(selectItem);
+
+            if (isCountStar(expr)) {
+                RexBuilder rexBuilder = planner.cluster().getRexBuilder();
+                RexSlot countValRef = rexBuilder.makeInputRef(countResultType, 0);
+
+                expressions.add(countValRef);
+
+                countAdded = true;
+            } else if (expr instanceof SqlLiteral || expr instanceof SqlDynamicParam) {
+                RexNode rexNode = converter.convertExpression(expr);
+
+                expressions.add(rexNode);
+            } else {
+                return null;
+            }
+
+            String alias = planner.validator().deriveAlias(selectItem, expressionNames.size());
+            expressionNames.add(alias);
+        }
+
+        if (!countAdded) {
+            return null;
+        }
+
+        IgniteSelectCount rel = new IgniteSelectCount(
+                planner.cluster(),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                targetTable,
+                expressions
+        );
+
+        return new Pair<>(rel, expressionNames);
+    }
+
+    private static @Nullable SqlSelect getSelectCountOptimizationNode(SqlNode node) {
+        // Unwrap SELECT .. from SELECT x FROM t ORDER BY ...
+        if (node instanceof SqlOrderBy) {
+            SqlOrderBy orderBy = (SqlOrderBy) node;
+
+            // Skip ORDER BY with OFFSET/FETCH
+            if (orderBy.fetch != null || orderBy.offset != null) {
+                return null;
+            }
+
+            // Skip ORDER BY with non literals
+            for (SqlNode arg : orderBy.orderList) {
+                if (!SqlUtil.isLiteral(arg))  {
+                    return null;
+                }
+            }
+
+            assert orderBy.getOperandList().size() == 4 : "Expected 4 operands, but was " + orderBy.getOperandList().size();
+            node = orderBy.query;
+        }
+
+        if (!(node instanceof SqlSelect)) {
+            return null;
+        }
+
+        SqlSelect select = (SqlSelect) node;
+
+        if (select.getGroup() != null
+                || select.getFrom() == null
+                || select.getWhere() != null
+                || select.getHaving() != null
+                || select.getQualify() != null
+                || !select.getWindowList().isEmpty()
+                || select.getOffset() != null
+                || select.getFetch() != null) {
+
+            return null;
+        }
+
+        // make sure that the following IF statement does not leave out any operand of the SELECT node
+        assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
+
+        // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
+        SqlNode from = SqlUtil.stripAs(select.getFrom());
+        // Skip non-references such as VALUES ..
+        if (from.getKind() == SqlKind.IDENTIFIER) {
+            return select;
+        } else {
+            return null;
+        }
+    }
+
+    private static boolean isCountStar(SqlNode node) {
+        if (!SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
+            // The SQL node was checked by the validator and the call has correct number of arguments.
+            return false;
+        } else {
+            SqlCall call = (SqlCall) node;
+            // Reject COUNT(DISTINCT ...)
+            if (call.getFunctionQuantifier() != null) {
+                return false;
+            }
+            if (call.getOperandList().isEmpty()) {
+                return false;
+            }
+            SqlNode operand = call.getOperandList().get(0);
+
+            if (SqlUtil.isNull(operand)) {
+                // COUNT(NULL) always returns 0
+                return false;
+            } else if (SqlUtil.isLiteral(operand)) {
+                return true;
+            } else {
+                return operand instanceof SqlIdentifier && ((SqlIdentifier) operand).isStar();
+            }
         }
     }
 }

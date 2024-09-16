@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx.readonly;
 
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -44,7 +44,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void prepareCluster() {
         // Setting idleSafeTimePropagationDuration to 1 second so that an RO tx has a potential to look before a table was created.
-        cluster.startAndInit(1, builder -> builder.clusterConfiguration("replication.idleSafeTimePropagationDuration: 1000"));
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration("ignite.replication.idleSafeTimePropagationDuration: 1000"));
 
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
@@ -57,7 +57,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
-        IgniteImpl node = cluster.node(0);
+        Ignite node = cluster.node(0);
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {

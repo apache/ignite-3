@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
@@ -98,9 +99,10 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -116,6 +118,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandle
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
@@ -183,6 +186,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         VaultManager vault = createVault(dir);
 
+        var clusterStateStorage = new TestClusterStateStorage();
+
+        var clusterIdService = new ClusterIdService(vault);
+        clusterIdService.clusterId(UUID.randomUUID());
+
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
@@ -206,7 +214,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
+                .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
@@ -216,13 +225,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
+                clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
-                mock(FailureProcessor.class)
+                mock(FailureManager.class)
         );
 
-        var clusterStateStorage = new TestClusterStateStorage();
-
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -294,9 +302,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
+                clusterStateStorage,
+                clusterIdService,
                 nettyBootstrapFactory,
                 clusterSvc,
-                clusterStateStorage,
                 cmgManager,
                 metastore,
                 clusterCfgMgr,

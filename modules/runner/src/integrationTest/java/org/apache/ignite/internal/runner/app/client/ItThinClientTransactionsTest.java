@@ -269,7 +269,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTransactionFromAnotherChannelThrows() throws Exception {
+    void testTransactionFromAnotherChannelThrows() {
         Transaction tx = client().transactions().begin();
         client().sql().execute(tx, "SELECT 1").close(); // Force lazy tx init.
 

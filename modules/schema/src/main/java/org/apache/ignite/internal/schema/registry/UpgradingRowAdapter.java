@@ -21,13 +21,11 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.isSupport
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -330,12 +328,6 @@ public class UpgradingRowAdapter implements Row {
 
     /** {@inheritDoc} */
     @Override
-    public BigInteger numberValue(int colIdx) throws InvalidTypeException {
-        throw new UnsupportedOperationException("Number is not supported");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public String stringValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
@@ -374,12 +366,6 @@ public class UpgradingRowAdapter implements Row {
         }
 
         return mappedId < 0 ? (UUID) column.defaultValue() : row.uuidValue(mappedId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int colIdx) throws InvalidTypeException {
-        throw new UnsupportedOperationException("Bitmask is not supported");
     }
 
     /** {@inheritDoc} */

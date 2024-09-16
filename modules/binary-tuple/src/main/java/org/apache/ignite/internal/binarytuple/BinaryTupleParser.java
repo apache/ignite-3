@@ -27,7 +27,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ByteUtils;
 
@@ -298,8 +297,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    @Deprecated(forRemoval = true)
-    public final BigInteger numberValue(int begin, int end) {
+    protected BigInteger numberValue(int begin, int end) {
         int len = end - begin;
         if (len <= 0) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
@@ -380,27 +378,6 @@ public class BinaryTupleParser {
         long msb = buffer.getLong(begin);
         long lsb = buffer.getLong(begin + 8);
         return new UUID(msb, lsb);
-    }
-
-    /**
-     * Reads value of specified element.
-     *
-     * @param begin Start offset of the element.
-     * @param end End offset of the element.
-     * @return Element value.
-     */
-    @Deprecated(forRemoval = true)
-    public final BitSet bitmaskValue(int begin, int end) {
-        int len = end - begin;
-        if (len <= 0) {
-            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
-        }
-
-        if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
-            begin++;
-        }
-
-        return BitSet.valueOf(buffer.duplicate().position(begin).limit(end));
     }
 
     /**

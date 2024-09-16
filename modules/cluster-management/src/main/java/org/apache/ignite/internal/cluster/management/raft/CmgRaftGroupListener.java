@@ -32,6 +32,8 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -62,6 +65,8 @@ import org.jetbrains.annotations.TestOnly;
 public class CmgRaftGroupListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final ClusterStateStorageManager storageManager;
 
     private final LogicalTopology logicalTopology;
@@ -69,6 +74,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private final ValidationManager validationManager;
 
     private final LongConsumer onLogicalTopologyChanged;
+
+    private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
     /**
      * Creates a new instance.
@@ -92,6 +99,18 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+        if (!busyLock.enterBusy()) {
+            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onReadBusy(iterator);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onReadBusy(Iterator<CommandClosure<ReadCommand>> iterator) {
         while (iterator.hasNext()) {
             CommandClosure<ReadCommand> clo = iterator.next();
 
@@ -121,6 +140,18 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        if (!busyLock.enterBusy()) {
+            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onWriteBusy(iterator);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         while (iterator.hasNext()) {
             CommandClosure<WriteCommand> clo = iterator.next();
 
@@ -151,6 +182,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
                 onLogicalTopologyChanged.accept(clo.term());
+
+                clo.result(null);
+            } else if (command instanceof ChangeMetastorageNodesCommand) {
+                changeMetastorageNodes((ChangeMetastorageNodesCommand) command);
 
                 clo.result(null);
             }
@@ -244,6 +279,23 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         }
     }
 
+    private void changeMetastorageNodes(ChangeMetastorageNodesCommand command) {
+        ClusterState existingState = storageManager.getClusterState();
+
+        assert existingState != null : "Cluster state is not initialized when got " + command;
+
+        ClusterState newState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.copyOf(existingState.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(command.metaStorageNodes()))
+                .version(existingState.version())
+                .clusterTag(existingState.clusterTag())
+                .initialClusterConfiguration(existingState.initialClusterConfiguration())
+                .formerClusterIds(existingState.formerClusterIds())
+                .build();
+
+        storageManager.putClusterState(newState);
+    }
+
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         storageManager.snapshot(path)
@@ -267,6 +319,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
+        busyLock.block();
+
         // Raft storage lifecycle is managed by outside components.
     }
 

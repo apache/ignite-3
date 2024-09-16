@@ -54,12 +54,11 @@ public class NodeUnitListReplCommand extends BaseCommand implements Runnable {
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(listOptions::toListUnitCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list units"))
-                .verbose(verbose)
                 .print(new UnitListDecorator(plain))
-                .start();
+        );
     }
 }

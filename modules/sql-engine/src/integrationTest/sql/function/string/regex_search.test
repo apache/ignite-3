@@ -39,6 +39,81 @@ SELECT 'asdf' ~ '^sdf$'
 ----
 false
 
+query T
+SELECT 'abcd' ~ 'ab[cd]'
+----
+true
+
+query T
+SELECT 'abcd' ~ 'ab[cd]$'
+----
+false
+
+query T
+SELECT 'abcd' ~ 'ab[CD]'
+----
+false
+
+query T
+SELECT 'abcd' ~* 'ab[cd]'
+----
+true
+
+query T
+SELECT 'abcd' ~ 'ab[cd]$'
+----
+false
+
+query T
+SELECT 'abcd' ~ 'ab[CD]'
+----
+false
+
+query T
+SELECT 'abcd' ~* 'ab[cd]'
+----
+true
+
+query T
+SELECT 'abcd' ~* 'ab[cd]$'
+----
+false
+
+query T
+SELECT 'abcd' ~* 'ab[CD]'
+----
+true
+
+query T
+SELECT 'abcd' !~ 'ab[cd]'
+----
+false
+
+query T
+SELECT 'abcd' !~ 'ab[cd]$'
+----
+true
+
+query T
+SELECT 'abcd' !~ 'ab[CD]'
+----
+true
+
+query T
+SELECT 'abcd' !~* 'ab[cd]'
+----
+false
+
+query T
+SELECT 'abcd' !~* 'ab[cd]$'
+----
+true
+
+query T
+SELECT 'abcd' !~* 'ab[CD]'
+----
+false
+
 # empty strings
 query T
 SELECT '' ~ '.*yu.*'
@@ -67,13 +142,70 @@ SELECT CAST(NULL AS VARCHAR) ~ CAST(NULL AS VARCHAR)
 NULL
 
 query T
+SELECT null ~ 'ab[cd]'
+----
+null
+
+query T
+SELECT 'abcd' ~ null
+----
+null
+
+query T
+SELECT null ~ null
+----
+null
+
+query T
+SELECT null ~* 'ab[cd]'
+----
+null
+
+query T
+SELECT null ~* 'ab[cd]'
+----
+null
+
+query T
+SELECT null ~* null
+----
+null
+
+query T
+SELECT null !~ 'ab[cd]'
+----
+null
+
+query T
+SELECT null !~ null
+----
+null
+
+query T
+SELECT null !~* 'ab[cd]'
+----
+null
+
+query T
+SELECT null !~* null
+----
+null
+
+query T
 SELECT 'foobarbequebaz' ~ '(bar)(beque)'
 ----
 true
 
 # postgres says throw error on invalid regex
-statement error
+statement error: java.util.regex.PatternSyntaxException: Unclosed character class near index 3
 SELECT '' ~ '[a-z'
+
+skipif ignite3
+# postgres says throw error on invalid regex
+# Query Error: error: invalid regular expression: invalid escape \ sequence
+# https://issues.apache.org/jira/browse/IGNITE-22930
+statement error
+SELECT '' ~ '\X'
 
 statement ok
 CREATE TABLE regex(s VARCHAR, p VARCHAR)
@@ -127,3 +259,11 @@ SELECT v ~ 'h.*' FROM test ORDER BY v
 false
 true
 
+# https://issues.apache.org/jira/browse/IGNITE-15562
+# multiline regex string
+skipif ignite3
+query T
+SELECT 'hello
+ world' ~ '^.*$'
+----
+true

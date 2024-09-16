@@ -316,6 +316,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::COMMON:
         case error::code::UNSUPPORTED_OBJECT_TYPE:
         case error::code::MARSHALLING_TYPE_MISMATCH:
+        case error::code::UNMARSHALLING:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

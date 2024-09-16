@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
@@ -41,19 +45,18 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -63,7 +66,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -72,6 +74,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
@@ -172,19 +175,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
-        var service = new RaftGroupServiceImpl(
-                groupId,
-                cluster,
-                factory,
-                configuration,
-                membersConfiguration,
-                null,
-                executor,
-                commandsMarshaller
-        );
+        boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
+
+        RaftGroupServiceImpl service;
+        if (inBenchmark) {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            ) {
+                @Override
+                public <R> CompletableFuture<R> run(Command cmd) {
+                    return cmd.getClass().getSimpleName().contains("UpdateCommand") ? nullCompletedFuture() : super.run(cmd);
+                }
+            };
+        } else {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            );
+        }
 
         if (!getLeader) {
-            return CompletableFuture.completedFuture(service);
+            return completedFuture(service);
         }
 
         return service.refreshLeader().handle((unused, throwable) -> {
@@ -314,32 +338,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeers(Collection<Peer> peers) {
+    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader().thenCompose(res -> changePeers(peers));
+            return refreshLeader().thenCompose(res -> changePeersAndLearners(peersAndLearners, term));
         }
 
-        Function<Peer, ChangePeersRequest> requestFactory = targetPeer -> factory.changePeersRequest()
+        Function<Peer, ChangePeersAndLearnersRequest> requestFactory = targetPeer -> factory.changePeersAndLearnersRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
-                .newPeersList(peerIds(peers))
+                .newPeersList(peerIds(peersAndLearners.peers()))
+                .newLearnersList(peerIds(peersAndLearners.learners()))
+                .term(term)
                 .build();
 
-        return this.<ChangePeersResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
+        LOG.info("Sending changePeersAndLearners request for group={} to peers={} and learners={} with leader term={}",
+                groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
+
+        return this.<ChangePeersAndLearnersResponse>sendWithRetry(leader, requestFactory)
+                .thenAccept(resp -> {
+                    this.peers = parsePeerList(resp.newPeersList());
+                    this.learners = parsePeerList(resp.newLearnersList());
+                });
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term) {
+    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader().thenCompose(res -> changePeersAsync(peersAndLearners, term));
+            return refreshLeader().thenCompose(res -> changePeersAndLearnersAsync(peersAndLearners, term));
         }
 
-        Function<Peer, ChangePeersAsyncRequest> requestFactory = targetPeer -> factory.changePeersAsyncRequest()
+        Function<Peer, ChangePeersAndLearnersAsyncRequest> requestFactory = targetPeer -> factory.changePeersAndLearnersAsyncRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
                 .term(term)
@@ -347,10 +379,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .newLearnersList(peerIds(peersAndLearners.learners()))
                 .build();
 
-        LOG.info("Sending changePeersAsync request for group={} to peers={} and learners={} with leader term={}",
+        LOG.info("Sending changePeersAndLearnersAsync request for group={} to peers={} and learners={} with leader term={}",
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
-        return this.<ChangePeersAsyncResponse>sendWithRetry(leader, requestFactory)
+        return this.<ChangePeersAndLearnersAsyncResponse>sendWithRetry(leader, requestFactory)
                 .thenAccept(resp -> {
                     // We expect that all raft related errors will be handled by sendWithRetry, means that
                     // such responses will initiate a retrying of the original request.
@@ -522,7 +554,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        sendWithRetry(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), future);
+        sendWithRetry(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), future, 1);
 
         return future;
     }
@@ -535,9 +567,16 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param stopTime Stop time.
      * @param fut The future.
      * @param <R> Response type.
+     * @param retryCount Number of retries made. sendWithRetry method has a recursion nature, in case of recoverable exceptions or peer
+     *     unavailability it'll be scheduled for a next attempt. Generally a request will be retried until success or timeout.
      */
     private <R extends NetworkMessage> void sendWithRetry(
-            Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
+            Peer peer,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            long stopTime,
+            CompletableFuture<R> fut,
+            int retryCount
+
     ) {
         if (!busyLock.enterBusy()) {
             fut.cancel(true);
@@ -547,7 +586,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         try {
             if (currentTimeMillis() >= stopTime) {
-                fut.completeExceptionally(new TimeoutException());
+                fut.completeExceptionally(
+                        new TimeoutException(format("Send with retry timed out [retryCount = {}].", retryCount)));
 
                 return;
             }
@@ -558,17 +598,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
-                            LOG.trace("sendWithRetry resp={} from={} to={} err={}",
-                                    S.toString(resp),
+                            LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
+                                    request,
+                                    resp,
                                     cluster.topologyService().localMember().address(),
                                     peer.consistentId(),
                                     err == null ? null : err.getMessage());
                         }
 
                         if (err != null) {
-                            handleThrowable(err, peer, request, requestFactory, stopTime, fut);
+                            handleThrowable(err, peer, request, requestFactory, stopTime, fut, retryCount);
                         } else if (resp instanceof ErrorResponse) {
-                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
+                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retryCount);
                         } else if (resp instanceof SMErrorResponse) {
                             handleSmErrorResponse((SMErrorResponse) resp, fut);
                         } else {
@@ -588,21 +629,36 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             NetworkMessage sentRequest,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
-            CompletableFuture<? extends NetworkMessage> fut
+            CompletableFuture<? extends NetworkMessage> fut,
+            int retryCount
     ) {
+        err = unwrapCause(err);
+
         if (recoverable(err)) {
             Peer randomPeer = randomNode(peer);
 
-            LOG.warn(
-                    "Recoverable error during the request occurred (will be retried on the randomly selected node) "
-                            + "[request={}, peer={}, newPeer={}].",
-                    err,
-                    sentRequest,
-                    peer,
-                    randomPeer
-            );
+            if (LOG.isDebugEnabled()) {
+                if (err instanceof TimeoutException) {
+                    LOG.debug(
+                            "Recoverable TimeoutException during the request occurred (will be retried on the randomly selected"
+                                    + " node) [request={}, peer={}, newPeer={}].",
+                            includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
+                            peer,
+                            randomPeer
+                    );
+                } else {
+                    LOG.debug(
+                            "Recoverable error during the request occurred (will be retried on the randomly selected node) "
+                                    + "[request={}, peer={}, newPeer={}].",
+                            err,
+                            includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
+                            peer,
+                            randomPeer
+                    );
+                }
+            }
 
-            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut));
+            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut, retryCount + 1));
         } else {
             fut.completeExceptionally(err);
         }
@@ -614,7 +670,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             NetworkMessage sentRequest,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
-            CompletableFuture<? extends NetworkMessage> fut
+            CompletableFuture<? extends NetworkMessage> fut,
+            int retryCount
     ) {
         RaftError error = RaftError.forNumber(resp.errorCode());
 
@@ -628,7 +685,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut));
+                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1));
 
                 break;
 
@@ -636,10 +693,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 scheduleRetry(() -> {
                     // If changing peers or requesting a leader and something is not found
                     // probably target peer is doing rebalancing, try another peer.
-                    if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAsyncRequest) {
-                        sendWithRetry(randomNode(peer), requestFactory, stopTime, fut);
+                    if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAndLearnersAsyncRequest) {
+                        sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1);
                     } else {
-                        sendWithRetry(peer, requestFactory, stopTime, fut);
+                        sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1);
                     }
                 });
 
@@ -650,11 +707,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case UNKNOWN:
             case EINTERNAL:
                 if (resp.leaderId() == null) {
-                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
+                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1));
                 } else {
                     leader = parsePeer(resp.leaderId()); // Update a leader.
 
-                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
+                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut, retryCount + 1));
                 }
 
                 break;
@@ -699,17 +756,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Checks if an error is recoverable, for example, {@link java.net.ConnectException}.
+     * Checks if an error is recoverable.
+     *
+     * <p>An error is considered recoverable if it's an instance of {@link TimeoutException}, {@link IOException}
+     * or {@link PeerUnavailableException}.
      *
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
     private static boolean recoverable(Throwable t) {
-        if (t instanceof ExecutionException || t instanceof CompletionException) {
-            t = t.getCause();
-        }
+        t = unwrapCause(t);
 
-        return t instanceof TimeoutException || t instanceof IOException;
+        return t instanceof TimeoutException || t instanceof IOException || t instanceof PeerUnavailableException;
     }
 
     private Peer randomNode() {
@@ -803,9 +861,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
 
         if (node == null) {
-            return CompletableFuture.failedFuture(new ConnectException("Peer " + peer.consistentId() + " is unavailable"));
+            return CompletableFuture.failedFuture(new PeerUnavailableException(peer.consistentId()));
         }
 
-        return CompletableFuture.completedFuture(node);
+        return completedFuture(node);
     }
 }

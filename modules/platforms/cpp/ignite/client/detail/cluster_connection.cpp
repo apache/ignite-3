@@ -22,6 +22,7 @@
 #include "ignite/network/codec_data_filter.h"
 #include "ignite/network/length_prefix_codec.h"
 #include "ignite/network/network.h"
+#include "ignite/network/ssl/secure_data_filter.h"
 #include "ignite/protocol/writer.h"
 
 #include <iterator>
@@ -52,6 +53,18 @@ void cluster_connection::start_async(std::function<void(ignite_result<void>)> ca
     }
 
     data_filters filters;
+
+    if (m_configuration.get_ssl_mode() == ssl_mode::REQUIRE) {
+        network::ensure_ssl_loaded();
+
+        network::secure_configuration ssl_cfg;
+        ssl_cfg.ca_path = m_configuration.get_ssl_ca_file();
+        ssl_cfg.key_path = m_configuration.get_ssl_key_file();
+        ssl_cfg.cert_path = m_configuration.get_ssl_cert_file();
+
+        std::shared_ptr<secure_data_filter> secure_filter(new network::secure_data_filter(ssl_cfg));
+        filters.push_back(secure_filter);
+    }
 
     std::shared_ptr<factory<codec>> codec_factory = std::make_shared<length_prefix_codec_factory>();
     std::shared_ptr<codec_data_filter> codec_filter(new network::codec_data_filter(codec_factory));
@@ -133,13 +146,26 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
         return;
     }
 
+    auto current_cluster_id = m_cluster_id;
     auto &context = connection->get_protocol_context();
     initial_connect_result(context);
 
-    if (context.get_cluster_id() != m_cluster_id) {
+    if (!current_cluster_id) {
+        // No need to verify cluster ID here -- we're connecting for the first time
+        return;
+    }
+
+    const auto &cluster_ids = context.get_cluster_ids();
+    auto it = std::find(cluster_ids.begin(), cluster_ids.end(), *current_cluster_id);
+    if (it == cluster_ids.end()) {
         std::stringstream message;
-        message << "Node from unknown cluster: current_cluster_id=" << m_cluster_id
-                << ", node_cluster_id=" << context.get_cluster_id();
+        message << "Node from unknown cluster: current_cluster_id=" << *current_cluster_id << ", node_cluster_ids=["
+            << cluster_ids.front();
+
+        for (auto& cluster_id : cluster_ids) {
+            message << ',' << cluster_id;
+        }
+        message << ']';
 
         m_logger->log_warning(message.str());
         remove_client(connection->id());
@@ -193,7 +219,7 @@ void cluster_connection::initial_connect_result(const protocol::protocol_context
     if (!m_on_initial_connect)
         return;
 
-    m_cluster_id = context.get_cluster_id();
+    m_cluster_id = context.get_cluster_ids().back();
     m_on_initial_connect({});
     m_on_initial_connect = {};
 }

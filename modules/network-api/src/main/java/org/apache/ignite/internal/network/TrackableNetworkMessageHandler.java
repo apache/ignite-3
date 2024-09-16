@@ -77,10 +77,10 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         if (durationMillis > MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS) {
             LOG.warn(
-                    "Message handling has been too long [duration={}ms, message=[{}]]",
+                    "Message handling has been too long [duration={}ms, message={}]",
                     durationMillis,
                     // Message may include sensitive data, however it seems useful to print full message content while testing.
-                    includeSensitive() ? message : message.getClass()
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
             );
         }
     }

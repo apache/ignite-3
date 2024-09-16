@@ -280,6 +280,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 )
                 .query(sql)
                 .parameters(paramsMap)
+                // Assume that we use explicit transactions by default.
+                .explicitTx(true)
                 .build();
 
         IgnitePlanner planner = ctx.planner();
@@ -823,6 +825,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+            return rowType;
+        }
+
+        @Override
+        public RelDataType rowTypeSansHidden() {
             return rowType;
         }
 

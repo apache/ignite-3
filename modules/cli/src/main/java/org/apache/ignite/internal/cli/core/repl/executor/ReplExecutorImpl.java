@@ -139,8 +139,6 @@ public class ReplExecutorImpl implements ReplExecutor {
 
             setupWidgets(repl, registry, reader);
 
-            repl.getEventListeningActivationPoint().subscribe();
-
             repl.onStart();
 
             while (!interrupted.get()) {
@@ -196,6 +194,7 @@ public class ReplExecutorImpl implements ReplExecutor {
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler(exceptionHandlers));
         cmd.setTrimQuotes(true);
+        cmd.setCaseInsensitiveEnumValuesAllowed(true);
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);

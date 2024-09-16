@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -436,28 +435,6 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     UUID uuidValue(int columnIndex);
-
-    /**
-     * Gets a {@code BitSet} column value.
-     *
-     * @param columnName Column name in SQL-parser style notation; e.g., <br>
-     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
-     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
-     * @return Column value.
-     * @throws IllegalArgumentException If no column with the given name exists.
-     */
-    @Deprecated(forRemoval = true)
-    BitSet bitmaskValue(String columnName);
-
-    /**
-     * Gets a {@code BitSet} column value.
-     *
-     * @param columnIndex Column index.
-     * @return Column value.
-     * @throws IndexOutOfBoundsException If no column with the given index exists.
-     */
-    @Deprecated(forRemoval = true)
-    BitSet bitmaskValue(int columnIndex);
 
     /**
      * Gets a {@code LocalDate} column value.

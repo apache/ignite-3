@@ -23,12 +23,15 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Ignite type system.
  */
 public class IgniteTypeSystem extends RelDataTypeSystemImpl {
+    public static final int MIN_SCALE_OF_AVG_RESULT = 16;
+
     public static final IgniteTypeSystem INSTANCE = new IgniteTypeSystem();
 
     /** {@inheritDoc} */
@@ -149,5 +152,33 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         }
 
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
+    }
+
+    @Override
+    public RelDataType deriveAvgAggType(RelDataTypeFactory typeFactory, RelDataType argumentType) {
+        RelDataType avgType = null;
+
+        // SQL standard doesn't enforce usage of the same type, it only mention that return
+        // type must have precision and scale not less that argument has. To improve UX, we
+        // return type with more figures after decimal point with some upper bound after
+        // which we preserve the original scale.
+
+        if (SqlTypeUtil.isExactNumeric(argumentType)) {
+            int originalPrecision = argumentType.getPrecision();
+            int originalScale = argumentType.getScale();
+
+            int scale = Math.max(MIN_SCALE_OF_AVG_RESULT, originalScale);
+            int precision = originalPrecision + (scale - originalScale);
+
+            avgType = typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale);
+        } else if (SqlTypeUtil.isApproximateNumeric(argumentType)) {
+            avgType = typeFactory.createSqlType(SqlTypeName.DOUBLE);
+        }
+
+        if (avgType != null) {
+            return typeFactory.createTypeWithNullability(avgType, argumentType.isNullable());
+        }
+
+        return super.deriveAvgAggType(typeFactory, argumentType);
     }
 }

@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-metastorage')
+    implementation project(':ignite-metastorage-cache')
     implementation project(':ignite-network')
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft')

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CancellationException;
@@ -80,14 +81,17 @@ public class ClockWaiter implements IgniteComponent {
         this.nodeName = nodeName;
         this.clock = clock;
 
-        futureExecutor = new ThreadPoolExecutor(
-                0,
-                4,
-                1,
-                TimeUnit.MINUTES,
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                2,
+                2,
+                10,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", log)
         );
+        executor.allowCoreThreadTimeOut(true);
+
+        futureExecutor = executor;
     }
 
     @Override
@@ -118,10 +122,10 @@ public class ClockWaiter implements IgniteComponent {
         // so it's simpler to just use shutdownNow().
         scheduler.shutdownNow();
 
-        IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, SECONDS);
 
         try {
-            scheduler.awaitTermination(10, TimeUnit.SECONDS);
+            scheduler.awaitTermination(10, SECONDS);
         } catch (InterruptedException e) {
             return failedFuture(e);
         }

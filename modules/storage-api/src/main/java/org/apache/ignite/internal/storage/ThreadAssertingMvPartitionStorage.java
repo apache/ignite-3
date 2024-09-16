@@ -50,10 +50,10 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.flush();
+        return partitionStorage.flush(trigger);
     }
 
     @Override
@@ -155,15 +155,29 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         assertThreadAllowsToWrite();
 
-        partitionStorage.updateLease(leaseStartTime);
+        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     @Override
     public long leaseStartTime() {
         return partitionStorage.leaseStartTime();
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeId() {
+        return partitionStorage.primaryReplicaNodeId();
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeName() {
+        return partitionStorage.primaryReplicaNodeName();
     }
 
     @Override

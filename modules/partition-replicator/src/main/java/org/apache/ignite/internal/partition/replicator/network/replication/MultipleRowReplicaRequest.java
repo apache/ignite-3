@@ -44,15 +44,6 @@ public interface MultipleRowReplicaRequest extends SchemaVersionAwareReplicaRequ
         return rows;
     }
 
-    /** Ordinal of {@link RequestType} value. */
-    int requestTypeInt();
-
     /** Transaction operation type. */
-    default RequestType requestType() {
-        RequestType requestType = RequestType.fromOrdinal(requestTypeInt());
-
-        assert requestType != null : requestTypeInt();
-
-        return requestType;
-    }
+    RequestType requestType();
 }

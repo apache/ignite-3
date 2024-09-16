@@ -34,4 +34,9 @@ public interface InvokeResponse extends NetworkMessage {
 
     /** Response's message. */
     NetworkMessage message();
+
+    @Override
+    default String toStringForLightLogging() {
+        return getClass() + ": [correlationId=" + correlationId() + ", message=" + message().getClass() + ']';
+    }
 }

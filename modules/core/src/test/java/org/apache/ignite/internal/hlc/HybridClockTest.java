@@ -17,16 +17,13 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -46,7 +43,7 @@ class HybridClockTest extends BaseIgniteAbstractTest {
     /**
      * Mock of a system clock.
      */
-    private static MockedStatic<Clock> clockMock;
+    private static MockedStatic<HybridClockImpl> clockMock;
 
     @Mock
     private ClockUpdateListener updateListener;
@@ -167,12 +164,10 @@ class HybridClockTest extends BaseIgniteAbstractTest {
         verify(updateListener, never()).onUpdate(anyLong());
     }
 
-    private static MockedStatic<Clock> mockToEpochMilli(long expected) {
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock = mockStatic(Clock.class);
+    private static MockedStatic<HybridClockImpl> mockToEpochMilli(long expected) {
+        MockedStatic<HybridClockImpl> clockMock = mockStatic(HybridClockImpl.class);
 
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+        clockMock.when(HybridClockImpl::currentTime).thenReturn(expected << LOGICAL_TIME_BITS_SIZE);
 
         return clockMock;
     }

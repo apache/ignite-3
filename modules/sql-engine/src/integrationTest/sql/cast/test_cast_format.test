@@ -1,0 +1,204 @@
+# name: test/sql/cast/test_cast_format.test
+# description: SQL:2016 introduced the FORMAT clause for CAST which is the standard way to do string <> datetime conversions
+# feature: SQL T839(Formatted cast of datetimes to/from character strings)
+# group: [cast]
+
+# Cast DATE to String
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'YYYY')
+----
+2018
+
+statement error: Year out of range: [12018]
+SELECT cast(date '12018-01-30' as varchar format 'YYYY')
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'YYY')
+----
+018
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'MONTH')
+----
+JANUARY
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'MON')
+----
+JAN
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'MM')
+----
+01
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'DAY')
+----
+TUESDAY
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'DY')
+----
+TUE
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'D')
+----
+3
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'DD')
+----
+30
+
+query T
+SELECT cast(date '2018-06-30' as varchar format 'DDD')
+----
+181
+
+query T
+SELECT cast(date '2018-01-30' as varchar format 'MM-DD-YY')
+----
+01-30-18
+
+query T
+SELECT cast(date '2021-12-21' as varchar format 'YY Q MON DD')
+----
+21 4 DEC 21
+
+# Cast TIME to String
+
+query T
+SELECT cast(time '21:30:00' as varchar format 'HH12')
+----
+09
+
+query T
+SELECT cast(time '1:30:00' as varchar format 'HH24')
+----
+01
+
+query T
+SELECT cast(time '11:24:00' as varchar format 'MI')
+----
+24
+
+query T
+SELECT cast(time '21:30:25.16' as varchar format 'SS')
+----
+25
+
+query T
+SELECT cast(time '15:45:10' as varchar format 'HH12:MI')
+----
+03:45
+
+query T
+SELECT cast(time '21:30:25.16' as varchar format 'SSSSS')
+----
+77425
+
+query T
+SELECT cast(time '00:00:00.23' as varchar format 'SSSSS')
+----
+00000
+
+query T
+SELECT cast(time '23:30:55.43' as varchar format 'AM')
+----
+PM
+
+query T
+SELECT cast(time '12:30:55' as varchar format 'PM')
+----
+PM
+
+query T
+SELECT cast(time '08:45:12' as varchar format 'P.M.')
+----
+A.M.
+
+query T
+SELECT cast(time '16:17:12' as varchar format 'am')
+----
+pm
+
+query T
+SELECT cast(time '02:23:23' as varchar format 'p.m.')
+----
+a.m.
+
+query T
+SELECT cast(time '23:30:55.4757' as varchar format 'FF2')
+----
+47
+
+query T
+SELECT cast(time '23:30:55.1233793' as varchar format 'FF5')
+----
+12300
+
+query T
+SELECT cast(time '23:30:55.435712' as varchar format 'FF9')
+----
+435000000
+
+# Cast TIMESTAMP to String
+
+# Seems will be supported after resolve CALCITE_6367
+statement error: Illegal TIMESTAMP literal '2008-12-25 00:00:00+06:00': not in format 'yyyy-MM-dd HH:mm:ss'
+SELECT cast(timestamp '2008-12-25 00:00:00+06:00' as varchar format 'TZH')
+
+# Seems will be supported after resolve CALCITE_6367
+statement error:
+SELECT cast(timestamp '2008-12-25 00:00:00+00:00' as varchar format 'TZM' AT TIME ZONE 'Asia/Kolkata')
+
+#  Cast String to date/time
+
+query T
+SELECT cast('18-12-03' as date format 'YY-MM-DD')
+----
+2018-12-03
+
+query T
+SELECT cast('JUN 30, 2018' as date format 'MON DD, YYYY')
+----
+2018-06-30
+
+query T
+SELECT cast('17:30' as time format 'HH12:MI')
+----
+17:30
+
+query T
+SELECT cast('01:05:07.161' as time format 'HH24:MI:SS.FF4')
+----
+01:05:07
+
+query T
+SELECT cast('2017-05-12' as timestamp format 'YYYY-MM-DD')
+----
+2017-05-12T00:00
+
+query T
+SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH:MI:SS')
+----
+2020-06-03T12:42:53
+
+# Seems will be supported after resolve CALCITE_6367
+statement error: Invalid format: 'YYYY.MM.DD HH24:MI:SSTZH:TZM' for datetime string: '2020.06.03 00:00:53+06:30'
+SELECT cast('2020.06.03 00:00:53+06:30' as timestamp format 'YYYY.MM.DD HH24:MI:SSTZH:TZM')
+
+# Seems will be supported after resolve CALCITE_6367
+statement error: Invalid format: 'HH:MI P.M.' for datetime string: '03:30 P.M.'
+SELECT cast('03:30 P.M.' as time format 'HH:MI P.M.')
+
+# Seems will be supported after resolve CALCITE_6270
+statement error: Cast function cannot convert value of type BINARY(5) to type VARCHAR
+SELECT cast(x'48656c6c6f' as varchar format 'ASCII')
+
+# Seems will be supported after resolve CALCITE_6270
+statement error: Cast function cannot convert value of type CHAR(5) to type VARBINARY
+SELECT cast('Hello' as varbinary format 'ASCII')

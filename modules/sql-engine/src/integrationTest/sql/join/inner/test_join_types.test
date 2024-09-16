@@ -1,0 +1,400 @@
+# name: test/sql/join/inner/test_join_types.test
+# description: Test joins with different types
+# group: [inner]
+
+statement ok
+PRAGMA enable_verification
+
+# numeric types
+# tests for tinyint
+
+statement ok
+create table a(i tinyint)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::tinyint AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::tinyint AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::tinyint AS j) b where i = j AND i>1000
+----
+0
+
+statement ok
+drop table a
+
+# tests for smallint
+statement ok
+create table a(i smallint)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::smallint AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::smallint AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::smallint AS j) b where i = j AND i>1000
+----
+0
+
+statement ok
+drop table a
+
+# tests for integer
+statement ok
+create table a(i integer)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::integer AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::integer AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::integer AS j) b where i = j AND i>1000
+----
+0
+
+statement ok
+drop table a
+
+# tests for bigint
+statement ok
+create table a(i bigint)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::bigint AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::bigint AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::bigint AS j) b where i = j AND i>1000
+----
+0
+
+statement ok
+drop table a
+
+# tests for real
+statement ok
+create table a(i real)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::real AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::real AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::real AS j) b where i = j AND i>1000
+----
+0
+
+statement ok
+drop table a
+
+# tests for double
+statement ok
+create table a(i double)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1))
+
+# range joins
+query IR
+select count(*), sum(i) from a, (SELECT 100::double AS j) b where i < j
+----
+99	4950.000000
+
+query I
+select count(*) from a, (SELECT 100::double AS j) b where i <= j
+----
+100
+
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i > j
+----
+99
+
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i >= j
+----
+100
+
+# inequality join
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i <> j
+----
+99
+
+# equality join
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i = j
+----
+1
+
+# no results on one side
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i > j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i <> j AND i>1000
+----
+0
+
+query I
+select count(*) from a, (SELECT 1::double AS j) b where i = j AND i>1000
+----
+0
+
+# strings
+statement ok
+drop table a
+
+statement ok
+create table a (i VARCHAR)
+
+statement ok
+insert into a values ('a'), ('b'), ('c'), ('d'), ('e'), ('f')
+
+# range joins
+query I
+select count(*) from a, (SELECT 'f' AS j) b where i < j
+----
+5
+
+query I
+select count(*) from a, (SELECT 'f' AS j) b where i <= j
+----
+6
+
+query I
+select count(*) from a, (SELECT 'a' AS j) b where i > j
+----
+5
+
+query I
+select count(*) from a, (SELECT 'a' AS j) b where i >= j
+----
+6
+
+query I
+select count(*) from a, (SELECT 'a' AS j) b where i <> j
+----
+5
+
+query I
+select count(*) from a, (SELECT 'a' AS j) b where i = j
+----
+1

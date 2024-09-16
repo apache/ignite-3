@@ -41,6 +41,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dbArtifacts libs.slf4j.jdk14
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')

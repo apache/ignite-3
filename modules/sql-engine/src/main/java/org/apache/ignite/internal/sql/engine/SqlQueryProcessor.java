@@ -51,7 +51,7 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -63,6 +63,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -111,7 +112,6 @@ import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -177,7 +177,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SqlSchemaManager sqlSchemaManager;
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private final SystemViewManager systemViewManager;
 
@@ -230,7 +230,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
@@ -250,7 +250,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
@@ -271,7 +271,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);

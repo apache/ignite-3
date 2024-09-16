@@ -55,4 +55,29 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         assertEquals(Tuple.create().set("id", 42L).set("\"name\"", "universe"),
                 Tuple.copy(Tuple.create().set("\"ID\"", 42L).set("\"name\"", "universe")));
     }
+
+    @Test
+    void testValueOrDefaultSkipNormalization() {
+        TupleImpl tuple = new TupleImpl();
+
+        tuple.set("name", "normalized").set("\"Name\"", "non-normalized");
+
+        assertEquals("normalized", tuple.valueOrDefaultSkipNormalization("NAME", "default"));
+
+        // must not be found by non normalized name, this method doesn't do normalization
+        assertEquals("default", tuple.valueOrDefaultSkipNormalization("name", "default"));
+        assertEquals("default", tuple.valueOrDefaultSkipNormalization("\"NAME\"", "default"));
+
+        // must be found by non normalized name, regular method does normalization
+        assertEquals("normalized", tuple.valueOrDefault("name", "default"));
+        assertEquals("normalized", tuple.valueOrDefault("\"NAME\"", "default"));
+
+        assertEquals("non-normalized", tuple.valueOrDefaultSkipNormalization("Name", "default"));
+
+        // must not be found by non normalized name, this method doesn't do normalization
+        assertEquals("default", tuple.valueOrDefaultSkipNormalization("\"Name\"", "default"));
+
+        // must be found by non normalized name, regular method does normalization
+        assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
+    }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.type;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -38,9 +40,16 @@ public class VarlenNativeType extends NativeType {
         this.len = len;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean mismatch(NativeType type) {
         return super.mismatch(type) || len < ((VarlenNativeType) type).len;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String displayName() {
+        return format("{}({})", super.displayName(), len);
     }
 
     /**

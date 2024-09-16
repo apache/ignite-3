@@ -34,23 +34,26 @@ import java.net.SocketAddress;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.DummyAuthenticationManager;
 import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -62,7 +65,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -92,9 +96,7 @@ public class TestServer implements AutoCloseable {
 
     private final AuthenticationManager authenticationManager;
 
-    private final Ignite ignite;
-
-    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+    private final FakeIgnite ignite;
 
     /**
      * Constructor.
@@ -104,7 +106,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite
+            FakeIgnite ignite
     ) {
         this(
                 idleTimeout,
@@ -123,7 +125,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -153,7 +155,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -165,9 +167,13 @@ public class TestServer implements AutoCloseable {
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
+        generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(ClientConnectorExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
+                List.of()
+        );
         cfg = new ConfigurationRegistry(
-                List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
+                List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
@@ -177,14 +183,17 @@ public class TestServer implements AutoCloseable {
 
         assertThat(cfg.startAsync(componentContext), willCompleteSuccessfully());
 
-        cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
+        ClientConnectorConfiguration clientConnectorConfiguration = cfg
+                .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
+
+        clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
                         .changeIdleTimeout(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
-        bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
+        bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkExtensionConfiguration.KEY).network(), "TestServer-");
 
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -220,8 +229,7 @@ public class TestServer implements AutoCloseable {
                 .clusterName("Test Server")
                 .clusterId(clusterId)
                 .build();
-
-        ClientConnectorConfiguration clientConnectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
+        ClusterInfo clusterInfo = new ClusterInfo(tag, List.of(tag.clusterId()));
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
@@ -230,27 +238,27 @@ public class TestServer implements AutoCloseable {
                 shouldDropConnection,
                 responseDelay,
                 clusterService,
-                tag,
+                clusterInfo,
                 metrics,
                 authenticationManager,
                 clock,
-                placementDriver,
+                ignite.placementDriver(),
                 clientConnectorConfiguration)
                 : new ClientHandlerModule(
-                        ((FakeIgnite) ignite).queryEngine(),
+                        ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
-                        () -> CompletableFuture.completedFuture(tag),
+                        () -> clusterInfo,
                         mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
-                        placementDriver,
+                        ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark()
                 );
@@ -317,12 +325,12 @@ public class TestServer implements AutoCloseable {
      * @return Placement driver.
      */
     public FakePlacementDriver placementDriver() {
-        return placementDriver;
+        return ignite.placementDriver();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         assertThat(stopAsync(new ComponentContext(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
 
         generator.close();

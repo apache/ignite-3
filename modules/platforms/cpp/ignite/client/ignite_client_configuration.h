@@ -19,6 +19,7 @@
 
 #include <ignite/client/ignite_client_authenticator.h>
 #include <ignite/client/ignite_logger.h>
+#include <ignite/client/ssl_mode.h>
 
 #include <initializer_list>
 #include <memory>
@@ -157,6 +158,85 @@ public:
         m_authenticator = std::move(authenticator);
     }
 
+    /**
+     * Get SSL mode.
+     *
+     * @see ssl_mode for details.
+     *
+     * @return SSL mode.
+     */
+    [[nodiscard]] ssl_mode get_ssl_mode() const {
+        return m_ssl_mode;
+    }
+
+    /**
+     * Set SSL mode.
+     *
+     * @see ssl_mode for details.
+     *
+     * @param ssl_mode SSL mode.
+     */
+    void set_ssl_mode(ssl_mode ssl_mode) {
+        m_ssl_mode = ssl_mode;
+    }
+
+    /**
+     * Get file path to SSL certificate to use during connection establishment.
+     *
+     * @return File path to SSL certificate.
+     */
+    [[nodiscard]] const std::string& get_ssl_cert_file() const {
+        return m_ssl_cert_file;
+    }
+
+    /**
+     * Set file path to SSL certificate to use during connection establishment.
+     *
+     * @param sslCertFile File path to SSL certificate.
+     */
+    void set_ssl_cert_file(const std::string& ssl_cert_file) {
+        m_ssl_cert_file = ssl_cert_file;
+    }
+
+    /**
+     * Get file path to SSL private key to use during connection establishment.
+     *
+     * @return File path to SSL private key.
+     */
+    [[nodiscard]] const std::string& get_ssl_key_file() const {
+        return m_ssl_key_file;
+    }
+
+    /**
+     * Set file path to SSL private key to use during connection establishment.
+     *
+     * @param sslKeyFile File path to SSL private key.
+     */
+    void set_ssl_key_file(const std::string& ssl_key_file) {
+        m_ssl_key_file = ssl_key_file;
+    }
+
+    /**
+     * Get file path to SSL certificate authority to authenticate server certificate during connection
+     *  establishment.
+     *
+     * @return File path to SSL certificate authority.
+     */
+    [[nodiscard]] const std::string& get_ssl_ca_file() const {
+        return m_ssl_ca_file;
+    }
+
+    /**
+     * Set file path to SSL certificate authority to authenticate server certificate during connection
+     *  establishment.
+     *
+     * @param sslCaFile File path to SSL certificate authority.
+     */
+    void set_ssl_ca_file(const std::string& ssl_ca_file) {
+        m_ssl_ca_file = ssl_ca_file;
+    }
+
+
 private:
     /** Endpoints. */
     std::vector<std::string> m_endpoints{"localhost"};
@@ -169,6 +249,18 @@ private:
 
     /** Active connections limit. */
     uint32_t m_connection_limit{0};
+
+    /** SSL Mode. */
+    ssl_mode m_ssl_mode{ssl_mode::DISABLE};
+
+    /** File path to SSL certificate. */
+    std::string m_ssl_cert_file;
+
+    /** File path to SSL private key. */
+    std::string m_ssl_key_file;
+
+    /** File path to SSL certificate authority. */
+    std::string m_ssl_ca_file;
 };
 
 } // namespace ignite

@@ -29,7 +29,6 @@ public final class DefaultExceptionHandlers extends ExceptionHandlers {
      */
     public DefaultExceptionHandlers() {
         addExceptionHandler(new FlowInterruptExceptionHandler());
-        addExceptionHandler(new SqlExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
         addExceptionHandler(new IgniteCliApiExceptionHandler());

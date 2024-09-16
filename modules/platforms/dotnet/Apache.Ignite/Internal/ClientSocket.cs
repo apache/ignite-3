@@ -138,7 +138,7 @@ namespace Apache.Ignite.Internal
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
-                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                callback: async _ => await HeartbeatAsync().ConfigureAwait(false),
                 state: null,
                 dueTime: _heartbeatInterval,
                 period: TimeSpan.FromMilliseconds(-1));
@@ -282,6 +282,32 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Sends heartbeat message.
+        /// </summary>
+        /// <param name="payload">Optional payload. Ignored by the server, can be used for benchmarking.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
+        internal async Task HeartbeatAsync(PooledArrayBuffer? payload = null)
+        {
+            try
+            {
+                using var buf = await DoOutInOpAsync(ClientOp.Heartbeat, payload)
+                    .WaitAsync(_socketTimeout)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                var message = "Heartbeat failed: " + e.Message;
+                _logger.LogHeartbeatError(e, message);
+
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
+            }
+        }
+
+        /// <summary>
         /// Performs the handshake exchange.
         /// </summary>
         /// <param name="stream">Network stream.</param>
@@ -360,7 +386,18 @@ namespace Apache.Ignite.Internal
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
 
-            var clusterId = reader.ReadGuid();
+            var clusterIdsCount = reader.ReadInt32();
+            if (clusterIdsCount <= 0)
+            {
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, "Unexpected cluster ids count: " + clusterIdsCount);
+            }
+
+            var clusterIds = new Guid[clusterIdsCount];
+            for (int i = 0; i < clusterIdsCount; i++)
+            {
+                clusterIds[i] = reader.ReadGuid();
+            }
+
             var clusterName = reader.ReadString();
 
             var observableTimestamp = reader.ReadInt64();
@@ -380,7 +417,7 @@ namespace Apache.Ignite.Internal
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
-                clusterId,
+                clusterIds,
                 clusterName,
                 sslInfo);
         }
@@ -787,10 +824,10 @@ namespace Apache.Ignite.Internal
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
-            var exception = flags.HasFlag(ResponseFlags.Error) ? ReadError(ref reader) : null;
+            var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
-            if (flags.HasFlag(ResponseFlags.Notification))
+            if ((flags & ResponseFlags.Notification) != 0)
             {
                 return HandleNotification(requestId, exception, response);
             }
@@ -856,35 +893,13 @@ namespace Apache.Ignite.Internal
 
         private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
         {
-            if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
+            if ((flags & ResponseFlags.PartitionAssignmentChanged) != 0)
             {
                 long timestamp = reader.ReadInt64();
 
                 _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
 
                 _listener.OnAssignmentChanged(timestamp);
-            }
-        }
-
-        /// <summary>
-        /// Sends heartbeat message.
-        /// </summary>
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
-        private async Task SendHeartbeatAsync()
-        {
-            try
-            {
-                using var buf = await DoOutInOpAsync(ClientOp.Heartbeat).WaitAsync(_socketTimeout).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                var message = "Heartbeat failed: " + e.Message;
-                _logger.LogHeartbeatError(e, message);
-
-                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
 

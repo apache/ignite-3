@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -29,6 +30,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Common;
+    using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -39,6 +41,7 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Fake Ignite server for test purposes.
     /// </summary>
+    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Tests")]
     public sealed class FakeServer : IgniteServerBase
     {
         public const string Err = "Err!";
@@ -76,12 +79,15 @@ namespace Apache.Ignite.Tests
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
-            bool disableOpsTracking = false)
+            bool disableOpsTracking = false,
+            int port = 0)
+            : base(port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
+            Node = new ClusterNode("id-" + nodeName, nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
             PartitionAssignment = new[] { Node.Id };
+            ClusterNodes = new[] { Node };
 
             if (!disableOpsTracking)
             {
@@ -129,6 +135,8 @@ namespace Apache.Ignite.Tests
 
         public long LastClientObservableTimestamp { get; set; }
 
+        public IList<IClusterNode> ClusterNodes { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -167,6 +175,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(Node.Id); // Node id.
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
 
+            handshakeWriter.Write(1); // 1 cluster id.
             handshakeWriter.Write(ClusterId);
             handshakeWriter.Write(ClusterName);
 
@@ -395,6 +404,31 @@ namespace Apache.Ignite.Tests
                             writer.Write(nodeId); // Name.
                             writer.Write("localhost"); // Host.
                             writer.Write(10900 + index); // Port.
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
+
+                    case ClientOp.ClusterGetNodes:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(ClusterNodes.Count);
+
+                        foreach (var node in ClusterNodes)
+                        {
+                            writer.Write(4); // Field count.
+                            writer.Write(node.Id);
+                            writer.Write(node.Name);
+
+                            var addr = node.Address is IPEndPoint ip
+                                ? (ip.Address.ToString(), ip.Port)
+                                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
+
+                            writer.Write(addr.Item1);
+                            writer.Write(addr.Port);
                         }
 
                         Send(handler, requestId, arrayBufferWriter);
@@ -739,6 +773,7 @@ namespace Apache.Ignite.Tests
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
+            writer.Write(ComputePacker.Native); // ComputePacker.Native
             writer.Write(builder.Build().Span);
 
             // Status

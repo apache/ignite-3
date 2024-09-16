@@ -31,12 +31,15 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -49,6 +52,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -720,11 +726,53 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random {@link BigDecimal} with given scale and precision.
+     *
+     * @param rnd Random generator.
+     * @param precision Precision of generating value.
+     * @param scale Scale of generating value.
+     * @return Random string.
+     */
+    public static BigDecimal randomBigDecimal(Random rnd, int precision, int scale) {
+        BigInteger bd = IntStream.generate(() -> rnd.nextInt(9) + 1).limit(precision).mapToObj(BigInteger::valueOf)
+                .reduce((n1, n2) -> n1.multiply(BigInteger.TEN).add(n2)).get();
+
+        BigDecimal res = new BigDecimal(bd).divide(BigDecimal.TEN.pow(scale));
+        if (rnd.nextBoolean()) {
+            res = res.negate();
+        }
+
+        assert res.precision() == precision;
+        assert res.scale() == scale;
+
+        return res;
+    }
+
+    /**
+     * Returns random {@link LocalTime} with given precision.
+     *
+     * @param rnd Random generator.
+     * @param precision Precision of generating value. Precision can be between 0 and 9 includes both bounds.
+     * @return Random {@link LocalTime} with given precision.
+     */
+    public static LocalTime randomTime(Random rnd, int precision) {
+        assert precision >= 0 && precision <= 9 : "Valid precision for time should belong to a range [0:9]";
+
+        LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60));
+
+        long nanos = (precision > 0) ? 1 : 0;
+        for (int i = 1; i < 9; i++) {
+            nanos = nanos * 10 + (i + 1) * (i < precision ? 1 : 0);
+        }
+
+        return time.plusNanos(nanos);
+    }
+
+    /**
      * Creates a unique Ignite node name for the given test.
      *
      * @param testInfo Test info.
      * @param idx Node index.
-     *
      * @return Node name.
      */
     public static String testNodeName(TestInfo testInfo, int idx) {
@@ -945,6 +993,29 @@ public final class IgniteTestUtils {
             buf.rewind();
             channel.write(buf);
         }
+    }
+
+    /**
+     * Run the closure in the given executor, wait for the result and get it synchronously.
+     *
+     * @param executor Executor.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <T> T runInExecutor(ExecutorService executor, Supplier<T> closure) {
+        Object[] arr = new Object[1];
+
+        Future f = executor.submit(() -> {
+            arr[0] = closure.get();
+        });
+
+        try {
+            f.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        return (T) arr[0];
     }
 
     /**

@@ -93,7 +93,7 @@ String script = ""
                 + "CREATE TABLE IF NOT EXISTS Person (id int primary key, city_id int, name varchar, age int, company varchar);"
                 + "INSERT INTO Person (1,3, John, 43, Sample)";
 
-ignite.sql().createSession().executeScript(script);
+ignite.sql().executeScript(script);
 ----
 --
 

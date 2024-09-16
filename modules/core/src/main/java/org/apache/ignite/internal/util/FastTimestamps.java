@@ -23,7 +23,8 @@ package org.apache.ignite.internal.util;
 public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
-    private static final long UPDATE_FREQUENCY_MS = 10;
+    /** The interval in milliseconds for updating a timestamp cache. */
+    private static final long UPDATE_INTERVAL_MS = 10;
 
     static {
         startUpdater();
@@ -37,7 +38,7 @@ public class FastTimestamps {
                 while (true) {
                     coarseCurrentTimeMillis = System.currentTimeMillis();
                     try {
-                        Thread.sleep(UPDATE_FREQUENCY_MS);
+                        Thread.sleep(UPDATE_INTERVAL_MS);
                     } catch (InterruptedException e) {
                         break;
                     }
@@ -46,7 +47,6 @@ public class FastTimestamps {
         };
 
         updater.setDaemon(true);
-        updater.setPriority(10);
         updater.start();
     }
 

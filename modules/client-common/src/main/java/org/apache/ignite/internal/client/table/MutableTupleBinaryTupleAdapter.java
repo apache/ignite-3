@@ -57,7 +57,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      */
     public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert columnCount > 0 : "columnCount > 0";
 
         this.binaryTuple = binaryTuple;
         this.columnCount = columnCount;
@@ -287,22 +286,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return tuple != null
                 ? tuple.uuidValue(columnIndex)
                 : binaryTuple.uuidValue(validateSchemaColumnType(columnIndex, ColumnType.UUID));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnName)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnName, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnIndex)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnIndex, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */

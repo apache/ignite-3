@@ -70,7 +70,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+    // -1 is used as an initial value, in order not to clash with {@code ReplicaMeta.getStartTime}
+    private volatile long leaseStartTime = -1;
+
+    private volatile String primaryReplicaNodeId;
+
+    private volatile String primaryReplicaNodeName;
 
     private volatile long estimatedSize;
 
@@ -182,7 +187,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         checkStorageClosed();
 
         return nullCompletedFuture();
@@ -633,7 +638,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void updateLease(long leaseStartTime) {
+    public synchronized void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         checkStorageClosed();
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -641,6 +650,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         this.leaseStartTime = leaseStartTime;
+        this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     @Override
@@ -648,6 +659,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return leaseStartTime;
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeId() {
+        checkStorageClosed();
+
+        return primaryReplicaNodeId;
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeName() {
+        checkStorageClosed();
+
+        return primaryReplicaNodeName;
     }
 
     @Override

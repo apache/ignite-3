@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @Test
     void nodeUrls() {
         List<String> urls = CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::restHttpAddress)
                 .map(address -> "http://" + address)
                 .collect(Collectors.toList());

@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 
 /**
@@ -153,20 +151,6 @@ public interface MarshallerReader {
      * @return Value.
      */
     byte[] readBytes();
-
-    /**
-     * Reads a bit set.
-     *
-     * @return Value.
-     */
-    BitSet readBitSet();
-
-    /**
-     * Reads a big integer.
-     *
-     * @return Value.
-     */
-    BigInteger readBigInt();
 
     /**
      * Reads a big decimal.

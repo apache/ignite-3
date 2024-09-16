@@ -41,13 +41,13 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111).set("valStr", "str"));
 
-        dropColumn(grid, "valStr");
+        dropColumn("valStr");
 
         // Check old row conversion.
         final Tuple keyTuple = Tuple.create().set("key", 1L);
@@ -78,7 +78,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -88,7 +88,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 () -> tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
         );
 
-        addColumn(grid, "valStrNew VARCHAR DEFAULT 'default'");
+        addColumn("valStrNew VARCHAR DEFAULT 'default'");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -115,7 +115,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -125,7 +125,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 () -> tbl.insert(null, Tuple.create().set("key", 2L).set("valRenamed", -222))
         );
 
-        renameColumn(grid, "valInt", "valRenamed");
+        renameColumn("valInt", "valRenamed");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -158,7 +158,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     void testRenameThenAddColumnWithSameName() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -168,8 +168,8 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 () -> tbl.insert(null, Tuple.create().set("key", 2L).set("val2", -222))
         );
 
-        renameColumn(grid, "valInt", "val2");
-        addColumn(grid, "valInt INT DEFAULT -1");
+        renameColumn("valInt", "val2");
+        addColumn("valInt INT DEFAULT -1");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -198,7 +198,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -211,7 +211,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, "val VARCHAR DEFAULT 'default'");
+        addColumn("val VARCHAR DEFAULT 'default'");
 
         assertNull(tbl.get(null, Tuple.create().set("key", 2L)));
 
@@ -219,7 +219,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 
-        dropColumn(grid, "val");
+        dropColumn("val");
 
         tbl.insert(null, Tuple.create().set("key", 4L).set("valInt", 444));
 
@@ -230,7 +230,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, "val VARCHAR DEFAULT 'default'");
+        addColumn("val VARCHAR DEFAULT 'default'");
 
         tbl.insert(null, Tuple.create().set("key", 5L).set("valInt", 555));
 
@@ -268,7 +268,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -276,13 +276,13 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
-        changeDefault(grid, colName, "newDefault");
-        addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
+        changeDefault(colName, "newDefault");
+        addColumn("val VARCHAR DEFAULT 'newDefault'");
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 
-        changeDefault(grid, colName, "brandNewDefault");
-        changeDefault(grid, "val", "brandNewDefault");
+        changeDefault(colName, "brandNewDefault");
+        changeDefault("val", "brandNewDefault");
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 
@@ -313,7 +313,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testStrictSchemaInsertRowOfNewSchema() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         Table tbl = grid.get(0).tables().table(TABLE);
 

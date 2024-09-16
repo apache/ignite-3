@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.schemasync;
 
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -77,7 +78,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         final int notInhibitedNodeIndex = 0;
         transferLeadershipsTo(notInhibitedNodeIndex);
 
-        IgniteImpl nodeToInhibitMetaStorage = cluster.node(1);
+        IgniteImpl nodeToInhibitMetaStorage = unwrapIgniteImpl(cluster.node(1));
 
         WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeToInhibitMetaStorage);
         listenerInhibitor.startInhibit();

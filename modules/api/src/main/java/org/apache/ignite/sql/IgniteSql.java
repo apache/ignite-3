@@ -37,7 +37,7 @@ public interface IgniteSql {
 
     /**
      * Creates an SQL statement builder, which provides query-specific settings. 
-     * These settings override the session defaults when the statement is executed.
+     * These settings override the query execution context defaults when the statement is executed.
      *
      * @return A new statement builder.
      */

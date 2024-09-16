@@ -36,12 +36,8 @@ public class CliConfigProfileShowCommand extends BaseCommand implements Callable
 
     @Override
     public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(EmptyCallInput::new)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

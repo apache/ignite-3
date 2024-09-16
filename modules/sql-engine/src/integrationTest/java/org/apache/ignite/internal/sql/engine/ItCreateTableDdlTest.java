@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -41,6 +43,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -183,7 +187,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Check implicit colocation columns configuration (defined by PK)..
+     * Check implicit colocation columns configuration (defined by PK).
      */
     @Test
     public void implicitColocationColumns() {
@@ -194,6 +198,76 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertEquals(2, colocationColumns.size());
         assertEquals("ID1", colocationColumns.get(0).name());
         assertEquals("ID0", colocationColumns.get(1).name());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void reservedColumnNames() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__p_key' is reserved name.",
+                () -> sql("CREATE TABLE T0(\"__p_key\" INT PRIMARY KEY, VAL INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__part' is reserved name.",
+                () -> sql("CREATE TABLE T0(\"__part\" INT PRIMARY KEY, VAL INT)")
+        );
+
+        sql("CREATE TABLE T0(id INT PRIMARY KEY)");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__p_key' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN \"__p_key\" INT")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__part' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN \"__part\" INT")
+        );
+    }
+
+    /**
+     * Check implicit partition column configuration (defined by PK).
+     */
+    @Test
+    public void implicitPartitionColumn() throws Exception {
+        sql("CREATE TABLE T0(ID BIGINT PRIMARY KEY, VAL VARCHAR)");
+
+        List<Column> columns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().columns();
+
+        assertEquals(2, columns.size());
+        assertEquals("ID", columns.get(0).name());
+        assertEquals("VAL", columns.get(1).name());
+
+        Tuple key1 = Tuple.create().set("id", 101L);
+        Tuple key2 = Tuple.create().set("id", 102L);
+
+        // Add data
+        sql("insert into t0 values (101, 'v1')");
+
+        Table table = CLUSTER.node(0).tables().table("T0");
+        table.keyValueView().put(null, Tuple.create().set("id", 102L), Tuple.create().set("val", "v2"));
+
+        assertEquals(Tuple.create().set("val", "v1"), table.keyValueView().get(null, Tuple.create().set("id", 101L)));
+
+        assertQuery("SELECT * FROM t0")
+                .returns(101L, "v1")
+                .returns(102L, "v2")
+                .check();
+
+        assertQuery("SELECT \"__part\" FROM t0")
+                .returns(partitionForKey(table, key1))
+                .returns(partitionForKey(table, key2))
+                .check();
+
+        assertQuery("SELECT \"__part\", id FROM t0")
+                .returns(partitionForKey(table, key1), 101L)
+                .returns(partitionForKey(table, key2), 102L)
+                .check();
     }
 
     /**
@@ -256,7 +330,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Operations with reserved schemas are not allowed",
+                "Operations with system schemas are not allowed",
                 () -> sql(format("CREATE TABLE {}.SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)", schema.toLowerCase())));
     }
 
@@ -268,7 +342,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void concurrentDrop() {
         sql("CREATE TABLE test (key INT PRIMARY KEY)");
 
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
         Transaction tx = node.transactions().begin(new TransactionOptions().readOnly(true));
 
         sql("DROP TABLE test");
@@ -324,7 +398,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfileWithoutSettingItExplicitly() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -335,7 +409,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
-        String defaultZoneName = getDefaultZone(CLUSTER.aliveNode()).name();
+        String defaultZoneName = getDefaultZone(unwrapIgniteImpl(CLUSTER.aliveNode())).name();
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
@@ -348,7 +422,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfile() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -365,7 +439,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -382,7 +456,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -428,7 +502,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO \"table Test\" VALUES (1, 1)");
         sql("INSERT INTO \"table\"\"Test\"\"\" VALUES (1, 2)");
 
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
 
         assertThrows(IllegalArgumentException.class, () -> node.tables().table("table Test"));
         assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"Test\""));
@@ -451,8 +525,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void testCreateTableDoesNotAllowIntervals() {
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR, 
-                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]", 
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]",
                 () -> sql("CREATE TABLE test(id INTERVAL YEAR PRIMARY KEY, val INT)")
         );
 
@@ -483,5 +557,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assert catalog != null;
 
         return Objects.requireNonNull(catalog.defaultZone());
+    }
+
+    private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
+        return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
     }
 }

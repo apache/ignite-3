@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +42,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -67,6 +70,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -81,7 +85,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
@@ -128,9 +132,11 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -211,6 +217,11 @@ public class TestBuilders {
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
+                return CompletableFuture.completedFuture(dataProvider.estimatedSize());
+            }
         };
     }
 
@@ -256,6 +267,11 @@ public class TestBuilders {
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -299,6 +315,11 @@ public class TestBuilders {
             @Override
             public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
                 throw new UnsupportedOperationException();
             }
         };
@@ -635,7 +656,7 @@ public class TestBuilders {
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                    mock(MetricManagerImpl.class), schemaManager);
+                    new NoOpMetricManager(), schemaManager);
 
             Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -756,48 +777,67 @@ public class TestBuilders {
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
 
-            CompletableFuture<Boolean> indicesReadyFut = new CompletableFuture<>();
-            CopyOnWriteArraySet<Integer> initialIndices = new CopyOnWriteArraySet<>();
+            CompletableFuture<Boolean> indicesReadyFut;
 
             // Make indices registered via builder API available on startup.
             if (!tableBuilders.isEmpty()) {
-                Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                    initialIndices.remove(params.indexId());
+                Set<String> initialIndices = tableBuilders.stream()
+                        .flatMap(builder -> builder.indexBuilders.stream())
+                        .map(builder -> builder.name)
+                        .collect(toCollection(ConcurrentHashMap::newKeySet));
 
-                    if (initialIndices.isEmpty()) {
-                        indicesReadyFut.complete(true);
-                    }
-                };
+                if (initialIndices.isEmpty()) {
+                    indicesReadyFut = trueCompletedFuture();
+                } else {
+                    indicesReadyFut = new CompletableFuture<>();
 
-                EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
-                catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
+                    Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
+                        CatalogIndexDescriptor index = catalogManager.index(params.indexId(), params.catalogVersion());
 
-                // Remove listener, when all indices become available.
-                indicesReadyFut.whenComplete((r, t) -> {
-                    catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
-                });
+                        assertThat(index, is(notNullValue()));
+
+                        initialIndices.remove(index.name());
+
+                        if (initialIndices.isEmpty()) {
+                            indicesReadyFut.complete(true);
+                        }
+                    };
+
+                    EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
+                    catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
+
+                    // Remove listener, when all indices become available.
+                    indicesReadyFut.whenComplete((r, t) -> {
+                        catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
+                    });
+                }
             } else {
-                indicesReadyFut.complete(true);
+                indicesReadyFut = trueCompletedFuture();
             }
 
             // Every time an index is created add `start building `and `make available` commands
             // to make that index accessible to the SQL engine.
             Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
                 CatalogIndexDescriptor index = params.indexDescriptor();
+
+                if (index.status() == CatalogIndexStatus.AVAILABLE) {
+                    return;
+                }
+
                 int indexId = index.id();
 
                 CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
                 CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
 
-                // Collect initial indexes only if catalog init future has not completed.
-                if (!indicesReadyFut.isDone()) {
-                    initialIndices.add(indexId);
-                }
-
                 LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
                         indexId, index.name(), index.status());
 
-                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand));
+                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand))
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Catalog command execution error", e);
+                            }
+                        });
             };
             catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
 
@@ -851,7 +891,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -870,7 +910,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }
@@ -882,7 +922,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -926,7 +966,19 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(CollectionUtils.concat(columns,
+                    List.of(new ColumnDescriptorImpl(
+                            Commons.PART_COL_NAME,
+                            false,
+                            true,
+                            true,
+                            false,
+                            columns.size(),
+                            NativeTypes.INT32,
+                            DefaultValueStrategy.DEFAULT_COMPUTED,
+                            () -> {
+                                throw new AssertionError("Partition virtual column is generated by a function"); }
+                    ))), distribution);
 
             Map<String, IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))

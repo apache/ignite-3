@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.asm;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
@@ -285,13 +286,14 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         List<Column> columns = schema.keyColumns();
         Variable value = scope.createTempVariable(Object.class);
-
+        boolean exactSizeEstimate = true;
         for (int i = 0; i < columns.size(); i++) {
             body.append(keyMarsh.getValue(classDef.getType(), scope.getVariable("key"), i)).putVariable(value);
             NativeType type = columns.get(i).type();
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(keyCols, i));
+            exactSizeEstimate = exactSizeEstimate && type.spec().fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
@@ -303,10 +305,11 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(valCols, i));
+            exactSizeEstimate = exactSizeEstimate && type.spec().fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
-        body.append(newInstance(RowAssembler.class, schemaField, estimatedValueSize));
+        body.append(newInstance(RowAssembler.class, schemaField, estimatedValueSize, constantBoolean(exactSizeEstimate)));
 
         body.retObject();
     }

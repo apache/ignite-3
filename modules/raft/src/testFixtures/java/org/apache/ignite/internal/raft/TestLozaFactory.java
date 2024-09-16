@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
@@ -36,59 +32,39 @@ public class TestLozaFactory {
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
-     * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.
      * @param raftConfiguration Raft configuration.
-     * @param dataPath Data path.
      * @param clock A hybrid logical clock.
      */
     public static Loza create(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfiguration,
-            Path dataPath,
             HybridClock clock
     ) {
-        return create(clusterNetSvc, raftConfiguration, dataPath, clock, new RaftGroupEventsClientListener());
+        return create(clusterNetSvc, raftConfiguration, clock, new RaftGroupEventsClientListener());
     }
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
-     * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.
      * @param raftConfig Raft configuration.
-     * @param dataPath Data path.
      * @param clock A hybrid logical clock.
-     * @param raftGroupEventsClientListener Raft group events client listener.
+     * @param raftGroupEventsClientListener Raft event listener.
      */
     public static Loza create(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfig,
-            Path dataPath,
             HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
-    ) {
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterNetSvc.nodeName(), dataPath, raftConfig);
+            RaftGroupEventsClientListener raftGroupEventsClientListener) {
         return new Loza(
                 clusterNetSvc,
                 new NoOpMetricManager(),
                 raftConfig,
-                dataPath,
                 clock,
                 raftGroupEventsClientListener,
-                logStorageFactory) {
-            @Override
-            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                return logStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));
-            }
-
-            @Override
-            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                return super.stopAsync(componentContext).thenCompose(none -> logStorageFactory.stopAsync(componentContext));
-            }
-        };
+                new NoOpFailureManager()
+        );
     }
 }

@@ -23,11 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
@@ -48,7 +51,7 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("resource")
 public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     @Test
-    void embeddedOk() {
+    void embeddedExecOnAnotherNode() {
         // Given entry node that are not supposed to execute job.
         var node = server(0);
         // And another target node.
@@ -70,7 +73,29 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void broadcast() {
+    void embeddedExecOnSame() {
+        // Given entry node.
+        var node = server(0);
+        // And target node.
+        var targetNode = node(0);
+
+        // When run job with custom marshaller for pojo argument and result but for embedded.
+        var embeddedCompute = node.compute();
+        PojoResult result = embeddedCompute.execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoJob.class)
+                        .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
+                        .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
+                        .build(),
+                new PojoArg().setIntValue(2).setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertEquals(3L, result.getLongValue());
+    }
+
+    @Test
+    void broadcastExecute() {
         // Given entry node.
         var node = server(0);
 
@@ -86,11 +111,47 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);
+    }
+
+    @Test
+    void broadcastSubmit() {
+        // Given entry node.
+        var node = server(0);
+
+        // When.
+        Map<ClusterNode, String> result = node.compute().submitBroadcast(
+                Set.of(node(0), node(1)),
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                        .argumentMarshaller(new ArgumentStringMarshaller())
+                        .resultMarshaller(new ResultStringUnMarshaller())
+                        .build(),
+                "Input"
+        ).entrySet().stream().collect(
+                Collectors.toMap(Entry::getKey, ItEmbeddedMarshallingTest::extractResult, (v, i) -> v)
+        );
+
+        // Then.
+        Map<ClusterNode, String> resultExpected = Map.of(
+                // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
+                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        );
+
+        assertEquals(resultExpected, result);
+    }
+
+    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
+        try {
+            return e.getValue().resultAsync().get();
+        } catch (InterruptedException | ExecutionException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     @Test

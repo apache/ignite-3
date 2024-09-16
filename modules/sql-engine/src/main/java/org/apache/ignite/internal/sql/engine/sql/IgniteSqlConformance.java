@@ -50,4 +50,10 @@ public class IgniteSqlConformance extends SqlAbstractConformance {
     public boolean isGroupByOrdinal() {
         return true;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isHavingAlias() {
+        return true;
+    }
 }

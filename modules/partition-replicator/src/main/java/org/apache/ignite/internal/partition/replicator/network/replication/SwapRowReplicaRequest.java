@@ -38,15 +38,6 @@ public interface SwapRowReplicaRequest extends SchemaVersionAwareReplicaRequest 
         return new BinaryRowImpl(schemaVersion(), oldBinaryTuple());
     }
 
-    /** Ordinal of {@link RequestType} value. */
-    int requestTypeInt();
-
     /** Transaction operation type. */
-    default RequestType requestType() {
-        RequestType requestType = RequestType.fromOrdinal(requestTypeInt());
-
-        assert requestType != null : requestTypeInt();
-
-        return requestType;
-    }
+    RequestType requestType();
 }

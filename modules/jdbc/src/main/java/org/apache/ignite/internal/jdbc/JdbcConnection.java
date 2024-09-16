@@ -432,11 +432,7 @@ public class JdbcConnection implements Connection {
             return;
         }
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            throw new SQLException(e);
-        }
+        client.close();
     }
 
     /**

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.lang.TableNotFoundException;
 
 /**
@@ -62,13 +63,22 @@ public class SchemaVersionsImpl implements SchemaVersions {
                     CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
 
                     if (table == null) {
-                        String message = "Table does not exist or was dropped concurrently: " + tableId;
-
-                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
+                        throw tableNotFoundException(tableId);
                     }
 
                     return table;
                 });
+    }
+
+    /**
+     * Builds a {@link TableNotFoundException} for table ID.
+     *
+     * @param tableId Table ID.
+     */
+    public static TableNotFoundException tableNotFoundException(int tableId) {
+        String message = "Table does not exist or was dropped concurrently: " + tableId;
+
+        return new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
     }
 
     @Override

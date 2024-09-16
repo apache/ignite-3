@@ -40,8 +40,8 @@ import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -53,6 +53,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     private final SchemaDescriptor schema;
 
+    private final int keyOnlyFixedLengthColumnSize;
+    private final int valueOnlyFixedLengthColumnSize;
+
     /**
      * Creates marshaller for given schema.
      *
@@ -60,6 +63,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     public TupleMarshallerImpl(SchemaDescriptor schema) {
         this.schema = schema;
+
+        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
+                .map(Column::type)
+                .filter(type -> type.spec().fixedLength())
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
+
+        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
+                .map(Column::type)
+                .filter(type -> type.spec().fixedLength())
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
     }
 
     @Override
@@ -90,9 +105,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
+            TuplePart part = TuplePart.KEY_VALUE;
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.columns(), tuple, valuesWithStatistics);
+            gatherStatistics(part, tuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -100,7 +116,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 schema.version(), extraColumnNames(tuple, schema)));
             }
 
-            return buildRow(false, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
@@ -112,7 +128,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -122,7 +138,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             boolean keyOnly = valTuple == null;
             if (!keyOnly) {
-                gatherStatistics(schema.valueColumns(), valTuple, valuesWithStatistics);
+                gatherStatistics(TuplePart.VALUE, valTuple, valuesWithStatistics);
 
                 if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
                     throw new SchemaMismatchException(
@@ -131,7 +147,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
-            return buildRow(keyOnly, valuesWithStatistics);
+            return buildRow(keyOnly ? TuplePart.KEY : TuplePart.KEY_VALUE, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
@@ -142,46 +158,47 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            TuplePart part = TuplePart.KEY;
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(part, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
             }
 
-            return buildRow(true, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     private Row buildRow(
-            boolean keyOnly,
+            TuplePart part,
             ValuesWithStatistics values
     ) throws SchemaMismatchException {
-        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
-        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize);
+        List<Column> columns = part.deriveColumnList(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize, false);
 
         for (Column col : columns) {
             rowBuilder.appendValue(values.value(col.name()));
         }
 
-        return keyOnly
+        return part == TuplePart.KEY
                 ? Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build())
                 : Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     void gatherStatistics(
-            List<Column> columns,
+            TuplePart part,
             Tuple tuple,
             ValuesWithStatistics targetTuple
     ) throws SchemaMismatchException {
-        int estimatedValueSize = 0;
+        int estimatedValueSize = part.fixedSizeColumnsSize(keyOnlyFixedLengthColumnSize, valueOnlyFixedLengthColumnSize);
         int knownColumns = 0;
-        for (Column col : columns) {
+        for (Column col : part.deriveColumnList(schema)) {
             NativeType colType = col.type();
 
-            Object val = tuple.valueOrDefault(IgniteNameUtils.quote(col.name()), POISON_OBJECT);
+            Object val = TupleHelper.valueOrDefault(tuple, col.name(), POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
                 throw new SchemaMismatchException("Missed key column: " + col.name());
@@ -196,9 +213,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             col.validate(val);
 
             if (val != null) {
-                if (colType.spec().fixedLength()) {
-                    estimatedValueSize += colType.sizeInBytes();
-                } else {
+                if (!colType.spec().fixedLength()) {
                     val = shrinkValue(val, col.type());
 
                     estimatedValueSize += getValueSize(val, colType);
@@ -318,5 +333,47 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         int estimatedValueSize() {
             return estimatedValueSize;
         }
+    }
+
+    enum TuplePart {
+        KEY {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.keyColumns();
+            }
+        },
+
+        VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.valueColumns();
+            }
+        },
+
+        KEY_VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize + valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.columns();
+            }
+        };
+
+        abstract int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize);
+
+        abstract List<Column> deriveColumnList(SchemaDescriptor schema);
     }
 }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -28,11 +27,12 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper around {@link IgniteCompute} that adds protection against thread hijacking by users.
@@ -72,13 +72,13 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return new AntiHijackTaskExecution<>(compute.submitMapReduce(units, taskClassName, args), asyncContinuationExecutor);
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg), asyncContinuationExecutor);
     }
 
     @Override
-    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return compute.executeMapReduce(units, taskClassName, args);
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return compute.executeMapReduce(taskDescriptor, arg);
     }
 
     private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {

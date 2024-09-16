@@ -22,7 +22,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -78,15 +77,6 @@ public interface TableViewInternal extends Table {
     <K> int partition(K key, Mapper<K> keyMapper);
 
     /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition Partition number.
-     * @return Leader node of the partition group corresponding to the partition.
-     */
-    ClusterNode leaderAssignment(int partition);
-
-    /**
      * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
@@ -104,10 +94,12 @@ public interface TableViewInternal extends Table {
      * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
+     * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
+            boolean unique,
             ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     );

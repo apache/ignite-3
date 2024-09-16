@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -159,7 +160,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final int BASE_REST_PORT = 10300;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -336,9 +337,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
-                .clusterConfiguration("{"
+                .clusterConfiguration("ignite {"
                         + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
-                        + "gc.lowWatermark.updateFrequency: 3000,\n"
+                        + "gc.lowWatermark.updateInterval: 3000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
                         + "metrics.exporters.logPush.period: 5000\n"
                         + "}")
@@ -347,8 +348,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
         for (IgniteServer node : nodes) {
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+            NODES.add(node);
 
-            IgniteImpl ignite = (IgniteImpl) node.api();
+            IgniteImpl ignite = unwrapIgniteImpl(node.api());
             CLUSTER_NODES.add(ignite);
 
             ignite.metricManager().enable("jvm");
@@ -366,7 +368,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         LOG.info(">>> Cluster is stopped.");
     }
 
-    private static final class TestRunnerRuntime implements RunnerRuntime {
+    static final class TestRunnerRuntime implements RunnerRuntime {
 
         /**
          * {@inheritDoc}

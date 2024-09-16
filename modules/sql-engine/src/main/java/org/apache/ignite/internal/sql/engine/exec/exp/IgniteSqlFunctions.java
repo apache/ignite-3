@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.util.TimeZone;
@@ -361,20 +361,20 @@ public class IgniteSqlFunctions {
      * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
      */
     public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, MathContext.DECIMAL64);
+        return sum.divide(cnt, s, roundingMode);
     }
 
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 
         if (scale > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         } else {
             int currentSignificantDigits = dec.precision() - dec.scale();
             int expectedSignificantDigits = precision - scale;
 
             if (currentSignificantDigits > expectedSignificantDigits) {
-                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                throw numericOverflowError(precision, scale);
             }
         }
 
@@ -394,7 +394,7 @@ public class IgniteSqlFunctions {
         int numPrecision = Math.min(num0.precision(), scale);
 
         if (numPrecision > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         }
 
         return num.setScale(scale, roundingMode);
@@ -415,6 +415,22 @@ public class IgniteSqlFunctions {
         }
 
         return dec;
+    }
+
+    private static SqlException numericOverflowError(int precision, int scale) {
+        String maxVal;
+
+        if (precision == scale) {
+            maxVal = "1";
+        } else {
+            maxVal = format("10^{}", precision - scale);
+        }
+
+        String detail = format("A field with precision {}, scale {} must round to an absolute value less than {}.",
+                precision, scale, maxVal
+        );
+
+        throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR + ". " + detail);
     }
 
     /** CAST(VARCHAR AS VARBINARY). */

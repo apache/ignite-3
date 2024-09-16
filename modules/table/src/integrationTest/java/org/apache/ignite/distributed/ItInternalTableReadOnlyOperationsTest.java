@@ -46,6 +46,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlySingleRowPkReplicaRequest;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -115,12 +117,23 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     @Mock
     private BinaryRowEx someRow;
 
+    private PlacementDriver placementDriver;
+
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA, txConfiguration, storageUpdateConfiguration);
+        placementDriver = new TestPlacementDriver(DummyInternalTableImpl.LOCAL_NODE);
+
+        internalTbl = new DummyInternalTableImpl(
+                replicaService,
+                placementDriver,
+                mockStorage,
+                SCHEMA,
+                txConfiguration,
+                storageUpdateConfiguration
+        );
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());

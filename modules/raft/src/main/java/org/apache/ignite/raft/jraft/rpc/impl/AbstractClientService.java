@@ -26,6 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
@@ -59,7 +60,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     /**
      * The set of pinged consistent IDs.
      */
-    protected Set<String> readyConsistentIds = new ConcurrentHashSet<>();
+    private final Set<String> readyConsistentIds = new ConcurrentHashSet<>();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
@@ -224,7 +225,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
-                        if (ThrowUtil.hasCause(err, null, ConnectException.class))
+                        if (ThrowUtil.hasCause(err, null, PeerUnavailableException.class, ConnectException.class))
                             readyConsistentIds.remove(peerId.getConsistentId()); // Force logical reconnect.
 
                         if (done != null) {

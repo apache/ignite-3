@@ -78,8 +78,7 @@ public class MultiClusterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testReconnectToDifferentClusterFails()
-            throws Exception {
+    public void testReconnectToDifferentClusterFails() {
         int port = server1.port();
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + port);

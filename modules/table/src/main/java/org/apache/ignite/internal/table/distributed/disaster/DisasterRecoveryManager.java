@@ -290,7 +290,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupRestartRequest(UUID.randomUUID(), zone.id(), table.id(), partitionIds, nodeNames));
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    table.id(),
+                    partitionIds,
+                    nodeNames,
+                    catalog.time()
+            ));
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -570,7 +577,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
                             .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                            .stateInt(localPartitionStateWithLogIndex.state.ordinal())
+                            .state(localPartitionStateWithLogIndex.state)
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );

@@ -51,7 +51,7 @@ public class ClusterStateStorageManager {
      * @return Current state or {@code null} if it has not been initialized.
      */
     @Nullable
-    ClusterState getClusterState() {
+    public ClusterState getClusterState() {
         byte[] value = storage.get(CMG_STATE_KEY);
 
         return value == null ? null : fromBytes(value);
@@ -62,7 +62,7 @@ public class ClusterStateStorageManager {
      *
      * @param state Cluster state.
      */
-    void putClusterState(ClusterState state) {
+    public void putClusterState(ClusterState state) {
         storage.put(CMG_STATE_KEY, toBytes(state));
     }
 
