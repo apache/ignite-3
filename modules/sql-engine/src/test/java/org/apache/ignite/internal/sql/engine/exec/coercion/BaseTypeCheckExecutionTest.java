@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -27,6 +26,7 @@ import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
+import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -109,7 +109,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
             ResultSetMetadata resultMeta = plan.metadata();
             ColumnMetadata colMeta = resultMeta.columns().get(0);
 
-            for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+            for (var row : CursorUtils.getAllFromCursor(gatewayNode.executePlan(plan))) {
                 assertNotNull(row);
                 assertThat(new Pair<>(row.get(0), colMeta), resultMatcher);
             }
