@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
-/** Test class for {@link RestartPartitionsCommand}. */
-public class ItRestartPartitionsCommandTest extends ItRestartPartitionsTest {
+/** Test class for {@link RestartPartitionsReplCommand}. */
+public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
     @Override
     protected Class<?> getCommandClass() {
-        return RestartPartitionsCommand.class;
+        return RestartPartitionsReplCommand.class;
     }
 }
