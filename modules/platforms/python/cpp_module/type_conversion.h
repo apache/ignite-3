@@ -161,8 +161,43 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 
 //    NUMBER = decimal.Decimal
 //    DURATION = datetime.timedelta
-//    DATETIME = datetime.datetime
-//    DATE = datetime.date
+
+    if (PyObject_IsInstance(obj, py_get_module_datetime_class())) {
+        auto year = py_get_attr_int(obj, "year");
+        auto month = py_get_attr_int(obj, "month");
+        auto day = py_get_attr_int(obj, "day");
+        auto hour = py_get_attr_int(obj, "hour");
+        auto minute = py_get_attr_int(obj, "minute");
+        auto second = py_get_attr_int(obj, "second");
+        auto microsecond = py_get_attr_int(obj, "microsecond");
+
+        ignite::ignite_date_time value(ignite::ignite_date(year, month, day),
+            ignite::ignite_time(hour, minute, second, microsecond * 1000));
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DATETIME);
+            builder.claim_date_time(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::DATETIME);
+            builder.append_date_time(value);
+        }
+        return;
+    }
+
+    if (PyObject_IsInstance(obj, py_get_module_date_class())) {
+        auto year = py_get_attr_int(obj, "year");
+        auto month = py_get_attr_int(obj, "month");
+        auto day = py_get_attr_int(obj, "day");
+
+        ignite::ignite_date value(year, month, day);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DATE);
+            builder.claim_date(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::DATE);
+            builder.append_date(value);
+        }
+        return;
+    }
 
     if (PyObject_IsInstance(obj, py_get_module_time_class())) {
         auto hour = py_get_attr_int(obj, "hour");

@@ -51,6 +51,13 @@ test_data = [
     pyignite3.TIME(7, 59, 13),
     pyignite3.TIME(1, 2, 3),
     pyignite3.TIME(0, 0, 0),
+    pyignite3.DATE(1969, 7, 20),
+    pyignite3.DATE(1525, 1, 1),
+    pyignite3.DATE(2024, 9, 12),
+    pyignite3.DATETIME(1969, 7, 20, 20, 17, 40),
+    pyignite3.DATETIME(2024, 9, 12, 7, 59, 13),
+    pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
+    pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
 ]
 
 
