@@ -15,18 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure;
+package org.apache.ignite.internal.cli.sql;
 
-import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
+import org.apache.ignite.internal.cli.sql.table.Table;
 
 /**
- * This class represents a no-op failure processor.
+ * A table in the SQL query result.
  */
-public class NoOpFailureProcessor extends FailureProcessor {
-    /**
-     * Creates a new instance of no-op failure processor.
-     */
-    public NoOpFailureProcessor() {
-        super(new NoOpFailureHandler());
+class SqlQueryResultTable implements SqlQueryResultItem {
+
+    private final Table<String> table;
+
+    SqlQueryResultTable(Table<String> table) {
+        this.table = table;
+    }
+
+    @Override
+    public TerminalOutput decorate(boolean plain) {
+        return new TableDecorator(plain).decorate(table);
     }
 }

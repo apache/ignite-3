@@ -79,7 +79,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -186,7 +186,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private static final int CATALOG_VERSION = 1;
 
-    private static final FailureProcessor NOOP_FAILURE_PROCESSOR = new FailureProcessor(new NoOpFailureHandler());
+    private static final FailureManager NOOP_FAILURE_PROCESSOR = new FailureManager(new NoOpFailureHandler());
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
 

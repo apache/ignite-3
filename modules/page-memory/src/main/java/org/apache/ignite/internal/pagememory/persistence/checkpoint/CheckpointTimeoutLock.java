@@ -28,7 +28,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -62,7 +62,7 @@ public class CheckpointTimeoutLock {
     private boolean stop;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -77,13 +77,13 @@ public class CheckpointTimeoutLock {
             long checkpointReadLockTimeout,
             Supplier<CheckpointUrgency> urgencySupplier,
             Checkpointer checkpointer,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
         this.urgencySupplier = urgencySupplier;
         this.checkpointer = checkpointer;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     /**
@@ -242,7 +242,7 @@ public class CheckpointTimeoutLock {
         IgniteInternalException e = new IgniteInternalException(SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR, msg);
 
         // either fail the node or try acquire read lock again by throwing an CheckpointReadLockTimeoutException
-        if (failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, e))) {
+        if (failureManager.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, e))) {
             throw e;
         }
 

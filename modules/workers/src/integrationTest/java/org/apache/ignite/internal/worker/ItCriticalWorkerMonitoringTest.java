@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -36,7 +36,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
-    private final LogInspector watchdogLogInspector = LogInspector.create(FailureProcessor.class, true);
+    private final LogInspector watchdogLogInspector = LogInspector.create(FailureManager.class, true);
 
     @Override
     protected int initialNodes() {

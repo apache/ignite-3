@@ -72,7 +72,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -441,7 +441,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         mockedRegistry,
                         storagePath,
                         null,
-                        mock(FailureProcessor.class),
+                        mock(FailureManager.class),
                         mock(LogSyncer.class),
                         clock
                 ),
@@ -491,7 +491,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
-                    FailureProcessor failureProcessor,
+                    FailureManager failureManager,
                     LogSyncer logSyncer,
                     HybridClock clock
             ) throws StorageException {
@@ -499,7 +499,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
-                        failureProcessor,
+                        failureManager,
                         logSyncer,
                         clock
                 ));

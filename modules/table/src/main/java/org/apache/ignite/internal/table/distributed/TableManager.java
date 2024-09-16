@@ -1745,7 +1745,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         InternalTable internalTable = table.internalTable();
         int partitions = internalTable.partitions();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18991 Move assigment manipulations to Distribution zones.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22950 Move assigment manipulations to Distribution zones.
         Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
                 .collect(toSet());

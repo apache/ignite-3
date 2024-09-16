@@ -86,7 +86,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -890,7 +890,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         mockedRegistry,
                         storagePath,
                         null,
-                        mock(FailureProcessor.class),
+                        mock(FailureManager.class),
                         mock(LogSyncer.class),
                         clock
                 ),

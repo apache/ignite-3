@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.checkpointUrgency;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.pageIndexesForDeltaFilePageStore;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -47,7 +48,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -82,7 +83,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 checkpointConfig,
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
@@ -146,9 +147,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 1)),
-                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
+        var dirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
         ));
 
         assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
@@ -160,9 +161,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
-                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
+        var dirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
         ));
 
         assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
@@ -195,7 +196,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 null,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 checkpointConfig,
                 filePageStoreManager,
                 mock(PartitionMetaManager.class),
@@ -209,9 +210,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         CheckpointProgress checkpointProgress = mock(CheckpointProgress.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory, new FullPageId[]{dirtyPageId})
-        ));
+        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, dirtyPageId)));
 
         when(checkpointProgress.inProgress()).thenReturn(true);
 

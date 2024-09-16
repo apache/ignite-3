@@ -105,8 +105,8 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -904,7 +904,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private final IndexManager indexManager;
 
         /** Failure processor. */
-        private final FailureProcessor failureProcessor;
+        private final FailureManager failureManager;
 
         private final ScheduledExecutorService rebalanceScheduler;
 
@@ -984,7 +984,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftConfiguration,
                     hybridClock,
                     raftGroupEventsClientListener,
-                    new NoOpFailureProcessor()
+                    new NoOpFailureManager()
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
@@ -996,7 +996,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
-            failureProcessor = new NoOpFailureProcessor();
+            failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
@@ -1015,7 +1015,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
-                    failureProcessor,
+                    failureManager,
                     clusterIdHolder,
                     cmgRaftConfigurer
             );
@@ -1023,7 +1023,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             KeyValueStorage keyValueStorage =
-                    new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorageTestKeyValue"), failureProcessor);
+                    new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorageTestKeyValue"), failureManager);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -1135,7 +1135,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null,
-                            failureProcessor,
+                            failureManager,
                             logSyncer,
                             hybridClock
                     ),
@@ -1147,7 +1147,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     gcConfig.lowWatermark(),
                     clockService,
                     vaultManager,
-                    failureProcessor,
+                    failureManager,
                     clusterService.messagingService()
             );
 
@@ -1175,7 +1175,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new NoOpFailureProcessor(),
+                    new NoOpFailureManager(),
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
@@ -1297,7 +1297,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
-                    failureProcessor,
+                    failureManager,
                     clusterService,
                     partitionsLogStorageFactory,
                     msLogStorageFactory,

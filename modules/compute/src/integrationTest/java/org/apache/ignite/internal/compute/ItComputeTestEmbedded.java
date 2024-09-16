@@ -65,7 +65,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -86,7 +85,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void cancelsJobLocally() {
         Ignite entryNode = node(0);
 
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -102,7 +101,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         var nodes = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, countDownLatch);
@@ -126,11 +125,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void cancelsJobRemotely() {
         Ignite entryNode = node(0);
 
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -144,7 +142,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void changeExecutingJobPriorityLocally() {
         Ignite entryNode = node(0);
 
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -153,11 +151,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void changeExecutingJobPriorityRemotely() {
         Ignite entryNode = node(0);
 
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
         JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -171,7 +168,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
@@ -212,7 +209,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
         JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);

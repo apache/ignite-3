@@ -41,7 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -645,7 +645,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
+            var failureProcessor = new FailureManager(new NoOpFailureHandler());
             var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
 
             executor.start();

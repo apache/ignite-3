@@ -48,7 +48,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -186,7 +186,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new InMemoryStaleIds(),
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
-                    mock(FailureProcessor.class)
+                    mock(FailureManager.class)
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());

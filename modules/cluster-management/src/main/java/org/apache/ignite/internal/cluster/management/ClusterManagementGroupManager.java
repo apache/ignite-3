@@ -68,7 +68,7 @@ import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -151,7 +151,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private final NodeAttributes nodeAttributes;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private final ClusterIdStore clusterIdStore;
 
@@ -175,7 +175,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -188,7 +188,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.validationManager = validationManager;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
@@ -237,7 +237,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -251,7 +251,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 logicalTopology,
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
                 nodeAttributes,
-                failureProcessor,
+                failureManager,
                 clusterIdStore,
                 raftGroupOptionsConfigurer
         );
@@ -637,7 +637,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 () -> fireEvent(ClusterManagerGroupEvent.BEFORE_DESTROY_RAFT_GROUP, EmptyEventParameters.INSTANCE)
                         .thenRunAsync(this::destroyCmg, this.scheduledExecutor)
                         .exceptionally(err -> {
-                            failureProcessor.process(new FailureContext(CRITICAL_ERROR, err));
+                            failureManager.process(new FailureContext(CRITICAL_ERROR, err));
                             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
                         })
         );

@@ -16,6 +16,6 @@
  */
 
 /**
- * This package provides implementation of {@link org.apache.ignite.internal.failure.FailureProcessor} and defines possible failure types.
+ * This package provides implementation of {@link org.apache.ignite.internal.failure.FailureManager} and defines possible failure types.
  */
 package org.apache.ignite.internal.failure;

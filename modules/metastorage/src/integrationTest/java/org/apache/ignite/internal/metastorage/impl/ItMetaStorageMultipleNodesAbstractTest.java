@@ -46,8 +46,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -129,7 +129,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
 
-        private final FailureProcessor failureProcessor;
+        private final FailureManager failureManager;
 
         Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
@@ -164,7 +164,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     new TestConfigurationValidator()
             );
 
-            this.failureProcessor = new NoOpFailureProcessor();
+            this.failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
@@ -183,7 +183,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     clusterStateStorage,
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor,
+                    failureManager,
                     new ClusterIdHolder(),
                     cmgRaftConfigurator
             );
@@ -230,7 +230,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     cmgLogStorageFactory,
                     raftManager,
                     clusterStateStorage,
-                    failureProcessor,
+                    failureManager,
                     cmgManager,
                     metaStorageManager
             );
@@ -253,7 +253,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             List<IgniteComponent> components = List.of(
                     metaStorageManager,
                     cmgManager,
-                    failureProcessor,
+                    failureManager,
                     raftManager,
                     clusterStateStorage,
                     partitionsLogStorageFactory,

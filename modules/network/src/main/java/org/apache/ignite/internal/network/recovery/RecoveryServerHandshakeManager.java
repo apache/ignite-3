@@ -32,7 +32,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -107,7 +107,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -126,7 +126,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -135,7 +135,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -358,7 +358,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         handshakeCompleteFuture.completeExceptionally(err);
 
         if (!stopping.getAsBoolean() && msg.reason().critical()) {
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
         }
     }
 

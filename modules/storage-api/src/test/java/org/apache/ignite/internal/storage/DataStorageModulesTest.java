@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -80,7 +80,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
                 mock(ConfigurationRegistry.class),
                 workDir,
                 null,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 mock(LogSyncer.class),
                 mock(HybridClock.class)
         );

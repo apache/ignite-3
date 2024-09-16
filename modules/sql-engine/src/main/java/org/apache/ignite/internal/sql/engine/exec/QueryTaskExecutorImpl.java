@@ -25,7 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -47,19 +47,19 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
 
     private final int concurrencyLevel;
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param concurrencyLevel concurrency Level for execution thread pool.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      */
-    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel, FailureProcessor failureProcessor) {
+    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel, FailureManager failureManager) {
         this.nodeName = nodeName;
         this.concurrencyLevel = concurrencyLevel;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     /** {@inheritDoc} */
@@ -93,7 +93,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                                 fragmentId,
                                 qryId);
 
-                        failureProcessor.process(
+                        failureManager.process(
                                 new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, e))
                         );
                     }

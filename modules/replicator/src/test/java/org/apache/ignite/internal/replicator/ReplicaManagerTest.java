@@ -44,7 +44,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -130,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new NoOpFailureProcessor(),
+                new NoOpFailureManager(),
                 marshaller,
                 raftGroupServiceFactory,
                 raftManager,

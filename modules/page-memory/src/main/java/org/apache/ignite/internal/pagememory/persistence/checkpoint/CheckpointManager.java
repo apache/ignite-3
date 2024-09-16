@@ -26,7 +26,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -90,7 +90,7 @@ public class CheckpointManager {
      * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param filePageStoreManager File page store manager.
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
@@ -102,7 +102,7 @@ public class CheckpointManager {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
@@ -145,14 +145,14 @@ public class CheckpointManager {
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
                 pageSize,
-                failureProcessor
+                failureManager
         );
 
         checkpointer = new Checkpointer(
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
-                failureProcessor,
+                failureManager,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
@@ -167,7 +167,7 @@ public class CheckpointManager {
                 checkpointConfigView.readLockTimeout(),
                 () -> checkpointUrgency(dataRegions),
                 checkpointer,
-                failureProcessor
+                failureManager
         );
     }
 
@@ -317,7 +317,18 @@ public class CheckpointManager {
 
         CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
                 index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
-                () -> pageIndexesForDeltaFilePageStore(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()))
+                () -> {
+                    CheckpointDirtyPagesView partitionView = pagesToWrite.getPartitionView(
+                            pageMemory,
+                            pageId.groupId(),
+                            pageId.partitionId()
+                    );
+
+                    assert partitionView != null : String.format("Unable to find view for dirty pages: [patitionId=%s, pageMemory=%s]",
+                            GroupPartitionId.convert(pageId), pageMemory);
+
+                    return pageIndexesForDeltaFilePageStore(partitionView);
+                }
         );
 
         deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
