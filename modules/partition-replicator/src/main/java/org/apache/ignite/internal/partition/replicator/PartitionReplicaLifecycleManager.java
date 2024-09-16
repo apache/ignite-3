@@ -263,21 +263,29 @@ public class PartitionReplicaLifecycleManager  extends
 
         cleanUpResourcesForDroppedZonesOnRecovery();
 
-        CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
-                .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
+        return processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
+                .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision))
+                .thenAccept(ignored -> {
+                    metaStorageMgr.registerPrefixWatch(
+                            ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX),
+                            pendingAssignmentsRebalanceListener
+                    );
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
+                    metaStorageMgr.registerPrefixWatch(
+                            ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
+                            stableAssignmentsRebalanceListener
+                    );
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
+                    metaStorageMgr.registerPrefixWatch(
+                            ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX),
+                            assignmentsSwitchRebalanceListener
+                    );
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
-
-        catalogMgr.listen(ZONE_CREATE,
-                (CreateZoneEventParameters parameters) ->
-                        inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
-        );
-
-        return processZonesAndAssignmentsOnStart;
+                    catalogMgr.listen(ZONE_CREATE,
+                            (CreateZoneEventParameters parameters) ->
+                                    inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((unused) -> false))
+                    );
+                });
     }
 
     private CompletableFuture<Void> processZonesOnStart(long recoveryRevision, @Nullable HybridTimestamp lwm) {
