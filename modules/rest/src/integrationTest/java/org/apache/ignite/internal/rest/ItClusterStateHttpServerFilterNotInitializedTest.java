@@ -20,13 +20,12 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.PATCH;
 import static io.micronaut.http.HttpStatus.CONFLICT;
-import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
@@ -37,7 +36,6 @@ import jakarta.inject.Inject;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -92,24 +90,19 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
 
     @ParameterizedTest
     @MethodSource("disabledEndpoints")
-    void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) throws JsonProcessingException {
+    void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) {
         HttpClientResponseException ex = assertThrows(
                 HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(request)
         );
 
-        assertThat(ex.getStatus(), is(CONFLICT));
-
-        assertThat(ex.getResponse().getContentType().orElseThrow().getName(), is(APPLICATION_JSON_PROBLEM_TYPE.getName()));
-        Problem problem = readProblem(ex);
-
-        assertThat(problem.status(), is(CONFLICT.getCode()));
-        assertThat(problem.title(), is("Cluster is not initialized"));
-        assertThat(problem.detail(), is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."));
-    }
-
-    private Problem readProblem(HttpClientResponseException ex) throws JsonProcessingException {
-        return mapper.readValue(ex.getResponse().getBody(String.class).get(), Problem.class);
+        assertThat(
+                ex.getResponse(),
+                isProblemResponse(CONFLICT, isProblem()
+                        .withTitle("Cluster is not initialized")
+                        .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
+                )
+        );
     }
 
     @ParameterizedTest
