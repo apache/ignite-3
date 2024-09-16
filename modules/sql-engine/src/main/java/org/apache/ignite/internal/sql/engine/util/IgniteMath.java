@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.math.RoundingMode.UNNECESSARY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeName.SMALLINT;
@@ -24,10 +25,12 @@ import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.SqlException;
 
-/** Math operations with overflow checking. */
+/** Math operations with overflow awareness. */
 public class IgniteMath {
     private static final BigDecimal UPPER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE);
     private static final BigDecimal LOWER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.ONE);
@@ -86,6 +89,135 @@ public class IgniteMath {
         }
 
         return (byte) r;
+    }
+
+    /** Returns the sum of its arguments, extending result type for overflow avoidance. */
+    public static BigInteger add(long x, long y) {
+        return BigInteger.valueOf(x).add(BigInteger.valueOf(y));
+    }
+
+    /** Returns the sum of its arguments, extending result type for overflow avoidance. */
+    public static BigDecimal add(BigDecimal x, BigDecimal y) {
+        int maxPrecision = Commons.cluster().getTypeFactory().getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+        return x.add(y, new MathContext(maxPrecision, UNNECESSARY));
+    }
+
+    /** Returns the sum of its arguments, extending result type for overflow avoidance. */
+    public static long add(int x, int y) {
+        return (long) x + y;
+    }
+
+    /** Returns the sum of its arguments, extending result type for overflow avoidance. */
+    public static int add(short x, short y) {
+        return x + y;
+    }
+
+    /** Returns the sum of its arguments, extending result type for overflow avoidance. */
+    public static short add(byte x, byte y) {
+        return (short) (x + y);
+    }
+
+    /** Returns the subtraction of its arguments, extending result type for overflow avoidance. */
+    public static BigInteger subtract(long x, long y) {
+        return BigInteger.valueOf(x).subtract(BigInteger.valueOf(y));
+    }
+
+    /** Returns the subtraction of its arguments, extending result type for overflow avoidance. */
+    public static BigDecimal subtract(BigDecimal x, BigDecimal y) {
+        int maxPrecision = Commons.cluster().getTypeFactory().getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+        return x.subtract(y, new MathContext(maxPrecision, UNNECESSARY));
+    }
+
+    /** Returns the subtraction of its arguments, extending result type for overflow avoidance. */
+    public static long subtract(int x, int y) {
+        return (long) x - y;
+    }
+
+    /** Returns the subtraction of its arguments, extending result type for overflow avoidance. */
+    public static int subtract(short x, short y) {
+        return x - y;
+    }
+
+    /** Returns the subtraction of its arguments, extending result type for overflow avoidance. */
+    public static short subtract(byte x, byte y) {
+        return (short) (x - y);
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static BigInteger multiply(long x, long y) {
+        return BigInteger.valueOf(x).multiply(BigInteger.valueOf(y));
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static BigDecimal multiply(BigDecimal x, long y) {
+        int maxPrecision = Commons.cluster().getTypeFactory().getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+        return x.multiply(BigDecimal.valueOf(y), new MathContext(maxPrecision, UNNECESSARY));
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static BigDecimal multiply(BigDecimal x, BigDecimal y) {
+        int maxPrecision = Commons.cluster().getTypeFactory().getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+        return x.multiply(y, new MathContext(maxPrecision, UNNECESSARY));
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static long multiply(int x, int y) {
+        return (long) x * y;
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static int multiply(short x, short y) {
+        return x * y;
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static short multiply(byte x, byte y) {
+        return (short) (x * y);
+    }
+
+    /** Returns the division of its arguments, extending result type for overflow avoidance. */
+    public static BigInteger divide(long x, long y) {
+        if (y == 0) {
+            throwDivisionByZero();
+        }
+
+        return BigInteger.valueOf(x).divide(BigInteger.valueOf(y));
+    }
+
+    /** Returns the multiply of its arguments, extending result type for overflow avoidance. */
+    public static BigDecimal divide(BigDecimal x, BigDecimal y) {
+        if (y.compareTo(BigDecimal.ZERO) == 0) {
+            throwDivisionByZero();
+        }
+
+        return x.divide(y, MathContext.DECIMAL64);
+    }
+
+    /** Returns the division of its arguments, extending result type for overflow avoidance. */
+    public static long divide(int x, int y) {
+        if (y == 0) {
+            throwDivisionByZero();
+        }
+
+        return (long) x / y;
+    }
+
+    /** Returns the division of its arguments, extending result type for overflow avoidance. */
+    public static int divide(short x, short y) {
+        if (y == 0) {
+            throwDivisionByZero();
+        }
+
+        return x / y;
+    }
+
+    /** Returns the division of its arguments, extending result type for overflow avoidance. */
+    public static short divide(byte x, byte y) {
+        if (y == 0) {
+            throwDivisionByZero();
+        }
+
+        return (short) (x / y);
     }
 
     /** Returns the negation of the argument, throwing an exception if the result overflows an {@code long}. */

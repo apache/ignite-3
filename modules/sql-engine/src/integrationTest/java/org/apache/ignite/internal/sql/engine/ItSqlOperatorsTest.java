@@ -90,10 +90,10 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testArithmetic() {
-        assertExpression("1 + 2").returns(3).check();
-        assertExpression("2 - 1").returns(1).check();
-        assertExpression("2 * 3").returns(6).check();
-        assertExpression("3 / 2 ").returns(1).check();
+        assertExpression("1 + 2").returns(3L).check();
+        assertExpression("2 - 1").returns(1L).check();
+        assertExpression("2 * 3").returns(6L).check();
+        assertExpression("3 / 2 ").returns(1L).check();
         assertExpression("-(1)").returns(-1).check();
         assertExpression("+(1)").returns(1).check();
         assertExpression("3 % 2").returns(1).check();

@@ -61,8 +61,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static final String NUMERIC_FORMAT_ERROR = "neither a decimal digit number";
 
-    private static final Object EMPTY_PARAM = new Object();
-
     /**
      * Drops all created tables.
      */
@@ -606,64 +604,51 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "{1} {2}")
     @MethodSource("decimalOverflows")
     public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
-        if (param == EMPTY_PARAM) {
-            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr));
-        } else {
-            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
-        }
+        assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
     }
 
     private static Stream<Arguments> decimalOverflows() {
         return Stream.of(
                 // BIGINT
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -(-9223372036854775807 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -CAST(-9223372036854775808 AS BIGINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808/-1", EMPTY_PARAM),
+                arguments(SqlTypeName.BIGINT, "SELECT -CAST(? AS BIGINT)", -9223372036854775808L),
 
                 // INTEGER
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648 AS BIGINT) AS INTEGER)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
                 arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS INTEGER)",
-                        EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT -CAST(? AS INTEGER)", -2147483648),
 
                 // SMALLINT
-                arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS SMALLINT)",
-                        EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS BIGINT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 + 1 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT 17000::SMALLINT * 2::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -32000::SMALLINT - 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -(-32767::SMALLINT - 1::SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(-32768 AS SMALLINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.SMALLINT, "SELECT -CAST(? AS SMALLINT)", -32768),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST (-32768 AS SMALLINT)/-1::SMALLINT", EMPTY_PARAM),
 
                 // TINYINT
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT + 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS TINYINT)",
-                        EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS BIGINT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT * 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -2::TINYINT - 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -(-127::TINYINT - 1::TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(-128 AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128 AS TINYINT)/-1::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM)
+                arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("decimalOpTypeExtension")
+    public void testCalcOpDynParamOverflow(String expr, String expect, Object param) {
+        assertEquals(sql(expr, param).get(0).get(0).toString(), expect);
+    }
+
+    private static Stream<Arguments> decimalOpTypeExtension() {
+        return Stream.of(
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-23232
+                // arguments("SELECT -9223372036854775808::BIGINT/-1::BIGINT", "9223372036854775808"),
+                // arguments("SELECT -?::BIGINT/-1::BIGINT", "9223372036854775808", "9223372036854775808"),
+                // arguments("SELECT -2147483648::INTEGER/-1::INTEGER", "2147483648")/*,
+                // arguments("SELECT -32768::SMALLINT/-1::SMALLINT", "32768"),
+                // arguments("SELECT -128::TINYINT/-1::TINYINT", "128")
+
+                arguments("SELECT CAST(-? AS BIGINT)/-1", "9223372036854775808", "9223372036854775808"),
+                arguments("SELECT CAST(-? AS INTEGER)/-1", "2147483648", "2147483648"),
+                arguments("SELECT CAST(-? AS SMALLINT)/-1", "32768", "32768"),
+                arguments("SELECT CAST(-? AS TINYINT)/-1", "128", "128"),
+
+                arguments("SELECT CAST(-? AS BIGINT) * -1", "9223372036854775808", "9223372036854775808"),
+                arguments("SELECT CAST(-? AS INTEGER) * -1", "2147483648", "2147483648"),
+                arguments("SELECT CAST(-? AS SMALLINT) * -1", "32768", "32768"),
+                arguments("SELECT CAST(-? AS TINYINT) * -1", "128", "128")
         );
     }
 
