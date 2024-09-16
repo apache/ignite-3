@@ -37,7 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.message.DataPresence;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.TablePartitionId;
