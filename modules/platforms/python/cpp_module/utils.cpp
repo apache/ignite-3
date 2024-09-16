@@ -100,6 +100,18 @@ PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name) {
     return PyObject_CallMethodObjArgs(obj, py_method_name, nullptr);
 }
 
+std::int64_t py_get_attr_int(PyObject* obj, const char* attr_name) {
+    auto attr_obj = PyObject_GetAttrString(obj, attr_name);
+    if (!attr_obj) {
+        throw ignite::ignite_error("Can not get an Object's attribute: " + std::string(attr_name));
+    }
+    auto attr_obj_guard = ignite::detail::defer([&] { Py_DECREF(attr_obj); });
+    if (PyErr_Occurred()) {
+        throw ignite::ignite_error("An Object's attribute is not an integer : " + std::string(attr_name));
+    }
+    return PyLong_AsLongLong(attr_obj);
+}
+
 PyObject* py_get_module_uuid_class() {
     LAZY_INIT_MODULE_CLASS("UUID");
 }

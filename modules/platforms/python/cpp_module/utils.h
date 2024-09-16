@@ -84,11 +84,21 @@ PyObject* py_get_module_class(const char* class_name);
 
 /**
  * Call a method with no args.
+ *
  * @param obj Object.
  * @param method_name Method name.
  * @return Call result.
  */
 PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name);
+
+/**
+ * Get an integer attribute.
+ *
+ * @param obj Object.
+ * @param attr_name Attribute name.
+ * @return Call result.
+ */
+std::int64_t py_get_attr_int(PyObject* obj, const char* attr_name);
 
 /**
  * Get module's UUID class instance.

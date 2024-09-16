@@ -160,10 +160,26 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     }
 
 //    NUMBER = decimal.Decimal
-//    DATE = datetime.date
-//    TIME = datetime.time
-//    DATETIME = datetime.datetime
 //    DURATION = datetime.timedelta
+//    DATETIME = datetime.datetime
+//    DATE = datetime.date
+
+    if (PyObject_IsInstance(obj, py_get_module_time_class())) {
+        auto hour = py_get_attr_int(obj, "hour");
+        auto minute = py_get_attr_int(obj, "minute");
+        auto second = py_get_attr_int(obj, "second");
+        auto microsecond = py_get_attr_int(obj, "microsecond");
+
+        ignite::ignite_time value(hour, minute, second, microsecond * 1000);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::TIME);
+            builder.claim_time(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::TIME);
+            builder.append_time(value);
+        }
+        return;
+    }
 
     if (PyObject_IsInstance(obj, py_get_module_uuid_class())) {
         if (claim) {
