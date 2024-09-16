@@ -60,6 +60,7 @@ test_data = [
     pyignite3.DATETIME(2024, 9, 12, 7, 59, 13),
     pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
     pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
+    # TODO: IGNITE-23214 Fix DURATION type parameters in select statements
     # pyignite3.DURATION(days=0),
     # pyignite3.DURATION(days=1),
     # pyignite3.DURATION(days=145),
