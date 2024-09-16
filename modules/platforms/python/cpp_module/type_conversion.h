@@ -160,7 +160,22 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     }
 
 //    NUMBER = decimal.Decimal
-//    DURATION = datetime.timedelta
+
+    if (PyObject_IsInstance(obj, py_get_module_duration_class())) {
+        auto days = py_get_attr_int(obj, "days");
+        auto seconds = py_get_attr_int(obj, "seconds");
+        auto microseconds = py_get_attr_int(obj, "microseconds");
+
+        ignite::ignite_duration value(days * (24 * 60 * 60) + seconds, microseconds * 1000);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DURATION);
+            builder.claim_duration(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::DURATION);
+            builder.append_duration(value);
+        }
+        return;
+    }
 
     if (PyObject_IsInstance(obj, py_get_module_datetime_class())) {
         auto year = py_get_attr_int(obj, "year");
