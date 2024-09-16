@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
@@ -28,6 +29,7 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -210,14 +212,22 @@ public class NettyServer {
                 return nullCompletedFuture();
             }
 
-            var serverCloseFuture0 = serverCloseFuture;
+            var closeFutures = new ArrayList<CompletableFuture<?>>();
+
+            CompletableFuture<Void> serverCloseFuture0 = serverCloseFuture;
+
+            if (serverCloseFuture0 != null) {
+                closeFutures.add(serverCloseFuture0);
+            }
 
             return serverStartFuture.handle((unused, throwable) -> {
+                ServerChannel channel = this.channel;
+
                 if (channel != null) {
-                    channel.close();
+                    closeFutures.add(NettyUtils.toCompletableFuture(channel.close()));
                 }
 
-                return serverCloseFuture0 == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture0;
+                return allOf(closeFutures);
             }).thenCompose(Function.identity());
         }
     }
