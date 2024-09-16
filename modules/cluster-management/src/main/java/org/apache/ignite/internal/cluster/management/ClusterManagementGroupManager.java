@@ -264,11 +264,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
      */
-    public void initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) throws NodeStoppingException {
+    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName)
+            throws NodeStoppingException {
         sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
@@ -377,10 +374,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         return nullCompletedFuture();
                     }
                 })
-                .thenRun(clusterResetStorage::removeResetClusterMessage);
+                .thenRun(clusterResetStorage::removeResetClusterMessage)
+                .thenRun(() -> clusterResetStorage.saveVolatileResetClusterMessage(resetClusterMessage));
     }
 
-    private CompletableFuture<Void> doReinit(ResetClusterMessage resetClusterMessage) {
+    private CompletableFuture<CmgRaftService> doReinit(ResetClusterMessage resetClusterMessage) {
         CompletableFuture<CmgRaftService> serviceFuture;
 
         synchronized (raftServiceLock) {
@@ -399,8 +397,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 cmgInitMessageFromResetClusterMessage(resetClusterMessage),
                                 resetClusterMessage.formerClusterIds()
                         )
-                )
-                .thenApply(unused -> null);
+                );
     }
 
     private CmgInitMessage cmgInitMessageFromResetClusterMessage(ResetClusterMessage resetClusterMessage) {

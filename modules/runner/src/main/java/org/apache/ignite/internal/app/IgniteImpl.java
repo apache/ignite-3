@@ -121,6 +121,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.disaster.system.MetastorageRepairImpl;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
@@ -677,6 +678,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
+                systemDisasterRecoveryStorage,
+                new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer
         );
 

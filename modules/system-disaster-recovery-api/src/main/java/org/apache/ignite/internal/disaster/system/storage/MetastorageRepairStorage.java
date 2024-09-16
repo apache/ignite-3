@@ -21,23 +21,11 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Storage used by the cluster reset tools.
+ * Storage used by the Metastorage repair tools.
  */
-public interface ClusterResetStorage extends MetastorageRepairStorage {
+public interface MetastorageRepairStorage {
     /**
-     * Reads {@link ResetClusterMessage} from the persistent state; returns {@code null} if it's not saved.
+     * Reads {@link ResetClusterMessage} from the volatile state; returns {@code null} if it's not saved.
      */
-    @Nullable ResetClusterMessage readResetClusterMessage();
-
-    /**
-     * Removes saved {@link ResetClusterMessage}.
-     */
-    void removeResetClusterMessage();
-
-    /**
-     * Saves a {@link ResetClusterMessage} to the volatile state.
-     *
-     * @param message Message to save.
-     */
-    void saveVolatileResetClusterMessage(ResetClusterMessage message);
+    @Nullable ResetClusterMessage readVolatileResetClusterMessage();
 }

@@ -38,6 +38,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     private final VaultManager vault;
 
+    private volatile ResetClusterMessage volatileResetClusterMessage;
+
     /** Constructor. */
     public SystemDisasterRecoveryStorage(VaultManager vault) {
         this.vault = vault;
@@ -51,6 +53,11 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     @Override
     public void removeResetClusterMessage() {
         vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+    }
+
+    @Override
+    public void saveVolatileResetClusterMessage(ResetClusterMessage message) {
+        volatileResetClusterMessage = message;
     }
 
     /** Reads cluster state. */
@@ -78,5 +85,10 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     void saveResetClusterMessage(ResetClusterMessage message) {
         vault.put(RESET_CLUSTER_MESSAGE_VAULT_KEY, ByteUtils.toBytes(message));
+    }
+
+    @Override
+    public @Nullable ResetClusterMessage readVolatileResetClusterMessage() {
+        return volatileResetClusterMessage;
     }
 }

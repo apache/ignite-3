@@ -27,7 +27,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,26 +34,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.table.KeyValueView;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
-    @Override
-    protected int initialNodes() {
-        return 0;
-    }
-
+class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     @Test
     void repairWhenCmgWas1Node() throws Exception {
         // Node with index 2 will host neither of voting sets.
@@ -83,30 +73,12 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         assertResetClusterMessageIsNotPresentAt(waitTillNodeRestartsInternally(2));
     }
 
-    private void startAndInitCluster(int nodeCount, int[] cmgNodeIndexes, int[] metastorageNodeIndexes) {
-        // Pre-allocate this to make sure that for each pair of nodes, if they start almost at the same time, at least one is able to make
-        // an initial sync to another one.
-        cluster.overrideSeedsCount(10);
-
-        cluster.startAndInit(nodeCount, paramsBuilder -> {
-            paramsBuilder.cmgNodeNames(nodeNames(cmgNodeIndexes));
-            paramsBuilder.metaStorageNodeNames(nodeNames(metastorageNodeIndexes));
-        });
+    private static void assertThatCmgHasNoMajority(IgniteImpl ignite) {
+        assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willTimeoutIn(1, SECONDS));
     }
 
-    private void waitTillClusterStateIsSavedToVaultOnConductor(int nodeIndex) throws InterruptedException {
-        assertTrue(waitForCondition(
-                () -> new SystemDisasterRecoveryStorage(igniteImpl(nodeIndex).vault()).readClusterState() != null,
-                SECONDS.toMillis(10)
-        ));
-    }
-
-    private static void assertThatCmgHasNoMajority(IgniteImpl igniteImpl1BeforeRestart) {
-        assertThat(igniteImpl1BeforeRestart.logicalTopologyService().logicalTopologyOnLeader(), willTimeoutIn(1, SECONDS));
-    }
-
-    private static void waitTillCmgHasMajority(IgniteImpl restartedIgniteImpl1) {
-        assertThat(restartedIgniteImpl1.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
+    private static void waitTillCmgHasMajority(IgniteImpl ignite) {
+        assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
     private void initiateCmgRepairVia(IgniteImpl conductor, int... newCmgIndexes) {
@@ -115,38 +87,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<Void> initiationFuture = conductor.systemDisasterRecoveryManager()
                 .resetCluster(List.of(nodeNames(newCmgIndexes)));
         assertThat(initiationFuture, willCompleteSuccessfully());
-    }
-
-    private String[] nodeNames(int... nodeIndexes) {
-        return IntStream.of(nodeIndexes)
-                .mapToObj(cluster::nodeName)
-                .toArray(String[]::new);
-    }
-
-    private IgniteImpl waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
-        // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
-
-        assertTrue(
-                waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
-                "Node did not attempt to be restarted (or shut down) in time"
-        );
-        assertThat(restartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
-
-        return unwrapIgniteImpl(cluster.server(nodeIndex).api());
-    }
-
-    @Nullable
-    private CompletableFuture<Void> restartOrShutdownFuture(int nodeIndex) {
-        return ((IgniteServerImpl) cluster.server(nodeIndex)).restartOrShutdownFuture();
-    }
-
-    private static ClusterState clusterState(IgniteImpl restartedIgniteImpl1)
-            throws InterruptedException, ExecutionException, TimeoutException {
-        return restartedIgniteImpl1.clusterManagementGroupManager().clusterState().get(10, SECONDS);
-    }
-
-    private static void assertResetClusterMessageIsNotPresentAt(IgniteImpl ignite) {
-        assertThat(new SystemDisasterRecoveryStorage(ignite.vault()).readResetClusterMessage(), is(nullValue()));
     }
 
     @Test
@@ -168,13 +108,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         waitTillCmgHasMajority(restartedIgniteImpl2);
 
         // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(3, 4, 5);
-    }
-
-    private void waitTillNodesRestartInProcess(int... nodeIndexes) throws InterruptedException {
-        for (int i : nodeIndexes) {
-            waitTillNodeRestartsInternally(i);
-        }
+        waitTillNodesRestartInternally(3, 4, 5);
     }
 
     @Test
@@ -219,11 +153,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         waitTillNodeRestartsInternally(2);
     }
 
-    private void restartPartially(int index) {
-        cluster.stopNode(index);
-        cluster.startEmbeddedNode(index);
-    }
-
     @Test
     void nodesThatSawNoReparationHaveSeparatePhysicalTopologies() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
@@ -261,24 +190,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
     }
 
-    private void migrate(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
-        // Starting the node that did not see the repair.
-        IgniteImpl nodeMissingRepair = ((IgniteServerImpl) cluster.startEmbeddedNode(oldClusterNodeIndex).server()).igniteImpl();
-
-        initiateMigrationToNewCluster(nodeMissingRepair, igniteImpl(newClusterNodeIndex));
-
-        waitTillNodeRestartsInternally(oldClusterNodeIndex);
-    }
-
-    private static void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
-        // TODO: IGNITE-22879 - initiate migration via CLI.
-
-        ClusterState newClusterState = clusterState(repairedNode);
-
-        CompletableFuture<Void> migrationFuture = nodeMissingRepair.systemDisasterRecoveryManager().migrate(newClusterState);
-        assertThat(migrationFuture, willCompleteSuccessfully());
-    }
-
     @Test
     void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
         startAndInitCluster(5, new int[]{0, 1, 2}, new int[]{2, 3, 4});
@@ -307,7 +218,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTopologyContainsNode(1, topologySnapshot);
 
         // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(3, 4);
+        waitTillNodesRestartInternally(3, 4);
     }
 
     @Test
@@ -323,7 +234,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
 
         // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(0, 1);
+        waitTillNodesRestartInternally(0, 1);
     }
 
     @Test
@@ -425,7 +336,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         waitTillDataNodesBecome(new int[]{1, 2, 3}, zoneId, restartedIgniteImpl1);
 
         // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(1, 2);
+        waitTillNodesRestartInternally(1, 2);
     }
 
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {

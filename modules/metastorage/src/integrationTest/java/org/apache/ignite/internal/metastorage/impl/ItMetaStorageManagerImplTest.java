@@ -54,6 +54,8 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
+import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -259,6 +261,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new HybridClockImpl(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
+                mock(MetastorageRepairStorage.class),
+                mock(MetastorageRepair.class),
                 RaftGroupOptionsConfigurer.EMPTY
         );
 
