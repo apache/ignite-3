@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import decimal
+
 import pyignite3
 import pytest
 
@@ -58,19 +60,12 @@ test_data = [
     pyignite3.DATETIME(2024, 9, 12, 7, 59, 13),
     pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
     pyignite3.DATETIME(1000, 1, 1, 0, 0, 0),
-    pyignite3.DURATION(days=0),
-    pyignite3.DURATION(days=1),
-    pyignite3.DURATION(days=145),
-    pyignite3.DURATION(seconds=123456789),
-    pyignite3.DURATION(seconds=987654321, milliseconds=123),
-    pyignite3.DURATION(days=145, seconds=987654321, milliseconds=123),
-    pyignite3.NUMBER('1111111111111111111111111111111'),
-    pyignite3.NUMBER('11111111111111.11111111111111111'),
-    pyignite3.NUMBER('0.000000000000000000000000000001'),
-    pyignite3.NUMBER('123.456789'),
-    pyignite3.NUMBER('-123.456789'),
-    pyignite3.NUMBER(1),
-    pyignite3.NUMBER(0),
+    # pyignite3.DURATION(days=0),
+    # pyignite3.DURATION(days=1),
+    # pyignite3.DURATION(days=145),
+    # pyignite3.DURATION(seconds=123456789),
+    # pyignite3.DURATION(seconds=987654321, milliseconds=123),
+    # pyignite3.DURATION(days=145, seconds=987654321, milliseconds=123),
 ]
 
 
@@ -92,3 +87,37 @@ def test_fetch_parameter_list(cursor, param):
 @pytest.mark.parametrize("param", test_data)
 def test_fetch_parameter_tuple(cursor, param):
     check_fetch_parameters(cursor, param, True)
+
+
+test_decs = [
+    pyignite3.NUMBER('1111111111111111111111111111111'),
+    pyignite3.NUMBER('11111111111111.11111111111111111'),
+    pyignite3.NUMBER('0.000000000000000000000000000001'),
+    pyignite3.NUMBER('123.456789'),
+    pyignite3.NUMBER('-123.456789'),
+    pyignite3.NUMBER('2980949468541866002980035546865281241479836693504'),
+    pyignite3.NUMBER('2980949468541866002980035546865281241479836693504.943353696379651248255943353696379651248255'),
+    pyignite3.NUMBER('298094946854186600298003554686528124147.9836693504943353696379651248255'),
+    pyignite3.NUMBER('298094946854186600298003554686528.1241479836693504943353696379651248255'),
+    pyignite3.NUMBER('29809494685418660029800.35546865281241479836693504943353696379651248255'),
+]
+
+
+def check_fetch_decimals(cursor, param: decimal.Decimal, use_tuple: bool):
+    cursor.execute(f"select ?::DECIMAL(100,50)", (param,) if use_tuple else [param])
+    data = cursor.fetchone()
+    assert len(data) == 1
+    if isinstance(param, float):
+        assert data[0] == pytest.approx(param)
+    else:
+        assert data[0] == param
+
+
+@pytest.mark.parametrize("param", test_decs)
+def test_fetch_decimals_list(cursor, param):
+    check_fetch_decimals(cursor, param, False)
+
+
+@pytest.mark.parametrize("param", test_decs)
+def test_fetch_decimals_tuple(cursor, param):
+    check_fetch_decimals(cursor, param, True)

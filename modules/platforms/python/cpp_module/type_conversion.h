@@ -177,10 +177,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 
         ignite::big_decimal value(data, len);
         if (claim) {
-            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::NUMBER);
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DECIMAL, value.get_scale());
             builder.claim_number(value);
         } else {
-            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::NUMBER);
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::DECIMAL, value.get_scale());
             builder.append_number(value);
         }
         return;
