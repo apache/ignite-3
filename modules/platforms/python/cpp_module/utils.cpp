@@ -91,6 +91,15 @@ PyObject* py_get_module_class(const char* class_name) {
     return PyObject_GetAttrString(pyignite3_mod, class_name);
 }
 
+PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name) {
+    PyObject* py_method_name = PyUnicode_FromString(method_name);
+    if (!py_method_name)
+        return nullptr;
+    auto py_method_name_guard = ignite::detail::defer([&]{ Py_DECREF(py_method_name); });
+
+    return PyObject_CallMethodObjArgs(obj, py_method_name, nullptr);
+}
+
 PyObject* py_get_module_uuid_class() {
     LAZY_INIT_MODULE_CLASS("UUID");
 }

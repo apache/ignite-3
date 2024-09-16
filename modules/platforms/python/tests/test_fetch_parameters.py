@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import uuid
+
 import pytest
 
 import pyignite3
@@ -44,6 +46,10 @@ test_data = [
     b'123456789',
     b'h9832y9r8wf08hw85h0h2508h0858',
     b'\x45\xf0\xab',
+    uuid.UUID('c4a0327c-44be-416d-ae90-75c05079789f'),
+    uuid.UUID('00000000-0000-0000-0000-000000000001'),
+    uuid.UUID('10101010-1010-1010-1010-101010101010'),
+    uuid.UUID(int=0),
 ]
 
 

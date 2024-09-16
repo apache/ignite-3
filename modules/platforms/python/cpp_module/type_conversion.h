@@ -164,7 +164,39 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 //    TIME = datetime.time
 //    DATETIME = datetime.datetime
 //    DURATION = datetime.timedelta
-//    UUID = uuid.UUID
+
+    if (PyObject_IsInstance(obj, py_get_module_uuid_class())) {
+        auto py_bytes = PyObject_GetAttrString(obj, "bytes");
+        if (!py_bytes) {
+            throw ignite::ignite_error("Can not convert UUID to bytes");
+        }
+        auto py_bytes_guard = ignite::detail::defer([&] { Py_DECREF(py_bytes); });
+
+        char* data = nullptr;
+        Py_ssize_t len{0};
+        if (PyBytes_AsStringAndSize(py_bytes, &data, &len) < 0) {
+            throw ignite::ignite_error("Can not get data from UUID's bytes representation");
+        }
+
+        if (len != 16) {
+            throw ignite::ignite_error("Unexpected size of the UUID's bytes data");
+        }
+
+        auto bytes = reinterpret_cast<std::byte*>(data);
+        auto most = ignite::detail::bytes::load<ignite::detail::endian::BIG, std::int64_t>(bytes);
+        auto least = ignite::detail::bytes::load<ignite::detail::endian::BIG, std::int64_t>(bytes + 8);
+
+        ignite::uuid value(most, least);
+
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::UUID);
+            builder.claim_uuid(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::UUID);
+            builder.append_uuid(value);
+        }
+        return;
+    }
 
     if (PyUnicode_Check(obj)) {
         auto str_array = PyUnicode_AsUTF8String(obj);
@@ -240,5 +272,5 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     }
 
     // TODO: IGNITE-22745 Provide wider data types support
-    throw ignite::ignite_error("Type is not supported " + std::string(py_object_get_typename(obj)));
+    throw ignite::ignite_error("Type is not supported: " + std::string(py_object_get_typename(obj)));
 }

@@ -83,6 +83,14 @@ PyObject* py_get_class(const char* module_name, const char* class_name);
 PyObject* py_get_module_class(const char* class_name);
 
 /**
+ * Call a method with no args.
+ * @param obj Object.
+ * @param method_name Method name.
+ * @return Call result.
+ */
+PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name);
+
+/**
  * Get module's UUID class instance.
  * Faster then loading the class the ordinary way as the class is cached.
  *
