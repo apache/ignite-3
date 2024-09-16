@@ -166,6 +166,12 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 //    DURATION = datetime.timedelta
 
     if (PyObject_IsInstance(obj, py_get_module_uuid_class())) {
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::UUID);
+            builder.claim_uuid();
+            return;
+        }
+
         auto py_bytes = PyObject_GetAttrString(obj, "bytes");
         if (!py_bytes) {
             throw ignite::ignite_error("Can not convert UUID to bytes");
@@ -187,14 +193,9 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         auto least = ignite::detail::bytes::load<ignite::detail::endian::BIG, std::int64_t>(bytes + 8);
 
         ignite::uuid value(most, least);
+        ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::UUID);
+        builder.append_uuid(value);
 
-        if (claim) {
-            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::UUID);
-            builder.claim_uuid(value);
-        } else {
-            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::UUID);
-            builder.append_uuid(value);
-        }
         return;
     }
 
