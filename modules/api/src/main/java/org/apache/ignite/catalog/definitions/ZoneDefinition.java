@@ -274,9 +274,9 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder distributionAlgorithm(String distributionAlgorithm) {
-            Objects.requireNonNull(distributionAlgorithm, "Distribution algorithm must not be null.");
+            Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
             if (distributionAlgorithm.isBlank()) {
-                throw new IllegalArgumentException("Distribution algorithm must not be blank.");
+                throw new IllegalArgumentException("Partition distribution algorithm must not be blank.");
             }
 
             this.distributionAlgorithm = distributionAlgorithm;
