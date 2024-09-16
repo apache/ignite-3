@@ -359,7 +359,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             int replicas,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+        Set<Assignment> calcAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(),
+                replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {
