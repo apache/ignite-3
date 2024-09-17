@@ -391,6 +391,5 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         return;
     }
 
-    // TODO: IGNITE-22745 Provide wider data types support
     throw ignite::ignite_error("Type is not supported: " + std::string(py_object_get_typename(obj)));
 }
