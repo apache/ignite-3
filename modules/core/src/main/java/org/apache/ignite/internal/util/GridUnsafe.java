@@ -213,7 +213,7 @@ public abstract class GridUnsafe {
             return newDirectBuf.order(NATIVE_BYTE_ORDER);
         } catch (Throwable e) {
             throw new RuntimeException("DirectByteBuffer#constructor is unavailable."
-                    + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN, e);
+                    + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 
@@ -232,7 +232,7 @@ public abstract class GridUnsafe {
             return newDirectBuf.order(NATIVE_BYTE_ORDER);
         } catch (Throwable e) {
             throw new RuntimeException("DirectByteBuffer#constructor is unavailable."
-                    + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN, e);
+                    + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 
@@ -1619,7 +1619,7 @@ public abstract class GridUnsafe {
             return mth.invoke(null);
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(pkgName + ".JavaNioAccess class is unavailable."
-                    + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN, e);
+                    + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 
@@ -1655,7 +1655,7 @@ public abstract class GridUnsafe {
                     .asType(mtdType);
         } catch (ReflectiveOperationException | PrivilegedActionException e) {
             throw new RuntimeException(accessPackage() + ".JavaNioAccess#newDirectByteBuffer() method is unavailable."
-                    + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN, e);
+                    + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 

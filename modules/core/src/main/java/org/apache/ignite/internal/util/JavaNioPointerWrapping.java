@@ -47,7 +47,7 @@ class JavaNioPointerWrapping implements PointerWrapping {
             return buf;
         } catch (Throwable e) {
             throw new RuntimeException("JavaNioAccess#newDirectByteBuffer() method is unavailable."
-                    + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN, e);
+                    + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 }

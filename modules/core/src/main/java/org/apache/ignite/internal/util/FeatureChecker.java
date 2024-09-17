@@ -21,8 +21,8 @@ package org.apache.ignite.internal.util;
  * Class extracted for fields from GridUnsafe to be absolutely independent with current and future static block initialization effects.
  */
 public class FeatureChecker {
-    /** Java version specific warning to be added in case access failed. */
-    public static final String JAVA_VERSION_OR_STARTUP_PARAMS_WARN = System.lineSeparator()
+    /** Java specific startup parameters warning to be added in case access failed. */
+    public static final String JAVA_STARTUP_PARAMS_WARN = System.lineSeparator()
             + "Please check the required parameters to JVM startup settings and restart the application."
             + " See https://ignite.apache.org/docs/3.0.0-beta/quick-start/getting-started-guide for more information.";
 }

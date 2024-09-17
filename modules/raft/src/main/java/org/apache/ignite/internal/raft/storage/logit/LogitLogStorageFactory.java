@@ -77,10 +77,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         try {
             Class.forName(DirectBuffer.class.getName());
         } catch (Throwable e) {
-            throw new IgniteInternalException(
-                    "sun.nio.ch.DirectBuffer is unavailable." + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN,
-                    e
-            );
+            throw new IgniteInternalException("sun.nio.ch.DirectBuffer is unavailable." + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 
