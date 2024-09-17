@@ -61,7 +61,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 
-    static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
+    public static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
         List<NumericPair> usedPairs = args.map(Arguments::get)
@@ -294,7 +294,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         }
     }
 
-    public static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
+    static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
         return new SingleArgFunctionReturnTypeCheckBuilder(type);
     }
 

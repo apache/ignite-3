@@ -40,7 +40,7 @@ import org.hamcrest.Matcher;
 
 /** Base class for check execution results of numeric operations. */
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
-    static Pair<Object, Object> generateDifferentValues(TypePair typePair) {
+    private static Pair<Object, Object> generateDifferentValues(TypePair typePair) {
         Object objFirst = SqlTestUtils.generateValueByType(typePair.first());
         assert objFirst != null;
         Object objSecond;
@@ -51,6 +51,29 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         } while (objFirst.toString().equals(objSecond.toString()));
 
         return new Pair<>(objFirst, objSecond);
+    }
+
+    static DataProvider<Object[]> nonEqDataProvider(TypePair typePair) {
+        Pair<Object, Object> objPair = generateDifferentValues(typePair);
+        Object val1 = objPair.getFirst();
+        Object val2 = objPair.getSecond();
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
+    static DataProvider<Object[]> eqDataProvider(TypePair typePair) {
+        Object val1;
+        Object val2;
+
+        if (typePair.first().equals(typePair.second())) {
+            val1 = generateConstantValueByType(typePair.first());
+            val2 = val1;
+        } else {
+            val1 = generateConstantValueByType(typePair.first());
+            val2 = generateConstantValueByType(typePair.second());
+        }
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
     static Object generateConstantValueByType(NativeType type) {
