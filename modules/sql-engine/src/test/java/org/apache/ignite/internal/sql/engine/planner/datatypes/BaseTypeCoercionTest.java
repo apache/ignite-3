@@ -47,13 +47,15 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.params.provider.Arguments;
 
-abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
+public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
     static Stream<Arguments> allNumericPairs() {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
@@ -197,14 +199,63 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    static TestCaseBuilder forTypePair(TypePair typePair) {
+    private static Matcher<Object> ofType(NativeType type) {
+        return new BaseMatcher<>() {
+            Object actual;
+            NativeType referenceType;
+            int precision = 0;
+            int scale = 0;
+            ColumnMetadata colMeta;
+
+            @Override
+            public boolean matches(Object actual) {
+                assert actual != null;
+                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
+                this.actual = pair.getFirst();
+                colMeta = pair.getSecond();
+
+                NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromClass(this.actual.getClass());
+
+                boolean checkPrecisionScale = false;
+
+                int typePrecision = 0;
+                int typeScale = 0;
+
+                if (this.actual instanceof BigDecimal) {
+                    assert type instanceof DecimalNativeType;
+                    typePrecision = ((DecimalNativeType) type).precision();
+                    typeScale = ((DecimalNativeType) type).scale();
+
+                    precision = ((BigDecimal) this.actual).precision();
+                    scale = ((BigDecimal) this.actual).scale();
+                    checkPrecisionScale = true;
+                }
+
+                referenceType = type;
+
+                boolean precCheck = checkPrecisionScale ? colMeta.precision() >= precision && colMeta.scale() >= scale : true;
+
+                return precCheck && nativeTypeSpec == type.spec()
+                        && typePrecision == precision
+                        && typeScale == scale;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}', column meta: {}",
+                        referenceType, actual.getClass(), precision, scale, colMeta));
+            }
+        };
+    }
+
+    public static TestCaseBuilder forTypePair(TypePair typePair) {
         return new TestCaseBuilder(typePair);
     }
 
     /**
      * Not really a builder, but provides DSL-like API to describe test case.
      */
-    static class TestCaseBuilder {
+    public static class TestCaseBuilder {
         private final TypePair pair;
         private Matcher<?> firstOpMatcher;
 
@@ -230,6 +281,10 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
             return this;
         }
 
+        public Arguments resultWillBe(NativeType type) {
+            return Arguments.of(pair, ofType(type));
+        }
+
         Arguments secondOpMatches(Matcher<?> operandMatcher) {
             return Arguments.of(pair, firstOpMatcher, operandMatcher);
         }
@@ -239,7 +294,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         }
     }
 
-    static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
+    public static SingleArgFunctionReturnTypeCheckBuilder forArgumentOfType(NativeType type) {
         return new SingleArgFunctionReturnTypeCheckBuilder(type);
     }
 
