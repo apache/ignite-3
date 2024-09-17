@@ -31,6 +31,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.rocksdb.DBOptions;
+import org.rocksdb.WriteOptions;
 
 class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
     @Override
@@ -75,7 +76,10 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
 
         DBOptions dbOptions = logStorageFactory.dbOptions();
         assertNotNull(dbOptions);
-
         assertEquals(expectedFsync, dbOptions.useFsync());
+
+        WriteOptions writeOptions = logStorageFactory.writeOptions();
+        assertNotNull(writeOptions);
+        assertEquals(expectedFsync, writeOptions.sync());
     }
 }

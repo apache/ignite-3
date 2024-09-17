@@ -290,10 +290,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
                 .setUseFsync(fsync);
     }
 
-    /** Returns current {@link DBOptions}. */
+    /** Returns current {@link DBOptions} (or {@code null} if the factory is not started yet).. */
     @TestOnly
     public @Nullable DBOptions dbOptions() {
         return dbOptions;
+    }
+
+    /** Returns current {@link WriteOptions} (or {@code null} if the factory is not started yet). */
+    @TestOnly
+    public @Nullable WriteOptions writeOptions() {
+        return writeOptions;
     }
 
     /**
