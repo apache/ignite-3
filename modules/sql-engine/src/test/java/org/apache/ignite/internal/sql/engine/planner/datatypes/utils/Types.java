@@ -29,6 +29,8 @@ import org.apache.ignite.internal.type.NativeTypes;
 public final class Types {
 
     public static final NativeType DECIMAL_1_0 = NativeTypes.decimalOf(1, 0);
+    public static final NativeType DECIMAL_1_1 = NativeTypes.decimalOf(1, 1);
+    public static final NativeType DECIMAL_1_3 = NativeTypes.decimalOf(1, 3);
     public static final NativeType DECIMAL_2_1 = NativeTypes.decimalOf(2, 1);
     public static final NativeType DECIMAL_4_3 = NativeTypes.decimalOf(4, 3);
 
