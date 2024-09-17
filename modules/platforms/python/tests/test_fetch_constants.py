@@ -60,7 +60,6 @@ test_data = [
     ("SELECT INTERVAL '145' DAY", datetime.timedelta(days=145)),
     ("SELECT INTERVAL '123456789' SECOND", datetime.timedelta(seconds=123456789)),
     ("SELECT INTERVAL '987654321.123' SECOND", datetime.timedelta(seconds=987654321, milliseconds=123)),
-
 ]
 
 

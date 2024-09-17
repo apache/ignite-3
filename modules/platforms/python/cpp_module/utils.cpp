@@ -128,6 +128,10 @@ PyObject* py_get_module_datetime_class() {
     LAZY_INIT_MODULE_CLASS("DATETIME");
 }
 
+PyObject* py_get_module_timestamp_class() {
+    LAZY_INIT_MODULE_CLASS("TIMESTAMP");
+}
+
 PyObject* py_get_module_number_class() {
     LAZY_INIT_MODULE_CLASS("NUMBER");
 }

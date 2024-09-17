@@ -133,6 +133,14 @@ PyObject* py_get_module_time_class();
 PyObject* py_get_module_datetime_class();
 
 /**
+ * Get module's TIMESTAMP class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return TIMESTAMP class.
+ */
+PyObject* py_get_module_timestamp_class();
+
+/**
  * Get module's NUMBER class instance.
  * Faster then loading the class the ordinary way as the class is cached.
  *

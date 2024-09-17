@@ -29,6 +29,7 @@
 
 #include <optional>
 #include <sstream>
+#include <cmath>
 
 #include <Python.h>
 
@@ -116,7 +117,8 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
 
         case ignite_type::TIMESTAMP: {
             auto &timestamp_val = value.get<ignite::ignite_timestamp>();
-            return py_create_datetime(timestamp_val);
+            auto double_val = timestamp_val.get_epoch_second() + timestamp_val.get_nano() * 1.0E-9;
+            return PyFloat_FromDouble(double_val);
         }
 
         case ignite_type::DECIMAL: {
@@ -155,6 +157,25 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
             builder.append_null();
             builder.append_null();
             builder.append_null();
+        }
+        return;
+    }
+
+    if (PyObject_IsInstance(obj, py_get_module_timestamp_class())) {
+        auto double_value = PyFloat_AsDouble(obj);
+        if (PyErr_Occurred()) {
+            throw ignite::ignite_error("Can not get ticks count from a TIMESTAMP value");
+        }
+
+        auto secs = std::int64_t(std::trunc(double_value));
+        auto nanos = std::lround((double_value - secs) * 1'000'000'000);
+        ignite::ignite_timestamp value(secs, nanos);
+        if (claim) {
+            ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::TIMESTAMP);
+            builder.claim_timestamp(value);
+        } else {
+            ignite::protocol::append_type_and_scale(builder, ignite::ignite_type::TIMESTAMP);
+            builder.append_timestamp(value);
         }
         return;
     }
@@ -295,7 +316,6 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
         if (!str_array) {
             throw ignite::ignite_error("Can not convert string to UTF-8");
         }
-        // To be called when the scope is left.
         auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
         auto *data = PyBytes_AsString(str_array);
@@ -341,6 +361,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 
     if (PyFloat_Check(obj)) {
         double val = PyFloat_AsDouble(obj);
+        if (PyErr_Occurred()) {
+            throw ignite::ignite_error("Can not convert FLOAT to a double");
+        }
+
         if (claim) {
             ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DOUBLE);
             builder.claim_double(val);
@@ -353,6 +377,10 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 
     if (PyLong_Check(obj)) {
         auto val = PyLong_AsLongLong(obj);
+        if (PyErr_Occurred()) {
+            throw ignite::ignite_error("Can not convert INT to a long long");
+        }
+
         if (claim) {
             ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::INT64);
             builder.claim_int64(val);
