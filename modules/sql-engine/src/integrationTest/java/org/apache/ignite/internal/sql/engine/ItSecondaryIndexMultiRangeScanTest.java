@@ -120,7 +120,7 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertCondition(direction, useDynamicParameters,
-                "(c1 < %s OR c1 >= %s) AND c2 = c1",
+                "(c1 < %s OR c1 >= %s) AND c2::INTEGER = c1",
                 2, 4)
                 .returns(1, "1", 1)
                 .returns(4, "4", 16)

@@ -557,7 +557,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 < c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -570,7 +570,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 <= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -583,7 +583,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 > c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -595,7 +595,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 >= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
         assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 

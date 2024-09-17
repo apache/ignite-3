@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlBasicFunction;
+import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
@@ -29,9 +30,11 @@ import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
+import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
+import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
@@ -44,6 +47,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Operator table that contains only Ignite-specific functions and operators.
  */
 public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
+    private static final SqlSingleOperandTypeChecker SAME_SAME =
+            new SameFamilyOperandTypeChecker(2);
+
     public static final SqlFunction LENGTH =
             new SqlFunction(
                     "LENGTH",
@@ -76,7 +82,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
                     null,
-                    OperandTypes.SAME_SAME,
+                    SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -91,7 +97,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
                     null,
-                    OperandTypes.SAME_SAME,
+                    SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -173,6 +179,110 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.DIVISION_OPERATOR,
             SqlFunctionCategory.NUMERIC);
 
+    /**
+     * Logical less-than operator, '{@code <}'.
+     */
+    public static final SqlBinaryOperator LESS_THAN =
+            new SqlBinaryOperator(
+                    "<",
+                    SqlKind.LESS_THAN,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical less-than-or-equal operator, '{@code <=}'.
+     */
+    public static final SqlBinaryOperator LESS_THAN_OR_EQUAL =
+            new SqlBinaryOperator(
+                    "<=",
+                    SqlKind.LESS_THAN_OR_EQUAL,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical equals operator, '{@code =}'.
+     */
+    public static final SqlBinaryOperator EQUALS =
+            new SqlBinaryOperator(
+                    "=",
+                    SqlKind.EQUALS,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical greater-than operator, '{@code >}'.
+     */
+    public static final SqlBinaryOperator GREATER_THAN =
+            new SqlBinaryOperator(
+                    ">",
+                    SqlKind.GREATER_THAN,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * {@code IS DISTINCT FROM} operator.
+     */
+    public static final SqlBinaryOperator IS_DISTINCT_FROM =
+            new SqlBinaryOperator(
+                    "IS DISTINCT FROM",
+                    SqlKind.IS_DISTINCT_FROM,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * {@code IS NOT DISTINCT FROM} operator. Is equivalent to {@code NOT(x IS DISTINCT FROM y)}.
+     */
+    public static final SqlBinaryOperator IS_NOT_DISTINCT_FROM =
+            new SqlBinaryOperator(
+                    "IS NOT DISTINCT FROM",
+                    SqlKind.IS_NOT_DISTINCT_FROM,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical greater-than-or-equal operator, '{@code >=}'.
+     */
+    public static final SqlBinaryOperator GREATER_THAN_OR_EQUAL =
+            new SqlBinaryOperator(
+                    ">=",
+                    SqlKind.GREATER_THAN_OR_EQUAL,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical not-equals operator, '{@code <>}'.
+     */
+    public static final SqlBinaryOperator NOT_EQUALS =
+            new SqlBinaryOperator(
+                    "<>",
+                    SqlKind.NOT_EQUALS,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -209,12 +319,12 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.NOT);
 
         // Comparisons.
-        register(SqlStdOperatorTable.LESS_THAN);
-        register(SqlStdOperatorTable.LESS_THAN_OR_EQUAL);
-        register(SqlStdOperatorTable.GREATER_THAN);
-        register(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL);
-        register(SqlStdOperatorTable.EQUALS);
-        register(SqlStdOperatorTable.NOT_EQUALS);
+        register(LESS_THAN);
+        register(LESS_THAN_OR_EQUAL);
+        register(GREATER_THAN);
+        register(GREATER_THAN_OR_EQUAL);
+        register(EQUALS);
+        register(NOT_EQUALS);
         register(SqlStdOperatorTable.BETWEEN);
         register(SqlStdOperatorTable.NOT_BETWEEN);
 
@@ -250,8 +360,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_NOT_TRUE);
         register(SqlStdOperatorTable.IS_FALSE);
         register(SqlStdOperatorTable.IS_NOT_FALSE);
-        register(SqlStdOperatorTable.IS_DISTINCT_FROM);
-        register(SqlStdOperatorTable.IS_NOT_DISTINCT_FROM);
+        register(IS_DISTINCT_FROM);
+        register(IS_NOT_DISTINCT_FROM);
 
         // LIKE and SIMILAR.
         register(SqlStdOperatorTable.LIKE);

@@ -167,10 +167,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
         }
 
-        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
-            assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
-        }
-
         try (Cursor<T> cur = view.query(null, columnValue("hash", equalTo("hash2".getBytes())))) {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
         }
@@ -272,13 +268,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(3),
                     hasEntry(personKey0, person0),
                     hasEntry(personKey1, person1),
-                    hasEntry(personKey2, person2)
-            ));
-        }
-
-        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
-            assertThat(mapToTupleMap(cur, mapper), allOf(
-                    aMapWithSize(1),
                     hasEntry(personKey2, person2)
             ));
         }

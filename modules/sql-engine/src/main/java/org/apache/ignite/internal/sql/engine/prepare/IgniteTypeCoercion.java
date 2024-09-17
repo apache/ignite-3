@@ -23,6 +23,7 @@ import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
@@ -104,54 +105,45 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
 
-        //
-        // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results
-        // for dynamic parameters:
-        //
-        // SELECT * FROM t WHERE int_col > ?:str
-        // Rejected: int and str do not have compatible type families.
-        //
-        // SELECT * FROM t WHERE str_col > ?:int
-        // Accepted: as it adds implicit cast to 'str_col' and we end up with
-        //
-        // SELECT * FROM t WHERE int(str_col) = ?:int
-        //
-        // Which is a perfectly valid plan, but it is not what one might expect.
+        if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+            return false;
+        }
+
         validateBinaryComparisonCoercion(binding, leftType, rightType, (IgniteSqlValidator) validator);
 
+        // If types are equal, no need in coercion.
         if (leftType.equals(rightType)) {
-            // If types are the same fallback to default rules.
-            return super.binaryComparisonCoercion(binding);
-        } else {
-            // Otherwise find the least restrictive type among the operand types
-            // and coerce the operands to that type if such type exists.
-            //
-            // An example of a least restrictive type from the javadoc for RelDataTypeFactory::leastRestrictive:
-            // leastRestrictive(INT, NUMERIC(3, 2)) could be NUMERIC(12, 2)
-            //
-            // A least restrictive type between types of different type families does not exist -
-            // the method returns null (See SqlTypeFactoryImpl::leastRestrictive).
-            //
-            RelDataType targetType = factory.leastRestrictive(Arrays.asList(leftType, rightType));
-
-            if (targetType == null) {
-                // If least restrictive type does not exist fallback to default rules.
-                return super.binaryComparisonCoercion(binding);
-            } else {
-                boolean coerced = false;
-
-                if (!leftType.equals(targetType)) {
-                    coerced = coerceOperandType(scope, call, 0, targetType);
-                }
-
-                if (!rightType.equals(targetType)) {
-                    boolean rightCoerced = coerceOperandType(scope, call, 1, targetType);
-                    coerced = coerced || rightCoerced;
-                }
-
-                return coerced;
-            }
+            return false;
         }
+
+        // Otherwise find the least restrictive type among the operand types
+        // and coerce the operands to that type if such type exists.
+        //
+        // An example of a least restrictive type from the javadoc for RelDataTypeFactory::leastRestrictive:
+        // leastRestrictive(INT, NUMERIC(3, 2)) could be NUMERIC(12, 2)
+        //
+        // A least restrictive type between types of different type families does not exist -
+        // the method returns null (See SqlTypeFactoryImpl::leastRestrictive).
+        //
+        RelDataType targetType = factory.leastRestrictive(Arrays.asList(leftType, rightType));
+
+        if (targetType == null) {
+            return false;
+        }
+
+        boolean coerced = false;
+
+        //noinspection SimplifiableIfStatement
+        if (!leftType.equals(targetType)) {
+            coerced = coerceOperandType(scope, call, 0, targetType);
+        }
+
+        if (!rightType.equals(targetType)) {
+            boolean rightCoerced = coerceOperandType(scope, call, 1, targetType);
+            coerced = coerced || rightCoerced;
+        }
+
+        return coerced;
     }
 
     /** {@inheritDoc} */
@@ -425,7 +417,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             // Make coercion to between type incompatible families illegal for set operations.
             // Returns false so that SetopOperandTypeChecker is going to raise appropriate exception,
             // when coercion fails.
-            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, originalDataType[0]);
+            return typeFamiliesAreCompatible(typeFactory, targetType, originalDataType[0]);
         } else {
             return true;
         }
@@ -745,7 +737,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         if (ctxType == ContextType.SET_OP) {
             RelDataType paramType = validator.resolveDynamicParameterType(dynamicParam, targetType);
-            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+            return typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         } else {
             validateAssignment(dynamicParam, targetType, ctxType, validator);
             return true;
@@ -757,7 +749,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23060 This condition must be simplified.
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType)
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType)
                 || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
 
         if (compatible) {
@@ -789,7 +781,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23060 This condition must be simplified.
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType)
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType)
                 || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
 
         if (compatible) {

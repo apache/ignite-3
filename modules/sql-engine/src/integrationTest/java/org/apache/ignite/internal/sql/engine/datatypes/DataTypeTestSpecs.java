@@ -72,7 +72,7 @@ public final class DataTypeTestSpecs {
             List<UUID> values = List.of(new UUID(1, 1), new UUID(2, 1), new UUID(3, 1));
             TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
+            samples.add(values);
 
             return samples.build();
         }

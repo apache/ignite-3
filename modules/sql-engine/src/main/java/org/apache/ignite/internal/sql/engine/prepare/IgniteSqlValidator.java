@@ -54,6 +54,7 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -75,6 +76,7 @@ import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
@@ -606,7 +609,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return deriveDynamicParamType((SqlDynamicParam) expr);
         }
 
-        checkTypesInteroperability(scope, expr);
+        validateCast(scope, expr);
 
         RelDataType dataType = super.deriveType(scope, expr);
 
@@ -675,72 +678,71 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Check appropriate type cast availability. */
-    private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
-        boolean castOp = expr.getKind() == SqlKind.CAST;
-
-        if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {
-            SqlBasicCall expr0 = (SqlBasicCall) expr;
-            SqlNode first = expr0.getOperandList().get(0);
-            SqlNode ret = expr0.getOperandList().get(1);
-
-            RelDataType firstType;
-            RelDataType returnType = super.deriveType(scope, ret);
-
-            if (returnType.isStruct()) {
-                throw newValidationError(expr, IgniteResource.INSTANCE.dataTypeIsNotSupported(returnType.getSqlTypeName().getName()));
-            }
-
-            if (first instanceof SqlDynamicParam) {
-                SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
-                firstType = deriveDynamicParamType(dynamicParam);
-            } else {
-                firstType = super.deriveType(scope, first);
-            }
-
-            boolean nullType = isNull(returnType) || isNull(firstType);
-
-            // propagate null type validation
-            if (nullType) {
-                return;
-            }
-
-            RelDataType returnCustomType = returnType instanceof IgniteCustomType ? returnType : null;
-            RelDataType fromCustomType = firstType instanceof IgniteCustomType ? firstType : null;
-
-            IgniteCustomTypeCoercionRules coercionRules = typeFactory().getCustomTypeCoercionRules();
-            boolean check;
-
-            if (fromCustomType != null && returnCustomType != null) {
-                // it`s not allowed to convert between different custom types for now.
-                check = SqlTypeUtil.equalSansNullability(typeFactory, firstType, returnType);
-            } else if (fromCustomType != null) {
-                check = coercionRules.needToCast(returnType, (IgniteCustomType) fromCustomType);
-            } else if (returnCustomType != null) {
-                check = coercionRules.needToCast(firstType, (IgniteCustomType) returnCustomType);
-            } else {
-                check = SqlTypeUtil.canCastFrom(returnType, firstType, true);
-            }
-
-            if (!check) {
-                if (castOp) {
-                    throw newValidationError(expr,
-                            RESOURCE.cannotCastValue(firstType.toString(), returnType.toString()));
-                } else {
-                    SqlBasicCall call = (SqlBasicCall) expr;
-                    SqlOperator operator = call.getOperator();
-
-                    var ex = RESOURCE.incompatibleValueType(operator.getName());
-                    throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-                }
-            }
-
-            if (castOp) {
-                if (SqlTypeUtil.isString(returnType) && returnType.getPrecision() == 0) {
-                    String typeName = returnType.getSqlTypeName().getSpaceName();
-                    throw newValidationError(expr, IgniteResource.INSTANCE.invalidStringLength(typeName));
-                }
-            }
+    private void validateCast(SqlValidatorScope scope, SqlNode expr) {
+        if (expr.getKind() != SqlKind.CAST) {
+            return;
         }
+
+        // An operand checker of CAST operator uses SqlTypeUtil.canCastFrom method to ensure
+        // cast is allowed from given operand to a target type. This utility methods allows 
+        // every type to be casted to type ANY. Unfortunately, custom types, like UUID, uses the
+        // same type name (ANY), which makes possible to cast any operand to UUID. This is not desired
+        // behaviour, so we introduced explicit operand type checking for CAST operator to properly
+        // handle custom types.
+
+        SqlBasicCall expr0 = (SqlBasicCall) expr;
+        SqlNode castOperand = expr0.getOperandList().get(0);
+        SqlNode toType = expr0.getOperandList().get(1);
+
+        RelDataType returnType = super.deriveType(scope, toType);
+
+        if (returnType.isStruct()) {
+            throw newValidationError(expr, IgniteResource.INSTANCE.dataTypeIsNotSupported(returnType.getSqlTypeName().getName()));
+        }
+
+        RelDataType operandType = deriveType(scope, castOperand);
+
+        boolean nullType = isNull(returnType) || isNull(operandType);
+
+        // propagate null type validation
+        if (nullType) {
+            return;
+        }
+
+        RelDataType returnCustomType = returnType instanceof IgniteCustomType ? returnType : null;
+        RelDataType operandCustomType = operandType instanceof IgniteCustomType ? operandType : null;
+
+        IgniteCustomTypeCoercionRules coercionRules = typeFactory().getCustomTypeCoercionRules();
+
+        boolean check;
+        if (operandCustomType != null && returnCustomType != null) {
+            // it`s not allowed to convert between different custom types for now.
+            check = SqlTypeUtil.equalSansNullability(typeFactory, operandType, returnType);
+        } else if (operandCustomType != null) {
+            check = coercionRules.needToCast(returnType, (IgniteCustomType) operandCustomType);
+        } else if (returnCustomType != null) {
+            check = coercionRules.needToCast(operandType, (IgniteCustomType) returnCustomType);
+        } else {
+            check = SqlTypeUtil.canCastFrom(returnType, operandType, true);
+        }
+
+        if (!check) {
+            throw newValidationError(expr,
+                    RESOURCE.cannotCastValue(operandType.toString(), returnType.toString()));
+        }
+    }
+
+    @Override
+    public void validateDataType(SqlDataTypeSpec dataType) {
+        RelDataType type = dataType.deriveType(this);
+
+        if (SqlTypeUtil.isString(type) && type.getPrecision() == 0) {
+            String typeName = type.getSqlTypeName().getSpaceName();
+
+            throw newValidationError(dataType, IgniteResource.INSTANCE.invalidStringLength(typeName));
+        }
+
+        super.validateDataType(dataType);
     }
 
     @Override
@@ -775,6 +777,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return super.performUnconditionalRewrites(node, underFrom);
+    }
+
+    @Override
+    public SqlTypeMappingRule getTypeMappingRule() {
+        return IgniteCustomAssignmentsRules.instance();
     }
 
     /** Rewrites JOIN clause if required. */
