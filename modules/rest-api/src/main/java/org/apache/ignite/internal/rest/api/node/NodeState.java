@@ -31,7 +31,7 @@ public class NodeState {
     @Schema(description = "Unique node name.", requiredMode = RequiredMode.REQUIRED)
     private final String name;
 
-    @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Node state.", requiredMode = RequiredMode.REQUIRED)
     private final State state;
 
     /**
