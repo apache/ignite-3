@@ -15,12 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-/** Test class for {@link RestartPartitionsCommand}. */
-public class ItRestartPartitionsCommandTest extends ItRestartPartitionsTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return RestartPartitionsCommand.class;
+import java.util.Set;
+import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+
+/** Container of dirty pages and partitions. */
+class DirtyPagesAndPartitions {
+    final PersistentPageMemory pageMemory;
+
+    final FullPageId[] dirtyPages;
+
+    final Set<GroupPartitionId> dirtyPartitions;
+
+    DirtyPagesAndPartitions(PersistentPageMemory pageMemory, FullPageId[] dirtyPages, Set<GroupPartitionId> dirtyPartitions) {
+        this.pageMemory = pageMemory;
+        this.dirtyPages = dirtyPages;
+        this.dirtyPartitions = dirtyPartitions;
     }
 }

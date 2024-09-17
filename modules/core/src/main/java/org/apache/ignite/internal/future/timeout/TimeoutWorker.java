@@ -105,7 +105,7 @@ public class TimeoutWorker extends IgniteWorker {
                 try {
                     Thread.sleep(sleepInterval);
                 } catch (InterruptedException e) {
-                    log.info("The timeout worker was interrupted, probably the client is stopping.");
+                    log.info("The timeout worker was interrupted, probably the worker is stopping.");
                 }
 
                 updateHeartbeat();

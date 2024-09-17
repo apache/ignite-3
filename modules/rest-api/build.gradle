@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-rest-api'
 
@@ -50,6 +51,10 @@ dependencies {
     testImplementation libs.micronaut.http.server.netty
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.micronaut.http.core
 }
 
 ext {
