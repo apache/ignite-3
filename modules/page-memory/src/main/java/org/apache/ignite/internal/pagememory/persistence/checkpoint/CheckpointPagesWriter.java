@@ -192,7 +192,7 @@ public class CheckpointPagesWriter implements Runnable {
     ) throws IgniteInternalCheckedException {
         CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
 
-        checkpointProgress.onStartPartitionProcessing(partitionId);
+        checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
             if (shouldWriteMetaPage(partitionId)) {
@@ -212,7 +212,7 @@ public class CheckpointPagesWriter implements Runnable {
                 writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
             }
         } finally {
-            checkpointProgress.onFinishPartitionProcessing(partitionId);
+            checkpointProgress.unblockPartitionDestruction(partitionId);
         }
     }
 
@@ -258,19 +258,19 @@ public class CheckpointPagesWriter implements Runnable {
 
                     if (partitionIdChanged(partitionId, pageId)) {
                         if (partitionId != null) {
-                            checkpointProgress.onFinishPartitionProcessing(partitionId);
+                            checkpointProgress.unblockPartitionDestruction(partitionId);
                         }
 
                         partitionId = GroupPartitionId.convert(pageId);
 
-                        checkpointProgress.onStartPartitionProcessing(partitionId);
+                        checkpointProgress.blockPartitionDestruction(partitionId);
                     }
 
                     writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
                 }
             } finally {
                 if (partitionId != null) {
-                    checkpointProgress.onFinishPartitionProcessing(partitionId);
+                    checkpointProgress.unblockPartitionDestruction(partitionId);
                 }
             }
         }
@@ -314,7 +314,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                     GroupPartitionId partitionId = GroupPartitionId.convert(cpPageId);
 
-                    checkpointProgress.onStartPartitionProcessing(partitionId);
+                    checkpointProgress.blockPartitionDestruction(partitionId);
 
                     try {
                         if (shouldWriteMetaPage(partitionId)) {
@@ -323,7 +323,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                         pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
                     } finally {
-                        checkpointProgress.onFinishPartitionProcessing(partitionId);
+                        checkpointProgress.unblockPartitionDestruction(partitionId);
                     }
                 }
             }

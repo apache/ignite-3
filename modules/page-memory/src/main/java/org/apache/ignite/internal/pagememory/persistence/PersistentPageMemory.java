@@ -914,6 +914,9 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Marks partition as invalid / outdated.
      *
+     * <p>Used when destroying a partition, so that when reading or writing pages, they are considered outdated. And, for example, they
+     * were not written to disk, but were freed in memory at a checkpoint.</p>
+     *
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @return New partition generation (growing 1-based partition file version).
