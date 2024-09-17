@@ -32,6 +32,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -322,6 +323,18 @@ public class CmgRaftService implements ManuallyCloseable {
         } else {
             return raftService.resetLearners(newConfiguration.learners());
         }
+    }
+
+    /**
+     * Changes Metastorage nodes.
+     *
+     * @return Future that completes when the change is finished.
+     */
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
+        ChangeMetastorageNodesCommand command = msgFactory.changeMetastorageNodesCommand()
+                .metaStorageNodes(Set.copyOf(newMetastorageNodes))
+                .build();
+        return raftService.run(command);
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.disaster.system.message;
 
+import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -25,6 +26,9 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(SystemDisasterRecoveryMessageGroup.BECOME_METASTORAGE_LEADER)
 public interface BecomeMetastorageLeaderMessage extends NetworkMessage {
-    /** Whether leader secondary duties (managing learners, propagating idle safe time) should be paused. */
-    boolean pauseLeaderSecondaryDuties();
+    /** Term that Metastorage on the target node has before we make it become the leader. */
+    long termBeforeChange();
+
+    /** Voting set members (aka peers) which we want to achieve (becoming a leader is just the first step in doing so). */
+    Set<String> targetVotingSet();
 }

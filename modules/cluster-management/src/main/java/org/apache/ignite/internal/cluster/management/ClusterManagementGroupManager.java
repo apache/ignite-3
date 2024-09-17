@@ -264,11 +264,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
      */
-    public void initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) throws NodeStoppingException {
+    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName)
+            throws NodeStoppingException {
         sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
@@ -1052,6 +1049,24 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         try {
             return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(nodeAttributes));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Changes metastorage nodes in the CMG.
+     *
+     * @return Future that completes when the command is executed by the CMG.
+     */
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(service -> service.changeMetastorageNodes(newMetastorageNodes));
         } finally {
             busyLock.leaveBusy();
         }
