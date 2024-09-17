@@ -75,8 +75,13 @@ public class SegmentFile extends AbstractFile {
             return doAppend(logIndex, addr -> {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
-                // Name is stupid and confusing, but it's a right code for the moment.
-                GridUnsafe.putIntLittleEndian(addr + 2, data.length);
+
+                if (GridUnsafe.IS_BIG_ENDIAN) {
+                    GridUnsafe.putInt(addr + 2, data.length);
+                } else {
+                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(data.length));
+                }
+
                 GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, addr + 6, data.length);
 
                 return getWriteBytes(data);
@@ -88,9 +93,11 @@ public class SegmentFile extends AbstractFile {
 
     /**
      *
-     * Write the data and return it's wrote position.
+     * Write the data and return it's wrote position. Based on {@link #appendData(long, byte[])}, but more efficient.
      * @param logIndex the log index
-     * @param data     data to write
+     * @param encoder Log entry encoder
+     * @param entry Log entry
+     * @param entrySize Pre-calculated serialized entry size
      * @return the wrote position
      */
     public int appendData(final long logIndex, V1Encoder encoder, LogEntry entry, int entrySize) {
@@ -101,8 +108,12 @@ public class SegmentFile extends AbstractFile {
             return doAppend(logIndex, addr -> {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
-                // Name is stupid and confusing, but it's a right code for the moment.
-                GridUnsafe.putIntLittleEndian(addr + 2, entrySize);
+
+                if (GridUnsafe.IS_BIG_ENDIAN) {
+                    GridUnsafe.putInt(addr + 2, entrySize);
+                } else {
+                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(entrySize));
+                }
 
                 encoder.append(addr + 6, entry);
 

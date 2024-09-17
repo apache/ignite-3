@@ -83,7 +83,6 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
         if (!this.serviceManager.init(logStoreFactory)) {
             return false;
         }
-        //TODO Use one file
         this.fileManager = logStoreFactory.newFileManager(getDBFileType(), this.storePath,
             this.serviceManager.getAllocateService());
         final int interval = this.storeOptions.getCheckpointFlushStatusInterval();
@@ -338,8 +337,10 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     }
 
     /**
-     * Write the data and return it's wrote position.
-     * @param data logEntry data
+     * Write the data and return it's wrote position. Based on {@link #appendLogAsync(long, byte[])}, but more efficient.
+     *
+     * @param encoder Log entry encoder
+     * @param logEntry Log entry
      * @return (wrotePosition, expectFlushPosition)
      */
     public Pair<Integer, Long> appendLogAsync(final long logIndex, LogEntryEncoder encoder, LogEntry logEntry) {

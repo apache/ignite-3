@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -36,16 +35,23 @@ public final class V1Encoder implements LogEntryEncoder {
     private V1Encoder() {
     }
 
-    public static final LogEntryEncoder INSTANCE = new V1Encoder();
+    public static final V1Encoder INSTANCE = new V1Encoder();
 
-    public int size(LogEntry log) {
-        EntryType type = log.getType();
-        LogId id = log.getId();
-        List<PeerId> peers = log.getPeers();
-        List<PeerId> oldPeers = log.getOldPeers();
-        List<PeerId> learners = log.getLearners();
-        List<PeerId> oldLearners = log.getOldLearners();
-        ByteBuffer data = log.getData();
+    /**
+     * Returns a size of an encoded entry. Must match the size of {@link #encode(LogEntry)} output.
+     *
+     * @param logEntry Log entry.
+     */
+    public int size(LogEntry logEntry) {
+        EntryType type = logEntry.getType();
+        LogId id = logEntry.getId();
+
+        List<PeerId> peers = logEntry.getPeers();
+        List<PeerId> oldPeers = logEntry.getOldPeers();
+        List<PeerId> learners = logEntry.getLearners();
+        List<PeerId> oldLearners = logEntry.getOldLearners();
+
+        ByteBuffer data = logEntry.getData();
 
         int totalLen = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
         int typeNumber = type.getNumber();
@@ -56,11 +62,8 @@ public final class V1Encoder implements LogEntryEncoder {
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
             totalLen += nodesListSizeInBytes(peers);
-
             totalLen += nodesListSizeInBytes(oldPeers);
-
             totalLen += nodesListSizeInBytes(learners);
-
             totalLen += nodesListSizeInBytes(oldLearners);
         }
 
@@ -72,14 +75,22 @@ public final class V1Encoder implements LogEntryEncoder {
         return totalLen;
     }
 
-    public void append(long addr, LogEntry log) {
-        EntryType type = log.getType();
-        LogId id = log.getId();
-        List<PeerId> peers = log.getPeers();
-        List<PeerId> oldPeers = log.getOldPeers();
-        List<PeerId> learners = log.getLearners();
-        List<PeerId> oldLearners = log.getOldLearners();
-        ByteBuffer data = log.getData();
+    /**
+     * Writes the same data as {@link #encode(LogEntry)} directly into a given address.
+     *
+     * @param addr Off-heap address.
+     * @param logEntry Log entry.
+     */
+    public void append(long addr, LogEntry logEntry) {
+        EntryType type = logEntry.getType();
+        LogId id = logEntry.getId();
+
+        List<PeerId> peers = logEntry.getPeers();
+        List<PeerId> oldPeers = logEntry.getOldPeers();
+        List<PeerId> learners = logEntry.getLearners();
+        List<PeerId> oldLearners = logEntry.getOldLearners();
+
+        ByteBuffer data = logEntry.getData();
 
         int typeNumber = type.getNumber();
         long index = id.getIndex();
@@ -91,7 +102,12 @@ public final class V1Encoder implements LogEntryEncoder {
         addr = writeLong(index, addr);
         addr = writeLong(term, addr);
 
-        GridUnsafe.putLongLittleEndian(addr, log.getChecksum());
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putLong(addr, logEntry.getChecksum());
+        } else {
+            GridUnsafe.putLong(addr, Long.reverseBytes(logEntry.getChecksum()));
+        }
+
         addr += Long.BYTES;
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
@@ -124,23 +140,14 @@ public final class V1Encoder implements LogEntryEncoder {
 
         totalLen += sizeInBytes(typeNumber) + sizeInBytes(index) + sizeInBytes(term) + 8;
 
-        List<String> peerStrs = null;
-        List<String> oldPeerStrs = null;
-        List<String> learnerStrs = null;
-        List<String> oldLearnerStrs = null;
-
         if (type != EntryType.ENTRY_TYPE_DATA) {
-            peerStrs = new ArrayList<>();
-            totalLen += nodesListSizeInBytes(peers, peerStrs);
+            totalLen += nodesListSizeInBytes(peers);
 
-            oldPeerStrs = new ArrayList<>();
-            totalLen += nodesListSizeInBytes(oldPeers, oldPeerStrs);
+            totalLen += nodesListSizeInBytes(oldPeers);
 
-            learnerStrs = new ArrayList<>();
-            totalLen += nodesListSizeInBytes(learners, learnerStrs);
+            totalLen += nodesListSizeInBytes(learners);
 
-            oldLearnerStrs = new ArrayList<>();
-            totalLen += nodesListSizeInBytes(oldLearners, oldLearnerStrs);
+            totalLen += nodesListSizeInBytes(oldLearners);
         }
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
@@ -160,13 +167,13 @@ public final class V1Encoder implements LogEntryEncoder {
         pos += Long.BYTES;
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
-            pos = writeNodesList(pos, content, peerStrs);
+            pos = writeNodesList(pos, content, peers);
 
-            pos = writeNodesList(pos, content, oldPeerStrs);
+            pos = writeNodesList(pos, content, oldPeers);
 
-            pos = writeNodesList(pos, content, learnerStrs);
+            pos = writeNodesList(pos, content, learners);
 
-            pos = writeNodesList(pos, content, oldLearnerStrs);
+            pos = writeNodesList(pos, content, oldLearners);
         }
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
@@ -176,30 +183,14 @@ public final class V1Encoder implements LogEntryEncoder {
         return content;
     }
 
-    private static int nodesListSizeInBytes(@Nullable List<PeerId> nodes, List<String> nodeStrs) {
-        int size = 0;
-
-        if (nodes != null) {
-            for (PeerId node : nodes) {
-                String nodeStr = node.toString();
-
-                nodeStrs.add(nodeStr);
-                size += 2 + nodeStr.length();
-            }
-        }
-
-        return size + sizeInBytes(nodeStrs.size());
-    }
-
-
     private static int nodesListSizeInBytes(@Nullable List<PeerId> nodes) {
         if (nodes != null) {
             int size = 0;
 
             for (PeerId node : nodes) {
-                String nodeStr = node.toString();
+                String consistentId = node.getConsistentId();
 
-                size += 2 + nodeStr.length();
+                size += 2 + consistentId.length() + sizeInBytes(node.getIdx()) + sizeInBytes(node.getPriority() + 1);
             }
 
             return size + sizeInBytes(nodes.size());
@@ -216,7 +207,7 @@ public final class V1Encoder implements LogEntryEncoder {
         addr = writeLong(nodes.size(), addr);
 
         for (PeerId node : nodes) {
-            String nodeStr = node.toString();
+            String nodeStr = node.getConsistentId();
             int length = nodeStr.length();
 
             GridUnsafe.putShortLittleEndian(addr, (short) length);
@@ -226,22 +217,35 @@ public final class V1Encoder implements LogEntryEncoder {
                 GridUnsafe.putByte(addr + i, (byte) nodeStr.charAt(i));
             }
             addr += length;
+
+            addr = writeLong(node.getIdx(), addr);
+            addr = writeLong(node.getPriority() + 1, addr);
         }
 
         return addr;
     }
 
-    private static int writeNodesList(int pos, byte[] content, List<String> nodeStrs) {
+    private static int writeNodesList(int pos, byte[] content, List<PeerId> nodeStrs) {
+        if (nodeStrs == null) {
+            content[pos] = 0;
+
+            return pos + 1;
+        }
+
         pos = writeLong(nodeStrs.size(), content, pos);
 
-        for (String nodeStr : nodeStrs) {
-            int length = nodeStr.length();
+        for (PeerId peerId : nodeStrs) {
+            String consistentId = peerId.getConsistentId();
+            int length = consistentId.length();
 
             Bits.putShort(content, pos, (short) length);
             pos += 2;
 
-            AsciiStringUtil.unsafeEncode(nodeStr, content, pos);
+            AsciiStringUtil.unsafeEncode(consistentId, content, pos);
             pos += length;
+
+            pos = writeLong(peerId.getIdx(), content, pos);
+            pos = writeLong(peerId.getPriority() + 1, content, pos);
         }
 
         return pos;

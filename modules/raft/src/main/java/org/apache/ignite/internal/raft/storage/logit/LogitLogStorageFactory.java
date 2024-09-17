@@ -115,7 +115,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     @Override
     public void sync() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
-        // No-op.
     }
 
     /** Returns path to log storage by group ID. */

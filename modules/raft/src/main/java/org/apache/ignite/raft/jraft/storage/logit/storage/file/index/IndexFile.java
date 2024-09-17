@@ -149,10 +149,14 @@ public class IndexFile extends AbstractFile {
             return doAppend(logIndex, addr -> {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, logType);
-                // Name is stupid and confusing, but it's a right code for the moment.
-                GridUnsafe.putIntLittleEndian(addr + 2, toRelativeOffset(logIndex));
-                // Name is stupid and confusing, but it's a right code for the moment.
-                GridUnsafe.putIntLittleEndian(addr + 6, position);
+
+                if (GridUnsafe.IS_BIG_ENDIAN) {
+                    GridUnsafe.putInt(addr + 2, toRelativeOffset(logIndex));
+                    GridUnsafe.putInt(addr + 6, position);
+                } else {
+                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(toRelativeOffset(logIndex)));
+                    GridUnsafe.putInt(addr + 6, Integer.reverseBytes(position));
+                }
 
                 return getIndexSize();
             });

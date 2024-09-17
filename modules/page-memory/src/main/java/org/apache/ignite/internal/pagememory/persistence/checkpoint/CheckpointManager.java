@@ -309,10 +309,8 @@ public class CheckpointManager {
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
-        if (!lastCheckpointProgress.inProgress()) {
-            // Checkpoint is already finished concurrently.
-            return;
-        }
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23212 This assertion fails sometimes.
+        assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
 
         CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
 
