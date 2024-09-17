@@ -592,7 +592,7 @@ public class IgniteImpl implements Ignite {
                 "cluster-management-group log",
                 clusterSvc.nodeName(),
                 cmgWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
@@ -662,7 +662,7 @@ public class IgniteImpl implements Ignite {
                 "meta-storage log",
                 clusterSvc.nodeName(),
                 metastorageWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
