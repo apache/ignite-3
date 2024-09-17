@@ -65,6 +65,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -89,16 +90,10 @@ public class LeaseUpdater {
     /** Update attempts interval in milliseconds. */
     private static final long UPDATE_LEASE_MS = 500L;
 
-    /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
-
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean active = new AtomicBoolean();
-
-    /** The interval in milliseconds that is used in the beginning of lease granting process. */
-    private final long longLeaseInterval;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -111,6 +106,8 @@ public class LeaseUpdater {
 
     /** Topology tracker. */
     private final TopologyTracker topologyTracker;
+
+    private final ReplicationConfiguration replicationConfiguration;
 
     /** Lease tracker. */
     private final LeaseTracker leaseTracker;
@@ -139,6 +136,7 @@ public class LeaseUpdater {
      * @param leaseTracker Lease tracker.
      * @param clockService Clock service.
      * @param assignmentsTracker Assignments tracker.
+     * @param replicationConfiguration Replication configuration.
      */
     LeaseUpdater(
             String nodeName,
@@ -147,15 +145,16 @@ public class LeaseUpdater {
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
             ClockService clockService,
-            AssignmentsTracker assignmentsTracker
+            AssignmentsTracker assignmentsTracker,
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clockService = clockService;
+        this.replicationConfiguration = replicationConfiguration;
 
-        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = assignmentsTracker;
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
@@ -370,7 +369,9 @@ public class LeaseUpdater {
 
             leaseUpdateStatistics = new LeaseStats();
 
-            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
+            long leaseExpirationInterval = replicationConfiguration.leaseExpirationInterval().value();
+
+            long outdatedLeaseThreshold = now.getPhysical() + leaseExpirationInterval / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
@@ -412,7 +413,7 @@ public class LeaseUpdater {
                                 : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
                                 + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
-                        publishLease(grpId, negotiatedLease, renewedLeases);
+                        publishLease(grpId, negotiatedLease, renewedLeases, leaseExpirationInterval);
 
                         continue;
                     } else if (!lease.isProlongable() || agreement.isDeclined()) {
@@ -450,7 +451,7 @@ public class LeaseUpdater {
                         toBeNegotiated.put(grpId, force);
                     } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
                         // Old lease is renewed.
-                        prolongLease(grpId, lease, renewedLeases);
+                        prolongLease(grpId, lease, renewedLeases, leaseExpirationInterval);
                     }
                 }
             }
@@ -565,7 +566,9 @@ public class LeaseUpdater {
         ) {
             HybridTimestamp startTs = clockService.now();
 
-            var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
+            long interval = replicationConfiguration.leaseAgreementAcceptanceTimeLimit().value();
+
+            var expirationTs = new HybridTimestamp(startTs.getPhysical() + interval, 0);
 
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
@@ -583,8 +586,13 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to prolong.
          */
-        private void prolongLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
+        private void prolongLease(
+                ReplicationGroupId grpId,
+                Lease lease,
+                Map<ReplicationGroupId, Lease> renewedLeases,
+                long leaseExpirationInterval
+        ) {
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + leaseExpirationInterval, 0);
 
             Lease renewedLease = lease.prolongLease(newTs);
 
@@ -600,8 +608,13 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to accept.
          */
-        private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
+        private void publishLease(
+                ReplicationGroupId grpId,
+                Lease lease,
+                Map<ReplicationGroupId, Lease> renewedLeases,
+                long leaseExpirationInterval
+        ) {
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + leaseExpirationInterval, 0);
 
             Lease renewedLease = lease.acceptLease(newTs);
 

@@ -80,6 +80,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -103,6 +104,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -305,7 +309,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    clockService
+                    clockService,
+                    replicationConfiguration
             );
 
             res.add(new Node(

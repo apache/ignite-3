@@ -722,6 +722,9 @@ public class IgniteImpl implements Ignite {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
+        ReplicationConfiguration replicationConfig = clusterConfigRegistry
+                .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -731,11 +734,9 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clockService
+                clockService,
+                replicationConfig
         );
-
-        ReplicationConfiguration replicationConfig = clusterConfigRegistry
-                .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
