@@ -55,12 +55,16 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.params.provider.Arguments;
 
+/** Base class for testing types coercion. */
 public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
     static Stream<Arguments> allNumericPairs() {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 
+    /**
+     * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
+     */
     public static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 

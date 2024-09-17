@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.planner.datatypes.BaseTypeCoercionTest.checkIncludesAllNumericTypePairs;
 import static org.apache.ignite.internal.sql.engine.planner.datatypes.BaseTypeCoercionTest.forTypePair;
 
@@ -31,10 +30,6 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -100,11 +95,8 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
         }
     }
 
-    /**
-     * This test ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
-     */
     @Test
-    void checkAllTypePairs() {
+    public void checkAllTypePairs() {
         checkIncludesAllNumericTypePairs(sumArgs());
         checkIncludesAllNumericTypePairs(subtractArgs());
         checkIncludesAllNumericTypePairs(multArgs());
@@ -812,58 +804,5 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
 
                 forTypePair(NumericPair.DOUBLE_DOUBLE).resultWillBe(NativeTypes.DOUBLE)
         );
-    }
-
-/*
-    private static ExecutionResultBuilder forTypePair1(TypePair typePair, String exp) {
-        return new ExecutionResultBuilder(typePair, exp);
-    }*/
-
-/*    static class ExecutionResultBuilder {
-        private final TypePair pair;
-        private Matcher<?> opMatcher;
-        private final String expression;
-
-        private ExecutionResultBuilder(TypePair pair, String exp) {
-            this.pair = pair;
-            expression = exp;
-        }
-
-        Arguments fail() {
-            opMatcher = ofBoolType(false);
-
-            return Arguments.of(pair, expression, opMatcher);
-        }
-
-        Arguments ok() {
-            opMatcher = ofBoolType(true);
-
-            return Arguments.of(pair, expression, opMatcher);
-        }
-
-        Arguments type(NumericPair type, Operation op) {
-            opMatcher = ofType(type, op);
-
-            return Arguments.of(pair, expression, opMatcher);
-        }
-    }*/
-
-    private static Matcher<Object> ofBoolType(Boolean compResult) {
-        return new BaseMatcher<>() {
-            Object actual;
-
-            @Override
-            public boolean matches(Object actual) {
-                assert actual != null;
-                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-                this.actual = pair.getFirst();
-                return compResult.equals(this.actual);
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}'", compResult, actual));
-            }
-        };
     }
 }
