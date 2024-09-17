@@ -44,11 +44,18 @@ class diagnosable;
 }
 
 /**
- * Check odbc object for errors, and set a proper Python exception, if there are.
+ * Check ODBC object for errors, and set a proper Python exception, if there are.
  * @param diag Diagnosable object instance.
  * @return @c true if there is no error, and @c false, if there is an error.
  */
 bool check_errors(ignite::diagnosable& diag);
+
+/**
+ * Get current exception as a string.
+ *
+ * @return Current exception as a string.
+ */
+std::string get_current_exception_as_string();
 
 /**
  * Get a typename of the PyObject instance safely, if possible.

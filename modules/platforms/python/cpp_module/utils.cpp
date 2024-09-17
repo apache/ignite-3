@@ -49,10 +49,24 @@ bool check_errors(ignite::diagnosable& diag) {
             break;
     }
 
-    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
+    // TODO: IGNITE-23218 Set a proper error here, not a standard one.
     PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
 
     return false;
+}
+
+std::string get_current_exception_as_string() {
+    auto err_obj = PyErr_Occurred();
+    if (!err_obj)
+        return {};
+
+    auto err_str_obj = PyObject_Str(err_obj);
+    if (!err_str_obj)
+        return "<Can not cast exception to a string>";
+
+    auto *data = PyBytes_AsString(err_str_obj);
+    auto len = PyBytes_Size(err_str_obj);
+    return {data, std::size_t(len)};
 }
 
 const char* py_object_get_typename(PyObject* obj) {
@@ -103,13 +117,17 @@ PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name) {
 std::int64_t py_get_attr_int(PyObject* obj, const char* attr_name) {
     auto attr_obj = PyObject_GetAttrString(obj, attr_name);
     if (!attr_obj) {
-        throw ignite::ignite_error("Can not get an Object's attribute: " + std::string(attr_name));
+        throw ignite::ignite_error(get_current_exception_as_string());
     }
     auto attr_obj_guard = ignite::detail::defer([&] { Py_DECREF(attr_obj); });
     if (PyErr_Occurred()) {
-        throw ignite::ignite_error("An Object's attribute is not an integer : " + std::string(attr_name));
+        throw ignite::ignite_error(get_current_exception_as_string());
     }
-    return PyLong_AsLongLong(attr_obj);
+    auto res = PyLong_AsLongLong(attr_obj);
+    if (PyErr_Occurred()) {
+        throw ignite::ignite_error(get_current_exception_as_string());
+    }
+    return res;
 }
 
 PyObject* py_get_module_uuid_class() {
@@ -310,7 +328,6 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
 }
 
 PyObject* py_create_datetime(const ignite::ignite_timestamp &value) {
-    // TODO: Cache classes and functions for re-use
     auto datetime_class = py_get_module_datetime_class();
     if (!datetime_class)
         return nullptr;

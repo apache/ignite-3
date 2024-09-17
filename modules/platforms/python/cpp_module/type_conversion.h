@@ -135,6 +135,7 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
         }
 
         case ignite_type::PERIOD:{
+            // TODO: IGNITE-23217 DB API Driver 3: Add support for PERIOD data type
             PyErr_SetString(PyExc_RuntimeError, "PERIOD data type is not supported");
             return nullptr;
         }
@@ -162,11 +163,7 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     }
 
     if (PyObject_IsInstance(obj, py_get_module_timestamp_class())) {
-        auto double_value = PyFloat_AsDouble(obj);
-        if (PyErr_Occurred()) {
-            throw ignite::ignite_error("Can not get ticks count from a TIMESTAMP value");
-        }
-
+        auto double_value = PyFloat_AS_DOUBLE(obj);
         auto secs = std::int64_t(std::trunc(double_value));
         auto nanos = std::lround((double_value - secs) * 1'000'000'000);
         ignite::ignite_timestamp value(secs, nanos);
@@ -183,13 +180,13 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyObject_IsInstance(obj, py_get_module_number_class())) {
         auto obj_str = PyObject_Str(obj);
         if (!obj_str) {
-            throw ignite::ignite_error("Can not convert NUMBER to str");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
         auto obj_str_guard = ignite::detail::defer([&] { Py_DECREF(obj_str); });
 
         auto str_array = PyUnicode_AsUTF8String(obj_str);
         if (!str_array) {
-            throw ignite::ignite_error("Can not convert NUMBER string to UTF-8");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
         auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
@@ -286,18 +283,18 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
 
         auto py_bytes = PyObject_GetAttrString(obj, "bytes");
         if (!py_bytes) {
-            throw ignite::ignite_error("Can not convert UUID to bytes");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
         auto py_bytes_guard = ignite::detail::defer([&] { Py_DECREF(py_bytes); });
 
         char* data = nullptr;
         Py_ssize_t len{0};
         if (PyBytes_AsStringAndSize(py_bytes, &data, &len) < 0) {
-            throw ignite::ignite_error("Can not get data from UUID's bytes representation");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
 
         if (len != 16) {
-            throw ignite::ignite_error("Unexpected size of the UUID's bytes data");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
 
         auto bytes = reinterpret_cast<std::byte*>(data);
@@ -314,7 +311,7 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyUnicode_Check(obj)) {
         auto str_array = PyUnicode_AsUTF8String(obj);
         if (!str_array) {
-            throw ignite::ignite_error("Can not convert string to UTF-8");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
         auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
@@ -360,11 +357,7 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     }
 
     if (PyFloat_Check(obj)) {
-        double val = PyFloat_AsDouble(obj);
-        if (PyErr_Occurred()) {
-            throw ignite::ignite_error("Can not convert FLOAT to a double");
-        }
-
+        double val = PyFloat_AS_DOUBLE(obj);
         if (claim) {
             ignite::protocol::claim_type_and_scale(builder, ignite::ignite_type::DOUBLE);
             builder.claim_double(val);
@@ -378,7 +371,7 @@ static void submit_pyobject(ignite::binary_tuple_builder &builder, PyObject *obj
     if (PyLong_Check(obj)) {
         auto val = PyLong_AsLongLong(obj);
         if (PyErr_Occurred()) {
-            throw ignite::ignite_error("Can not convert INT to a long long");
+            throw ignite::ignite_error(get_current_exception_as_string());
         }
 
         if (claim) {
