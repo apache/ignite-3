@@ -76,7 +76,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
-    static Object generateConstantValueByType(NativeType type) {
+    private static Object generateConstantValueByType(NativeType type) {
         String numericBase = "9";
         ColumnType type0 = type.spec().asColumnType();
         switch (type0) {
@@ -134,6 +134,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
             for (var row : CursorUtils.getAllFromCursor(gatewayNode.executePlan(plan))) {
                 assertNotNull(row);
+                assertNotNull(row.get(0), "Await not null object");
                 assertThat(new Pair<>(row.get(0), colMeta), resultMatcher);
             }
         }
@@ -142,34 +143,5 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         public void close() throws Exception {
             cluster.stop();
         }
-    }
-
-    static class ClassInfoHolder {
-        Class<?> clazz;
-        int precision;
-        int scale;
-
-        ClassInfoHolder(Class<?> clazz, int precision, int scale) {
-            this.clazz = clazz;
-            this.precision = precision;
-            this.scale = scale;
-        }
-
-        ClassInfoHolder(Class<?> clazz) {
-            this.clazz = clazz;
-        }
-
-        @Override
-        public String toString() {
-            return "class: " + clazz + ", precision: " + precision + ", scale: " + scale;
-        }
-    }
-
-    static ClassInfoHolder classInfo(Class<?> clazz) {
-        return new ClassInfoHolder(clazz);
-    }
-
-    static ClassInfoHolder classInfo(Class<?> clazz, int precision, int scale) {
-        return new ClassInfoHolder(clazz, precision, scale);
     }
 }
