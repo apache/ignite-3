@@ -67,9 +67,9 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
         return (JraftServerImpl) igniteImpl(0).raftManager().server();
     }
 
-    private void assertFsyncIsAsExpectedOn(RaftNodeId cmgNodeId, boolean expectedFsync) {
+    private void assertFsyncIsAsExpectedOn(RaftNodeId raftNodeId, boolean expectedFsync) {
         IgniteJraftServiceFactory cmgServiceFactory = (IgniteJraftServiceFactory) raftServer()
-                .raftGroupService(cmgNodeId)
+                .raftGroupService(raftNodeId)
                 .getNodeOptions()
                 .getServiceFactory();
         DefaultLogStorageFactory logStorageFactory = (DefaultLogStorageFactory) cmgServiceFactory.logStorageFactory();
