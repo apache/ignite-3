@@ -26,6 +26,6 @@ class BrokenPointerWrapping implements PointerWrapping {
     @Override
     public ByteBuffer wrapPointer(long ptr, int len) {
         throw new RuntimeException(
-                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
+                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VERSION_OR_STARTUP_PARAMS_WARN);
     }
 }
