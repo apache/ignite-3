@@ -455,7 +455,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Appends log entries to the batch, received from {@link DefaultLogStorageFactory#getOrCreateThreadLocalWriteBatch()}. This batch is
      * shared between all instances of log, that belong to the given factory.
      */
-    public boolean appendEntriesToBatch(List<LogEntry> entries) {
+    boolean appendEntriesToBatch(List<LogEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return true;
         }
@@ -487,7 +487,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Writes batch, previously filled by {@link #appendEntriesToBatch(List)} calls, into a rocksdb storage and clears the batch by calling
      * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch}.
      */
-    public void commitWriteBatch() {
+    void commitWriteBatch() {
         WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
 
         if (writeBatch == null) {

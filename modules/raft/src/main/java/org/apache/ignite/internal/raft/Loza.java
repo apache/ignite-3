@@ -174,7 +174,7 @@ public class Loza implements RaftManager {
         opts.setLogStripesCount(raftConfig.logStripesCount());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
 
-        opts.getRaftOptions().setSync(false);
+        opts.getRaftOptions().setSync(raftConfig.fsync());
 
         return raftServer.startAsync(componentContext);
     }

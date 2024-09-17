@@ -33,7 +33,7 @@ public class StoreOptions {
     private int                 indexFileSize                 = FileHeader.HEADER_SIZE + 5000000
                                                                 * IndexEntry.INDEX_SIZE;
     // Default is 64Mb, similar to Ignite 2.
-    private int                 confFileSize                  = 1024 * 1024 * 256;
+    private int                 confFileSize                  = 1024 * 1024 * 64;
 
     // Whether enable warm up file when pre allocate
     private boolean             enableWarmUpFile              = true;
