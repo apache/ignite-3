@@ -283,7 +283,6 @@ public class CheckpointPagesWriter implements Runnable {
      * {@link PersistentPageMemory#isCpBufferOverflowThresholdExceeded()} to detect that.
      */
     private void drainCheckpointBuffers(ByteBuffer tmpWriteBuf) throws IgniteInternalCheckedException {
-        PageStoreWriter pageStoreWriter;
         boolean retry = true;
 
         while (retry) {
@@ -295,6 +294,8 @@ public class CheckpointPagesWriter implements Runnable {
             // that those who wait for a free space will receive it in a short time.
             for (PersistentPageMemory pageMemory : pageMemoryList) {
                 int count = 0;
+
+                PageStoreWriter pageStoreWriter = createPageStoreWriter(pageMemory, null);
 
                 while (pageMemory.isCpBufferOverflowThresholdExceeded()) {
                     if (++count >= CP_BUFFER_PAGES_BATCH_THRESHOLD) {
@@ -313,13 +314,17 @@ public class CheckpointPagesWriter implements Runnable {
 
                     GroupPartitionId partitionId = GroupPartitionId.convert(cpPageId);
 
-                    if (shouldWriteMetaPage(partitionId)) {
-                        writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+                    checkpointProgress.onStartPartitionProcessing(partitionId);
+
+                    try {
+                        if (shouldWriteMetaPage(partitionId)) {
+                            writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+                        }
+
+                        pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
+                    } finally {
+                        checkpointProgress.onFinishPartitionProcessing(partitionId);
                     }
-
-                    pageStoreWriter = createPageStoreWriter(pageMemory, null);
-
-                    pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
                 }
             }
         }
