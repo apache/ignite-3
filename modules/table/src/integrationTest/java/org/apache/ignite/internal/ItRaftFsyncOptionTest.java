@@ -41,7 +41,7 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void fsyncOptionIsSupported(boolean fsyncInConfig) {
+    void fsyncOptionOnlyAffectsPartitions(boolean fsyncInConfig) {
         cluster.startAndInit(1, "ignite.raft.fsync = " + fsyncInConfig, paramsBuilder -> {});
 
         node(0).sql().executeScript("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
