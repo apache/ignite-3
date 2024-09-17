@@ -41,7 +41,73 @@ NUMBER = decimal.Decimal
 DATE = datetime.date
 TIME = datetime.time
 DATETIME = datetime.datetime
+DURATION = datetime.timedelta
 UUID = uuid.UUID
+
+
+class TIMESTAMP(float):
+    pass
+
+
+# noinspection PyPep8Naming
+def Date(year, month, day):
+    """
+    This function constructs an object holding a date value.
+    """
+    return DATE(year=year, month=month, day=day)
+
+
+# noinspection PyPep8Naming
+def Time(hour, minute, second):
+    """
+    This function constructs an object holding a time value.
+    """
+    return TIME(hour=hour, minute=minute, second=second)
+
+
+# noinspection PyPep8Naming
+def Timestamp(year, month, day, hour, minute, second):
+    """
+    This function constructs an object holding a time stamp value.
+    """
+    dt = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+    ts = dt.timestamp()
+    return TIMESTAMP(ts)
+
+
+# noinspection PyPep8Naming
+def DateFromTicks(ticks):
+    """
+    This function constructs an object holding a date value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return DATE.fromtimestamp(ticks)
+
+
+# noinspection PyPep8Naming
+def TimeFromTicks(ticks):
+    """
+    This function constructs an object holding a time value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return DATETIME.fromtimestamp(ticks).time()
+
+
+# noinspection PyPep8Naming
+def TimestampFromTicks(ticks):
+    """
+    This function constructs an object holding a time stamp value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return TIMESTAMP(ticks)
+
+
+# noinspection PyPep8Naming
+def Binary(string: str):
+    """
+    This function constructs an object capable of holding a binary (long) string value.
+    """
+    return BINARY(string, 'utf-8')
 
 
 def _type_code_from_int(native: int):
