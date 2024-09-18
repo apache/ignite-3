@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -365,11 +366,11 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 .set("KEY", 1)
                 .set("VAL", new TestPojo2());
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> tupleView.upsert(null, rec));
 
-        assertEquals(
-                "Value type does not match [column='VAL', expected=STRING, actual=" + TestPojo2.class.getName() + "]",
-                ex.getMessage());
+        assertThat(
+                ex.getMessage(),
+                containsString("ItThinClientMarshallingTest$TestPojo2 cannot be cast to class java.lang.CharSequence"));
     }
 
     private static class TestPojo2 {

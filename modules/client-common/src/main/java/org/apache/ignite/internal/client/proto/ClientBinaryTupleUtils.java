@@ -40,6 +40,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -437,16 +438,18 @@ public class ClientBinaryTupleUtils {
         } catch (ClassCastException e) {
             NativeType nativeType = NativeTypes.fromObject(v);
 
-            String actualTypeName = nativeType != null
-                    ? nativeType.spec().name()
-                    : v.getClass().getName();
+            if (nativeType == null) {
+                // Unsupported type (does not map to any Ignite type) - throw (same behavior as embedded).
+                throw new MarshallerException(e.getMessage(), e);
+            }
 
+            NativeTypeSpec actualType = nativeType.spec();
             NativeTypeSpec expectedType = NativeTypeSpec.fromColumnType(type);
 
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
             String error = format(
                     "Value type does not match [column='{}', expected={}, actual={}]",
-                    name, expectedType.name(), actualTypeName
+                    name, expectedType.name(), actualType.name()
             );
 
             throw new IgniteException(PROTOCOL_ERR, error, e);
