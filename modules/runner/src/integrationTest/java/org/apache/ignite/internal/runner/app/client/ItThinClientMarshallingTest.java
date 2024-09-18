@@ -368,9 +368,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         MarshallerException ex = assertThrows(MarshallerException.class, () -> tupleView.upsert(null, rec));
 
-        assertThat(
-                ex.getMessage(),
-                containsString("ItThinClientMarshallingTest$TestPojo2 cannot be cast to class java.lang.CharSequence"));
+        assertEquals(
+                "Invalid value type provided for column [name='VAL', expected='STRING(65536)', actual='"
+                        + TestPojo2.class.getName() + "']",
+                ex.getMessage());
     }
 
     private static class TestPojo2 {
