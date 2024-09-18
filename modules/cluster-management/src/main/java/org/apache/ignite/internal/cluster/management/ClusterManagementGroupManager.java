@@ -264,8 +264,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
      */
-    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName)
-            throws NodeStoppingException {
+    public void initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) throws NodeStoppingException {
         sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
