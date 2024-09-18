@@ -50,6 +50,7 @@ import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
+import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
@@ -80,6 +81,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.AliasNamespace;
 import org.apache.calcite.sql.validate.SelectScope;
+import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -467,10 +469,28 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
 
-        int ordinal = 0;
-        // Force unique aliases to avoid a duplicate for Y with SET X=Y
-        for (SqlNode exp : call.getSourceExpressionList()) {
-            selectList.add(SqlValidatorUtil.addAlias(exp, SqlUtil.deriveAliasFromOrdinal(ordinal++)));
+        final SqlNodeList selectList2 = new SqlNodeList(SqlParserPos.ZERO);
+
+        igniteTable.rowTypeForUpdate((IgniteTypeFactory) typeFactory)
+                .getFieldNames().stream()
+                // .map(name -> alias.plus(name, SqlParserPos.ZERO))
+                .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO)) // new SqlIdentifier(name, SqlParserPos.ZERO))
+                .forEach(selectList2::add);
+
+        for (int i = 0; i < call.getSourceExpressionList().size(); i++) {
+            SqlNode exp = call.getSourceExpressionList().get(i);
+
+            String alias0 = SqlUtil.deriveAliasFromOrdinal(i);
+
+            SqlIdentifier id = new SqlIdentifier(alias0, SqlParserPos.ZERO);
+
+            if (exp instanceof SqlSelect) {
+                call.getSourceExpressionList().set(i, id);
+            }
+
+            selectList2.add(id); // blahAlias.plus(id.getSimple(), SqlParserPos.ZERO));
+
+            selectList.add(SqlValidatorUtil.addAlias(exp, alias0));
         }
 
         SqlNode sourceTable = call.getTargetTable();
@@ -482,8 +502,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                             call.getAlias().getSimple());
         }
 
-        return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
+        SqlSelect select1 = new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
                 call.getCondition(), null, null, null, null, null, null, null, null);
+
+        SqlSelect select2 = new SqlSelect(SqlParserPos.ZERO, null, selectList2, select1,
+                null, null, null, null, null, null, null, null, null);
+
+        return select2;
     }
 
     /** {@inheritDoc} */
@@ -774,7 +799,90 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         }
 
-        return super.performUnconditionalRewrites(node, underFrom);
+        SqlNode resNode = super.performUnconditionalRewrites(node, underFrom);
+
+        if (resNode instanceof SqlMerge) {
+            rewriteMergeAgain((SqlMerge) resNode);
+            // perform additional rewrites.
+        }
+
+        return resNode;
+    }
+
+    private static void rewriteMergeAgain(SqlMerge call) {
+        SqlNodeList selectList;
+        SqlUpdate updateStmt = call.getUpdateCall();
+        if (updateStmt != null) {
+            // if we have an update statement, just clone the select list
+            // from the update statement's source since it's the same as
+            // what we want for the select list of the merge source -- '*'
+            // followed by the update set expressions
+            SqlSelect sourceSelect = SqlNonNullableAccessors.getSourceSelect(updateStmt);
+
+            selectList = SqlNode.clone(
+                    ((SqlSelect) sourceSelect.getFrom()).getSelectList()
+            );
+        } else {
+            // otherwise, just use select *
+            selectList = new SqlNodeList(SqlParserPos.ZERO);
+            selectList.add(SqlIdentifier.star(SqlParserPos.ZERO));
+        }
+        SqlNode targetTable = call.getTargetTable();
+        if (call.getAlias() != null) {
+            targetTable =
+                    SqlValidatorUtil.addAlias(
+                            targetTable,
+                            call.getAlias().getSimple());
+        }
+
+        // Provided there is an insert substatement, the source select for
+        // the merge is a left outer join between the source in the USING
+        // clause and the target table; otherwise, the join is just an
+        // inner join.  Need to clone the source table reference in order
+        // for validation to work
+        SqlNode sourceTableRef = call.getSourceTableRef();
+        SqlInsert insertCall = call.getInsertCall();
+        JoinType joinType = (insertCall == null) ? JoinType.INNER : JoinType.LEFT;
+        final SqlNode leftJoinTerm = SqlNode.clone(sourceTableRef);
+        SqlNode outerJoin =
+                new SqlJoin(SqlParserPos.ZERO,
+                        leftJoinTerm,
+                        SqlLiteral.createBoolean(false, SqlParserPos.ZERO),
+                        joinType.symbol(SqlParserPos.ZERO),
+                        targetTable,
+                        JoinConditionType.ON.symbol(SqlParserPos.ZERO),
+                        call.getCondition());
+        SqlSelect select =
+                new SqlSelect(SqlParserPos.ZERO, null, selectList, outerJoin, null,
+                        null, null, null, null, null, null, null, null);
+        call.setSourceSelect(select);
+
+        // Source for the insert call is a select of the source table
+        // reference with the select list being the value expressions;
+        // note that the values clause has already been converted to a
+        // select on the values row constructor; so we need to extract
+        // that via the from clause on the select
+        if (insertCall != null) {
+            SqlCall valuesCall = (SqlCall) insertCall.getSource();
+            SqlNode rowCallNode = valuesCall.operand(0);
+
+            if (rowCallNode instanceof SqlNodeList) {
+                // already rewritten.
+                return;
+            }
+
+            SqlCall rowCall = (SqlCall) rowCallNode;
+
+            selectList =
+                    new SqlNodeList(
+                            rowCall.getOperandList(),
+                            SqlParserPos.ZERO);
+            final SqlNode insertSource = SqlNode.clone(sourceTableRef);
+            select =
+                    new SqlSelect(SqlParserPos.ZERO, null, selectList, insertSource, null,
+                            null, null, null, null, null, null, null, null);
+            insertCall.setSource(select);
+        }
     }
 
     /** Rewrites JOIN clause if required. */
