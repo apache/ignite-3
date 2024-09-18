@@ -157,7 +157,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     private volatile boolean leaderSecondaryDutiesPaused = false;
 
-    /** Protects {@link #becomeLonelyLeader(boolean)} from concurrent executions. */
+    /** Protects {@link #becomeLonelyLeader(long, Set)} from concurrent executions. */
     private final Object becomeLonelyLeaderMutex = new Object();
 
     /**
@@ -888,10 +888,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public CompletableFuture<Void> becomeLonelyLeader(boolean pauseLeaderSecondaryDuties) {
+    public CompletableFuture<Void> becomeLonelyLeader(long termBeforeChange, Set<String> targetVotingSet) {
+        // TODO: IGNITE-22899 - use both parameters.
         return inBusyLockAsync(busyLock, () -> {
             synchronized (becomeLonelyLeaderMutex) {
-                leaderSecondaryDutiesPaused = pauseLeaderSecondaryDuties;
+                leaderSecondaryDutiesPaused = targetVotingSet.size() > 1;
 
                 RaftNodeId raftNodeId = raftNodeId();
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());

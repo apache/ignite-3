@@ -528,8 +528,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
-                    clusterIdStore.clusterId(state.clusterTag().clusterId());
-
                     return joinCluster(service, state.clusterTag());
                 });
     }
@@ -785,7 +783,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                     clusterStateStorageMgr,
                                     logicalTopology,
                                     validationManager,
-                                    this::onLogicalTopologyChanged
+                                    this::onLogicalTopologyChanged,
+                                    clusterIdStore
                             ),
                             this::onElectedAsLeader,
                             raftGroupOptionsConfigurer
@@ -828,8 +827,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
                     localStateStorage.saveLocalState(localState);
-
-                    clusterIdStore.clusterId(state.clusterTag().clusterId());
 
                     return joinCluster(service, state.clusterTag());
                 });
@@ -1052,6 +1049,24 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         try {
             return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(nodeAttributes));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Changes metastorage nodes in the CMG.
+     *
+     * @return Future that completes when the command is executed by the CMG.
+     */
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(service -> service.changeMetastorageNodes(newMetastorageNodes));
         } finally {
             busyLock.leaveBusy();
         }

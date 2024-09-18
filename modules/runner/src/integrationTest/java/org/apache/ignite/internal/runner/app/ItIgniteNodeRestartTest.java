@@ -409,7 +409,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,

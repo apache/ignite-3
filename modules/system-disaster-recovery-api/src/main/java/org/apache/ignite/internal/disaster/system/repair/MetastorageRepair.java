@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.disaster.system.repair;
 
-import java.nio.ByteBuffer;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Always fails with an exception.
+ * Metastorage repair logic.
  */
-class BrokenPointerWrapping implements PointerWrapping {
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        throw new RuntimeException(
-                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_STARTUP_PARAMS_WARN);
-    }
+public interface MetastorageRepair {
+    /**
+     * Performs Metastorage repair.
+     *
+     * @param participatingNodeNames Names of the nodes that participate in the repair.
+     * @param metastorageReplicationFactor Replication factor for Metastorage requested by the user.
+     * @return Future that gets completed when repair is initiated.
+     */
+    CompletableFuture<Void> repair(Set<String> participatingNodeNames, int metastorageReplicationFactor);
 }
