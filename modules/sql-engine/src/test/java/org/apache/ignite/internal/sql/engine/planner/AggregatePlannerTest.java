@@ -255,6 +255,17 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     /**
+     * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
+     */
+    @Test
+    public void subqueryWithSingleValueAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27C, hasSingleValueAggregate());
+    }
+
+    /**
      * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
      */
     @Test
@@ -569,9 +580,13 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
+        checkSimpleAggSingle(testCase, hasAggregate());
+    }
+
+    private void checkSimpleAggSingle(TestCase testCase, Predicate<IgniteColocatedHashAggregate> aggPredicate) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
-                        .and(hasAggregate())
+                        .and(aggPredicate)
                         .and(input(isTableScan("TEST")))
                 )
         );
