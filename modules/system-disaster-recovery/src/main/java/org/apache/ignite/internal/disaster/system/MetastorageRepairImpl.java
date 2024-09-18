@@ -167,9 +167,8 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
     private static String chooseNodeWithBestIndex(Map<String, IndexWithTerm> indexes, Set<String> newMgNodes) {
         return newMgNodes.stream()
-                .sorted(Comparator.<String, IndexWithTerm>comparing(indexes::get).reversed())
-                .limit(1)
-                .findFirst().orElseThrow();
+                .max(Comparator.comparing(indexes::get))
+                .orElseThrow();
     }
 
     private CompletableFuture<Void> appointLeader(String bestNodeName, long termBeforeChange, Set<String> newMgNodes) {
