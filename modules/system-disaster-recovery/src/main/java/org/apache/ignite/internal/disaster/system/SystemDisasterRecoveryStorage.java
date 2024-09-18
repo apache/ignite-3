@@ -54,8 +54,11 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     }
 
     /**
-     * Reads cluster state. This is used for cases when it may be needed to read it during node startup (and the usual CMG state storage
-     * might be empty at those moments).
+     * Reads cluster state from the Vault. This is used for cases when it may be needed to read it during node startup (and the usual
+     * CMG state storage might be empty at those moments).
+     *
+     * @return Cluster state saved to the Vault or {@code null} if it was not saved yet (which means that the node has never joined
+     *     the cluster yet).
      */
     public @Nullable ClusterState readClusterState() {
         return readFromVault(CLUSTER_STATE_VAULT_KEY);
