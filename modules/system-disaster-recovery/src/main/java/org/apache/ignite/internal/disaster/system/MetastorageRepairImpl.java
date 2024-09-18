@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.disaster.system;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
@@ -29,7 +30,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
@@ -128,7 +128,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                 });
 
         return future
-                .orTimeout(WAIT_FOR_NODES_SECONDS, TimeUnit.MINUTES)
+                .orTimeout(WAIT_FOR_NODES_SECONDS, SECONDS)
                 .whenComplete((res, ex) -> {
                     logicalTopology.removeEventListener(listener);
 
