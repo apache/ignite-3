@@ -102,7 +102,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
             public void onNodeValidated(LogicalNode validatedNode) {
                 cumulativeValidatedNodeNames.add(validatedNode.name());
 
-                if (contains(cumulativeValidatedNodeNames, nodeNames)) {
+                if (isSuperset(cumulativeValidatedNodeNames, nodeNames)) {
                     future.complete(null);
                 }
             }
@@ -120,7 +120,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                     Set<String> validatedNodeNames = validatedNodes.stream()
                             .map(ClusterNode::name)
                             .collect(toSet());
-                    if (contains(validatedNodeNames, nodeNames)) {
+                    if (isSuperset(validatedNodeNames, nodeNames)) {
                         future.complete(null);
                     }
 
@@ -131,7 +131,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                 .thenRun(() -> logicalTopology.removeEventListener(listener));
     }
 
-    private static boolean contains(Set<String> container, Set<String> containee) {
+    private static boolean isSuperset(Set<String> container, Set<String> containee) {
         return difference(containee, container).isEmpty();
     }
 
