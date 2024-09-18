@@ -95,7 +95,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
     private CompletableFuture<Void> waitTillValidatedNodesContain(Set<String> nodeNames) {
         Set<String> cumulativeValidatedNodeNames = ConcurrentHashMap.newKeySet();
-        CompletableFuture<Void> future = new CompletableFuture<>();;
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
             @Override
