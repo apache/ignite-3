@@ -211,7 +211,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 PART_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
-                row2SortKeyConverter
+                row2SortKeyConverter,
+                false
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -384,6 +385,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         hasItem(lockThat(
                                 arg.expectedLockOnUniqueHash + " on unique hash index",
                                 lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                        && row2HashKeyConverter.extractColumns(testBinaryRow).byteBuffer().equals(lock.lockKey().key())
                                         && lock.lockMode() == arg.expectedLockOnUniqueHash
                         )),
                         hasItem(lockThat(

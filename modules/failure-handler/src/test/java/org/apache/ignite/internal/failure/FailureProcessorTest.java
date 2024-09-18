@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for {@link FailureProcessor}.
+ * Tests for {@link FailureManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
 class FailureProcessorTest extends BaseIgniteAbstractTest {
@@ -52,16 +52,16 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     public void testFailureProcessing() {
         FailureHandler handler = mock(FailureHandler.class);
 
-        FailureProcessor failureProcessor = new FailureProcessor(handler);
+        FailureManager failureManager = new FailureManager(handler);
 
         try {
-            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
 
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
+            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(any());
         } finally {
-            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
 
@@ -69,36 +69,36 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
     public void testIgnoredFailureTypes() {
         FailureHandler handler = new NoOpFailureHandler();
 
-        FailureProcessor failureProcessor = new FailureProcessor(handler);
+        FailureManager failureManager = new FailureManager(handler);
 
         try {
-            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
 
-            assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
+            assertThat(failureManager.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 
-            assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
+            assertThat(failureManager.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
         } finally {
-            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
 
     @Test
     public void testDefaultFailureHandlerConfiguration() {
-        FailureProcessor failureProcessor = new FailureProcessor(() -> {}, failureProcessorConfiguration);
+        FailureManager failureManager = new FailureManager(() -> {}, failureProcessorConfiguration);
 
         try {
-            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
 
-            assertThat(failureProcessor.handler(), instanceOf(NoOpFailureHandler.class));
+            assertThat(failureManager.handler(), instanceOf(NoOpFailureHandler.class));
 
-            Set<FailureType> ignoredFailureTypes = failureProcessor.handler().ignoredFailureTypes();
+            Set<FailureType> ignoredFailureTypes = failureManager.handler().ignoredFailureTypes();
 
             assertTrue(ignoredFailureTypes != null && ignoredFailureTypes.size() == 2);
 
             assertTrue(ignoredFailureTypes.contains(SYSTEM_WORKER_BLOCKED));
             assertTrue(ignoredFailureTypes.contains(SYSTEM_CRITICAL_OPERATION_TIMEOUT));
         } finally {
-            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
+            assertThat(failureManager.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
 }

@@ -348,6 +348,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
         for (IgniteServer node : nodes) {
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+            NODES.add(node);
 
             IgniteImpl ignite = unwrapIgniteImpl(node.api());
             CLUSTER_NODES.add(ignite);
@@ -367,7 +368,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         LOG.info(">>> Cluster is stopped.");
     }
 
-    private static final class TestRunnerRuntime implements RunnerRuntime {
+    static final class TestRunnerRuntime implements RunnerRuntime {
 
         /**
          * {@inheritDoc}

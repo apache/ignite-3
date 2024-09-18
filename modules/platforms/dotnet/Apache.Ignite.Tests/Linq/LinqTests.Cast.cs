@@ -38,7 +38,7 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 200m
+                Decimal0 = (decimal?)(x.Val / 200m)
             })
             .OrderByDescending(x => x.Long)
             .Take(1);
@@ -58,7 +58,7 @@ public partial class LinqTests
             "cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, " +
             "(cast(_T0.VAL as double) / ?) as DOUBLE, " +
-            "(cast(_T0.VAL as decimal(30)) / ?) as DECIMAL0 " +
+            "cast((cast(_T0.VAL as decimal(60, 30)) / ?) as decimal(60, 30)) as DECIMAL0 " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
@@ -69,8 +69,8 @@ public partial class LinqTests
     {
         // ReSharper disable once RedundantCast
         var query = PocoIntView.AsQueryable()
-            .Select(x => (decimal?)x.Val / 33m)
-            .OrderByDescending(x => x)
+            .OrderByDescending(x => x.Val)
+            .Select(x => (decimal?)(x.Val / 33m))
             .Take(1);
 
         var res = query.ToList();
@@ -79,7 +79,7 @@ public partial class LinqTests
         // Assert.AreEqual(900m / 33m, res[0]);
         Assert.AreEqual(27.27272727272727m, res[0]);
 
-        StringAssert.Contains("(cast(_T0.VAL as decimal(30)) / ?)", query.ToString());
+        StringAssert.Contains("select cast((cast(_T0.VAL as decimal(60, 30)) / ?) as decimal(60, 30))", query.ToString());
     }
 
     [Test]

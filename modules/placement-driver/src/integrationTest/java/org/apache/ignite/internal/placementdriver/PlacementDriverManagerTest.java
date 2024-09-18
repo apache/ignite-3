@@ -95,7 +95,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -139,6 +139,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -241,7 +244,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
-                clockService
+                clockService,
+                replicationConfiguration
         );
 
         ComponentContext componentContext = new ComponentContext();
@@ -322,8 +326,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     @Test
-    @WithSystemProperty(key = "IGNITE_LONG_LEASE", value = "200")
     public void testLeaseRenew() throws Exception {
+        assertThat(
+                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimit(200)),
+                willCompleteSuccessfully()
+        );
+
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, false);
@@ -345,8 +353,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     @Test
-    @WithSystemProperty(key = "IGNITE_LONG_LEASE", value = "200")
     public void testLeaseholderUpdate() throws Exception {
+        assertThat(
+                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimit(200)),
+                willCompleteSuccessfully()
+        );
+
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, false);

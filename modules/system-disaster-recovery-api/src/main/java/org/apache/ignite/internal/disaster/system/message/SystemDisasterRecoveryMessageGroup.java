@@ -38,4 +38,9 @@ public class SystemDisasterRecoveryMessageGroup {
      * Message type for {@link MetastorageIndexTermResponseMessage}.
      */
     public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
+
+    /**
+     * Message type for {@link BecomeMetastorageLeaderMessage}.
+     */
+    public static final short BECOME_METASTORAGE_LEADER = 4;
 }

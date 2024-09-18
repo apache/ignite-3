@@ -62,7 +62,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -92,9 +91,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.stubbing.Answer;
 
 /**
@@ -591,45 +587,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         ).get(TIMEOUT, MILLISECONDS);
 
         assertEquals(emptySet(), dataNodes);
-    }
-
-    /**
-     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
-     * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
-     */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsOfDifferentTimersValue")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22833")
-    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
-        CountDownLatch latch = new CountDownLatch(1);
-
-        AtomicBoolean reached = new AtomicBoolean();
-
-        catalogManager.listen(ZONE_CREATE, parameters ->  {
-            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            return CompletableFuture.runAsync(() -> {
-                try {
-                    Set<String> dataNodes = distributionZoneManager.dataNodes(
-                            params.causalityToken(),
-                            params.catalogVersion(),
-                            params.zoneDescriptor().id()
-                    ).get(TIMEOUT, MILLISECONDS);
-
-                    assertEquals(emptySet(), dataNodes);
-
-                    reached.set(true);
-                } catch (Exception e) {
-                    fail();
-                }
-            }).thenRun(latch::countDown).thenApply(ignored -> false);
-        });
-
-        blockDataNodesUpdatesInMetaStorage(latch);
-
-        createZone(ZONE_NAME, scaleUp, scaleDown, null);
-
-        assertTrue(reached.get());
     }
 
     /**
@@ -1581,15 +1538,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         if (revisionFuture != null) {
             revisionFuture.complete(revision);
         }
-    }
-
-    private static Stream<Arguments> provideArgumentsOfDifferentTimersValue() {
-        return Stream.of(
-                Arguments.of(1, 1),
-                Arguments.of(IMMEDIATE_TIMER_VALUE, 1),
-                Arguments.of(1, IMMEDIATE_TIMER_VALUE),
-                Arguments.of(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)
-        );
     }
 
     private void blockDataNodesUpdatesInMetaStorage(CountDownLatch latch) {

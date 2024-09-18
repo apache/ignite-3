@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -273,35 +276,65 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
-     * Callback at the beginning of checkpoint processing of a partition, for example, when writing dirty pages or executing a fsync.
+     * Blocks physical destruction of partition.
+     *
+     * <p>When the intention to destroy partition appears, {@link FilePageStore#isMarkedToDestroy()} is set to {@code == true} and
+     * {@link PersistentPageMemory#invalidate(int, int)} invoked at the beginning. And if there is a block, it waits for unblocking.
+     * Then it destroys the partition, {@link FilePageStoreManager#getStore(GroupPartitionId)} will return {@code null}.</p>
+     *
+     * <p>It is recommended to use where physical destruction of the partition may have an impact, for example when writing dirty pages and
+     * executing a fsync.</p>
+     *
+     * <p>To make sure that we can physically do something with the partition during a block, we will need to use approximately the
+     * following code:</p>
+     * <pre><code>
+     *     checkpointProgress.blockPartitionDestruction(partitionId);
+     *
+     *     try {
+     *         FilePageStore pageStore = FilePageStoreManager#getStore(partitionId);
+     *
+     *         if (pageStore == null || pageStore.isMarkedToDestroy()) {
+     *             return;
+     *         }
+     *
+     *         someAction(pageStore);
+     *     } finally {
+     *         checkpointProgress.unblockPartitionDestruction(partitionId);
+     *     }
+     * </code></pre>
      *
      * @param groupPartitionId Pair of group ID with partition ID.
+     * @see #unblockPartitionDestruction(GroupPartitionId)
+     * @see #getUnblockPartitionDestructionFuture(GroupPartitionId)
      */
-    public void onStartPartitionProcessing(GroupPartitionId groupPartitionId) {
+    public void blockPartitionDestruction(GroupPartitionId groupPartitionId) {
         processedPartitionMap.incrementPartitionProcessingCounter(groupPartitionId);
     }
 
     /**
-     * Callback on completion of partition processing, for example, when writing dirty pages or executing a fsync.
+     * Unblocks physical destruction of partition.
+     *
+     * <p>As soon as the last thread makes an unlock, the physical destruction of the partition can immediately begin.</p>
      *
      * @param groupPartitionId Pair of group ID with partition ID.
+     * @see #blockPartitionDestruction(GroupPartitionId)
+     * @see #getUnblockPartitionDestructionFuture(GroupPartitionId)
      */
-    public void onFinishPartitionProcessing(GroupPartitionId groupPartitionId) {
+    public void unblockPartitionDestruction(GroupPartitionId groupPartitionId) {
         processedPartitionMap.decrementPartitionProcessingCounter(groupPartitionId);
     }
 
     /**
-     * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
-     * being written or fsync is being done, {@code null} if the partition is not currently being processed.
+     * Returns the future if the partition according to the given parameters is currently being blocked, for example, dirty pages are
+     * being written or fsync is being done, {@code null} if the partition is not currently being blocked.
      *
-     * <p>Future will be added on {@link #onStartPartitionProcessing(GroupPartitionId)} call and completed on
-     * {@link #onFinishPartitionProcessing(GroupPartitionId)} call (equal to the number of
-     * {@link #onFinishPartitionProcessing(GroupPartitionId)} calls).
+     * <p>Future will be added on {@link #blockPartitionDestruction(GroupPartitionId)} call and completed on
+     * {@link #unblockPartitionDestruction(GroupPartitionId)} call (equal to the number of
+     * {@link #unblockPartitionDestruction(GroupPartitionId)} calls).
      *
      * @param groupPartitionId Pair of group ID with partition ID.
      */
-    @Nullable
-    public CompletableFuture<Void> getProcessedPartitionFuture(GroupPartitionId groupPartitionId) {
+    public @Nullable CompletableFuture<Void> getUnblockPartitionDestructionFuture(GroupPartitionId groupPartitionId) {
         return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
     }
 }

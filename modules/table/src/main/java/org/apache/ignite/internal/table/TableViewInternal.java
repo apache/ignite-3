@@ -94,10 +94,12 @@ public interface TableViewInternal extends Table {
      * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
+     * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
+            boolean unique,
             ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     );

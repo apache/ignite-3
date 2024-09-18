@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.rest.matcher;
 
+import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
+import io.micronaut.http.MediaType;
+import java.util.Optional;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -34,7 +38,9 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
 
     private Matcher<T> bodyMatcher;
 
-    private Class<T> body;
+    private Class<T> bodyClass;
+
+    private Matcher<String> mediaTypeMatcher;
 
     private MicronautHttpResponseMatcher(Matcher<Integer> statusCodeMatcher) {
         this.statusCodeMatcher = statusCodeMatcher;
@@ -61,6 +67,18 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
     }
 
     /**
+     * Creates a matcher that matches when the examined {@link HttpResponse} is a problem json that matches the specified matcher.
+     *
+     * @param problemMatcher Expected problem.
+     * @return Matcher.
+     */
+    public static MicronautHttpResponseMatcher<Problem> isProblemResponse(HttpStatus status, ProblemMatcher problemMatcher) {
+        return MicronautHttpResponseMatcher.<Problem>hasStatus(status)
+                .withMediaType(APPLICATION_JSON_PROBLEM_TYPE)
+                .withBody(problemMatcher.withStatus(status.getCode()), Problem.class);
+    }
+
+    /**
      * Sets the expected body.
      *
      * @param body Body to match.
@@ -68,7 +86,7 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      */
     public MicronautHttpResponseMatcher<T> withBody(T body) {
         this.bodyMatcher = equalTo(body);
-        this.body = (Class<T>) body.getClass();
+        this.bodyClass = (Class<T>) body.getClass();
         return this;
     }
 
@@ -76,12 +94,23 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      * Sets the body matcher.
      *
      * @param bodyMatcher Body matcher.
-     * @param body Body class.
+     * @param bodyClass Body class.
      * @return Matcher.
      */
-    public MicronautHttpResponseMatcher<T> withBody(Matcher<T> bodyMatcher, Class<T> body) {
+    public MicronautHttpResponseMatcher<T> withBody(Matcher<T> bodyMatcher, Class<T> bodyClass) {
         this.bodyMatcher = bodyMatcher;
-        this.body = body;
+        this.bodyClass = bodyClass;
+        return this;
+    }
+
+    /**
+     * Sets the media type.
+     *
+     * @param mediaType Media type.
+     * @return Matcher.
+     */
+    public MicronautHttpResponseMatcher<T> withMediaType(MediaType mediaType) {
+        this.mediaTypeMatcher = equalTo(mediaType.getName());
         return this;
     }
 
@@ -91,8 +120,18 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
             return false;
         }
 
-        if (bodyMatcher != null && !bodyMatcher.matches(httpResponse.getBody(body).get())) {
-            return false;
+        if (bodyMatcher != null) {
+            Optional<T> body = httpResponse.getBody(bodyClass);
+            if (body.isEmpty() || !bodyMatcher.matches(body.get())) {
+                return false;
+            }
+        }
+
+        if (mediaTypeMatcher != null) {
+            Optional<MediaType> contentType = httpResponse.getContentType();
+            if (contentType.isEmpty() || !mediaTypeMatcher.matches(contentType.get().getName())) {
+                return false;
+            }
         }
 
         return true;
@@ -107,6 +146,10 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
         if (bodyMatcher != null) {
             description.appendText(" and body ").appendDescriptionOf(bodyMatcher);
         }
+
+        if (mediaTypeMatcher != null) {
+            description.appendText(" and content type ").appendDescriptionOf(mediaTypeMatcher);
+        }
     }
 
     @Override
@@ -114,6 +157,8 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
         mismatchDescription.appendText("status code was ")
                 .appendValue(item.code())
                 .appendText(" and body was ")
-                .appendValue(item.getBody(String.class));
+                .appendValue(item.getBody(String.class))
+                .appendText(" and content type was ")
+                .appendValue(item.getContentType().map(MediaType::getName).orElse(null));
     }
 }

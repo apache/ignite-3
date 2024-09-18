@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -111,11 +110,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum KeyValueViewAsyncOperation operation,
             @Enum KeyValueViewKind kind
     ) {
-        assumeTrue(
-                kind.supportsGetNullable() || !operation.isGetNullable(),
-                "Skipping the test as getNullable() is not supported by views of kind " + kind
-        );
-
         KeyValueView<?, ?> tableView = kind.view();
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -174,8 +168,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum KeyValueViewAsyncOperation operation,
             @Enum KeyValueViewKind kind
     ) {
-        assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
-
         KeyValueView<?, ?> tableView = kind.viewForInternalUse();
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -353,18 +345,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<?> executeOn(KeyValueView<?, ?> tableView, KeyValueContext<?, ?> context) {
             return action.apply((KeyValueView<Object, Object>) tableView, (KeyValueContext<Object, Object>) context);
         }
-
-        boolean isGetNullable() {
-            switch (this) {
-                case GET_NULLABLE_ASYNC:
-                case GET_NULLABLE_AND_PUT_ASYNC:
-                case GET_NULLABLE_AND_REMOVE_ASYNC:
-                case GET_NULLABLE_AND_REPLACE_ASYNC:
-                    return true;
-                default:
-                    return false;
-            }
-        }
     }
 
     private static class KeyValueContext<K, V> {
@@ -392,10 +372,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         KeyValueContext<?, ?> context() {
             return this == PLAIN ? plainKeyValueContext() : binaryKeyValueContext();
-        }
-
-        boolean supportsGetNullable() {
-            return this == PLAIN;
         }
     }
 
