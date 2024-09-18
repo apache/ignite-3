@@ -62,8 +62,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
                 sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
 
-                sql("SELECT 1 + ?", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(1, CAST(?0):INTEGER)"),
-                sql("SELECT ? + 1", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(CAST(?0):INTEGER, 1)"),
+                sql("SELECT 1 + ?", "1").parameterTypes(nullable(NativeTypes.STRING))
+                        .fails("Cannot apply '+' to arguments of type '<INTEGER> + <VARCHAR>'"),
+                sql("SELECT ? + 1", "1").parameterTypes(nullable(NativeTypes.STRING))
+                        .fails("Cannot apply '+' to arguments of type '<VARCHAR> + <INTEGER>'"),
 
                 // NULL is allowed in arithmetic expressions, if another operand is present.
                 sql("SELECT ? * 2", new Object[]{null})

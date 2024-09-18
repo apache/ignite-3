@@ -149,22 +149,19 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /** {@inheritDoc} */
     @Override
     public boolean binaryArithmeticCoercion(SqlCallBinding binding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
-
-        try {
-            // Called from CompositeOperandTypeChecker that does not care whether this is a binary arithmetic or not.
-            if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
-                RelDataType leftType = binding.getOperandType(0);
-                RelDataType rightType = binding.getOperandType(1);
-
-                validateBinaryOperation(binding, leftType, rightType);
-            }
-
-            return super.binaryArithmeticCoercion(binding);
-        } finally {
-            ctxStack.pop(ctx);
+        if (binding.getOperandCount() != 2 || !binding.getCall().isA(SqlKind.BINARY_ARITHMETIC)) {
+            return false;
         }
+
+        RelDataType leftType = binding.getOperandType(0);
+        RelDataType rightType = binding.getOperandType(1);
+
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+            return false;
+        }
+
+        return super.binaryArithmeticCoercion(binding);
     }
 
     /** {@inheritDoc} */
@@ -173,6 +170,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         ContextStack ctxStack = contextStack.get();
         Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
         try {
+            if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
+                RelDataType leftType = binding.getOperandType(0);
+                RelDataType rightType = binding.getOperandType(1);
+
+                if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+                    return false;
+                }
+            }
+
             validateFunctionOperands(binding, operandTypes, expectedFamilies);
 
             return super.builtinFunctionCoercion(binding, operandTypes, expectedFamilies);
@@ -568,26 +574,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
 
         return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node, targetDataType);
-    }
-
-    /**
-     * Validate dynamic parameters in binary operator.
-     */
-    private void validateBinaryOperation(SqlCallBinding binding, RelDataType type1, RelDataType type2) {
-        SqlValidator validator = binding.getValidator();
-        boolean lhsUnknown = validator.getUnknownType() == type1;
-        boolean rhsUnknown = validator.getUnknownType() == type2;
-
-        if (lhsUnknown && rhsUnknown) {
-            String signature = IgniteResource.makeSignature(binding, type1, type2);
-            throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator1(signature));
-        } else if (lhsUnknown) {
-            RelDataType nullableType = typeFactory.createTypeWithNullability(type2, true);
-            validator.setValidatedNodeType(binding.operand(0), nullableType);
-        } else if (rhsUnknown) {
-            RelDataType nullableType = typeFactory.createTypeWithNullability(type1, true);
-            validator.setValidatedNodeType(binding.operand(1), nullableType);
-        }
     }
 
     /**

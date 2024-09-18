@@ -28,6 +28,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperatorBinding;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
+import org.apache.calcite.sql.fun.SqlMonotonicBinaryOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.InferTypes;
@@ -37,10 +38,12 @@ import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -49,6 +52,29 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker SAME_SAME =
             new SameFamilyOperandTypeChecker(2);
+
+    private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
+            new NotCustomTypeOperandTypeChecker();
+
+    private static final SqlSingleOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_SAME_SAME)
+                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE))
+                    .or(OperandTypes.INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+
+    private static final SqlSingleOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_SAME_SAME)
+                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE));
+
+    private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE));
+
+    public static final SqlSingleOperandTypeChecker MULTIPLY_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE))
+                    .or(OperandTypes.NUMERIC_INTERVAL.and(NOT_CUSTOM_TYPE));
 
     public static final SqlFunction LENGTH =
             new SqlFunction(
@@ -283,6 +309,123 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     InferTypes.FIRST_KNOWN,
                     SAME_SAME);
 
+    /**
+     * Infix arithmetic plus operator, '{@code +}'.
+     */
+    public static final SqlBinaryOperator PLUS =
+            new SqlMonotonicBinaryOperator(
+                    "+",
+                    SqlKind.PLUS,
+                    40,
+                    true,
+                    new SqlReturnTypeInference() {
+                        @Override
+                        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                            RelDataType type1 = opBinding.getOperandType(0);
+                            RelDataType type2 = opBinding.getOperandType(1);
+                            boolean nullable = type1.isNullable() || type2.isNullable();
+
+                            RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+                            if (TypeUtils.typeFamiliesAreCompatible(typeFactory, type1, type2)) {
+                                RelDataType resultType = typeFactory.getTypeSystem()
+                                        .deriveDecimalPlusType(typeFactory, type1, type2);
+
+                                if (resultType == null) {
+                                    resultType = typeFactory.leastRestrictive(List.of(type1, type2));
+                                }
+
+                                if (resultType != null) {
+                                    return typeFactory.createTypeWithNullability(resultType, nullable);
+                                }
+                            } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
+                                return typeFactory.createTypeWithNullability(type1, nullable);
+                            } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
+                                return typeFactory.createTypeWithNullability(type2, nullable);
+                            }
+
+                            return null;
+                        }
+                    },
+                    InferTypes.FIRST_KNOWN,
+                    PLUS_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Infix arithmetic minus operator, '{@code -}'.
+     */
+    public static final SqlBinaryOperator MINUS =
+            new SqlMonotonicBinaryOperator(
+                    "-",
+                    SqlKind.MINUS,
+                    40,
+                    true,
+                    new SqlReturnTypeInference() {
+                        @Override
+                        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                            RelDataType type1 = opBinding.getOperandType(0);
+                            RelDataType type2 = opBinding.getOperandType(1);
+                            boolean nullable = type1.isNullable() || type2.isNullable();
+
+                            RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+                            if (TypeUtils.typeFamiliesAreCompatible(typeFactory, type1, type2)) {
+                                RelDataType resultType = typeFactory.getTypeSystem()
+                                        .deriveDecimalPlusType(typeFactory, type1, type2);
+
+                                if (resultType == null) {
+                                    resultType = typeFactory.leastRestrictive(List.of(type1, type2));
+                                }
+
+                                if (resultType != null) {
+                                    return typeFactory.createTypeWithNullability(resultType, nullable);
+                                }
+                            } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
+                                return typeFactory.createTypeWithNullability(type1, nullable);
+                            }
+
+                            return null;
+                        }
+                    },
+                    InferTypes.FIRST_KNOWN,
+                    MINUS_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Arithmetic division operator, '{@code /}'.
+     */
+    public static final SqlBinaryOperator DIVIDE =
+            new SqlBinaryOperator(
+                    "/",
+                    SqlKind.DIVIDE,
+                    60,
+                    true,
+                    ReturnTypes.QUOTIENT_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    DIVISION_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Arithmetic multiplication operator, '{@code *}'.
+     */
+    public static final SqlBinaryOperator MULTIPLY =
+            new SqlMonotonicBinaryOperator(
+                    "*",
+                    SqlKind.TIMES,
+                    60,
+                    true,
+                    ReturnTypes.PRODUCT_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    MULTIPLY_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Arithmetic remainder operator, '{@code %}'.
+     */
+    public static final SqlBinaryOperator PERCENT_REMAINDER =
+            new SqlBinaryOperator(
+                    "%",
+                    SqlKind.MOD,
+                    60,
+                    true,
+                    ReturnTypes.NULLABLE_MOD,
+                    null,
+                    OperandTypes.EXACT_NUMERIC_EXACT_NUMERIC.and(SAME_SAME));
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -329,12 +472,12 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.NOT_BETWEEN);
 
         // Arithmetic.
-        register(SqlStdOperatorTable.PLUS);
-        register(SqlStdOperatorTable.MINUS);
-        register(SqlStdOperatorTable.MULTIPLY);
-        register(SqlStdOperatorTable.DIVIDE);
+        register(PLUS);
+        register(MINUS);
+        register(MULTIPLY);
+        register(DIVIDE);
         register(SqlStdOperatorTable.DIVIDE_INTEGER); // Used internally.
-        register(SqlStdOperatorTable.PERCENT_REMAINDER);
+        register(PERCENT_REMAINDER);
         register(SqlStdOperatorTable.UNARY_MINUS);
         register(SqlStdOperatorTable.UNARY_PLUS);
 
