@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.file;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
@@ -120,6 +121,7 @@ public abstract class AbstractFile extends ReferenceResource {
                 try (final RandomAccessFile randomAccessFile = new RandomAccessFile(this.file, "rw");
                         final FileChannel fileChannel = randomAccessFile.getChannel()) {
                     this.mappedByteBuffer = fileChannel.map(mapMode, 0, this.fileSize);
+                    mappedByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
                     this.isMapped = true;
                 }
             }
@@ -440,7 +442,7 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public ByteBuffer sliceByteBuffer() {
-        return this.mappedByteBuffer.slice();
+        return this.mappedByteBuffer.slice().order(ByteOrder.LITTLE_ENDIAN);
     }
 
     public void warmupFile() {
