@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.service;
 
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,5 +53,10 @@ public class LeaderWithTerm {
 
     public long term() {
         return term;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -25,6 +25,7 @@ set(SOURCES
     module.cpp
     py_connection.cpp
     py_cursor.cpp
+    utils.cpp
 )
 
 set(LIBRARIES

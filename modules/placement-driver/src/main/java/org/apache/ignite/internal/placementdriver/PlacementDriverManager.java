@@ -49,6 +49,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
@@ -122,7 +123,8 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            ClockService clockService
+            ClockService clockService,
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -144,7 +146,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 logicalTopologyService,
                 leaseTracker,
                 clockService,
-                assignmentsTracker
+                assignmentsTracker,
+                replicationConfiguration
         );
 
         this.placementDriver = createPlacementDriver();

@@ -18,6 +18,7 @@
 #include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
+#include "utils.h"
 
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
@@ -28,18 +29,10 @@
 
 #include <Python.h>
 
-
 static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     std::unique_ptr<ignite::sql_connection> conn)
 {
-    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
-
-    if (!pyignite3_mod)
-        return nullptr;
-
-    auto conn_class = PyObject_GetAttrString(pyignite3_mod, "Connection");
-    Py_DECREF(pyignite3_mod);
-
+    auto conn_class = py_get_module_class("Connection");
     if (!conn_class)
         return nullptr;
 
@@ -106,7 +99,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
                 return nullptr;
             }
             // To be called when the scope is left.
-            ignite::detail::defer([&] { Py_DECREF(str_array); });
+            auto str_array_guard = ignite::detail::defer([&] { Py_DECREF(str_array); });
 
             auto *data = PyBytes_AsString(str_array);
             auto len = PyBytes_Size(str_array);
@@ -169,7 +162,7 @@ static PyMethodDef methods[] = {
 
 static struct PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
-    MODULE_NAME,
+    EXT_MODULE_NAME,
     nullptr,                /* m_doc */
     -1,                     /* m_size */
     methods,                /* m_methods */
@@ -193,39 +186,4 @@ PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifi
         return nullptr;
 
     return mod;
-}
-
-bool check_errors(ignite::diagnosable& diag) {
-    auto &records = diag.get_diagnostic_records();
-    if (records.is_successful())
-        return true;
-
-    std::string err_msg;
-    switch (records.get_return_code()) {
-        case SQL_INVALID_HANDLE:
-            err_msg = "Invalid object handle";
-            break;
-
-        case SQL_NO_DATA:
-            err_msg = "No data available";
-            break;
-
-        case SQL_ERROR:
-            auto record = records.get_status_record(1);
-            err_msg = record.get_message_text();
-            break;
-    }
-
-    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
-    PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
-
-    return false;
-}
-
-const char* py_object_get_typename(PyObject* obj) {
-    if (!obj || !obj->ob_type || !obj->ob_type->tp_name) {
-        return "Unknown";
-    }
-
-    return obj->ob_type->tp_name;
 }

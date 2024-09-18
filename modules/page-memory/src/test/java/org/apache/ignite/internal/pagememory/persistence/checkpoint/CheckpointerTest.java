@@ -508,11 +508,11 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
 
         // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
-        checkpointProgress.onStartPartitionProcessing(groupPartitionId);
+        checkpointProgress.blockPartitionDestruction(groupPartitionId);
 
         CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
 
-        checkpointProgress.onFinishPartitionProcessing(groupPartitionId);
+        checkpointProgress.unblockPartitionDestruction(groupPartitionId);
 
         onPartitionDestructionFuture.get(1, SECONDS);
     }

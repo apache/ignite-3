@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 
@@ -35,8 +36,9 @@ public interface MetastorageGroupMaintenance {
     /**
      * Makes this node a leader of the Metastorage group (with the voting set containing of just this node).
      *
-     * @param pauseLeaderSecondaryDuties Whether leader secondary duties (managing learners, propagating idle safe time) should be paused.
-     * @return Future which completes when this node becomes a leader.
+     * @param termBeforeChange Term that Metastorage on the target node has before we make it become the leader.
+     * @param targetVotingSet Voting set members which we want to achieve (becoming a leader is just the first step in doing so).
+     * @return Future which completes when new leader becomes available.
      */
-    CompletableFuture<Void> becomeLonelyLeader(boolean pauseLeaderSecondaryDuties);
+    CompletableFuture<Void> becomeLonelyLeader(long termBeforeChange, Set<String> targetVotingSet);
 }

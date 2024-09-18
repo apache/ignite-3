@@ -47,6 +47,8 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -67,6 +69,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -83,7 +86,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * TODO: IGNITE-20485 Configure the lease interval as less as possible to decrease the duration of tests.
  * The class contains unit tests for {@link LeaseUpdater}.
  */
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
@@ -99,6 +102,10 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private LeaseTracker leaseTracker;
     @Mock
     private Cursor<Entry> mcEntriesCursor;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
+
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
     /** Closure to get a lease that is passed in Meta storage. */
@@ -144,7 +151,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 topologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
-                new AssignmentsTracker(metaStorageManager)
+                new AssignmentsTracker(metaStorageManager),
+                replicationConfiguration
         );
 
         leaseUpdater.init();

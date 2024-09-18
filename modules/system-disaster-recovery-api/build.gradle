@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
+    implementation project(':ignite-raft-api')
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core

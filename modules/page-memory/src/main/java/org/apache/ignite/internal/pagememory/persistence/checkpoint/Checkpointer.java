@@ -577,14 +577,14 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        currentCheckpointProgress.onStartPartitionProcessing(partitionId);
+        currentCheckpointProgress.blockPartitionDestruction(partitionId);
 
         try {
             fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
         } finally {
-            currentCheckpointProgress.onFinishPartitionProcessing(partitionId);
+            currentCheckpointProgress.unblockPartitionDestruction(partitionId);
         }
     }
 
@@ -881,7 +881,7 @@ public class Checkpointer extends IgniteWorker {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupPartitionId);
+        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
 
         return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }

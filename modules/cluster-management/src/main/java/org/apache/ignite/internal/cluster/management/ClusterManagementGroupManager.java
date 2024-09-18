@@ -1058,6 +1058,24 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     /**
+     * Changes metastorage nodes in the CMG.
+     *
+     * @return Future that completes when the command is executed by the CMG.
+     */
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(service -> service.changeMetastorageNodes(newMetastorageNodes));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns a future resolving to the initial cluster configuration in HOCON format. The resulting configuration may be {@code null} if
      * not provided by the user.
      *
