@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -49,6 +50,9 @@ import org.apache.ignite.network.ClusterNode;
  */
 public class MetastorageRepairImpl implements MetastorageRepair {
     private static final IgniteLogger LOG = Loggers.forClass(MetastorageRepairImpl.class);
+
+    /** Number of seconds to wait for nodes participating in a repair to appear. */
+    private static final long WAIT_FOR_NODES_SECONDS = 60;
 
     private final MessagingService messagingService;
     private final LogicalTopology logicalTopology;
@@ -91,6 +95,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
     private CompletableFuture<Void> waitTillValidatedNodesContain(Set<String> nodeNames) {
         Set<String> cumulativeValidatedNodeNames = ConcurrentHashMap.newKeySet();
         CompletableFuture<Void> future = new CompletableFuture<>();
+        future.orTimeout(WAIT_FOR_NODES_SECONDS, TimeUnit.MINUTES);
 
         LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
             @Override
