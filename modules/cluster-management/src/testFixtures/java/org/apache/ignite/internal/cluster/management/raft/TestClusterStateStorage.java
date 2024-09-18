@@ -55,7 +55,7 @@ import org.jetbrains.annotations.Nullable;
 public class TestClusterStateStorage implements ClusterStateStorage {
     private static final String SNAPSHOT_FILE = "snapshot.bin";
 
-    private static final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
+    private static final CmgMessagesFactory CMG_MESSAGES_FACTORY = new CmgMessagesFactory();
 
     private final Map<ByteArray, byte[]> map = new HashMap<>();
 
@@ -73,10 +73,10 @@ public class TestClusterStateStorage implements ClusterStateStorage {
         TestClusterStateStorage storage = new TestClusterStateStorage();
 
         new ClusterStateStorageManager(storage).putClusterState(
-                cmgMessagesFactory.clusterState()
+                CMG_MESSAGES_FACTORY.clusterState()
                         .cmgNodes(Set.of("test"))
                         .metaStorageNodes(Set.of("test"))
-                        .clusterTag(ClusterTag.clusterTag(cmgMessagesFactory, "cluster", new UUID(1, 1)))
+                        .clusterTag(ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(1, 1)))
                         .version(IgniteProductVersion.CURRENT_VERSION.toString())
                         .build()
         );
