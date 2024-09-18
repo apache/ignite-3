@@ -72,6 +72,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     public static TestClusterStateStorage initializedClusterStateStorage() {
         TestClusterStateStorage storage = new TestClusterStateStorage();
 
+        // ClusterStateStorageManager instance is created here just to put cluster state to the storage in the correct format.
         new ClusterStateStorageManager(storage).putClusterState(
                 CMG_MESSAGES_FACTORY.clusterState()
                         .cmgNodes(Set.of("test"))
