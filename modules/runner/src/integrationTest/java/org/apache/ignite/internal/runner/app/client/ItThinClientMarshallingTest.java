@@ -365,9 +365,11 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 .set("KEY", 1)
                 .set("VAL", new TestPojo2());
 
-        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
+        IgniteException ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
 
-        assertThat(ex.getMessage(), containsString("Unsupported object type"));
+        assertEquals(
+                "Value type does not match [column='VAL', expected=STRING, actual=" + TestPojo2.class.getName() + "]",
+                ex.getMessage());
     }
 
     private static class TestPojo2 {
