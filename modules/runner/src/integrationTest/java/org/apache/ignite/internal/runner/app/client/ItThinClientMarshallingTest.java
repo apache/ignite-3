@@ -369,7 +369,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         MarshallerException ex = assertThrows(MarshallerException.class, () -> tupleView.upsert(null, rec));
 
         assertEquals(
-                "Invalid value type provided for column [name='VAL', expected='STRING(65536)', actual='"
+                "Invalid value type provided for column [name='VAL', expected='java.lang.String', actual='"
                         + TestPojo2.class.getName() + "']",
                 ex.getMessage());
     }

@@ -227,7 +227,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 String.format(
                                         "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
                                         col.name(),
-                                        col.type().displayName(),
+                                        col.type().spec().asColumnType().javaClass(),
                                         val.getClass().getName()),
                                 e);
                     }
