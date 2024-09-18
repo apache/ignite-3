@@ -120,7 +120,7 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+    private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
         switch (type) {
             case INT8:
                 return binTuple::byteValue;
@@ -436,16 +436,17 @@ public class ClientBinaryTupleUtils {
             }
         } catch (ClassCastException e) {
             NativeType nativeType = NativeTypes.fromObject(v);
-            // A null is handled separately, so nativeType should not be null.
-            assert nativeType != null;
 
-            NativeTypeSpec actualType = nativeType.spec();
+            String actualTypeName = nativeType != null
+                    ? nativeType.spec().name()
+                    : v.getClass().getName();
+
             NativeTypeSpec expectedType = NativeTypeSpec.fromColumnType(type);
 
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
             String error = format(
                     "Value type does not match [column='{}', expected={}, actual={}]",
-                    name, expectedType.name(), actualType.name()
+                    name, expectedType.name(), actualTypeName
             );
 
             throw new IgniteException(PROTOCOL_ERR, error, e);
