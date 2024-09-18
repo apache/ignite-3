@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -94,8 +95,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
     private CompletableFuture<Void> waitTillValidatedNodesContain(Set<String> nodeNames) {
         Set<String> cumulativeValidatedNodeNames = ConcurrentHashMap.newKeySet();
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        future.orTimeout(WAIT_FOR_NODES_SECONDS, TimeUnit.MINUTES);
+        CompletableFuture<Void> future = new CompletableFuture<>();;
 
         LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
             @Override
@@ -128,7 +128,14 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                 });
 
         return future
-                .thenRun(() -> logicalTopology.removeEventListener(listener));
+                .orTimeout(WAIT_FOR_NODES_SECONDS, TimeUnit.MINUTES)
+                .whenComplete((res, ex) -> {
+                    logicalTopology.removeEventListener(listener);
+
+                    if (ex instanceof TimeoutException) {
+                        LOG.error("Did not see all participating nodes online in time, failing Metastorage repair, please try again", ex);
+                    }
+                });
     }
 
     private static boolean isSuperset(Set<String> container, Set<String> containee) {
