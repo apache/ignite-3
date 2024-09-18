@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -353,6 +354,20 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 IgniteException.class);
 
         assertThat(ex.getMessage(), containsString("Numeric field overflow in column 'VAL'"));
+    }
+
+    @Test
+    public void testUnsupportedObjectInTuple() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        RecordView<Tuple> tupleView = table.recordView();
+
+        Tuple rec = Tuple.create()
+                .set("KEY", 1)
+                .set("VAL", new TestPojo2());
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
+
+        assertThat(ex.getMessage(), containsString("Unsupported object type"));
     }
 
     private static class TestPojo2 {
