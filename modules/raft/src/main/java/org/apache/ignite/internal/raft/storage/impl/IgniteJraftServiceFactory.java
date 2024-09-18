@@ -29,6 +29,7 @@ import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The default factory for JRaft services for Ignite.
@@ -84,5 +85,11 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank raft meta storage uri.");
 
         return raftMetaStorageFactory.createRaftMetaStorage(uri, raftOptions);
+    }
+
+    /** Returns {@link LogStorageFactory}. */
+    @TestOnly
+    public LogStorageFactory logStorageFactory() {
+        return logStorageFactory;
     }
 }
