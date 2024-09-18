@@ -58,8 +58,10 @@ public final class V1Encoder implements LogEntryEncoder {
         long index = id.getIndex();
         long term = id.getTerm();
 
-        totalLen += sizeInBytes(typeNumber) + sizeInBytes(index) + sizeInBytes(term) + 8;
+        // Checksum is not a varlen value.
+        totalLen += sizeInBytes(typeNumber) + sizeInBytes(index) + sizeInBytes(term) + Long.BYTES;
 
+        // Includes "ENTRY_TYPE_CONFIGURATION" and "ENTRY_TYPE_NO_OP".
         if (type != EntryType.ENTRY_TYPE_DATA) {
             totalLen += nodesListSizeInBytes(peers);
             totalLen += nodesListSizeInBytes(oldPeers);
@@ -67,6 +69,7 @@ public final class V1Encoder implements LogEntryEncoder {
             totalLen += nodesListSizeInBytes(oldLearners);
         }
 
+        // Includes "ENTRY_TYPE_DATA" and "ENTRY_TYPE_NO_OP".
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
             int bodyLen = data != null ? data.remaining() : 0;
             totalLen += bodyLen;
@@ -102,14 +105,10 @@ public final class V1Encoder implements LogEntryEncoder {
         addr = writeLong(index, addr);
         addr = writeLong(term, addr);
 
-        if (GridUnsafe.IS_BIG_ENDIAN) {
-            GridUnsafe.putLong(addr, logEntry.getChecksum());
-        } else {
-            GridUnsafe.putLong(addr, Long.reverseBytes(logEntry.getChecksum()));
-        }
-
+        Bits.putLongLittleEndian(addr, logEntry.getChecksum());
         addr += Long.BYTES;
 
+        // Includes "ENTRY_TYPE_CONFIGURATION" and "ENTRY_TYPE_NO_OP".
         if (type != EntryType.ENTRY_TYPE_DATA) {
             addr = writeNodesList(addr, peers);
             addr = writeNodesList(addr, oldPeers);
@@ -117,6 +116,7 @@ public final class V1Encoder implements LogEntryEncoder {
             addr = writeNodesList(addr, oldLearners);
         }
 
+        // Includes "ENTRY_TYPE_DATA" and "ENTRY_TYPE_NO_OP".
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
             GridUnsafe.copyHeapOffheap(data.array(), data.position() + GridUnsafe.BYTE_ARR_OFF, addr, data.remaining());
         }
@@ -133,27 +133,11 @@ public final class V1Encoder implements LogEntryEncoder {
         List<PeerId> oldLearners = log.getOldLearners();
         ByteBuffer data = log.getData();
 
-        int totalLen = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
         int typeNumber = type.getNumber();
         long index = id.getIndex();
         long term = id.getTerm();
 
-        totalLen += sizeInBytes(typeNumber) + sizeInBytes(index) + sizeInBytes(term) + 8;
-
-        if (type != EntryType.ENTRY_TYPE_DATA) {
-            totalLen += nodesListSizeInBytes(peers);
-
-            totalLen += nodesListSizeInBytes(oldPeers);
-
-            totalLen += nodesListSizeInBytes(learners);
-
-            totalLen += nodesListSizeInBytes(oldLearners);
-        }
-
-        if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
-            int bodyLen = data != null ? data.remaining() : 0;
-            totalLen += bodyLen;
-        }
+        int totalLen = size(log);
 
         byte[] content = new byte[totalLen];
         content[0] = LogEntryV1CodecFactory.MAGIC;
@@ -163,7 +147,7 @@ public final class V1Encoder implements LogEntryEncoder {
         pos = writeLong(index, content, pos);
         pos = writeLong(term, content, pos);
 
-        Bits.putLong(content, pos, log.getChecksum());
+        Bits.putLongLittleEndian(content, pos, log.getChecksum());
         pos += Long.BYTES;
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
@@ -184,19 +168,20 @@ public final class V1Encoder implements LogEntryEncoder {
     }
 
     private static int nodesListSizeInBytes(@Nullable List<PeerId> nodes) {
-        if (nodes != null) {
-            int size = 0;
-
-            for (PeerId node : nodes) {
-                String consistentId = node.getConsistentId();
-
-                size += 2 + consistentId.length() + sizeInBytes(node.getIdx()) + sizeInBytes(node.getPriority() + 1);
-            }
-
-            return size + sizeInBytes(nodes.size());
+        if (nodes == null) {
+            // The size of encoded "0".
+            return 1;
         }
 
-        return 1;
+        int size = 0;
+
+        for (PeerId node : nodes) {
+            String consistentId = node.getConsistentId();
+
+            size += Short.BYTES + consistentId.length() + sizeInBytes(node.getIdx()) + sizeInBytes(node.getPriority() + 1);
+        }
+
+        return size + sizeInBytes(nodes.size());
     }
 
     private static long writeNodesList(long addr, List<PeerId> nodes) {
@@ -210,10 +195,10 @@ public final class V1Encoder implements LogEntryEncoder {
             String nodeStr = node.getConsistentId();
             int length = nodeStr.length();
 
-            GridUnsafe.putShortLittleEndian(addr, (short) length);
-            addr += 2;
+            Bits.putShortLittleEndian(addr, (short) length);
+            addr += Short.BYTES;
 
-            for(int i = 0; i < length; i++) {
+            for (int i = 0; i < length; i++) {
                 GridUnsafe.putByte(addr + i, (byte) nodeStr.charAt(i));
             }
             addr += length;
@@ -238,8 +223,8 @@ public final class V1Encoder implements LogEntryEncoder {
             String consistentId = peerId.getConsistentId();
             int length = consistentId.length();
 
-            Bits.putShort(content, pos, (short) length);
-            pos += 2;
+            Bits.putShortLittleEndian(content, pos, (short) length);
+            pos += Short.BYTES;
 
             AsciiStringUtil.unsafeEncode(consistentId, content, pos);
             pos += length;

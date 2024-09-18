@@ -25,6 +25,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
+import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  *  * File header:
@@ -150,13 +151,8 @@ public class IndexFile extends AbstractFile {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, logType);
 
-                if (GridUnsafe.IS_BIG_ENDIAN) {
-                    GridUnsafe.putInt(addr + 2, toRelativeOffset(logIndex));
-                    GridUnsafe.putInt(addr + 6, position);
-                } else {
-                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(toRelativeOffset(logIndex)));
-                    GridUnsafe.putInt(addr + 6, Integer.reverseBytes(position));
-                }
+                Bits.putIntLittleEndian(addr + 2, toRelativeOffset(logIndex));
+                Bits.putIntLittleEndian(addr + 6, position);
 
                 return getIndexSize();
             });

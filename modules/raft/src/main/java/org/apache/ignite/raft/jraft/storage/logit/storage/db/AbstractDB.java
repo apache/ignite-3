@@ -321,9 +321,9 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     }
 
     /**
-     * Write the data and return it's wrote position.
+     * Write the data and return its written position.
      * @param data logEntry data
-     * @return (wrotePosition, expectFlushPosition)
+     * @return (writtenPosition, expectFlushPosition)
      */
     public Pair<Integer, Long> appendLogAsync(final long logIndex, final byte[] data) {
         final int waitToWroteSize = SegmentFile.getWriteBytes(data);
@@ -337,16 +337,16 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     }
 
     /**
-     * Write the data and return it's wrote position. Based on {@link #appendLogAsync(long, byte[])}, but more efficient.
+     * Write the data and return its written position. Based on {@link #appendLogAsync(long, byte[])}, but more efficient.
      *
      * @param encoder Log entry encoder
      * @param logEntry Log entry
-     * @return (wrotePosition, expectFlushPosition)
+     * @return (writtenPosition, expectFlushPosition)
      */
     public Pair<Integer, Long> appendLogAsync(final long logIndex, LogEntryEncoder encoder, LogEntry logEntry) {
         V1Encoder v1Encoder = (V1Encoder)encoder;
         int dataSize = v1Encoder.size(logEntry);
-        final int waitToWroteSize = dataSize + 6;
+        final int waitToWroteSize = SegmentFile.getWriteBytes(dataSize);
 
         final SegmentFile segmentFile = (SegmentFile) this.fileManager.getLastFile(logIndex, waitToWroteSize, true);
         if (segmentFile != null) {

@@ -65,7 +65,7 @@ public final class V1Decoder implements LogEntryDecoder {
         long term = reader.readLong();
         log.setId(new LogId(index, term));
 
-        long checksum = Bits.getLong(content, reader.pos);
+        long checksum = Bits.getLongLittleEndian(content, reader.pos);
         log.setChecksum(checksum);
 
         int pos = reader.pos + Long.BYTES;
@@ -131,8 +131,8 @@ public final class V1Decoder implements LogEntryDecoder {
 
     private static int readNodesList(Reader reader, int pos, byte[] content, int count, List<PeerId> nodes) {
         for (int i = 0; i < count; i++) {
-            short len = Bits.getShort(content, pos);
-            pos += 2;
+            short len = Bits.getShortLittleEndian(content, pos);
+            pos += Short.BYTES;
 
             String consistentId = AsciiStringUtil.unsafeDecode(content, pos, len);
             pos += len;

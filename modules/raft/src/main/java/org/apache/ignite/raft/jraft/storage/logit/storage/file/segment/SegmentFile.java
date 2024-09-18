@@ -28,6 +28,7 @@ import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
+import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  *  * File header:
@@ -76,11 +77,7 @@ public class SegmentFile extends AbstractFile {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
 
-                if (GridUnsafe.IS_BIG_ENDIAN) {
-                    GridUnsafe.putInt(addr + 2, data.length);
-                } else {
-                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(data.length));
-                }
+                Bits.putIntLittleEndian(addr + 2, data.length);
 
                 GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, addr + 6, data.length);
 
@@ -93,7 +90,7 @@ public class SegmentFile extends AbstractFile {
 
     /**
      *
-     * Write the data and return it's wrote position. Based on {@link #appendData(long, byte[])}, but more efficient.
+     * Write the data and return its written position. Based on {@link #appendData(long, byte[])}, but more efficient.
      * @param logIndex the log index
      * @param encoder Log entry encoder
      * @param entry Log entry
@@ -109,11 +106,7 @@ public class SegmentFile extends AbstractFile {
                 GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
                 GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
 
-                if (GridUnsafe.IS_BIG_ENDIAN) {
-                    GridUnsafe.putInt(addr + 2, entrySize);
-                } else {
-                    GridUnsafe.putInt(addr + 2, Integer.reverseBytes(entrySize));
-                }
+                Bits.putIntLittleEndian(addr + 2, entrySize);
 
                 encoder.append(addr + 6, entry);
 
@@ -244,6 +237,10 @@ public class SegmentFile extends AbstractFile {
     }
 
     public static int getWriteBytes(final byte[] data) {
-        return RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + data.length;
+        return getWriteBytes(data.length);
+    }
+
+    public static int getWriteBytes(int dataSize) {
+        return RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + dataSize;
     }
 }
