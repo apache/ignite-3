@@ -278,9 +278,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Blocks physical destruction of partition.
      *
-     * <p>When the intention to destroy partition appears, {@link FilePageStore#isMarkedToDestroy()} {@code == true} and invoked
-     * {@link PersistentPageMemory#invalidate(int, int)} at the beginning. And if there is a block, it waits for unblocking. Then it
-     * destroys the partition, {@link FilePageStoreManager#getStore(GroupPartitionId)} will return {@code null}.</p>
+     * <p>When the intention to destroy partition appears, {@link FilePageStore#isMarkedToDestroy()} is set to {@code == true} and
+     * {@link PersistentPageMemory#invalidate(int, int)} invoked at the beginning. And if there is a block, it waits for unblocking.
+     * Then it destroys the partition, {@link FilePageStoreManager#getStore(GroupPartitionId)} will return {@code null}.</p>
      *
      * <p>It is recommended to use where physical destruction of the partition may have an impact, for example when writing dirty pages and
      * executing a fsync.</p>
@@ -288,13 +288,19 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * <p>To make sure that we can physically do something with the partition during a block, we will need to use approximately the
      * following code:</p>
      * <pre><code>
-     *     FilePageStore pageStore = FilePageStoreManager#getStore(partitionId);
+     *     checkpointProgress.blockPartitionDestruction(partitionId);
      *
-     *     if (pageStore == null || pageStore.isMarkedToDestroy()) {
-     *         return;
+     *     try {
+     *         FilePageStore pageStore = FilePageStoreManager#getStore(partitionId);
+     *
+     *         if (pageStore == null || pageStore.isMarkedToDestroy()) {
+     *             return;
+     *         }
+     *
+     *         someAction(pageStore);
+     *     } finally {
+     *         checkpointProgress.unblockPartitionDestruction(partitionId);
      *     }
-     *
-     *     someAction(pageStore);
      * </code></pre>
      *
      * @param groupPartitionId Pair of group ID with partition ID.
