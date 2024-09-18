@@ -46,6 +46,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_S
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
@@ -1307,7 +1308,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     catalogVersion,
                     tableDescriptor.zoneId()
             ).thenApply(dataNodes ->
-                    PartitionDistributionUtils.calculateAssignmentForPartition(
+                    calculateAssignmentForPartition(
                             dataNodes,
                             tablePartitionId.partitionId(),
                             zoneDescriptor.replicas()

@@ -45,6 +45,8 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -532,8 +534,7 @@ public class PartitionReplicaLifecycleManager  extends
                     zoneDescriptor.updateToken(),
                     catalogVersion,
                     zoneId
-            ).thenApply(dataNodes ->
-                    PartitionDistributionUtils.calculateAssignmentForPartition(
+            ).thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
                             zoneDescriptor.replicas()
@@ -685,7 +686,7 @@ public class PartitionReplicaLifecycleManager  extends
             long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> PartitionDistributionUtils.calculateAssignments(
+                    .thenApply(dataNodes -> calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()

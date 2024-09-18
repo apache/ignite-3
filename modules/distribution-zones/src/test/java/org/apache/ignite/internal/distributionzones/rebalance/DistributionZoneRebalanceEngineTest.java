@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -570,7 +571,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> initialDataNodes = Set.of("node0");
         List<Set<Assignment>> initialAssignments =
-                PartitionDistributionUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+                calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();

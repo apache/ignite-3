@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -302,7 +303,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
 
-            partitionDistributionServiceMock.when(() -> PartitionDistributionUtils.calculateAssignments(any(), anyInt(), anyInt()))
+            partitionDistributionServiceMock.when(() -> calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
 

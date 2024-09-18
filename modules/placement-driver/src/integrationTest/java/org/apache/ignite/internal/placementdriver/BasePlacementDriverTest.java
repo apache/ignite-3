@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -49,7 +50,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
             int tableId,
             List<String> dataNodes,
             long assignmentsTimestamp) {
-        List<Set<Assignment>> assignments = PartitionDistributionUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
+        List<Set<Assignment>> assignments = calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 

@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
@@ -591,7 +592,7 @@ public class ItTxTestCluster {
         lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
         lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
-        List<Set<Assignment>> calculatedAssignments = PartitionDistributionUtils.calculateAssignments(
+        List<Set<Assignment>> calculatedAssignments = calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
                 1,
                 replicas

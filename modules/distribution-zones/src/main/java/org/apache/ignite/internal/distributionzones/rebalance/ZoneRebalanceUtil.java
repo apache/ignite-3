@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -157,7 +158,7 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> partAssignments = PartitionDistributionUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> partAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
