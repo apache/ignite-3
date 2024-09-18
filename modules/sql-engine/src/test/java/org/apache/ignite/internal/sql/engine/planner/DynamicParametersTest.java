@@ -199,7 +199,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .fails("Unable to determine type of a dynamic parameter"),
+                        .fails("Illegal mixing of types in CASE or COALESCE statement"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
@@ -213,7 +213,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .fails("Unable to determine type of a dynamic parameter")
+                        .fails("Illegal mixing of types in CASE or COALESCE statement")
         );
     }
 
@@ -322,7 +322,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (1), ((SELECT ?))", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter"),
+                        .fails("Values passed to VALUES operator must have compatible types"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
@@ -456,7 +456,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT COALESCE(1, ?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter"),
+                        .fails("Illegal mixing of types in CASE or COALESCE statement"),
 
                 checkStatement()
                         .sql("SELECT COALESCE(CAST(? AS INTEGER), 1)", 2)
@@ -763,7 +763,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT 1 UNION SELECT ?", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter"),
+                        .fails("Type mismatch in column 1 of UNION"),
 
                 sql("SELECT ? UNION SELECT 1", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
@@ -774,10 +774,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT ? UNION SELECT 1", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter"),
+                        .fails("Type mismatch in column 1 of UNION"),
 
                 sql("SELECT ? UNION SELECT ?", 1, Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter")
+                        .fails("Type mismatch in column 1 of UNION")
         );
     }
 

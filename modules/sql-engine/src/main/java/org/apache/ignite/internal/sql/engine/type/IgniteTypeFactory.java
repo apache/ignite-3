@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Type;
@@ -386,65 +387,75 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         RelDataType resultType = super.leastRestrictive(types);
 
-        if (resultType != null && resultType.getSqlTypeName() == SqlTypeName.ANY) {
-            // leastRestrictive defined by calcite returns an instance of BasicSqlType that represents an ANY type,
-            // when at least one of its arguments have sqlTypeName = ANY.
-            assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
+        if (resultType == null) {
+            return null;
+        }
 
-            IgniteCustomType firstCustomType = null;
-            boolean hasAnyType = false;
-            boolean hasBuiltInType = false;
-            boolean hasNullable = false;
-            IgniteCustomType firstNullable = null;
-
-            for (var type : types) {
-                SqlTypeName sqlTypeName = type.getSqlTypeName();
-                // NULL types should be ignored when we are trying to determine the least restrictive type.
-                if (sqlTypeName == SqlTypeName.NULL) {
-                    continue;
-                }
-
-                if (type instanceof IgniteCustomType) {
-                    if (firstCustomType == null) {
-                        firstCustomType = (IgniteCustomType) type;
-                    } else {
-                        IgniteCustomType customType = (IgniteCustomType) type;
-                        if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
-                            // IgniteCustomType: Conversion between custom data types is not supported.
-                            return null;
-                        }
-                    }
-
-                    if (type.isNullable() && firstNullable == null) {
-                        hasNullable = type.isNullable();
-                        firstNullable = (IgniteCustomType) type;
-                    }
-
-                } else if (sqlTypeName == SqlTypeName.ANY) {
-                    hasAnyType = true;
-                } else {
-                    hasBuiltInType = true;
-                }
-            }
-
-            if (hasAnyType && hasBuiltInType && firstCustomType != null) {
-                // There is no least restrictive type between ANY, built-in type, and a custom data type.
-                return null;
-            } else if ((hasAnyType && hasBuiltInType) || (hasAnyType && firstCustomType != null)) {
-                // When at least one of arguments have sqlTypeName = ANY,
-                // return it in order to be consistent with default implementation.
-                return resultType;
-            } else if (firstCustomType != null && !hasBuiltInType) {
-                // When there is only one custom data type and no other built-in types,
-                // return the custom data type.
-                // We must return a nullable type, when there are nullable and not-nullable types,
-                // because nullable type is less restrictive than not-nullable.
-                return hasNullable ? firstNullable : firstCustomType;
-            } else {
+        if (resultType.getSqlTypeName() != SqlTypeName.ANY) {
+            // leastRestrictive defined by calcite returns leas restrictive even among types of different families.
+            // We need to trim such variants.
+            if (!typeFamiliesAreCompatible(this, types)) {
                 return null;
             }
-        } else {
+
             return resultType;
+        }
+
+        // leastRestrictive defined by calcite returns an instance of BasicSqlType that represents an ANY type,
+        // when at least one of its arguments have sqlTypeName = ANY.
+        assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
+
+        IgniteCustomType firstCustomType = null;
+        boolean hasAnyType = false;
+        boolean hasBuiltInType = false;
+        boolean hasNullable = false;
+        IgniteCustomType firstNullable = null;
+
+        for (var type : types) {
+            SqlTypeName sqlTypeName = type.getSqlTypeName();
+            // NULL types should be ignored when we are trying to determine the least restrictive type.
+            if (sqlTypeName == SqlTypeName.NULL) {
+                continue;
+            }
+
+            if (type instanceof IgniteCustomType) {
+                if (firstCustomType == null) {
+                    firstCustomType = (IgniteCustomType) type;
+                } else {
+                    IgniteCustomType customType = (IgniteCustomType) type;
+                    if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
+                        // IgniteCustomType: Conversion between custom data types is not supported.
+                        return null;
+                    }
+                }
+
+                if (type.isNullable() && firstNullable == null) {
+                    hasNullable = type.isNullable();
+                    firstNullable = (IgniteCustomType) type;
+                }
+
+            } else if (sqlTypeName == SqlTypeName.ANY) {
+                hasAnyType = true;
+            } else {
+                hasBuiltInType = true;
+            }
+        }
+
+        if (hasAnyType && hasBuiltInType && firstCustomType != null) {
+            // There is no least restrictive type between ANY, built-in type, and a custom data type.
+            return null;
+        } else if ((hasAnyType && hasBuiltInType) || (hasAnyType && firstCustomType != null)) {
+            // When at least one of arguments have sqlTypeName = ANY,
+            // return it in order to be consistent with default implementation.
+            return resultType;
+        } else if (firstCustomType != null && !hasBuiltInType) {
+            // When there is only one custom data type and no other built-in types,
+            // return the custom data type.
+            // We must return a nullable type, when there are nullable and not-nullable types,
+            // because nullable type is less restrictive than not-nullable.
+            return hasNullable ? firstNullable : firstCustomType;
+        } else {
+            return null;
         }
     }
 

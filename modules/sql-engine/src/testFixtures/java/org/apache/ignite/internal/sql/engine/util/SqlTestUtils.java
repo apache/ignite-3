@@ -39,6 +39,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Iterator;
@@ -89,6 +90,8 @@ public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
+
+    private static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     static {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BOOLEAN, SqlTypeName.BOOLEAN);
@@ -388,7 +391,7 @@ public class SqlTestUtils {
      * @param type Type of value to generate literal.
      * @return String representation of value as a SQL literal.
      */
-    public static String makeLiteral(String value, ColumnType type) {
+    public static String makeLiteral(Object value, ColumnType type) {
         if (value == null) {
             return "NULL";
         }
@@ -401,20 +404,23 @@ public class SqlTestUtils {
             case DATE:
                 return "DATE '" + value + "'";
             case TIMESTAMP:
-                return "TIMESTAMP WITH LOCAL TIME ZONE '" + value + "'";
+                return "TIMESTAMP WITH LOCAL TIME ZONE '" + LocalDateTime.ofInstant(
+                        ((Instant) value),
+                        ZoneId.systemDefault()
+                ).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case STRING:
                 return "'" + value + "'";
             case DATETIME:
-                return "TIMESTAMP '" + value + "'";
+                return "TIMESTAMP '" + ((LocalDateTime) value).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case BYTE_ARRAY:
-                return "X'" + StringUtils.toHexString(value.getBytes(StandardCharsets.UTF_8)) + "'";
+                return "X'" + StringUtils.toHexString(value.toString().getBytes(StandardCharsets.UTF_8)) + "'";
             case NULL:
             case UUID:
             case PERIOD:
             case DURATION:
                 throw new IllegalArgumentException("The type " + type + " isn't supported right now");
             default:
-                return value;
+                return value.toString();
         }
     }
 

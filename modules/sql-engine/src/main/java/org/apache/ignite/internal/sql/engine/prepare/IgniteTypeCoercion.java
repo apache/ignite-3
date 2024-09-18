@@ -22,6 +22,7 @@ import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
+import static org.apache.calcite.sql.validate.SqlNonNullableAccessors.getScope;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 
@@ -51,6 +52,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -254,13 +256,31 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /** {@inheritDoc} */
     @Override
     public boolean caseWhenCoercion(SqlCallBinding callBinding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.CASE_EXPR);
-        try {
-            return super.caseWhenCoercion(callBinding);
-        } finally {
-            ctxStack.pop(ctx);
+        SqlValidatorScope scope = getScope(callBinding);
+        SqlCase caseCall = (SqlCase) callBinding.getCall();
+        SqlNodeList thenList = caseCall.getThenOperands();
+        List<RelDataType> types = new ArrayList<>();
+        for (SqlNode node : thenList) {
+            RelDataType type = validator.deriveType(scope, node);
+
+            types.add(type);
         }
+
+        SqlNode elseOp = requireNonNull(
+                caseCall.getElseOperand(),
+                () -> "getElseOperand() is null for " + caseCall
+        );
+
+        RelDataType elseOpType = validator.deriveType(scope, elseOp);
+
+        types.add(elseOpType);
+
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, types)) {
+            return false;
+        }
+
+        return super.caseWhenCoercion(callBinding);
     }
 
     /** {@inheritDoc} */

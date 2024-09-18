@@ -100,20 +100,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                 SCHEMA, operandCaseMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
     }
 
-    private static String prevResult = "";
-
-    // It is necessary to have a guarantee that two values in a row will be different.
-    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
-    private static String generateLiteralWithNoRepetition(NativeType type) {
-        String val;
-        do {
-            val = SqlTestUtils.generateValueByType(type).toString();
-        } while (val.equals(prevResult));
-        prevResult = val;
-
-        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
-    }
-
     static Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
         return new BaseMatcher<>() {
             @Override
