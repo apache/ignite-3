@@ -149,7 +149,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
         return allOf(responses.values()).thenApply(unused -> {
             return responses.entrySet().stream()
-                    .collect(toMap(Entry::getKey, entry -> indexWithTerm(responses.get(entry.getKey()).join())));
+                    .collect(toMap(Entry::getKey, entry -> indexWithTerm(entry.getValue().join())));
         });
     }
 
