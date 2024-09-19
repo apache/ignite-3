@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity;
+package org.apache.ignite.internal.partitiondistribution;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -35,7 +35,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
 /**
- * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the following configuration:
+ * Partition distribution function for partitioned table based on Highest Random Weight algorithm. This function supports the following
+ * configuration:
  * <ul>
  * <li>
  *      {@code partitions} - Number of partitions to spread across nodes.
@@ -53,9 +54,9 @@ import org.apache.ignite.internal.logger.Loggers;
  * </li>
  * </ul>
  */
-public class RendezvousAffinityFunction {
+public class RendezvousDistributionFunction {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RendezvousAffinityFunction.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RendezvousDistributionFunction.class);
 
     /** Comparator. */
     private static final Comparator<IgniteBiTuple<Long, String>> COMPARATOR = new HashComparator();
@@ -161,7 +162,7 @@ public class RendezvousAffinityFunction {
             }
 
             if (!exclNeighborsWarn) {
-                LOG.warn("Affinity function excludeNeighbors property is ignored "
+                LOG.warn("Distribution function excludeNeighbors property is ignored "
                         + "because topology has no enough nodes to assign all replicas.");
 
                 exclNeighborsWarn = true;
@@ -420,7 +421,7 @@ public class RendezvousAffinityFunction {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "U.toString(RendezvousAffinityFunction.class, this)";
+        return "U.toString(RendezvousDistributionFunction.class, this)";
     }
 
     /**

@@ -58,7 +58,7 @@ dependencies {
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-metastorage-cache')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
     implementation project(':ignite-sql-engine')
@@ -129,7 +129,7 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
-    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')

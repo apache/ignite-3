@@ -71,10 +71,10 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateZoneImpl affinity(String affinity) {
-        Objects.requireNonNull(affinity, "Affinity function must not be null.");
+    CreateZoneImpl distributionAlgorithm(String distributionAlgorithm) {
+        Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
 
-        withOptions.add(WithOption.affinity(affinity));
+        withOptions.add(WithOption.distributionAlgorithm(distributionAlgorithm));
         return this;
     }
 

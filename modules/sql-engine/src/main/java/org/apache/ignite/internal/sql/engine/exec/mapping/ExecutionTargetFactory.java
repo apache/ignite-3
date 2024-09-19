@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 
 /**
