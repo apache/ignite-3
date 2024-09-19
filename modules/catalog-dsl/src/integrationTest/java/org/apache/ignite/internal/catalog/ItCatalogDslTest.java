@@ -70,7 +70,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     void zoneCreateAndDropByDefinition() {
         // Given zone definition
         ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
-                .affinity("affinity")
+                .distributionAlgorithm("rendezvous")
                 .dataNodesAutoAdjust(1)
                 .filter("filter")
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
