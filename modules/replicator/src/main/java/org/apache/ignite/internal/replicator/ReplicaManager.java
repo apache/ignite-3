@@ -45,7 +45,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -609,17 +608,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         .thenCompose(unused -> {
                             NetworkMessage response = futs.stream()
                                     .map(CompletableFuture::join)
-                                    .filter(Objects::nonNull)
+                                    .filter(resp -> resp instanceof StopLeaseProlongationMessageResponse
+                                            && ((StopLeaseProlongationMessageResponse) resp).deniedLeaseExpirationTime() != null)
                                     .findAny()
                                     .orElse(null);
 
                             if (response == null) {
                                 return stopLeaseProlongation(groupId, redirectNodeId, endTime);
                             } else {
-                                assert response instanceof StopLeaseProlongationMessageResponse : format(
-                                        "Unexpected response type [class={}, "
-                                                + "response={}].", response.getClass(), response);
-
                                 return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
                             }
                         });
