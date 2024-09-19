@@ -3102,7 +3102,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         verify(raftGrpEvtsLsnr, timeout(10_000))
                 .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong());
 
-        // Verify that initial close wasn't adjusted.
+        // Verify that initial close state wasn't reinitialized.
         assertEquals(Status.OK(), done.await());
     }
 
