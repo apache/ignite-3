@@ -3082,14 +3082,16 @@ public class RexImpTable {
           || type1 == BigDecimal.class
           || COMPARISON_OPERATORS.contains(op)
           && !COMP_OP_TYPES.contains(primitive)) {
-        // The only case this branch is solve resolving math arithmetic operations between BigDecimal and primitive types
+        // The cases this branch:
+        // 1. Is solve resolving math arithmetic operations between BigDecimal and primitive types
         // for example : SqlFunctions.multiply(java.math.BigDecimal, int) is not implemented in calcite but need to be resolved.
-        // It can be removed after such a functionality appears in calcite.
-        if (type0 == BigDecimal.class && Primitive.ofBoxOr(type1) != null && !EQUALS_OPERATORS.contains(op)) {
-          Expression ret = IgniteExpressions.makeBinary(expressionType,
-                  argValueList.get(0), argValueList.get(1));
-          return ret != null ? ret : Expressions.call(SqlFunctions.class, backupMethodName,
-                  argValueList);
+        // 2. Division with correct rounding for decimals with zero scale
+        if (!EQUALS_OPERATORS.contains(op) && !COMPARISON_OPERATORS.contains(op)){
+          if (type0 == BigDecimal.class && (Primitive.ofBoxOr(type1) != null)
+               || (type0 == BigDecimal.class && type1 == BigDecimal.class && op == DIVIDE)) {
+            return IgniteExpressions.makeBinary(expressionType,
+                    argValueList.get(0), argValueList.get(1));
+          }
         }
         return Expressions.call(SqlFunctions.class, backupMethodName,
             argValueList);

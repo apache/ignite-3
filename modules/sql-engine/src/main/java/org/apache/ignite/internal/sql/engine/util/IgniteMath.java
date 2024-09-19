@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.SqlException;
 
@@ -190,7 +191,13 @@ public class IgniteMath {
             throwDivisionByZero();
         }
 
-        return x.divide(y, MathContext.DECIMAL64);
+        int scale1 = x.scale();
+        int scale2 = y.scale();
+
+        MathContext mc = (scale1 | scale2) == 0 ? new MathContext(Math.max(x.precision(), y.precision()), RoundingMode.HALF_DOWN)
+                : MathContext.DECIMAL64;
+
+        return x.divide(y, mc);
     }
 
     /** Returns the division of its arguments, extending result type for overflow avoidance. */
