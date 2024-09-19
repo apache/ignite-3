@@ -324,21 +324,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return Result.RESTRICT;
         }
 
-        List<RexNode> derivedOperands;
+        List<RexNode> operands;
         if (node instanceof RexCall) {
-            derivedOperands = ((RexCall) node).getOperands();
+            operands = ((RexCall) node).getOperands();
         } else {
             return Result.UNKNOWN;
-        }
-
-        List<RexNode> operands = new ArrayList<>();
-
-        for (RexNode op : derivedOperands) {
-            if (RexUtil.isLosslessCast(op)) {
-                operands.add(RexUtil.removeCast(op));
-            } else {
-                operands.add(op);
-            }
         }
 
         switch (node.getKind()) {
