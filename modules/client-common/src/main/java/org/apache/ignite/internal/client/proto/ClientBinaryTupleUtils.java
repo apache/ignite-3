@@ -39,7 +39,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -120,7 +122,7 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+    private static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
         switch (type) {
             case INT8:
                 return binTuple::byteValue;
@@ -436,8 +438,19 @@ public class ClientBinaryTupleUtils {
             }
         } catch (ClassCastException e) {
             NativeType nativeType = NativeTypes.fromObject(v);
-            // A null is handled separately, so nativeType should not be null.
-            assert nativeType != null;
+
+            if (nativeType == null) {
+                // Unsupported type (does not map to any Ignite type) - throw (same behavior as embedded).
+                throw new MarshallerException(
+                        UUID.randomUUID(),
+                        Marshalling.COMMON_ERR,
+                        String.format(
+                                "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
+                                name,
+                                type.javaClass().getName(),
+                                v.getClass().getName()),
+                        e);
+            }
 
             NativeTypeSpec actualType = nativeType.spec();
             NativeTypeSpec expectedType = NativeTypeSpec.fromColumnType(type);
