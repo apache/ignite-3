@@ -70,10 +70,10 @@ public abstract class AbstractFile extends ReferenceResource {
     protected MappedByteBuffer    mappedByteBuffer;
 
     // Current write position
-    protected final AtomicInteger wrotePosition   = new AtomicInteger(0);
+    protected volatile int wrotePosition = 0;
 
     // Current flush position
-    protected final AtomicInteger flushedPosition = new AtomicInteger(0);
+    protected volatile int flushedPosition = 0;
 
     protected final ReadWriteLock readWriteLock   = new ReentrantReadWriteLock();
     protected final Lock          readLock        = this.readWriteLock.readLock();
@@ -139,7 +139,7 @@ public abstract class AbstractFile extends ReferenceResource {
             try {
                 if (isMapped()) {
                     this.mappedByteBuffer.force();
-                    this.flushedPosition.set(getWrotePosition());
+                    this.flushedPosition = getWrotePosition();
                     if (this.mappedByteBuffer != null) {
                         if (Platform.isLinux()) {
                             hintUnload();
@@ -487,19 +487,19 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public int getWrotePosition() {
-        return wrotePosition.get();
+        return wrotePosition;
     }
 
     public void setWrotePosition(final int position) {
-        this.wrotePosition.set(position);
+        this.wrotePosition = position;
     }
 
     public int getFlushedPosition() {
-        return flushedPosition.get();
+        return flushedPosition;
     }
 
     public void setFlushPosition(final int position) {
-        this.flushedPosition.set(position);
+        this.flushedPosition = position;
     }
 
     /**
