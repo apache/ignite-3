@@ -299,6 +299,39 @@ public class RexUtils {
                     LESS_THAN, GREATER_THAN,
                     GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
 
+    private boolean isLooslessCast(RexNode node) {
+        if (!node.isA(SqlKind.CAST)) {
+            return false;
+        }
+
+        if (RexUtil.isLosslessCast(node)) {
+            return true;
+        }
+
+        RexCall condition = (RexCall) node;
+        RexNode op = condition.getOperands().get(0);
+
+        RelDataType source = ((RexCall) op).getOperands().get(0).getType();
+        RelDataType target = op.getType();
+
+        if (SqlTypeUtil.isIntType(source) && SqlTypeUtil.isDecimal(target)) {
+            switch (source.getSqlTypeName()) {
+                case TINYINT:
+                    return target.getPrecision() >= 3 && target.getScale() == 0;
+                case SMALLINT:
+                    return target.getPrecision() >= 5 && target.getScale() == 0;
+                case INTEGER:
+                    return target.getPrecision() >= 10 && target.getScale() == 0;
+                case BIGINT:
+                    return target.getPrecision() >= 19 && target.getScale() == 0;
+                default:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Builds sorted index search bounds.
      */

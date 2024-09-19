@@ -511,7 +511,7 @@ public class TypeUtils {
     }
 
     /** Checks whether cast operation is necessary in {@code SearchBound}. */
-    public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+    static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
         // Checks for character and binary types should allow comparison
         // between types with precision, types w/o precision, and varying non-varying length variants.
         // Otherwise the optimizer wouldn't pick an index for conditions such as
@@ -529,6 +529,21 @@ public class TypeUtils {
                 && SqlTypeUtil.isIntType(fromType)
                 && SqlTypeUtil.isIntType(toType)) {
             return false;
+        }
+
+        if (SqlTypeUtil.isIntType(fromType) && SqlTypeUtil.isDecimal(toType)) {
+            switch (fromType.getSqlTypeName()) {
+                case TINYINT:
+                    return toType.getPrecision() < 3 || toType.getScale() != 0;
+                case SMALLINT:
+                    return toType.getPrecision() < 5 && toType.getScale() != 0;
+                case INTEGER:
+                    return toType.getPrecision() < 10 && toType.getScale() != 0;
+                case BIGINT:
+                    return toType.getPrecision() < 19 && toType.getScale() != 0;
+                default:
+                    return false;
+            }
         }
 
         // Implicit type coercion does not handle nullability.
