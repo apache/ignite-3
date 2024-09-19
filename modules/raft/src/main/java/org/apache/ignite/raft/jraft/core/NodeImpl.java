@@ -480,8 +480,9 @@ public class NodeImpl implements Node, RaftServerService {
                     }
                 };
 
-                // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
+                if (!this.async) {
+                  Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
+                }
                 this.done = null;
             }
         }
