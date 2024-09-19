@@ -51,8 +51,10 @@ public final class Types {
     public static final NativeType DECIMAL_6_1 = NativeTypes.decimalOf(6, 1);
     public static final NativeType DECIMAL_8_3 = NativeTypes.decimalOf(8, 3);
     public static final NativeType DECIMAL_21_16 = NativeTypes.decimalOf(21, 16);
+    public static final NativeType DECIMAL_10_7 = NativeTypes.decimalOf(10, 7);
 
     public static final NativeType DECIMAL_14_7 = NativeTypes.decimalOf(14, 7);
+    public static final NativeType DECIMAL_18_15 = NativeTypes.decimalOf(18, 15);
 
     public static final NativeType DECIMAL_10_0 = NativeTypes.decimalOf(10, 0);
     public static final NativeType DECIMAL_11_1 = NativeTypes.decimalOf(11, 1);
@@ -64,6 +66,7 @@ public final class Types {
     public static final NativeType DECIMAL_19_0 = NativeTypes.decimalOf(19, 0);
     public static final NativeType DECIMAL_20_1 = NativeTypes.decimalOf(20, 1);
     public static final NativeType DECIMAL_22_3 = NativeTypes.decimalOf(22, 3);
+    public static final NativeType DECIMAL_25_15 = NativeTypes.decimalOf(25, 15);
     public static final NativeType DECIMAL_35_16 = NativeTypes.decimalOf(35, 16);
 
     public static final NativeType DECIMAL_MAX_18 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 18);
