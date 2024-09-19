@@ -95,16 +95,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
-     * Converts {@link Long} representation into a hybrid timestamp instance.
-     * {@link #NULL_HYBRID_TIMESTAMP} and {@code null} are interpreted as {@code null}.
+     * Converts primitive {@code long} representation into a hybrid timestamp instance.
+     * {@link #NULL_HYBRID_TIMESTAMP} is interpreted as {@code null}.
      *
      * @throws IllegalArgumentException If timestamp is negative.
      */
-    public static @Nullable HybridTimestamp nullableHybridTimestamp(@Nullable Long time) {
-        if (time == null) {
-            return null;
-        }
-
+    public static @Nullable HybridTimestamp nullableHybridTimestamp(long time) {
         return time == NULL_HYBRID_TIMESTAMP ? null : new HybridTimestamp(time);
     }
 

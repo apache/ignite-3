@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -733,7 +734,9 @@ public class LeaseUpdater {
                         }
 
                         if (correlationId != null) {
-                            Long deniedLeaseExpTimeLong = deniedLeaseExpTime == null ? null : deniedLeaseExpTime.longValue();
+                            long deniedLeaseExpTimeLong = deniedLeaseExpTime == null
+                                    ? NULL_HYBRID_TIMESTAMP
+                                    : deniedLeaseExpTime.longValue();
 
                             StopLeaseProlongationMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY
                                     .stopLeaseProlongationMessageResponse()
