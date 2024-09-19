@@ -339,7 +339,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("UPDATE t1 SET c1 = '1'::INTEGER + 1")
-                        .project("$t0", "+(1, 1)"),
+                        .project("$t0", "CAST(+(1, 1)):INTEGER NOT NULL"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.stringOf(4))
@@ -349,7 +349,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "id", NativeTypes.INT32, "int_col", NativeTypes.INT32, "str_col", NativeTypes.STRING)
                         .sql("UPDATE t1 SET str_col = 1, int_col = id + 1")
-                        .project("$t0", "$t1", "$t2", "_UTF-8'1':VARCHAR(65536) CHARACTER SET \"UTF-8\"", "+($t0, 1)")
+                        .project("$t0", "$t1", "$t2", "_UTF-8'1':VARCHAR(65536) CHARACTER SET \"UTF-8\"", "CAST(+($t0, 1)):INTEGER")
         );
     }
 

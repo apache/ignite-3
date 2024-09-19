@@ -420,7 +420,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @Test
     public void testBoundsComplex() throws Exception {
         assertBounds("SELECT * FROM TEST WHERE C1 = ? + 10", List.of(1), publicSchema,
-                exact("+(?0, 10)")
+                exact("CAST(+(?0, 10)):INTEGER")
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,

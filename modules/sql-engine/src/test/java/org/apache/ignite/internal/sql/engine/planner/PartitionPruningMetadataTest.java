@@ -410,8 +410,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         CONST_FOLDING_1b("c1 = ? + 4", TABLE_C1),
 
         // 0s removed by Calcite.
-        CONST_FOLDING_1c("c1 = 0 + 42", TABLE_C1, "[c1=42]"),
-        CONST_FOLDING_1d("c1 = 42 + 0", TABLE_C1, "[c1=42]"),
+        CONST_FOLDING_1c("c1 = 0 + 42", TABLE_C1, "[c1=42:BIGINT]"),
+        CONST_FOLDING_1d("c1 = 42 + 0", TABLE_C1, "[c1=42:BIGINT]"),
         ;
 
         private final TestCase data;
