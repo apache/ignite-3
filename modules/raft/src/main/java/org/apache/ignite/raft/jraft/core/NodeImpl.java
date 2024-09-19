@@ -49,6 +49,7 @@ import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -1318,7 +1319,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getLogStripesCount(),
-                logStorage instanceof RocksDbSharedLogStorage,
+                logStorage instanceof StripeAwareLogStorage,
                 opts.isLogYieldStrategy(),
                 opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
             ));

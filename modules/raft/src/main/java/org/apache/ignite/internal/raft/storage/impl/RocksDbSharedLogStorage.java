@@ -60,7 +60,7 @@ import org.rocksdb.WriteOptions;
  * Log storage that shares rocksdb instance with other log storages.
  * Stores key with groupId prefix to distinguish them from keys that belongs to other storages.
  */
-public class RocksDbSharedLogStorage implements LogStorage, Describer {
+public class RocksDbSharedLogStorage implements LogStorage, StripeAwareLogStorage, Describer {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbSharedLogStorage.class);
 
@@ -455,7 +455,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Appends log entries to the batch, received from {@link DefaultLogStorageFactory#getOrCreateThreadLocalWriteBatch()}. This batch is
      * shared between all instances of log, that belong to the given factory.
      */
-    boolean appendEntriesToBatch(List<LogEntry> entries) {
+    @Override
+    public boolean appendEntriesToBatch(List<LogEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return true;
         }
@@ -487,7 +488,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Writes batch, previously filled by {@link #appendEntriesToBatch(List)} calls, into a rocksdb storage and clears the batch by calling
      * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch}.
      */
-    void commitWriteBatch() {
+    @Override
+    public void commitWriteBatch() {
         WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
 
         if (writeBatch == null) {
