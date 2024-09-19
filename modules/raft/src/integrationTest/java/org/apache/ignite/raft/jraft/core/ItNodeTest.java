@@ -3097,10 +3097,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newPeer)),
                 leader.getCurrentTerm(), done);
-        assertEquals(done.await(), Status.OK());
+        assertEquals(Status.OK(), done.await());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
                 .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong());
+
+        // Verify that initial close wasn't adjusted.
+        assertEquals(Status.OK(), done.await());
     }
 
     @Test
