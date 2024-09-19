@@ -3092,7 +3092,7 @@ public class RexImpTable {
                   argValueList);
         }
         return Expressions.call(SqlFunctions.class, backupMethodName,
-                argValueList);
+            argValueList);
       }
 
       // When checking equals or not equals on two primitive boxing classes
