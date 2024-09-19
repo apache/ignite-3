@@ -217,7 +217,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(10, rows.size());
         assertEquals("hello 1", rows.get(1).stringValue(0));
         assertEquals(1, rows.get(1).intValue(1));
-        assertEquals(2, rows.get(1).intValue(2));
+        assertEquals(2, rows.get(1).longValue(2));
 
         // Update data.
         AsyncResultSet updateRes = sql
@@ -300,7 +300,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(10, rows.size());
         assertEquals("hello 1", rows.get(1).stringValue(0));
         assertEquals(1, rows.get(1).intValue(1));
-        assertEquals(2, rows.get(1).intValue(2));
+        assertEquals(2L, rows.get(1).longValue(2));
 
         // Update data.
         ResultSet updateRes = sql.execute(null, "UPDATE testExecuteDdlDml SET VAL='upd' WHERE ID < 5");
@@ -398,18 +398,18 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @ValueSource(booleans = {true, false})
     void testResultSetMappingAsync(boolean useStatement) {
         IgniteSql sql = client().sql();
-        String query = "select 1 as num, concat('hello ', ?) as str";
+        String query = "select 1 + ? as num, concat('hello ', ?) as str";
 
         AsyncResultSet<Pojo> resultSet = useStatement
-                ? sql.executeAsync(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), "world").join()
-                : sql.executeAsync(null, Mapper.of(Pojo.class), query, "world").join();
+                ? sql.executeAsync(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), 10, "world").join()
+                : sql.executeAsync(null, Mapper.of(Pojo.class), query, 10, "world").join();
 
         assertTrue(resultSet.hasRowSet());
         assertEquals(1, resultSet.currentPageSize());
 
         Pojo row = resultSet.currentPage().iterator().next();
 
-        assertEquals(1, row.num);
+        assertEquals(11L, row.num);
         assertEquals("hello world", row.str);
     }
 
@@ -522,7 +522,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     private static class Pojo {
-        public int num;
+        public long num;
 
         public String str;
     }
