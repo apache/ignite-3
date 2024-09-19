@@ -480,9 +480,8 @@ public class NodeImpl implements Node, RaftServerService {
                     }
                 };
 
-                if (!this.async) {
-                  Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
-                }
+                // In case of changePeerAsync this invocation is used in order to trigger listener callbacks.
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
                 this.done = null;
             }
         }
