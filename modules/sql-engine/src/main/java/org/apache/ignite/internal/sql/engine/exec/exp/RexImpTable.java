@@ -3082,7 +3082,7 @@ public class RexImpTable {
           || type1 == BigDecimal.class
           || COMPARISON_OPERATORS.contains(op)
           && !COMP_OP_TYPES.contains(primitive)) {
-        // The cases this branch:
+        // The cases for this branch:
         // 1. Is solve resolving math arithmetic operations between BigDecimal and primitive types
         // for example : SqlFunctions.multiply(java.math.BigDecimal, int) is not implemented in calcite but need to be resolved.
         // 2. Division with correct rounding for decimals with zero scale
