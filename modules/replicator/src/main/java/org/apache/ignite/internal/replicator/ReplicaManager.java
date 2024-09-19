@@ -604,6 +604,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
                 }
 
+                // We send StopLeaseProlongationMessage on every node of placement driver group, so there should be all nulls or
+                // just one non-null, possible outcomes:
+                // - it wasn't successfully handled anywhere (lease updater thread made successful ms.invoke, and SLPM handlers failed
+                //   to do ms.invoke)
+                // - it was successfully handled on one node of PD group, in this case we get one non-null
+                // - it was successfully handled on some node, but message handling was delayed on some other node and it already got lease
+                //   update from MS where this lease was denied, in this case it also returns null (slightly other case than
+                //   failed ms.invoke but same outcome)
                 return allOf(futs)
                         .thenCompose(unused -> {
                             NetworkMessage response = futs.stream()
