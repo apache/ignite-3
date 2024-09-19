@@ -355,6 +355,7 @@ public class LogManagerImpl implements LogManager {
 
             if (this.stopped) {
                 if (type == EventType.LAST_LOG_ID) {
+                    // TODO: remove after fixing the issue https://issues.apache.org/jira/browse/IGNITE-23132
                     LOG.info("Received a last log id request, but log manager is stopped.");
                 }
 
