@@ -47,6 +47,9 @@ public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, Igni
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        // Reading from the SystemDisasterRecoveryStorage and not from ClusterStateStorage (used by the CMG) because the latter is recreated
+        // on each start and there could be moments during start when an initialized node does not have cluster state in
+        // the ClusterStateStorage.
         ClusterState clusterState = storage.readClusterState();
         if (clusterState != null) {
             clusterId(clusterState.clusterTag().clusterId());

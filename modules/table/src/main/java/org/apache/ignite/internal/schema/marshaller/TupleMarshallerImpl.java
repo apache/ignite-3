@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
@@ -214,9 +216,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             if (val != null) {
                 if (!colType.spec().fixedLength()) {
-                    val = shrinkValue(val, col.type());
+                    try {
+                        val = shrinkValue(val, col.type());
 
-                    estimatedValueSize += getValueSize(val, colType);
+                        estimatedValueSize += getValueSize(val, colType);
+                    } catch (ClassCastException e) {
+                        throw new MarshallerException(
+                                UUID.randomUUID(),
+                                Marshalling.COMMON_ERR,
+                                String.format(
+                                        "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
+                                        col.name(),
+                                        col.type().spec().asColumnType().javaClass().getName(),
+                                        val.getClass().getName()),
+                                e);
+                    }
                 }
             }
 

@@ -55,7 +55,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
@@ -98,11 +97,11 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.add(metaStorageManager);
 
-        clusterStateStorage = new TestClusterStateStorage();
+        clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
         components.add(clusterStateStorage);
 
-        topology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+        topology = new LogicalTopologyImpl(clusterStateStorage);
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 

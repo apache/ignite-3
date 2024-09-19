@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.disaster.system.repair;
 
-dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-vault')
-    implementation project(':ignite-raft-api')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+/**
+ * Metastorage repair logic.
+ */
+public interface MetastorageRepair {
+    /**
+     * Performs Metastorage repair.
+     *
+     * @param participatingNodeNames Names of the nodes that participate in the repair.
+     * @param metastorageReplicationFactor Replication factor for Metastorage requested by the user.
+     * @return Future that gets completed when repair is initiated.
+     */
+    CompletableFuture<Void> repair(Set<String> participatingNodeNames, int metastorageReplicationFactor);
 }
-
-description = 'ignite-system-disaster-recovery-api'

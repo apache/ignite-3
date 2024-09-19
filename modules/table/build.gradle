@@ -175,6 +175,7 @@ dependencies {
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
+    integrationTestImplementation libs.rocksdb.jni
 }
 
 description = 'ignite-table'

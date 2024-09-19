@@ -66,7 +66,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
@@ -185,7 +184,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

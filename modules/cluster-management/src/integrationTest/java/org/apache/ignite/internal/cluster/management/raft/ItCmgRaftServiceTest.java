@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -120,7 +120,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
         }
 
         void start() {
@@ -156,7 +156,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     clusterStateStorageMgr,
                                     logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
-                                    term -> {}
+                                    term -> {},
+                                    new ClusterIdHolder()
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
