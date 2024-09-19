@@ -99,7 +99,7 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
     @CsvSource({
             // UPDATE SET c1, INSERT src.c2
             "src.c2 + 2",
-            "CAST((src.c2 + 2) AS VARCHAR)",
+            "CAST((src.c2 + 2) AS BIGINT)",
     })
     public void testMergeInsert(String insertC2) {
         sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
@@ -126,8 +126,8 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
             // UPDATE SET c1, INSERT src.c2\
             "100, src.c2 + 2",
             "'100', src.c2 + 2",
-            "100, CAST((src.c2 + 2) AS VARCHAR)",
-            "'100', CAST((src.c2 + 2) AS VARCHAR)",
+            "100, CAST((src.c2 + 2) AS BIGINT)",
+            "'100', CAST((src.c2 + 2) AS BIGINT)",
     })
     public void testMergeUpdateInsert(String updateC1, String insertC2) {
         sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");

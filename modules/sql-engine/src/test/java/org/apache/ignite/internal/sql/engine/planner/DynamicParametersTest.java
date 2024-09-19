@@ -524,14 +524,14 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?)", "10")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        .project("CAST(?0):INTEGER"),
+                        .fails("Cannot assign to target field 'C1' of type INTEGER from source field 'EXPR$0' of type VARCHAR"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .sql("INSERT INTO t1 (c1, c2) SELECT c1, ? FROM t2", "10")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        .project("$t0", "CAST(?0):INTEGER")
+                        .fails("Cannot assign to target field 'C2' of type INTEGER from source field 'EXPR$1' of type VARCHAR")
         );
     }
 
@@ -564,7 +564,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("UPDATE t1 SET c1 = ?", "10")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        .project("$t0", "CAST(?0):BIGINT"),
+                        .fails("Cannot assign to target field 'C1' of type BIGINT from source field 'EXPR$0' of type VARCHAR"),
 
                 // null
                 checkStatement()
@@ -612,7 +612,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                             return sql;
                         }, "1")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        .project("$0", "$1", "CAST(?0):INTEGER"),
+                        .fails("Cannot assign to target field 'C3' of type INTEGER from source field 'EXPR$2' of type VARCHAR"),
 
                 // null
 
@@ -667,7 +667,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                             return sql;
                         }, "1")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        .project("$3", "$4", "1", "$0", "$1", "$2", "CAST(?0):INTEGER"),
+                        .fails("Cannot assign to target field 'C2' of type INTEGER from source field 'EXPR$0' of type VARCHAR"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -679,7 +679,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                             return sql;
                         }, 1, "1")
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.STRING))
-                        .project("$3", "$4", "CAST(?1):INTEGER", "$0", "$1", "$2", "?0")
+                        .fails("Cannot assign to target field 'C3' of type INTEGER from source field 'EXPR$2' of type VARCHAR")
         );
     }
 

@@ -372,7 +372,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         LocalDateTime localDateTime = LocalDateTime.parse(isoStr);
         Instant instant = localDateTime.atZone(zoneId).toInstant();
 
-        assertQuery(format("INSERT INTO timestamps VALUES(1, '{}', '{}')", tsStr, tsStr))
+        assertQuery(format(
+                "INSERT INTO timestamps VALUES(1, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')",
+                tsStr, tsStr))
                 .withTimeZoneId(zoneId)
                 .returns(1L)
                 .check();
@@ -771,7 +773,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, 123)"));
+                    sql("insert into limitedChar(pk, f1) values (1, 123::VARCHAR)"));
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }

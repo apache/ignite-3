@@ -51,7 +51,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
+public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
 
     @ParameterizedTest
     @MethodSource("argsForMergeWithColumnAsValue")

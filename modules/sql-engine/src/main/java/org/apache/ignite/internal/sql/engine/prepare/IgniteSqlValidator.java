@@ -82,6 +82,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.AliasNamespace;
 import org.apache.calcite.sql.validate.SelectScope;
+import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -289,6 +290,120 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return newEx;
     }
 
+    @Override
+    protected void checkTypeAssignment(
+            @Nullable SqlValidatorScope sourceScope,
+            SqlValidatorTable table,
+            RelDataType sourceRowType,
+            RelDataType targetRowType,
+            SqlNode query
+    ) {
+        boolean isUpdateModifiableViewTable = false;
+        if (query instanceof SqlUpdate) {
+            SqlNodeList targetColumnList = requireNonNull(((SqlUpdate) query).getTargetColumnList());
+            int targetColumnCount = targetColumnList.size();
+            targetRowType = SqlTypeUtil.extractLastNFields(typeFactory, targetRowType, targetColumnCount);
+            sourceRowType = SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType, targetColumnCount);
+            isUpdateModifiableViewTable = table.unwrap(ModifiableViewTable.class) != null;
+        }
+
+        if (SqlTypeUtil.equalAsStructSansNullability(
+                typeFactory, sourceRowType, targetRowType, null
+        )) {
+            // Returns early if source and target row type equals sans nullability.
+            return;
+        }
+
+        if (config().typeCoercionEnabled() && !isUpdateModifiableViewTable) {
+            // Try type coercion first if implicit type coercion is allowed.
+            boolean coerced = getTypeCoercion().querySourceCoercion(
+                    sourceScope, sourceRowType, targetRowType, query
+            );
+
+            if (coerced) {
+                return;
+            }
+        }
+
+        // Fall back to default behavior: compare the type families.
+        List<RelDataTypeField> sourceFields = sourceRowType.getFieldList();
+        List<RelDataTypeField> targetFields = targetRowType.getFieldList();
+        int sourceCount = sourceFields.size();
+        for (int i = 0; i < sourceCount; ++i) {
+            RelDataType sourceType = sourceFields.get(i).getType();
+            RelDataType targetType = targetFields.get(i).getType();
+
+            boolean canAssign = SqlTypeUtil.canAssignFrom(targetType, sourceType);
+
+            if (canAssign && ((targetType instanceof IgniteCustomType) || (sourceType instanceof IgniteCustomType))) {
+                // SqlTypeUtil.canAssignFrom doesn't account for custom types, therefore need to check 
+                // this explicitly. Since at the moment there are no custom types which can be assigned from 
+                // each other, let's just check for equality. 
+                canAssign = SqlTypeUtil.equalSansNullability(typeFactory, targetType, sourceType);
+            }
+
+            if (!canAssign) {
+                String targetTypeString;
+                String sourceTypeString;
+                if (SqlTypeUtil.areCharacterSetsMismatched(
+                        sourceType,
+                        targetType)) {
+                    sourceTypeString = sourceType.getFullTypeString();
+                    targetTypeString = targetType.getFullTypeString();
+                } else {
+                    sourceTypeString = sourceType.toString();
+                    targetTypeString = targetType.toString();
+                }
+
+                SqlNode node = getNthExpr(query, i, sourceCount);
+
+                throw newValidationError(node,
+                        RESOURCE.typeNotAssignable(
+                                targetFields.get(i).getName(), targetTypeString,
+                                sourceFields.get(i).getName(), sourceTypeString));
+            }
+        }
+    }
+
+    /**
+     * Locates the n'th expression in an INSERT or UPDATE query.
+     *
+     * @param query       Query
+     * @param ordinal     Ordinal of expression
+     * @param sourceCount Number of expressions
+     * @return Ordinal'th expression, never null
+     */
+    private static SqlNode getNthExpr(SqlNode query, int ordinal, int sourceCount) {
+        if (query instanceof SqlInsert) {
+            SqlInsert insert = (SqlInsert) query;
+            if (insert.getTargetColumnList() != null) {
+                return insert.getTargetColumnList().get(ordinal);
+            } else {
+                return getNthExpr(
+                        insert.getSource(),
+                        ordinal,
+                        sourceCount);
+            }
+        } else if (query instanceof SqlUpdate) {
+            SqlUpdate update = (SqlUpdate) query;
+            if (update.getSourceExpressionList() != null) {
+                return update.getSourceExpressionList().get(ordinal);
+            } else {
+                return getNthExpr(SqlNonNullableAccessors.getSourceSelect(update),
+                        ordinal, sourceCount);
+            }
+        } else if (query instanceof SqlSelect) {
+            SqlSelect select = (SqlSelect) query;
+            SqlNodeList selectList = SqlNonNullableAccessors.getSelectList(select);
+            if (selectList.size() == sourceCount) {
+                return selectList.get(ordinal);
+            } else {
+                return query; // give up
+            }
+        } else {
+            return query; // give up
+        }
+    }
 
     private IgniteTable getTableForModification(SqlIdentifier identifier) {
         SqlValidatorTable table = getCatalogReader().getTable(identifier.names);

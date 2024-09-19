@@ -285,18 +285,28 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public boolean querySourceCoercion(@Nullable SqlValidatorScope scope,
-            RelDataType sourceRowType, RelDataType targetRowType, SqlNode query) {
-
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.MODIFY);
-        try {
-            validateDynamicParametersInModify(scope, targetRowType, query);
-
-            return super.querySourceCoercion(scope, sourceRowType, targetRowType, query);
-        } finally {
-            ctxStack.pop(ctx);
+    public boolean querySourceCoercion(
+            @Nullable SqlValidatorScope scope,
+            RelDataType sourceRowType,
+            RelDataType targetRowType,
+            SqlNode query
+    ) {
+        if (sourceRowType.getFieldCount() != targetRowType.getFieldCount()) {
+            return false;
         }
+
+        for (int i = 0; i < targetRowType.getFieldCount(); i++) {
+            RelDataType sourceField = sourceRowType.getFieldList().get(i).getType();
+            RelDataType targetField = targetRowType.getFieldList().get(i).getType();
+
+            if (!typeFamiliesAreCompatible(typeFactory, sourceField, targetField)) {
+                return false;
+            }
+        }
+
+        validateDynamicParametersInModify(scope, targetRowType, query);
+
+        return super.querySourceCoercion(scope, sourceRowType, targetRowType, query);
     }
 
     /** {@inheritDoc} */

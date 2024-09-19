@@ -82,7 +82,7 @@ SELECT SUM(d1)::VARCHAR, SUM(d2)::VARCHAR, SUM(d3)::VARCHAR, SUM(d4)::VARCHAR FR
 199500333333300.0
 
 statement ok
-INSERT INTO decimals VALUES ('0.1', '0.1', '0.1', '0.1'), ('0.2', '0.2', '0.2', '0.2')
+INSERT INTO decimals VALUES (decimal '0.1', decimal '0.1', decimal '0.1', decimal '0.1'), (decimal '0.2', decimal '0.2', decimal '0.2', decimal '0.2')
 
 query IIII
 SELECT SUM(d1)::VARCHAR, SUM(d2)::VARCHAR, SUM(d3)::VARCHAR, SUM(d4)::VARCHAR FROM decimals;
