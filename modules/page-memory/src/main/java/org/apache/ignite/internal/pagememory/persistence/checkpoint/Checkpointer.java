@@ -492,7 +492,18 @@ public class Checkpointer extends IgniteWorker {
             return false;
         }
 
-        // TODO: IGNITE-23212 тут нужно запретить замены страниц и дождаться все текущие - синхронно!
+        // Stops new blockings on page replacement and wait for all those started up to this point.
+        // Will complete normally or with the first error on one of the page replacements.
+        // join() is used intentionally as above.
+        currentCheckpointProgress.stopBlockingFsyncOnPageReplacement().join();
+
+        // Must re-check shutdown flag here because threads could take a long time to complete the page replacement.
+        // If so, we should not finish checkpoint.
+        if (shutdownNow.getAsBoolean()) {
+            currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
+
+            return false;
+        }
 
         tracker.onFsyncStart();
 

@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>{@link #tryBlock(FullPageId)} - before you need to perform a page replacement.</li>
  *     <li>{@link #unblock(FullPageId, Throwable)} - after the page replacement has finished and written to disk. The method must be
  *     invoked even if any error occurred, so as not to hang a checkpoint.</li>
- *     <li>{@link #stopBlocking()} - must be called before the start of the fsync phase on the checkpoint and wait for the future to
+ *     <li>{@link #stopBlocking()} - must be invoked before the start of the fsync phase on the checkpoint and wait for the future to
  *     complete in order to safely perform the phase.</li>
  * </ul>
  *
@@ -80,11 +80,11 @@ class CheckpointPageReplacement {
     /**
      * Unblocks the start of the fsync phase at a checkpoint after the page replacement is completed.
      *
-     * <p>It is expected that the method will be invoked once and after the {@link #tryBlock(FullPageId)} returns {@code true} for one
+     * <p>It is expected that the method will be invoked once and after the {@link #tryBlock(FullPageId)} returns {@code true} for same
      * page ID.</p>
      *
      * <p>The fsync phase will only be started after page replacement has been completed for all pages for which
-     * {@link #tryBlock(FullPageId)} was called before {@link #stopBlocking()} was called, or no page replacement occurred at all.</p>
+     * {@link #tryBlock(FullPageId)} was invoked before {@link #stopBlocking()} was invoked, or no page replacement occurred at all.</p>
      *
      * <p>If any error occurred during page replacement, then the future from {@link #stopBlocking()} will be completed with the first
      * error.</p>

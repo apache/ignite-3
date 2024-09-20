@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -75,6 +76,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
     private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
+
+    /** Assistant for synchronizing page replacement and fsync phase. */
+    private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
 
     /**
      * Constructor.
@@ -336,5 +340,58 @@ class CheckpointProgressImpl implements CheckpointProgress {
      */
     public @Nullable CompletableFuture<Void> getUnblockPartitionDestructionFuture(GroupPartitionId groupPartitionId) {
         return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
+    }
+
+    /**
+     * Tries to block the start of the fsync phase at a checkpoint before replacing the page.
+     *
+     * <p>It is expected that if the method returns {@code true}, it will not be invoked a second time with the same page ID.</p>
+     *
+     * @param pageId Page ID for which page replacement is expected to begin.
+     * @return {@code True} if the blocking was successful, {@code false} if the fsync phase is about to begin.
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #stopBlockingFsyncOnPageReplacement()
+     */
+    public boolean tryBlockFsyncOnPageReplacement(FullPageId pageId) {
+        return checkpointPageReplacement.tryBlock(pageId);
+    }
+
+    /**
+     * Unblocks the start of the fsync phase at a checkpoint after the page replacement is completed.
+     *
+     * <p>It is expected that the method will be invoked once and after the {@link #tryBlockFsyncOnPageReplacement(FullPageId)} returns
+     * {@code true} for same page ID.</p>
+     *
+     * <p>The fsync phase will only be started after page replacement has been completed for all pages for which
+     * {@link #tryBlockFsyncOnPageReplacement(FullPageId)} was invoked before {@link #stopBlockingFsyncOnPageReplacement()} was invoked, or
+     * no page replacement occurred at all.</p>
+     *
+     * <p>If any error occurred during page replacement, then the future from {@link #stopBlockingFsyncOnPageReplacement()} will be
+     * completed with the first error.</p>
+     *
+     * <p>The method must be invoked even if any error occurred, so as not to hang a checkpoint.</p>
+     *
+     * @param pageId Page ID for which the page replacement has ended.
+     * @param error Error on page replacement, {@code null} if missing.
+     * @see #tryBlockFsyncOnPageReplacement(FullPageId)
+     * @see #stopBlockingFsyncOnPageReplacement()
+     */
+    public void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+        checkpointPageReplacement.unblock(pageId, error);
+    }
+
+    /**
+     * Stops new blocks before the fsync phase starts at a checkpoint.
+     *
+     * <p>Must be invoked before the start of the fsync phase on the checkpoint and wait for the future to complete in order to safely
+     * perform the phase.</p>
+     *
+     * @return Future that will be completed successfully if all blocks are completed before the current method is invoked, either if there
+     *         were none, or with an error from the first unlock.
+     * @see #tryBlockFsyncOnPageReplacement(FullPageId)
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     */
+    public CompletableFuture<Void> stopBlockingFsyncOnPageReplacement() {
+        return checkpointPageReplacement.stopBlocking();
     }
 }
