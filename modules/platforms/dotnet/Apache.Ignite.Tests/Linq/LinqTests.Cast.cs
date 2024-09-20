@@ -64,6 +64,7 @@ public partial class LinqTests
             query.ToString());
     }
 
+    [Ignore("IGNITE-23243 Value was either too large or too small for a Decimal")]
     [Test]
     public void TestCastToDecimalPrecision()
     {
