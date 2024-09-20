@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,7 +30,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
@@ -221,7 +219,9 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithSingleColumnTable(type);
 
         List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
-        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.DOUBLE);
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args)
+                .returnTypeNullability(false)
+                .resultWillBe(NativeTypes.DOUBLE);
 
         assertPlan("SELECT RAND(C1) FROM T", schema, matcher::matches, List.of());
     }
@@ -232,7 +232,9 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithSingleColumnTable(type);
 
         List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
-        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.INT32);
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args)
+                .returnTypeNullability(false)
+                .resultWillBe(NativeTypes.INT32);
 
         assertPlan("SELECT RAND_INTEGER(C1) FROM T", schema, matcher::matches, List.of());
     }
@@ -243,7 +245,9 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
         List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(pair.first()), ofTypeWithoutCast(pair.second()));
-        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.INT32);
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args)
+                .returnTypeNullability(true)
+                .resultWillBe(NativeTypes.INT32);
 
         assertPlan("SELECT RAND_INTEGER(C1, C2) FROM T", schema, matcher::matches, List.of());
     }
@@ -509,8 +513,18 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
         private final List<Matcher<RexNode>> args;
 
+        // Most of the functions propagate nullability from their arguments,
+        // since most of the tests use nullable columns as their arguments,
+        // it is better use use the same default.
+        private boolean returnTypeNullability = true;
+
         private FunctionCallMatcher(List<Matcher<RexNode>> args) {
             this.args = args;
+        }
+
+        FunctionCallMatcher returnTypeNullability(boolean value) {
+            this.returnTypeNullability = value;
+            return this;
         }
 
         Matcher<RelNode> resultWillBe(NativeType returnType) {
@@ -532,14 +546,13 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                     }
 
                     RelDataType actualRelType = call.getType();
-                    RelDataType expectedRelType = native2relationalType(Commons.typeFactory(), returnType, true);
+                    RelDataType expectedRelType = native2relationalType(Commons.typeFactory(), returnType, returnTypeNullability);
 
-                    assertTrue(
-                            SqlTypeUtil.equalSansNullability(actualRelType, expectedRelType),
-                            "Expected return type "
-                                    + expectedRelType + " but got " + actualRelType
-                                    + ". Expected arguments: " + expectedArguments()
-                    );
+                    String message = "Expected return type "
+                            + expectedRelType + " but got " + actualRelType
+                            + ". Expected arguments: " + expectedArguments();
+
+                    assertEquals(actualRelType, expectedRelType, message);
 
                     return true;
                 }
