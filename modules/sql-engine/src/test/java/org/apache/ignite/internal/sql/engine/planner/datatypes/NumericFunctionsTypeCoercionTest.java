@@ -81,7 +81,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                                 ofTypeWithoutCast(p.first()), ofTypeWithoutCast(p.second()),
                                 p.second())
                         );
-        
+
         Stream<Arguments> approxNumInt = Stream.of(
                 Arguments.of(
                         NativeTypes.FLOAT, NativeTypes.INT8,
