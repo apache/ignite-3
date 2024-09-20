@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.storage.logit.storage.file.segment;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -184,7 +183,7 @@ public class SegmentFile extends AbstractFile {
 
     @Override
     public CheckDataResult checkData(final ByteBuffer buffer) {
-        assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buffer.order() == LOGIT_BYTE_ORDER;
 
         if (buffer.remaining() < RECORD_MAGIC_BYTES_SIZE) {
             return CheckDataResult.CHECK_FAIL;

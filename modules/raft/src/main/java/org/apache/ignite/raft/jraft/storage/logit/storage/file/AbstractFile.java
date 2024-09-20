@@ -52,6 +52,9 @@ import sun.nio.ch.DirectBuffer;
 public abstract class AbstractFile extends ReferenceResource {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractFile.class);
 
+    /** Byte order that's used to encode data in log. */
+    public static final ByteOrder LOGIT_BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
+
     protected static final int    BLANK_HOLE_SIZE = 64;
 
     protected static final byte   FILE_END_BYTE   = 'x';
@@ -121,7 +124,7 @@ public abstract class AbstractFile extends ReferenceResource {
                 try (final RandomAccessFile randomAccessFile = new RandomAccessFile(this.file, "rw");
                         final FileChannel fileChannel = randomAccessFile.getChannel()) {
                     this.mappedByteBuffer = fileChannel.map(mapMode, 0, this.fileSize);
-                    mappedByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+                    mappedByteBuffer.order(LOGIT_BYTE_ORDER);
                     this.isMapped = true;
                 }
             }
@@ -442,7 +445,7 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public ByteBuffer sliceByteBuffer() {
-        return this.mappedByteBuffer.slice().order(ByteOrder.LITTLE_ENDIAN);
+        return this.mappedByteBuffer.slice().order(LOGIT_BYTE_ORDER);
     }
 
     public void warmupFile() {
