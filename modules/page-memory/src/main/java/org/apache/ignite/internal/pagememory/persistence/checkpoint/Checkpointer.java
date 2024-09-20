@@ -437,7 +437,7 @@ public class Checkpointer extends IgniteWorker {
      * @param shutdownNow Checker of stop operation.
      * @throws IgniteInternalCheckedException If failed.
      */
-    boolean writePages(
+    private boolean writePages(
             CheckpointMetricsTracker tracker,
             CheckpointDirtyPages checkpointDirtyPages,
             CheckpointProgressImpl currentCheckpointProgress,
@@ -484,13 +484,15 @@ public class Checkpointer extends IgniteWorker {
         // Wait and check for errors.
         CompletableFuture.allOf(futures).join();
 
-        // Must re-check shutdown flag here because threads may have skipped some pages.
-        // If so, we should not put finish checkpoint mark.
+        // Must re-check shutdown flag here because threads may have skipped some pages because of it.
+        // If so, we should not finish checkpoint.
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
 
             return false;
         }
+
+        // TODO: IGNITE-23212 тут нужно запретить замены страниц и дождаться все текущие - синхронно!
 
         tracker.onFsyncStart();
 

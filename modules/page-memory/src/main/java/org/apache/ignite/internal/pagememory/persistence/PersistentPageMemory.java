@@ -1502,6 +1502,7 @@ public class PersistentPageMemory implements PageMemory {
          * @return {@code True} if it is ok to replace this page, {@code false} if another page should be selected.
          * @throws IgniteInternalCheckedException If failed to write page to the underlying store during eviction.
          */
+        // TODO: IGNITE-23212 Вот тут меняем код
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
