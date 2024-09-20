@@ -172,7 +172,7 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .returns(3, "2", 6)
                 .check();
 
-        assertQuery(useDynamicParameters, "SELECT * FROM test_asc WHERE c1 NOT IN (%s, %s, %s) AND c2 NOT IN (%s, %s, %s)",
+        assertQuery(useDynamicParameters, "SELECT * FROM test_asc WHERE c1 NOT IN (%s, %s, %s) AND c2::INTEGER NOT IN (%s, %s, %s)",
                 1, 2, 5, 1, 2, 5)
                 .matches(QueryChecker.containsTableScan("PUBLIC", "TEST_ASC")) // Can't use index scan.
                 .returns(3, "3", 9)

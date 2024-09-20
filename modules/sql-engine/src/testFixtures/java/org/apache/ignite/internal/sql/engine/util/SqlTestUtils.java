@@ -409,7 +409,7 @@ public class SqlTestUtils {
                         ZoneId.systemDefault()
                 ).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case STRING:
-                return "'" + value + "'";
+                return "'" + value.toString().replace("'", "''") + "'";
             case DATETIME:
                 return "TIMESTAMP '" + ((LocalDateTime) value).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case BYTE_ARRAY:

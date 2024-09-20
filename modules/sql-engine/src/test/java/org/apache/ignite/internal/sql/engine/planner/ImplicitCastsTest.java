@@ -294,8 +294,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         return Stream.of(
                 // literals
                 sql("SELECT '1'::int IN ('1'::INTEGER)").project("true"),
-                sql("SELECT 1 IN ('1', 2)").project("true"),
-                sql("SELECT '1' IN (1, 2)").project("true"),
                 sql("SELECT 2 IN ('2'::REAL, 1)").project("true"),
 
                 checkStatement()
@@ -306,11 +304,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
                         .sql("SELECT int_col IN (1, bigint_col) FROM t")
-                        .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))"),
-
-                checkStatement()
-                        .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
-                        .sql("SELECT str_col IN (1, bigint_col) FROM t")
                         .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))")
         );
     }

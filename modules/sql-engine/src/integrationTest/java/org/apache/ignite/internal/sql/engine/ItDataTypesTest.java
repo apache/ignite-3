@@ -134,58 +134,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     @ParameterizedTest()
     @MethodSource("exactDecimalTypes")
-    public void testFilterTypeWiderThanColumnExprErr(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
-        sql(format("create table tbl(v {});", typeName));
-        sql(format("insert into tbl values({});", upper));
-
-        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
-
-        String errMsg = typeName + " out of range";
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v = '{}'::{}", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'::{}", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'::{}", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'::{}", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '::{}", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}'::{})", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {})", moreThanUpperBoundApprox, typeName)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                "out of range",
-                () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
-    }
-
-    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    @ParameterizedTest()
-    @MethodSource("exactDecimalTypes")
     public void testFilterTypeWiderThanColumn(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
         sql(format("create table tbl(v {});", typeName));
         sql(format("insert into tbl values({});", upper));
@@ -209,14 +157,14 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v < (SELECT {})", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})", strUpper)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN (' {}' + '1', '0')", lessUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}), '0')", strUpper))
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ({} + 1)", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}))", strUpper))
                 .returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1, '0')", lessUpper, typeName)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1)", lessUpper, typeName)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '0')").withParam(lessUpper).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1)").withParam(lessUpper).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ({} - 1)", strUpper)).returns(checkReturn).check();
 
         BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
         assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();

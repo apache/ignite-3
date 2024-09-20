@@ -204,13 +204,29 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /** {@inheritDoc} */
     @Override
     public boolean inOperationCoercion(SqlCallBinding binding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.IN);
-        try {
-            return super.inOperationCoercion(binding);
-        } finally {
-            ctxStack.pop(ctx);
+        SqlOperator operator = binding.getOperator();
+        if (operator.getKind() != SqlKind.IN && operator.getKind() != SqlKind.NOT_IN) {
+            return false;
         }
+
+        assert binding.getOperandCount() == 2;
+
+        RelDataType type1 = binding.getOperandType(0);
+        RelDataType type2 = binding.getOperandType(1);
+
+        RelDataType leftRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, type1, null
+        );
+        RelDataType rightRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, type2, null
+        );
+
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, leftRowType, rightRowType)) {
+            return false;
+        }
+
+        return super.inOperationCoercion(binding);
     }
 
     /** {@inheritDoc} */
@@ -311,16 +327,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable RelDataType getWiderTypeFor(List<RelDataType> typeList, boolean stringPromotion) {
-        ContextStack ctxStack = contextStack.get();
-        ContextType ctxType = ctxStack.currentContext();
-        // Disable string promotion for case expression operands
-        // to comply with 9.5 clause of the SQL standard (Result of data type combinations).
-        if (ctxType == ContextType.CASE_EXPR) {
-            return super.getWiderTypeFor(typeList, false);
-        } else {
-            return super.getWiderTypeFor(typeList, stringPromotion);
+    public @Nullable RelDataType getWiderTypeFor(
+            List<RelDataType> typeList,
+            boolean stringPromotion
+    ) {
+        if (!typeFamiliesAreCompatible(typeFactory, typeList)) {
+            return null;
         }
+
+        return super.getWiderTypeFor(typeList, stringPromotion);
     }
 
     /** {@inheritDoc} */

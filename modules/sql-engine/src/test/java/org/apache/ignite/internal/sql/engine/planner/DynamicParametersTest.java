@@ -107,7 +107,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
         return Stream.of(
-                sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
+                sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32))
+                        .fails("Values passed to IN operator must have compatible types"),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
                 sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
@@ -124,11 +125,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 sql("SELECT ? IN ('1')", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("=(?0, 1)"),
+                        .fails("Values passed to IN operator must have compatible types"),
 
                 sql("SELECT ? IN ('1', 2)", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("OR(=(?0, 1), =(?0, 2))")
+                        .fails("Values in expression list must have compatible types")
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23039 Add support for Sarg serialization/deserialization
@@ -806,11 +807,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT uuid_col IN ('a') FROM t1")
-                        .project("=($t0, CAST(_UTF-8'a'):UUID NOT NULL)"),
+                        .fails("Values passed to IN operator must have compatible types"),
 
                 checkStatement(setup)
                         .sql("SELECT str_col IN ('a'::UUID) FROM t1")
-                        .project("=(CAST($t0):UUID, CAST(_UTF-8'a'):UUID NOT NULL)"),
+                        .fails("Values passed to IN operator must have compatible types"),
 
                 checkStatement(setup)
                         .sql("SELECT uuid_col IN (?) FROM t1", UUID.randomUUID())

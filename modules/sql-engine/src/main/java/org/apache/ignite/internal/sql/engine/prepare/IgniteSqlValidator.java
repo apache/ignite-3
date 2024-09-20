@@ -728,6 +728,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         RelDataType dataType = super.deriveType(scope, expr);
 
+        validateIn(scope, expr);
+
         SqlKind sqlKind = expr.getKind();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-20163 Remove this exception after this issue is fixed
@@ -790,6 +792,38 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         return types.size();
                     }
                 });
+    }
+
+    private void validateIn(SqlValidatorScope scope, SqlNode expr) {
+        if (expr.getKind() != SqlKind.IN && expr.getKind() != SqlKind.NOT_IN) {
+            return;
+        }
+
+        // An operand checker of IN operator uses more relaxed rules (see
+        // org.apache.calcite.sql.fun.SqlInOperator.deriveType, there 
+        // OperandTypes.COMPARABLE_UNORDERED_COMPARABLE_UNORDERED is used),
+        // allowing comparison of types of different families. Here we add
+        // post-validation to make sure comparison is possible only between
+        // operands of the same type family.
+
+        SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
+
+        RelDataType leftHandType = callBinding.getOperandType(0);
+        RelDataType rightHandType = callBinding.getOperandType(1);
+
+        RelDataType leftRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, leftHandType, null
+        );
+        RelDataType rightRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, rightHandType, null
+        );
+
+        if (!TypeUtils.typeFamiliesAreCompatible(typeFactory, leftRowType, rightRowType)) {
+            throw newValidationError(
+                    expr,
+                    RESOURCE.incompatibleValueType(SqlStdOperatorTable.IN.getName())
+            );
+        }
     }
 
     /** Check appropriate type cast availability. */
