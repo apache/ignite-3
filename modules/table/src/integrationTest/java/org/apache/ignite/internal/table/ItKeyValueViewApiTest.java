@@ -23,22 +23,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.KeyValueTestUtils.TestKeyObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -47,10 +50,30 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * KeyValueView uniform API test.
  */
-public class ItKeyValueViewApiTest extends KvApiBaseTest {
+public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
+    private static final String TABLE_NAME_COMPLEX_TYPE = "test";
+
+    private static final String TABLE_NAME_SIMPLE_TYPE = "test_simple";
+
     private final long seed = System.currentTimeMillis();
 
     private final Random rnd = new Random(seed);
+
+    @BeforeAll
+    public void createTable() {
+        createTable(TABLE_NAME_COMPLEX_TYPE, KeyValueTestUtils.ALL_TYPES_COLUMNS);
+        createTable(TABLE_NAME_SIMPLE_TYPE, new Column("VAL", NativeTypes.STRING, true));
+    }
+
+    @BeforeEach
+    void printSeed() {
+        log.info("Seed: " + seed);
+    }
+
+    @AfterEach
+    void clearTables() {
+        sql("DELETE FROM " + TABLE_NAME_COMPLEX_TYPE);
+    }
 
     @ParameterizedTest
     @MethodSource("views")
@@ -134,7 +157,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
 
         // Existing key.
         {
-            testCase.checkNullValueExceptionMessage(
+            testCase.checkNullValueEError(
                     () -> view.get(null, key), "getNullable");
 
             NullableValue<String> nullableVal = view.getNullable(null, key);
@@ -198,7 +221,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         assertEquals(obj3, view.get(null, key));
 
         // Check null value
-        assertThrows(NullPointerException.class, () -> view.getAndPut(null, key, null));
+        testCase.checkNotNullableError(() -> view.getAndPut(null, key, null));
         assertEquals(obj3, view.get(null, key));
     }
 
@@ -275,10 +298,8 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
 
         view.putAll(null, kvs);
 
-        //noinspection DataFlowIssue
-        assertThrows(NullPointerException.class, () -> view.containsAll(null, null));
-        //noinspection DataFlowIssue
-        assertThrows(NullPointerException.class, () -> view.containsAll(null, List.of(firstKey, null, thirdKey)));
+        testCase.checkNullKeysError(() -> view.containsAll(null, null));
+        testCase.checkNullKeyError(() -> view.containsAll(null, Arrays.asList(firstKey, null, thirdKey)));
 
         assertTrue(view.containsAll(null, List.of()));
         assertTrue(view.containsAll(null, List.of(firstKey)));
@@ -455,7 +476,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         assertEquals(obj3, view.get(null, key));
 
         // Check null value.
-        assertThrows(NullPointerException.class, () -> view.replace(null, key, null));
+        testCase.checkNotNullableError(() -> view.replace(null, key, null));
         assertEquals(obj3, view.get(null, key));
     }
 
@@ -488,7 +509,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         assertEquals(obj3, view.get(null, key));
 
         // Check null value.
-        assertThrows(NullPointerException.class, () -> view.getAndReplace(null, key, null));
+        testCase.checkNotNullableError(() -> view.getAndReplace(null, key, null));
         assertEquals(obj3, view.get(null, key));
     }
 
@@ -533,7 +554,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
 
         // Insert KV pair.
-        assertThrows(NullPointerException.class, () -> view.replace(null, key, null, obj));
+        testCase.checkNotNullableError(() -> view.replace(null, key, null, obj));
         view.put(null, key, obj);
         assertEquals(obj, view.get(null, key));
         assertNull(view.get(null, key2));
@@ -547,7 +568,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         assertEquals(obj2, view.get(null, key));
 
         // Check null value pair.
-        assertThrows(NullPointerException.class, () -> view.replace(null, key, obj2, null));
+        testCase.checkNotNullableError(() -> view.replace(null, key, obj2, null));
         assertEquals(obj2, view.get(null, key));
     }
 
@@ -640,93 +661,34 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
     }
 
     private List<Arguments> views() {
-        return generateArguments(TABLE_NAME_COMPLEX_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
+        return generateKeyValueTestArguments(TABLE_NAME_COMPLEX_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
     }
 
     private List<Arguments> viewsSimple() {
-        return generateArguments(TABLE_NAME_SIMPLE_TYPE, TestKeyObject.class, String.class);
+        return generateKeyValueTestArguments(TABLE_NAME_SIMPLE_TYPE, TestKeyObject.class, String.class);
     }
 
-    private List<Arguments> generateArguments(String tableName, Class<?> keyClass, Class<?> valueClass) {
-        TestCaseFactory caseFactory = new TestCaseFactory(tableName);
+    @Override
+    TestCaseFactory getFactory(String name) {
+        return new TestCaseFactory(name) {
+            @Override
+            <K, V> BaseTestCase<K, V> create(boolean async, boolean thin, Class<K> keyClass, Class<V> valueClass) {
+                KeyValueView<K, V> view = thin
+                        ? client.tables().table(tableName).keyValueView(keyClass, valueClass)
+                        : CLUSTER.aliveNode().tables().table(tableName).keyValueView(keyClass, valueClass);
 
-        List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
+                if (async) {
+                    view = new AsyncApiKeyValueViewAdapter<>(view);
+                }
 
-        for (TestCaseType type : TestCaseType.values()) {
-            arguments.add(Arguments.of(Named.of(
-                    type.description(),
-                    caseFactory.create(type, keyClass, valueClass)
-            )));
-        }
-
-        return arguments;
-    }
-
-    enum TestCaseType {
-        EMBEDDED("embedded"),
-        EMBEDDED_ASYNC("embedded async"),
-        THIN("thin"),
-        THIN_ASYNC("thin async");
-
-        private final String description;
-
-        TestCaseType(String description) {
-            this.description = description;
-        }
-
-        String description() {
-            return description;
-        }
-    }
-
-    private class TestCaseFactory {
-        private final String tableName;
-
-        TestCaseFactory(String tableName) {
-            this.tableName = tableName;
-        }
-
-        <K, V> TestCase<K, V> create(TestCaseType type, Class<K> keyClass, Class<V> valueClass) {
-            switch (type) {
-                case EMBEDDED:
-                    return create(false, false, keyClass, valueClass);
-                case EMBEDDED_ASYNC:
-                    return create(true, false, keyClass, valueClass);
-                case THIN:
-                    return create(false, true, keyClass, valueClass);
-                case THIN_ASYNC:
-                    return create(true, true, keyClass, valueClass);
-                default:
-                    throw new IllegalArgumentException("Unknown test case type: " + type);
+                return new TestCase<>(async, thin, view);
             }
-        }
-
-        private <K, V> TestCase<K, V> create(boolean async, boolean thin, Class<K> keyClass, Class<V> valueClass) {
-            KeyValueView<K, V> view = thin
-                    ? client.tables().table(tableName).keyValueView(keyClass, valueClass)
-                    : CLUSTER.aliveNode().tables().table(tableName).keyValueView(keyClass, valueClass);
-
-            if (async) {
-                view = new AsyncApiKeyValueViewAdapter<>(view);
-            }
-
-            return new TestCase<>(async, thin, view);
-        }
+        };
     }
 
-    private static class TestCase<K, V> {
-        private final boolean async;
-        private final boolean thin;
-        private final KeyValueView<K, V> view;
-
-        private TestCase(boolean async, boolean thin, KeyValueView<K, V> view) {
-            this.async = async;
-            this.thin = thin;
-            this.view = view;
-        }
-
-        KeyValueView<K, V> view() {
-            return view;
+    static class TestCase<K, V> extends BaseTestCase<K, V> {
+        TestCase(boolean async, boolean thin, KeyValueView<K, V> view) {
+            super(async, thin, view);
         }
 
         @SuppressWarnings("ThrowableNotThrown")
@@ -751,7 +713,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
         }
 
         @SuppressWarnings("ThrowableNotThrown")
-        private void checkNullValueExceptionMessage(Executable run, String methodName) {
+        private void checkNullValueEError(Executable run, String methodName) {
             String targetMethodName = async ? methodName + "Async" : methodName;
 
             String expMessage = IgniteStringFormatter.format(
@@ -759,7 +721,7 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
                     targetMethodName
             );
 
-            // TODO IGNITE-XXXX Thin client should handle such error without deserialization error.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client should handle null without MarshallerException
             if (thin) {
                 IgniteTestUtils.assertThrowsWithCause(
                         run::execute, UnexpectedNullValueException.class, expMessage);
@@ -769,21 +731,6 @@ public class ItKeyValueViewApiTest extends KvApiBaseTest {
 
             IgniteTestUtils.assertThrows(
                     UnexpectedNullValueException.class, run, expMessage);
-        }
-
-        @SuppressWarnings("ThrowableNotThrown")
-        void checkNullKeyError(Executable run) {
-            IgniteTestUtils.assertThrows(NullPointerException.class, run, "key");
-        }
-
-        @SuppressWarnings("ThrowableNotThrown")
-        void checkNullKeysError(Executable run) {
-            IgniteTestUtils.assertThrows(NullPointerException.class, run, "keys");
-        }
-
-        @SuppressWarnings("ThrowableNotThrown")
-        void checkNullPairsError(Executable run) {
-            IgniteTestUtils.assertThrows(NullPointerException.class, run, "pairs");
         }
     }
 }
