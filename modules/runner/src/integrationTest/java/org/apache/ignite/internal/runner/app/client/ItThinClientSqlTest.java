@@ -217,7 +217,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(10, rows.size());
         assertEquals("hello 1", rows.get(1).stringValue(0));
         assertEquals(1, rows.get(1).intValue(1));
-        assertEquals(2, rows.get(1).longValue(2));
+        assertEquals(2L, rows.get(1).longValue(2));
 
         // Update data.
         AsyncResultSet updateRes = sql

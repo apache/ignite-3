@@ -191,13 +191,7 @@ public class IgniteMath {
             throwDivisionByZero();
         }
 
-        int scale1 = x.scale();
-        int scale2 = y.scale();
-
-        MathContext mc = (scale1 | scale2) == 0 ? new MathContext(Math.max(x.precision(), y.precision()), RoundingMode.HALF_DOWN)
-                : MathContext.DECIMAL64;
-
-        return x.divide(y, mc);
+        return x.divide(y, RoundingMode.HALF_DOWN);
     }
 
     /** Returns the division of its arguments, extending result type for overflow avoidance. */

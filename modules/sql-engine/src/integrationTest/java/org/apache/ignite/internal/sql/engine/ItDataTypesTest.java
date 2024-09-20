@@ -509,7 +509,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
         assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
         assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
-        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0"))).check();
+        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.000"))).check();
 
         assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
         assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
