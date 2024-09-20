@@ -246,7 +246,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
         List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(pair.first()), ofTypeWithoutCast(pair.second()));
         Matcher<RelNode> matcher = new FunctionCallMatcher(args)
-                .returnTypeNullability(true)
+                .returnTypeNullability(false)
                 .resultWillBe(NativeTypes.INT32);
 
         assertPlan("SELECT RAND_INTEGER(C1, C2) FROM T", schema, matcher::matches, List.of());
