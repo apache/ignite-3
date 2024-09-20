@@ -63,7 +63,7 @@ class CreateFromAnnotationsTest {
                 .ifNotExists()
                 .partitions(1)
                 .replicas(3)
-                .affinity("affinity")
+                .distributionAlgorithm("partitionDistribution")
                 .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
@@ -96,7 +96,7 @@ class CreateFromAnnotationsTest {
         assertThat(
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
-                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
@@ -114,7 +114,7 @@ class CreateFromAnnotationsTest {
         assertThat(
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
-                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
@@ -131,7 +131,7 @@ class CreateFromAnnotationsTest {
         assertThat(
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
-                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
@@ -192,7 +192,7 @@ class CreateFromAnnotationsTest {
                     value = "zone_test",
                     partitions = 1,
                     replicas = 3,
-                    affinityFunction = "affinity",
+                    distributionAlgorithm = "partitionDistribution",
                     dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
@@ -222,7 +222,7 @@ class CreateFromAnnotationsTest {
                     value = "zone_test",
                     partitions = 1,
                     replicas = 3,
-                    affinityFunction = "affinity",
+                    distributionAlgorithm = "partitionDistribution",
                     dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,

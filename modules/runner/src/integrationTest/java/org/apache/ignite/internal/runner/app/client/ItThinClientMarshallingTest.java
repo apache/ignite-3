@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -353,6 +355,23 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 IgniteException.class);
 
         assertThat(ex.getMessage(), containsString("Numeric field overflow in column 'VAL'"));
+    }
+
+    @Test
+    public void testUnsupportedObjectInTuple() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        RecordView<Tuple> tupleView = table.recordView();
+
+        Tuple rec = Tuple.create()
+                .set("KEY", 1)
+                .set("VAL", new TestPojo2());
+
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> tupleView.upsert(null, rec));
+
+        assertEquals(
+                "Invalid value type provided for column [name='VAL', expected='java.lang.String', actual='"
+                        + TestPojo2.class.getName() + "']",
+                ex.getMessage());
     }
 
     private static class TestPojo2 {

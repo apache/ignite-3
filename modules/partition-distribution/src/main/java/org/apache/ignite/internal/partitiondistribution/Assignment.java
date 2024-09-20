@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity;
+package org.apache.ignite.internal.partitiondistribution;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;

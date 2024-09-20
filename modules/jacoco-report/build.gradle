@@ -20,7 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation project(':ignite-api')
     implementation project(':ignite-bytecode')
     implementation project(':ignite-compute')

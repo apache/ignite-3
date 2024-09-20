@@ -43,7 +43,7 @@ public interface PageIdAllocator {
     byte FLAG_AUX = 2;
 
     /**
-     * Max partition ID that can be used by affinity.
+     * Max partition ID that can be used by partition distribution algorithm.
      */
     // TODO IGNITE-16350 Use constant from the table configuration.
     int MAX_PARTITION_ID = 65500;

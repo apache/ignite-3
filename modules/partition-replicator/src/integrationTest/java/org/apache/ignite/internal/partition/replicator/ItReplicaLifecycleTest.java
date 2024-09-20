@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -74,9 +75,6 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -140,6 +138,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -371,7 +371,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
@@ -593,7 +593,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());

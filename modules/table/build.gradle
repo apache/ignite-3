@@ -29,7 +29,7 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-core')
     implementation project(':ignite-metastorage-api')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation project(':ignite-network-api')
     implementation project(':ignite-network')
     implementation project(':ignite-raft')
@@ -102,7 +102,7 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-raft')
-    testFixturesImplementation project(':ignite-affinity')
+    testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation project(':ignite-configuration-api')
     testFixturesImplementation project(':ignite-partition-replicator')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
@@ -128,7 +128,7 @@ dependencies {
 
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
-    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-distribution-zones')
@@ -175,6 +175,7 @@ dependencies {
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
+    integrationTestImplementation libs.rocksdb.jni
 }
 
 description = 'ignite-table'
