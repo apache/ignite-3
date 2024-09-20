@@ -60,7 +60,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
     public boolean init(LogManagerOptions opts) {
         LogStorage logStorage = opts.getLogStorage();
 
-        this.sharedLogStorage = logStorage instanceof StripeAwareLogStorage;
+        this.sharedLogStorage = logStorage instanceof RocksDbSharedLogStorage;
         this.logStorage = logStorage;
         this.maxAppendBufferSize = opts.getRaftOptions().getMaxAppendBufferSize();
 
@@ -83,7 +83,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
     @Override
     protected int appendToLogStorage(List<LogEntry> toAppend) {
         if (sharedLogStorage) {
-            return ((StripeAwareLogStorage) logStorage).appendEntriesToBatch(toAppend) ? toAppend.size() : 0;
+            return ((RocksDbSharedLogStorage) logStorage).appendEntriesToBatch(toAppend) ? toAppend.size() : 0;
         } else {
             return logStorage.appendEntries(toAppend);
         }
@@ -129,7 +129,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
          */
         void commitWriteBatch() {
             if (sharedLogStorage) {
-                ((StripeAwareLogStorage) logStorage).commitWriteBatch();
+                ((RocksDbSharedLogStorage) logStorage).commitWriteBatch();
             }
         }
 
