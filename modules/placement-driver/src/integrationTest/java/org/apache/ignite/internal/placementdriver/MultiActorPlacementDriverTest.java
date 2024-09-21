@@ -32,15 +32,16 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -240,7 +241,11 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(new HashSet<>(placementDriverNodeNames)));
+            Set<String> metaStorageNodes = Set.copyOf(placementDriverNodeNames);
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(metaStorageNodes));
+            when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                    new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metaStorageNodes).build()
+            ));
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 

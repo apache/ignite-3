@@ -711,7 +711,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService(),
                 vaultMgr,
                 restarter,
-                metaStorageMgr
+                metaStorageMgr,
+                clusterIdService
         );
 
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry

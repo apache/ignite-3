@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -77,13 +78,21 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
     final IgniteImpl waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
         // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
 
+        assertThat(waitForRestartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
+
+        return unwrapIgniteImpl(cluster.server(nodeIndex).api());
+    }
+
+    final CompletableFuture<Void> waitForRestartOrShutdownFuture(int nodeIndex) throws InterruptedException {
         assertTrue(
                 waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
                 "Node did not attempt to be restarted (or shut down) in time"
         );
-        assertThat(restartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
 
-        return unwrapIgniteImpl(cluster.server(nodeIndex).api());
+        CompletableFuture<Void> future = restartOrShutdownFuture(nodeIndex);
+        assertNotNull(future);
+
+        return future;
     }
 
     @Nullable
@@ -111,12 +120,16 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
     }
 
     final void migrate(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
+        initiateMigration(oldClusterNodeIndex, newClusterNodeIndex);
+
+        waitTillNodeRestartsInternally(oldClusterNodeIndex);
+    }
+
+    final void initiateMigration(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
         // Starting the node that did not see the repair.
         IgniteImpl nodeMissingRepair = ((IgniteServerImpl) cluster.startEmbeddedNode(oldClusterNodeIndex).server()).igniteImpl();
 
         initiateMigrationToNewCluster(nodeMissingRepair, igniteImpl(newClusterNodeIndex));
-
-        waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
     void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {

@@ -47,6 +47,8 @@ class MetaStorageLearnerManager {
 
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
 
+    private volatile boolean learnersAdditionEnabled = true;
+
     MetaStorageLearnerManager(
             IgniteSpinBusyLock busyLock,
             LogicalTopologyService logicalTopologyService,
@@ -62,6 +64,10 @@ class MetaStorageLearnerManager {
     }
 
     CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
+        if (!learnersAdditionEnabled) {
+            return nullCompletedFuture();
+        }
+
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
                 ? nullCompletedFuture()
                 : raftService.addLearners(List.of(new Peer(learner.name()))));
@@ -122,5 +128,16 @@ class MetaStorageLearnerManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Disables addition of learners one by one (as a reaction to nodes joining the validated nodes set).
+     *
+     * <p>This does NOT affect other ways of changing the learners.
+     *
+     * <p>This is only used by test code, and there is no method for enabling learners addition back as this is not needed in our tests.
+     */
+    void disableLearnersAddition() {
+        learnersAdditionEnabled = false;
     }
 }

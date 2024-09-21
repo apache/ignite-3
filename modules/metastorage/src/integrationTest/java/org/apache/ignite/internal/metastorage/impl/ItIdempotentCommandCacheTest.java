@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
@@ -232,7 +233,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
             if (metaStorageNodesFut != null) {
-                when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
+                when(cmgManager.metaStorageInfo()).thenReturn(
+                        metaStorageNodesFut.thenApply(nodes -> new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(nodes).build())
+                );
             }
 
             assertThat(

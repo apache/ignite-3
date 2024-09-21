@@ -17,30 +17,12 @@
 
 package org.apache.ignite.internal.disaster.system.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message Group for disaster recovery of system groups.
+ * Request for starting Metastorage repair on the recipient node.
  */
-@MessageGroup(groupType = 15, groupName = "SystemDisasterRecoveryMessages")
-public class SystemDisasterRecoveryMessageGroup {
-    /**
-     * Message type for {@link ResetClusterMessage}.
-     */
-    public static final short RESET_CLUSTER = 1;
-
-    /**
-     * Message type for {@link StartMetastorageRepairRequest}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_REQUEST = 2;
-
-    /**
-     * Message type for {@link StartMetastorageRepairResponse}.
-     */
-    public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
-
-    /**
-     * Message type for {@link BecomeMetastorageLeaderMessage}.
-     */
-    public static final short BECOME_METASTORAGE_LEADER = 4;
+@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_REQUEST)
+public interface StartMetastorageRepairRequest extends NetworkMessage {
 }
