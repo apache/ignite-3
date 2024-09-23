@@ -166,15 +166,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(3, 4, 5);
-    }
-
-    private void waitTillNodesRestartInProcess(int... nodeIndexes) throws InterruptedException {
-        for (int i : nodeIndexes) {
-            waitTillNodeRestartsInternally(i);
-        }
     }
 
     @Test
@@ -214,9 +205,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodeRestartsInternally(2);
     }
 
     private void restartPartially(int index) {
@@ -305,9 +293,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         LogicalTopologySnapshot topologySnapshot = igniteImpl(2).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(0, topologySnapshot);
         assertTopologyContainsNode(1, topologySnapshot);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(3, 4);
     }
 
     @Test
@@ -321,9 +306,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         initiateCmgRepairVia(igniteImpl(1), 1);
         IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(0, 1);
     }
 
     @Test
@@ -423,9 +405,6 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         cluster.startNode(3);
         waitTillDataNodesBecome(new int[]{1, 2, 3}, zoneId, restartedIgniteImpl1);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInProcess(1, 2);
     }
 
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {

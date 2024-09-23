@@ -305,7 +305,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertThat(stopFuture, willCompleteSuccessfully());
 
         // Waiting for the notifications to check.
-        assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
+        if (!leader.address().equals(new NetworkAddress("localhost", PORT_BASE))) {
+            // leaderRef is updated through raftClient hosted on PORT_BASE, thus if corresponding node was stopped (and it will be stopped
+            // if it occurred to be a leader) leaderRef won't be updated.
+            assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
+        }
         assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), WAIT_TIMEOUT_MILLIS));
 
         log.info("New Leader: " + leaderRef.get());
@@ -314,7 +318,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         raftClientNoInitialNotify.refreshLeader().get();
 
-        assertEquals(raftClientNoInitialNotify.leader().consistentId(), leaderRef.get().name());
+        assertEquals(raftClientNoInitialNotify.leader().consistentId(), leaderRefNoInitialNotify.get().name());
     }
 
     @Test
