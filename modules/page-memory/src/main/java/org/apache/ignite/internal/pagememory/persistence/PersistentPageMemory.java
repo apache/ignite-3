@@ -93,6 +93,7 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
@@ -1514,14 +1515,14 @@ public class PersistentPageMemory implements PageMemory {
                 CheckpointPages checkpointPages = this.checkpointPages;
                 // Can evict a dirty page only if should be written by a checkpoint.
                 // These pages does not have tmp buffer.
-                if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
+                if (checkpointPages != null && checkpointPages.allowToReplace(fullPageId)) {
                     WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
                     writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
 
                     setDirty(fullPageId, absPtr, false, true);
 
-                    checkpointPages.markAsSaved(fullPageId);
+                    checkpointPages.remove(fullPageId);
 
                     loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
 
@@ -1836,7 +1837,7 @@ public class PersistentPageMemory implements PageMemory {
 
         assert pages0 != null;
 
-        return pages0.markAsSaved(fullPageId);
+        return pages0.remove(fullPageId);
     }
 
     /**
@@ -2068,11 +2069,11 @@ public class PersistentPageMemory implements PageMemory {
      * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
      * finished. This method must be called when no concurrent operations on pages are performed.
      *
-     * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
+     * @param checkpointProgress Progress of the current checkpoint.
      * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public Collection<FullPageId> beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+    public Collection<FullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
         if (segments == null) {
             return List.of();
         }
@@ -2082,11 +2083,15 @@ public class PersistentPageMemory implements PageMemory {
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
 
-            assert segment.checkpointPages == null : "Failed to begin checkpoint (it is already in progress)";
+            assert segment.checkpointPages == null : String.format(
+                    "Failed to begin checkpoint (it is already in progress): [storageProfile=%s, segmentIdx=%s]",
+                    storageProfileView.name(), i
+            );
 
-            Set<FullPageId> segmentDirtyPages = (dirtyPageIds[i] = segment.dirtyPages);
+            Set<FullPageId> segmentDirtyPages = segment.dirtyPages;
+            dirtyPageIds[i] = segmentDirtyPages;
 
-            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
+            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, checkpointProgress);
 
             segment.resetDirtyPages();
         }

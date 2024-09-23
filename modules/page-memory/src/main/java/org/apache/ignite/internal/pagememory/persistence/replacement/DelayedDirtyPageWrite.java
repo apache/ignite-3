@@ -72,7 +72,6 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
         this.tracker = tracker;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuf) {
         tracker.lock(fullPageId);

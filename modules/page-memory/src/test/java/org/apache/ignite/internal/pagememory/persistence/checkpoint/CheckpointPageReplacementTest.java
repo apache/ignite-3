@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -27,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CheckpointPageReplacement} testing. */
@@ -116,9 +114,5 @@ public class CheckpointPageReplacementTest {
 
         checkpointPageReplacement.tryBlock(fullPageId(0, 2));
         assertTrue(checkpointPageReplacement.stopBlocking().isDone());
-    }
-
-    private static FullPageId fullPageId(int groupId, int partitionId) {
-        return new FullPageId(pageId(partitionId, FLAG_DATA, 0), groupId);
     }
 }

@@ -17,75 +17,103 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
 import java.util.Set;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * View of pages which should be stored during current checkpoint.
+ * Class contains dirty pages of the segment that will need to be written at a checkpoint or page replacement. It also contains helper
+ * methods before writing pages.
+ *
+ * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used, for example,
+ * segment read and write locks.</p>
  */
 public class CheckpointPages {
-    private final Set<FullPageId> segmentPages;
+    private final Set<FullPageId> pageIds;
 
-    private final CompletableFuture<?> allowToReplace;
+    private final CheckpointProgressImpl checkpointProgress;
 
     /**
      * Constructor.
      *
-     * @param pages Pages which would be stored to disk in current checkpoint, does not copy the set.
-     * @param replaceFuture The sign which allows replacing pages from a checkpoint by page replacer.
+     * @param pageIds Dirty page IDs in the segment that should be written at a checkpoint or page replacement.
+     * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(Set<FullPageId> pages, CompletableFuture<?> replaceFuture) {
-        segmentPages = pages;
-        allowToReplace = replaceFuture;
+    public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
+        this.pageIds = pageIds;
+        this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
 
     /**
-     * Returns {@code true} If fullPageId is allowable to store to disk.
+     * Checks if the page is available for replacement.
      *
-     * @param fullPageId Page id for checking.
-     * @throws IgniteInternalCheckedException If the waiting sign which allows replacing pages from a checkpoint by page replacer fails.
+     * <p>Page is available for replacement if the following conditions are met:</p>
+     * <ul>
+     *     <li>If the dirty page sorting phase is complete, otherwise we wait for it. This is necessary so that we can safely create
+     *     partition delta files in which the dirty page order must be preserved.</li>
+     *     <li>If the checkpoint dirty page writer has not started writing the page or has already written it.</li>
+     *     <li>If the delta file fsync phase is not ready to start or is not in progress. This is necessary so that the data remains
+     *     consistent after the fsync phase is complete.</li>
+     * </ul>
+     *
+     * <p>It is expected that if the method returns true, it will not be invoked again for the same page ID.</p>
+     *
+     * @param pageId Page ID of the replacement candidate.
+     * @return {@code True} if the page is available for replacement, {@code false} if not.
+     * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
      */
-    public boolean allowToSave(FullPageId fullPageId) throws IgniteInternalCheckedException {
+    public boolean allowToReplace(FullPageId pageId) throws StorageException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
-            getUninterruptibly(allowToReplace);
+            getUninterruptibly(checkpointProgress.futureFor(PAGES_SORTED));
         } catch (ExecutionException e) {
-            throw new IgniteInternalCheckedException(e.getCause());
+            throw new StorageException(e.getCause());
         } catch (CancellationException e) {
-            throw new IgniteInternalCheckedException(e);
+            throw new StorageException(e);
         }
 
-        return segmentPages.contains(fullPageId);
+        return pageIds.contains(pageId) && checkpointProgress.tryBlockFsyncOnPageReplacement(pageId);
     }
 
     /**
-     * Returns {@code true} If fullPageId is candidate to stored to disk by current checkpoint.
+     * Returns {@code true} if the page has not yet been written by a checkpoint or page replacement.
      *
-     * @param fullPageId Page id for checking.
+     * @param pageId Page ID for checking.
      */
-    public boolean contains(FullPageId fullPageId) {
-        return segmentPages.contains(fullPageId);
+    public boolean contains(FullPageId pageId) {
+        return pageIds.contains(pageId);
     }
 
     /**
-     * Returns {@code true} if it is marking was successful.
+     * Removes a page ID that would be written at a checkpoint or page replacement. Must be invoked before writing a page to disk.
      *
-     * @param fullPageId Page id which should be marked as saved to disk.
+     * @param pageId Page ID to remove.
+     * @return {@code True} if the page was removed by the current method invoke, {@code false} if the page was already removed by another
+     *      invoke or did not exist.
      */
-    public boolean markAsSaved(FullPageId fullPageId) {
-        return segmentPages.remove(fullPageId);
+    public boolean remove(FullPageId pageId) {
+        return pageIds.remove(pageId);
     }
 
     /**
-     * Returns size of all pages in current checkpoint.
+     * Adds a page ID that would be written at a checkpoint or page replacement. The code that invokes this method must ensure that the
+     * added page is written at a checkpoint or page replacement. For example, at a checkpoint when an attempt to take a write lock for the
+     * page fails.
+     *
+     * @param pageId Page ID to add.
+     * @return {@code True} if the page was added by the current method invoke, {@code false} if the page was already exists.
      */
+    public boolean add(FullPageId pageId) {
+        return pageIds.add(pageId);
+    }
+
+    /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */
     public int size() {
-        return segmentPages.size();
+        return pageIds.size();
     }
 }
