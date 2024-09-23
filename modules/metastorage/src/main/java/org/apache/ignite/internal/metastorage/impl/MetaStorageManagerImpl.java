@@ -158,9 +158,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private final MetaStorageLearnerManager learnerManager;
 
-    /** Gets completed when raft service is started. */
+    /** Gets completed when a Raft node (that is, the server Raft component of the group) is started for Metastorage. */
     private final CompletableFuture<Void> raftNodeStarted = new CompletableFuture<>();
 
+    /** Gets completed when a Raft service (that is, the Raft client for talking with the group) is started for Metastorage. */
     private final OrderingFuture<RaftGroupService> raftServiceFuture = new OrderingFuture<>();
 
     /**
