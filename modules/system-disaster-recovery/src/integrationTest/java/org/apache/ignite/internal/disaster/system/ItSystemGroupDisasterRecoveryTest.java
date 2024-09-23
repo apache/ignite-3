@@ -83,9 +83,8 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         return ((IgniteServerImpl) cluster.server(nodeIndex)).restartOrShutdownFuture();
     }
 
-    static ClusterState clusterState(IgniteImpl restartedIgniteImpl1)
-            throws InterruptedException, ExecutionException, TimeoutException {
-        return restartedIgniteImpl1.clusterManagementGroupManager().clusterState().get(10, SECONDS);
+    static ClusterState clusterState(IgniteImpl ignite) throws InterruptedException, ExecutionException, TimeoutException {
+        return ignite.clusterManagementGroupManager().clusterState().get(10, SECONDS);
     }
 
     static void assertResetClusterMessageIsNotPresentAt(IgniteImpl ignite) {
