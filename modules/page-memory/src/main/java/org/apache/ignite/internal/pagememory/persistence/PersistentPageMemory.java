@@ -2164,4 +2164,10 @@ public class PersistentPageMemory implements PageMemory {
 
         return checkpointPool.size() > checkpointBufLimit;
     }
+
+    /** Returns {@code true} if a page replacement has occurred at least once. */
+    @TestOnly
+    public boolean isPageReplacementOccurs() {
+        return pageReplacementWarned > 0;
+    }
 }
