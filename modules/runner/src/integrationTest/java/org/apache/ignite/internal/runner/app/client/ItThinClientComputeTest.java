@@ -58,7 +58,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -773,16 +772,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         String str = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(ToStringJob.class).build(), arg);
         assertEquals(arg.toString(), str);
-    }
-
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
     }
 
     private static class NodeNameJob implements ComputeJob<Object, String> {

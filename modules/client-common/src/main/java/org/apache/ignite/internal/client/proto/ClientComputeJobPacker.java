@@ -17,8 +17,18 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_OBJECT_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_POJO_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_TUPLE_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.NATIVE_ID;
+import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.toTuple;
+
+import java.util.Arrays;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
+import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.MarshallingException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,8 +62,13 @@ public final class ClientComputeJobPacker {
 
     /** Packs object in the format: | typeId | value |. */
     private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
+        if (obj == null) {
+            packer.packNil();
+            return;
+        }
+
         if (marshaller != null) {
-            packer.packInt(ComputeJobType.MARSHALLED_OBJECT_ID);
+            packer.packInt(MARSHALLED_OBJECT_ID);
             byte[] marshalled = marshaller.marshal(obj);
 
             if (marshalled == null) {
@@ -66,26 +81,34 @@ public final class ClientComputeJobPacker {
         }
 
         if (obj instanceof Tuple) {
-            byte[] marshalledTuple = TupleWithSchemaMarshalling.marshal((Tuple) obj);
+            packer.packInt(MARSHALLED_TUPLE_ID);
 
-            packer.packInt(ComputeJobType.MARSHALLED_TUPLE_ID);
-
-            if (marshalledTuple == null) {
-                packer.packNil();
-                return;
-            }
-
-            packer.packBinary(marshalledTuple);
+            packTuple((Tuple) obj, packer);
             return;
         }
 
-        if (obj == null) {
-            packer.packNil();
+        if (isNativeType(obj.getClass())) {
+            packer.packInt(NATIVE_ID);
+
+            packer.packObjectAsBinaryTuple(obj);
             return;
         }
 
-        packer.packInt(ComputeJobType.NATIVE_ID);
+        try {
+            Tuple tuple = toTuple(obj);
+            packer.packInt(MARSHALLED_POJO_ID);
+            packer.packString(obj.getClass().getName());
+            packTuple(tuple, packer);
+        } catch (PojoConversionException e) {
+            throw new MarshallingException("Can't pack object", e);
+        }
+    }
 
-        packer.packObjectAsBinaryTuple(obj);
+    private static boolean isNativeType(Class<?> clazz) {
+        return Arrays.stream(ColumnType.values()).map(ColumnType::javaClass).anyMatch(c -> c == clazz);
+    }
+
+    private static void packTuple(Tuple tuple, ClientMessagePacker packer) {
+        packer.packBinary(TupleWithSchemaMarshalling.marshal(tuple));
     }
 }

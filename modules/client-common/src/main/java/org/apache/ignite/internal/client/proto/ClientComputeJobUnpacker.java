@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_OBJECT_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_POJO_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_TUPLE_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.NATIVE_ID;
+import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
+import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
+import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
@@ -57,10 +64,9 @@ public final class ClientComputeJobUnpacker {
         }
 
         int typeId = unpacker.unpackInt();
-        var type = ComputeJobType.Type.fromId(typeId);
 
-        switch (type) {
-            case NATIVE:
+        switch (typeId) {
+            case NATIVE_ID:
                 if (marshaller != null) {
                     throw new UnmarshallingException(
                             "Can not unpack object because the marshaller is provided but the object was packed without marshaller."
@@ -68,10 +74,10 @@ public final class ClientComputeJobUnpacker {
                 }
 
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE:
+            case MARSHALLED_TUPLE_ID:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 
-            case MARSHALLED_OBJECT:
+            case MARSHALLED_OBJECT_ID:
                 if (marshaller == null) {
                     throw new UnmarshallingException(
                             "Can not unpack object because the marshaller is not provided but the object was packed with marshaller."
@@ -79,29 +85,58 @@ public final class ClientComputeJobUnpacker {
                 }
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
 
+            case MARSHALLED_POJO_ID:
+                return unpackPojo(unpacker);
+
             default:
                 throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
     }
 
     /** Unpacks compute job argument without marshaller. */
-    public static Object unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
+    public static @Nullable Object unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
         if (unpacker.tryUnpackNil()) {
             return null;
         }
 
         int typeId = unpacker.unpackInt();
-        var type = ComputeJobType.Type.fromId(typeId);
 
-        switch (type) {
-            case NATIVE:
+        switch (typeId) {
+            case NATIVE_ID:
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE:
+            case MARSHALLED_TUPLE_ID:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
-            case MARSHALLED_OBJECT:
+            case MARSHALLED_OBJECT_ID:
                 return unpacker.readBinary();
+            case MARSHALLED_POJO_ID:
+                return unpackPojo(unpacker);
             default:
                 throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+        }
+    }
+
+    private static Object unpackPojo(ClientMessageUnpacker unpacker) {
+        String className = unpacker.unpackString();
+
+        try {
+            Class<?> clazz = Class.forName(className);
+            Object obj = clazz.getConstructor().newInstance();
+
+            fromTuple(obj, TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary()));
+
+            return obj;
+        } catch (ClassNotFoundException e) {
+            throw new UnmarshallingException("Can't find class " + className, e);
+        } catch (NoSuchMethodException e) {
+            throw new UnmarshallingException("Class " + className + " doesn't have public default constructor", e);
+        } catch (InvocationTargetException e) {
+            throw new UnmarshallingException("Constructor has thrown an exception", e);
+        } catch (InstantiationException e) {
+            throw new UnmarshallingException("Can't instantiate an object of class " + className, e);
+        } catch (IllegalAccessException e) {
+            throw new UnmarshallingException("Constructor is inaccessible", e);
+        } catch (PojoConversionException e) {
+            throw new UnmarshallingException("Can't unpack object", e);
         }
     }
 }
