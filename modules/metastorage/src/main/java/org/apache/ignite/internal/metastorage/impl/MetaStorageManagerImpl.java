@@ -392,7 +392,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         MetaStorageListener raftListener = new MetaStorageListener(storage, clusterTime, this::onConfigurationCommitted);
 
-        CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
+        CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 raftNodeId(localPeer),
                 configuration,
                 raftListener,
@@ -402,7 +402,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 raftGroupOptionsConfigurer
         );
 
-        raftServiceFuture
+        serviceFuture
                 .thenAccept(service -> service.subscribeLeader(new MetaStorageLeaderElectionListener(
                         busyLock,
                         clusterService,
@@ -423,7 +423,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                     }
                 });
 
-        return raftServiceFuture;
+        return serviceFuture;
     }
 
     private boolean peersChangeStateExists() {
