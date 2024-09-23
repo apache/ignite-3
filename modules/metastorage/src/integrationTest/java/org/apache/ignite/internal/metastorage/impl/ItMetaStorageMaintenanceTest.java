@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -58,9 +59,13 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Metastorage does not work anymore.
         assertThatMetastorageHasNoMajority(node0);
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
+        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
 
         assertThatMetastorageHasMajority(node0);
+    }
+
+    private Set<String> allNodeNames() {
+        return nodes.stream().map(Node::name).collect(toSet());
     }
 
     /**
@@ -110,7 +115,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
+        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
 
         Node node3 = startNode();
 
@@ -130,7 +135,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(false), willCompleteSuccessfully());
+        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, Set.of(node0.name())), willCompleteSuccessfully());
 
         Node node3 = startNode();
 
@@ -159,7 +164,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(true), willCompleteSuccessfully());
+        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
 
@@ -198,7 +203,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(false), willCompleteSuccessfully());
+        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, Set.of(node0.name())), willCompleteSuccessfully());
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
         HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();

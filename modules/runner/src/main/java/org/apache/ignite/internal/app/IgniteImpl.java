@@ -592,13 +592,13 @@ public class IgniteImpl implements Ignite {
                 "cluster-management-group log",
                 clusterSvc.nodeName(),
                 cmgWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -662,7 +662,7 @@ public class IgniteImpl implements Ignite {
                 "meta-storage log",
                 clusterSvc.nodeName(),
                 metastorageWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
@@ -722,6 +722,9 @@ public class IgniteImpl implements Ignite {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
+        ReplicationConfiguration replicationConfig = clusterConfigRegistry
+                .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -731,11 +734,9 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clockService
+                clockService,
+                replicationConfig
         );
-
-        ReplicationConfiguration replicationConfig = clusterConfigRegistry
-                .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
@@ -1071,7 +1072,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> clusterInfo(systemDisasterRecoveryStorage),
+                () -> clusterInfo(clusterStateStorageMgr),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1094,8 +1095,11 @@ public class IgniteImpl implements Ignite {
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
-    private static ClusterInfo clusterInfo(SystemDisasterRecoveryStorage systemDisasterRecoveryStorage) {
-        ClusterState clusterState = systemDisasterRecoveryStorage.readClusterState();
+    private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
+        // It is safe to read cluster state from CMG state as it can only be read when the node is initialized and fully started,
+        // and in those moments the cluster state is already available in the CMG state storage.
+
+        ClusterState clusterState = clusterStateStorageManager.getClusterState();
 
         assert clusterState != null : "Cluster state cannot be null at the moment when a client connects";
 

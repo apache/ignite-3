@@ -109,7 +109,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
                 () -> checkDuplicates(
-                        Set.of("replicas", "affinity"),
+                        Set.of("replicas", "partitionDistribution"),
                         Set.of("partitions", "replicas")
                 )
         );
@@ -117,8 +117,8 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(exception.getMessage(), startsWith("Duplicate id: replicas"));
 
         assertDoesNotThrow(() -> checkDuplicates(
-                        Set.of("replicas", "affinity"),
-                        Set.of("replicas0", "affinity0")
+                        Set.of("replicas", "partitionDistribution"),
+                        Set.of("replicas0", "partitionDistribution0")
                 )
         );
     }

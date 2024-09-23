@@ -19,9 +19,7 @@
 #include <ignite/odbc/sql_connection.h>
 #include <ignite/odbc/sql_statement.h>
 
-#include <ignite/common/detail/config.h>
-
-#include "module.h"
+#include "utils.h"
 #include "py_connection.h"
 #include "py_cursor.h"
 
@@ -89,7 +87,7 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
 
 static PyTypeObject py_connection_type = {
     PyVarObject_HEAD_INIT(nullptr, 0)
-    MODULE_NAME "." PY_CONNECTION_CLASS_NAME
+    EXT_MODULE_NAME "." PY_CONNECTION_CLASS_NAME
 };
 
 static struct PyMethodDef py_connection_methods[] = {

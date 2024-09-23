@@ -77,7 +77,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         try {
             Class.forName(DirectBuffer.class.getName());
         } catch (Throwable e) {
-            throw new IgniteInternalException("sun.nio.ch.DirectBuffer is unavailable." + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
+            throw new IgniteInternalException("sun.nio.ch.DirectBuffer is unavailable." + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
 
@@ -115,7 +115,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     @Override
     public void sync() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
-        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** Returns path to log storage by group ID. */

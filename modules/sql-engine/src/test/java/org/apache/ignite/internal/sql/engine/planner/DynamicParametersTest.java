@@ -351,7 +351,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("UPDATE t1 SET c1 = (SELECT ?)", 1)
                         .ok()
 
-        //        TODO https://issues.apache.org/jira/browse/IGNITE-20835
+        //        TODO https://issues.apache.org/jira/browse/IGNITE-23183
         //         Assertion is caused by incorrect subquery handling
         //         checkStatement()
         //                .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)

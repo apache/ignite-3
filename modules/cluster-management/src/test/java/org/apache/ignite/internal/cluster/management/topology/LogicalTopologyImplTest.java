@@ -53,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -72,7 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
-    private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
+    private final ClusterStateStorage storage = spy(TestClusterStateStorage.initializedClusterStateStorage());
 
     private LogicalTopology topology;
 
@@ -98,7 +97,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        topology = new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier());
+        topology = new LogicalTopologyImpl(storage);
 
         topology.addEventListener(listener);
     }

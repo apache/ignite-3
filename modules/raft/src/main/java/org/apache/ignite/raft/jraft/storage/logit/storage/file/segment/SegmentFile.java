@@ -22,10 +22,13 @@ import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
+import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  *  * File header:
@@ -69,20 +72,49 @@ public class SegmentFile extends AbstractFile {
         this.writeLock.lock();
         try {
             assert (logIndex > getLastLogIndex());
-            final byte[] writeData = encodeData(data);
-            return doAppend(logIndex, writeData);
+
+            return doAppend(logIndex, addr -> {
+                GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
+                GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
+
+                Bits.putIntLittleEndian(addr + 2, data.length);
+
+                GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, addr + 6, data.length);
+
+                return getWriteBytes(data);
+            });
         } finally {
             this.writeLock.unlock();
         }
     }
 
-    private byte[] encodeData(final byte[] data) {
-        ByteBuffer buffer = ByteBuffer.allocate(getWriteBytes(data));
-        buffer.put(RECORD_MAGIC_BYTES);
-        buffer.putInt(data.length);
-        buffer.put(data);
-        buffer.flip();
-        return buffer.array();
+    /**
+     *
+     * Write the data and return its written position. Based on {@link #appendData(long, byte[])}, but more efficient.
+     * @param logIndex the log index
+     * @param encoder Log entry encoder
+     * @param entry Log entry
+     * @param entrySize Pre-calculated serialized entry size
+     * @return the wrote position
+     */
+    public int appendData(final long logIndex, V1Encoder encoder, LogEntry entry, int entrySize) {
+        this.writeLock.lock();
+        try {
+            assert (logIndex > getLastLogIndex());
+
+            return doAppend(logIndex, addr -> {
+                GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
+                GridUnsafe.putByte(addr + 1, RECORD_MAGIC_BYTES[1]);
+
+                Bits.putIntLittleEndian(addr + 2, entrySize);
+
+                encoder.append(addr + 6, entry);
+
+                return entrySize + 6;
+            });
+        } finally {
+            this.writeLock.unlock();
+        }
     }
 
     /**
@@ -151,6 +183,8 @@ public class SegmentFile extends AbstractFile {
 
     @Override
     public CheckDataResult checkData(final ByteBuffer buffer) {
+        assert buffer.order() == LOGIT_BYTE_ORDER;
+
         if (buffer.remaining() < RECORD_MAGIC_BYTES_SIZE) {
             return CheckDataResult.CHECK_FAIL;
         }
@@ -205,6 +239,10 @@ public class SegmentFile extends AbstractFile {
     }
 
     public static int getWriteBytes(final byte[] data) {
-        return RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + data.length;
+        return getWriteBytes(data.length);
+    }
+
+    public static int getWriteBytes(int dataSize) {
+        return RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + dataSize;
     }
 }

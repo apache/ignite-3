@@ -19,7 +19,10 @@ package org.apache.ignite.internal.rest.compute;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
+import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.canceled;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.completed;
@@ -50,10 +53,8 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
-import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -180,8 +181,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+                isProblemResponse(NOT_FOUND, isProblem().withDetail("Compute job not found [jobId=" + jobId + "]"))
         );
     }
 
@@ -226,8 +226,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+                isProblemResponse(NOT_FOUND, isProblem().withDetail("Compute job not found [jobId=" + jobId + "]"))
         );
     }
 
@@ -252,9 +251,8 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"), Problem.class)
+                isProblemResponse(CONFLICT, isProblem()
+                        .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"))
         );
     }
 
@@ -311,8 +309,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+                isProblemResponse(NOT_FOUND, isProblem().withDetail("Compute job not found [jobId=" + jobId + "]"))
         );
     }
 
@@ -335,9 +332,8 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]"), Problem.class)
+                isProblemResponse(CONFLICT, isProblem()
+                        .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]"))
         );
     }
 
@@ -364,9 +360,8 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(
                 httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"), Problem.class)
+                isProblemResponse(CONFLICT, isProblem()
+                        .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"))
         );
     }
 

@@ -33,6 +33,8 @@ public class SharedLogStorageFactoryUtils {
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
+    private static final boolean LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT = false;
+
     /**
      * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
      * LOGIT_STORAGE_ENABLED_PROPERTY and fsync set to true.
@@ -47,7 +49,7 @@ public class SharedLogStorageFactoryUtils {
      * LOGIT_STORAGE_ENABLED_PROPERTY.
      */
     public static LogStorageFactory create(String factoryName, String nodeName, Path logStoragePath, boolean fsync) {
-        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
+        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT)
                 ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
                 : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath, fsync);
     }

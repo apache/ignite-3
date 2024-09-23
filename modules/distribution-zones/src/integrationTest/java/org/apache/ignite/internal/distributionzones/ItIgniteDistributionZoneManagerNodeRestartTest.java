@@ -69,7 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
@@ -186,10 +185,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         VaultManager vault = createVault(dir);
 
-        var clusterStateStorage = new TestClusterStateStorage();
+        var clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
         var clusterIdService = new ClusterIdService(vault);
-        clusterIdService.clusterId(UUID.randomUUID());
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -230,7 +228,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 mock(FailureManager.class)
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
