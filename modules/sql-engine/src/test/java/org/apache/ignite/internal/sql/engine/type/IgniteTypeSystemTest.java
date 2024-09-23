@@ -27,6 +27,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -168,5 +169,126 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
                         native2relationalType(typeFactory, NativeTypes.DOUBLE)
                 )
         );
-    } 
+    }
+
+    @ParameterizedTest(name = "op={0} {3} {1}")
+    @MethodSource("deriveTypeArguments")
+    void deriveType(NativeType type1, NativeType type2, NativeType expected, ArithmeticOp op) {
+        RelDataType relType1 = native2relationalType(Commons.typeFactory(), type1);
+        RelDataType relType2 = native2relationalType(Commons.typeFactory(), type2);
+        RelDataType relExpected = native2relationalType(Commons.typeFactory(), expected);
+
+        switch (op) {
+            case DIV: {
+                RelDataType actual = typeSystem.deriveDecimalDivideType(Commons.typeFactory(), relType1, relType2);
+                assertThat(actual, Matchers.equalTo(relExpected));
+                break;
+            }
+            case MULT: {
+                RelDataType actual = typeSystem.deriveDecimalMultiplyType(Commons.typeFactory(), relType1, relType2);
+                assertThat(actual, Matchers.equalTo(relExpected));
+                break;
+            }
+            case ADD: {
+                RelDataType actual = typeSystem.deriveDecimalPlusType(Commons.typeFactory(), relType1, relType2);
+                assertThat(actual, Matchers.equalTo(relExpected));
+                break;
+            }
+            default:
+                throw new IllegalArgumentException("Unexpected operation type: " + op);
+        }
+
+
+    }
+
+    private static Stream<Arguments> deriveTypeArguments() {
+        IgniteTypeSystem typeSystem = IgniteTypeSystem.INSTANCE;
+
+        return Stream.of(
+                // DIVISION
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT8, NativeTypes.INT16, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT16, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT32, NativeTypes.INT16, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT64, NativeTypes.INT16, ArithmeticOp.DIV),
+
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT8, NativeTypes.INT32, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT16, NativeTypes.INT32, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT32, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT64, NativeTypes.INT32, ArithmeticOp.DIV),
+
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT8, NativeTypes.INT64, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT64, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT64, NativeTypes.INT64, ArithmeticOp.DIV),
+
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT8, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT16, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.DIV),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.DIV),
+
+                // MULT
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT8, NativeTypes.INT16, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT8, NativeTypes.INT32, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT16, NativeTypes.INT32, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT8, NativeTypes.INT64, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT64, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT8, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT16, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.MULT),
+
+                // ADD
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT8, NativeTypes.INT16, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT8, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT8, NativeTypes.INT32, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT16, NativeTypes.INT32, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT16, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT8, NativeTypes.INT64, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT64, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT64, ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT32, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT8, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT16, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD),
+                Arguments.of(NativeTypes.INT64, NativeTypes.INT64, NativeTypes.decimalOf(typeSystem.getMaxPrecision(SqlTypeName.BIGINT), 0),
+                        ArithmeticOp.ADD)
+        );
+    }
+
+    private enum ArithmeticOp {
+        ADD, MULT, DIV
+    }
 }

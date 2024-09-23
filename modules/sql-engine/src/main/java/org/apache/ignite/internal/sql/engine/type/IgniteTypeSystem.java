@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isIntType;
 
 import java.math.BigDecimal;
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
@@ -84,6 +86,41 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         }
     }
 
+    /**
+     * Extend passed type to the nearest bigger.
+     * TINYINT -> SMALLINT
+     * SMALLINT -> INTEGER
+     * INTEGER -> BIGINT
+     * BIGINT -> DECIMAL
+     *
+     * @param typeFactory Type factory.
+     * @param type Type need to be extended.
+     * @param nullable Nullability flag.
+     * @return Extended type.
+     */
+    private static RelDataType extendType(RelDataTypeFactory typeFactory, RelDataType type, boolean nullable) {
+        switch (type.getSqlTypeName()) {
+            case TINYINT:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.SMALLINT),
+                        nullable);
+            case SMALLINT:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER),
+                        nullable);
+            case INTEGER:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
+                        nullable);
+            case BIGINT:
+                return typeFactory.createTypeWithNullability(
+                        typeFactory.createSqlType(
+                                SqlTypeName.DECIMAL,
+                                type.getPrecision(),
+                                0
+                        ), nullable);
+            default:
+                throw new AssertionError("Unexpected type: " + type);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveDecimalDivideType(RelDataTypeFactory typeFactory,
@@ -92,26 +129,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         if (isIntType(type1) && isIntType(type2)) {
             boolean typesNullability = type1.isNullable() || type2.isNullable();
 
-            switch (type1.getSqlTypeName()) {
-                case TINYINT:
-                    return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.SMALLINT),
-                            typesNullability);
-                case SMALLINT:
-                    return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER),
-                            typesNullability);
-                case INTEGER:
-                    return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
-                            typesNullability);
-                case BIGINT:
-                    return typeFactory.createTypeWithNullability(
-                            typeFactory.createSqlType(
-                                    SqlTypeName.DECIMAL,
-                                    type1.getPrecision(),
-                                    0
-                            ), typesNullability);
-                default:
-                    throw new AssertionError("Unexpected types: " + type1 + ", " + type2);
-            }
+            return extendType(typeFactory, type1, typesNullability);
         }
 
         return super.deriveDecimalDivideType(typeFactory, type1, type2);
@@ -124,85 +142,9 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
         if (isIntType(type1) && isIntType(type2)) {
             boolean typesNullability = type1.isNullable() || type2.isNullable();
 
-            if (type1.getSqlTypeName() == SqlTypeName.TINYINT) {
-                switch (type2.getSqlTypeName()) {
-                    case TINYINT:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.SMALLINT),
-                                typesNullability);
-                    case SMALLINT:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER),
-                                typesNullability);
-                    case INTEGER:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
-                                typesNullability);
-                    case BIGINT:
-                        return typeFactory.createTypeWithNullability(
-                                typeFactory.createSqlType(
-                                        SqlTypeName.DECIMAL,
-                                        typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
-                                        0
-                                ), typesNullability);
-                    default:
-                        throw new AssertionError("Unexpected types: " + type1 + ", " + type2);
-                }
-            }
+            RelDataType derivedType = typeFactory.leastRestrictive(List.of(type1, type2));
 
-            if (type1.getSqlTypeName() == SqlTypeName.SMALLINT) {
-                switch (type2.getSqlTypeName()) {
-                    case TINYINT:
-                    case SMALLINT:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER),
-                                typesNullability);
-                    case INTEGER:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
-                                typesNullability);
-                    case BIGINT:
-                        return typeFactory.createTypeWithNullability(
-                                typeFactory.createSqlType(
-                                        SqlTypeName.DECIMAL,
-                                        typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
-                                        0
-                                ), typesNullability);
-                    default:
-                        throw new AssertionError("Unexpected types: " + type1 + ", " + type2);
-                }
-            }
-
-            if (type1.getSqlTypeName() == SqlTypeName.INTEGER) {
-                switch (type2.getSqlTypeName()) {
-                    case TINYINT:
-                    case SMALLINT:
-                    case INTEGER:
-                        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
-                                typesNullability);
-                    case BIGINT:
-                        return typeFactory.createTypeWithNullability(
-                                typeFactory.createSqlType(
-                                        SqlTypeName.DECIMAL,
-                                        typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
-                                        0
-                                ), typesNullability);
-                    default:
-                        throw new AssertionError("Unexpected types: " + type1 + ", " + type2);
-                }
-            }
-
-            if (type1.getSqlTypeName() == SqlTypeName.BIGINT) {
-                switch (type2.getSqlTypeName()) {
-                    case TINYINT:
-                    case SMALLINT:
-                    case INTEGER:
-                    case BIGINT:
-                        return typeFactory.createTypeWithNullability(
-                                typeFactory.createSqlType(
-                                        SqlTypeName.DECIMAL,
-                                        typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
-                                        0
-                                ), typesNullability);
-                    default:
-                        throw new AssertionError("Unexpected types: " + type1 + ", " + type2);
-                }
-            }
+            return extendType(typeFactory, requireNonNull(derivedType), typesNullability);
         }
 
         return super.deriveDecimalMultiplyType(typeFactory, type1, type2);

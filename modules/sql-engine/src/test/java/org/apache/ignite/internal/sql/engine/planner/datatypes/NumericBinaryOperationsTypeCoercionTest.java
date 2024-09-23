@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeType;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,7 +60,10 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
         assertPlan("SELECT c1 + c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
+        assertPlan("SELECT c1 + c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.ADD)::matches, List.of());
+
         assertPlan("SELECT c2 + c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c2 + c1 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.ADD)::matches, List.of());
     }
 
     // No any type changes for `subtraction` operation from planner perspective.
@@ -61,7 +76,10 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
         assertPlan("SELECT c1 - c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
+        assertPlan("SELECT c1 - c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.ADD)::matches, List.of());
+
         assertPlan("SELECT c2 - c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c2 - c1 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.ADD)::matches, List.of());
     }
 
     // No any type changes for `division` operation from planner perspective.
@@ -74,7 +92,10 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
         assertPlan("SELECT c1 / c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
+        assertPlan("SELECT c1 / c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.DIV)::matches, List.of());
+
         assertPlan("SELECT c2 / c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 / c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.DIV)::matches, List.of());
     }
 
     // No any type changes for `multiplication` operation from planner perspective.
@@ -87,7 +108,10 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
         assertPlan("SELECT c1 * c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
+        assertPlan("SELECT c1 * c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.MULT)::matches, List.of());
+
         assertPlan("SELECT c2 * c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 * c2 FROM t", schema, mathResultMatcher(pair, ArithmeticOp.MULT)::matches, List.of());
     }
 
     // Have the following casts for modulo operation:
@@ -105,6 +129,63 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
         assertPlan("SELECT c1 % c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
         assertPlan("SELECT c2 % c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+    }
+
+    private static Matcher<IgniteRel> mathResultMatcher(NumericPair pair, ArithmeticOp op) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                IgniteTypeSystem typeSystem = IgniteTypeSystem.INSTANCE;
+                IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+                NativeType first = pair.first();
+                NativeType second = pair.second();
+
+                RelDataType opType1 = native2relationalType(typeFactory, first);
+                RelDataType opType2 = native2relationalType(typeFactory, second);
+                RelDataType expectedReturnType = null;
+
+                switch (op) {
+                    case ADD:
+                        expectedReturnType = typeSystem.deriveDecimalPlusType(typeFactory, opType1, opType2);
+                        break;
+                    case DIV:
+                        expectedReturnType = typeSystem.deriveDecimalDivideType(typeFactory, opType1, opType2);
+                        break;
+                    case MULT:
+                        expectedReturnType = typeSystem.deriveDecimalMultiplyType(typeFactory, opType1, opType2);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected operation type: " + op);
+                }
+
+                if (expectedReturnType == null) {
+                    expectedReturnType = typeFactory.leastRestrictive(List.of(opType1, opType2));
+                }
+
+                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) actual;
+
+                RelDataType rowType = scan.getRowType();
+
+                assert rowType.getFieldList().size() == 1;
+
+                RelDataType relRowType = rowType.getFieldList().get(0).getType();
+
+                SqlTypeName expectedSqlType = expectedReturnType.getSqlTypeName();
+                SqlTypeName resulReturnType = relRowType.getSqlTypeName();
+
+                return expectedSqlType == resulReturnType;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
+        };
+    }
+
+    private enum ArithmeticOp {
+        ADD, MULT, DIV
     }
 
     /**
