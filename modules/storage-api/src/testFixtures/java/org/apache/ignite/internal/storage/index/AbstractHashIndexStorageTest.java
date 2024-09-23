@@ -46,18 +46,12 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         int tableId = tableDescriptor.id();
         int indexId = catalogId.getAndIncrement();
 
-        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columnTypes);
+        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columnTypes);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(
+        return tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
-
-        if (built) {
-            completeBuildIndex(indexStorage);
-        }
-
-        return indexStorage;
     }
 
     @Override
@@ -66,14 +60,17 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
     }
 
     @Override
-    CatalogHashIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+    CatalogHashIndexDescriptor createCatalogIndexDescriptor(
+            int tableId, int indexId, String indexName, boolean built, ColumnType... columnTypes
+    ) {
         var indexDescriptor = new CatalogHashIndexDescriptor(
                 indexId,
                 indexName,
                 tableId,
                 false,
                 AVAILABLE,
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()),
+                built
         );
 
         addToCatalog(indexDescriptor);

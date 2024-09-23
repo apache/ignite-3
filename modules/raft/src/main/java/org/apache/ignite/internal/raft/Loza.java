@@ -27,7 +27,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -109,7 +109,7 @@ public class Loza implements RaftManager {
      * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
      * @param clock A hybrid logical clock.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      */
     public Loza(
             ClusterService clusterNetSvc,
@@ -117,7 +117,7 @@ public class Loza implements RaftManager {
             RaftConfiguration raftConfiguration,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -130,7 +130,7 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, options, raftGroupEventsClientListener, failureProcessor);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, options, raftGroupEventsClientListener, failureManager);
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
@@ -415,11 +415,16 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public <G extends ReplicationGroupId, L> RaftGroupStateProvider<G, L> getGroupStateProvider(
-            Class<G> groupType,
-            Class<L> groupListenerType
-    ) {
-        return raftServer.getGroupStateProvider(groupType, groupListenerType);
+    public @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return raftServer.raftNodeIndex(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeInternal(

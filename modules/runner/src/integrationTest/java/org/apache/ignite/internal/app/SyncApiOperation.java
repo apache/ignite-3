@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.compute.JobTarget.anyNode;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
@@ -26,7 +27,10 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -60,6 +64,7 @@ enum SyncApiOperation {
     TABLE_FROM_TABLES_ASYNC_PUT(refs -> refs.tableFromTablesAsync.keyValueView().put(null, KEY_TUPLE, VALUE_TUPLE)),
 
     KV_VIEW_GET(refs -> refs.kvView.get(null, KEY_TUPLE)),
+    KV_VIEW_GET_NULLABLE(refs -> refs.kvView.getNullable(null, KEY_TUPLE)),
     KV_VIEW_GET_OR_DEFAULT(refs -> refs.kvView.getOrDefault(null, KEY_TUPLE, null)),
     KV_VIEW_GET_ALL(refs -> refs.kvView.getAll(null, List.of(KEY_TUPLE))),
     KV_VIEW_CONTAINS(refs -> refs.kvView.contains(null, KEY_TUPLE)),
@@ -67,23 +72,22 @@ enum SyncApiOperation {
     KV_VIEW_PUT(refs -> refs.kvView.put(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_PUT_ALL(refs -> refs.kvView.putAll(null, Map.of(KEY_TUPLE, VALUE_TUPLE))),
     KV_VIEW_GET_AND_PUT(refs -> refs.kvView.getAndPut(null, KEY_TUPLE, VALUE_TUPLE)),
+    KV_VIEW_GET_NULLABLE_AND_PUT(refs -> refs.kvView.getNullableAndPut(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_PUT_IF_ABSENT(refs -> refs.kvView.putIfAbsent(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REMOVE(refs -> refs.kvView.remove(null, KEY_TUPLE)),
     KV_VIEW_REMOVE_EXACT(refs -> refs.kvView.remove(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REMOVE_ALL(refs -> refs.kvView.removeAll(null, List.of(KEY_TUPLE))),
     KV_VIEW_GET_AND_REMOVE(refs -> refs.kvView.getAndRemove(null, KEY_TUPLE)),
+    KV_VIEW_GET_NULLABLE_AND_REMOVE(refs -> refs.kvView.getNullableAndRemove(null, KEY_TUPLE)),
     KV_VIEW_REPLACE(refs -> refs.kvView.replace(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REPLACE_EXACT(refs -> refs.kvView.replace(null, KEY_TUPLE, VALUE_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_AND_REPLACE(refs -> refs.kvView.getAndReplace(null, KEY_TUPLE, VALUE_TUPLE)),
+    KV_VIEW_GET_NULLABLE_AND_REPLACE(refs -> refs.kvView.getNullableAndReplace(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_QUERY(refs -> refs.kvView.query(null, null)),
     KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.query(null, null, null)),
     KV_VIEW_QUERY_WITH_OPTIONS(refs -> refs.kvView.query(null, null, null, null)),
 
-    TYPED_KV_VIEW_GET_NULLABLE(refs -> refs.typedKvView.getNullable(null, 1)),
-    TYPED_KV_VIEW_GET_NULLABLE_AND_PUT(refs -> refs.typedKvView.getNullableAndPut(null, 1, "one")),
-    TYPED_KV_VIEW_GET_NULLABLE_AND_REMOVE(refs -> refs.typedKvView.getNullableAndRemove(null, 1)),
-    TYPED_KV_VIEW_GET_NULLABLE_AND_REPLACE(refs -> refs.typedKvView.getNullableAndReplace(null, 1, "one")),
-
+    TYPED_KV_VIEW_GET(refs -> refs.typedKvView.get(null, 1)),
     MAPPED_KV_VIEW_GET(refs -> refs.mappedKvView.get(null, 1)),
 
     RECORD_VIEW_GET(refs -> refs.recordView.get(null, KEY_TUPLE)),
@@ -124,7 +128,28 @@ enum SyncApiOperation {
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), refs.selectIdsStatement)),
     SQL_EXECUTE_BATCH(refs -> refs.sql.executeBatch(null, UPDATE_QUERY, BatchedArguments.of(999))),
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatch(null, refs.updateStatement, BatchedArguments.of(999))),
-    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY));
+    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY)),
+
+    COMPUTE_SUBMIT(refs -> refs.compute.submit(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
+    COMPUTE_EXECUTE(refs -> refs.compute.execute(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
+    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitBroadcast(
+            Set.copyOf(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
+    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcast(
+            Set.copyOf(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
+    COMPUTE_SUBMIT_MAP_REDUCE(refs -> refs.compute.submitMapReduce(
+            TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
+            null
+    )),
+    COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduce(
+            TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
+            null
+    ));
 
     private final Consumer<References> action;
 
@@ -139,6 +164,7 @@ enum SyncApiOperation {
     boolean worksAfterShutdown() {
         return this == IGNITE_TABLES
                 || this == IGNITE_TRANSACTIONS
-                || this == IGNITE_SQL;
+                || this == IGNITE_SQL
+                || this == IGNITE_COMPUTE;
     }
 }

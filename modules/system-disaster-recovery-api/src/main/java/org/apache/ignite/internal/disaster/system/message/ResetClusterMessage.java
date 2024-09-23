@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message for resetting the cluster.
@@ -32,12 +33,12 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
     /**
      * Consistent IDs of nodes that will host the new CMG.
      */
-    Set<String> cmgNodes();
+    Set<String> newCmgNodes();
 
     /**
-     * Consistent IDs of nodes that host the Meta Storage.
+     * Consistent IDs of nodes that currently host the Meta Storage.
      */
-    Set<String> metaStorageNodes();
+    Set<String> currentMetaStorageNodes();
 
     /**
      * Name of the cluster that will be a part of the generated cluster tag.
@@ -53,4 +54,25 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * IDs that the cluster had before (including the current incarnation by which this message is sent).
      */
     List<UUID> formerClusterIds();
+
+    /**
+     * Initial cluster configuration ({@code null} if no initial configuration was passed on init).
+     */
+    @Nullable
+    String initialClusterConfiguration();
+
+    /**
+     * Number of nodes in the Raft voting member set for Metastorage. Only non-null if Metastorage is to be repaired.
+     */
+    @Nullable Integer metastorageReplicationFactor();
+
+    /**
+     * Consistent ID of the node that conducts the cluster reset. Only non-null if Metastorage is to be repaired.
+     */
+    @Nullable String conductor();
+
+    /**
+     * Consistent IDs of the nodes which were sent the message. Only non-null if Metastorage is to be repaired.
+     */
+    @Nullable Set<String> participatingNodes();
 }

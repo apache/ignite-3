@@ -51,7 +51,7 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-partition-replicator')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -82,6 +82,7 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-catalog')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-raft-api')

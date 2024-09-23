@@ -512,7 +512,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 pkIndexId,
                 new TestHashIndexStorage(
                         PART_ID,
-                        new StorageHashIndexDescriptor(pkIndexId, List.of(), true)
+                        new StorageHashIndexDescriptor(pkIndexId, List.of(), false)
                 ),
                 row2Tuple
         ));
@@ -547,7 +547,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
 
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
-        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple);
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple, false);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.row;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
@@ -189,7 +189,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("columnTypes")
     public void testRowBuilder(ColumnType type) {
-        Object value1 = generateValueByType(0, type);
+        Object value1 = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
 
         RowSchema rowSchema = rowSchema(List.of(type), new Object[]{value1});
         RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
@@ -203,7 +203,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         builder.reset();
 
-        Object value2 = generateValueByType(0, type);
+        Object value2 = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
         RowWrapper row2 = builder.addField(value2).build();
         assertEquals(value2, handler.get(0, row2));
     }
@@ -314,12 +314,11 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     private Object[] values(List<ColumnType> columnTypes) {
         Object[] values = new Object[columnTypes.size()];
-        int baseValue = rnd.nextInt();
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = columnTypes.get(i);
 
-            values[i] = type == ColumnType.NULL ? null : generateValueByType(baseValue, type);
+            values[i] = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
         }
 
         return values;

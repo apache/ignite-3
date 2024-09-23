@@ -36,7 +36,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -70,23 +70,23 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Creates a new instance of the watchdog.
      *
      * @param configuration Configuration.
      * @param scheduler Scheduler.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      */
     public CriticalWorkerWatchdog(
             CriticalWorkersConfiguration configuration,
             ScheduledExecutorService scheduler,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.configuration = configuration;
         this.scheduler = scheduler;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     @Override
@@ -119,7 +119,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         } catch (Exception | AssertionError e) {
             LOG.debug("Error while probing liveness", e);
         } catch (Error e) {
-            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
         }
     }
 
@@ -148,7 +148,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
                 appendThreadInfo(message, threadInfo);
 
-                failureProcessor.process(
+                failureManager.process(
                         new FailureContext(
                                 SYSTEM_WORKER_BLOCKED,
                                 new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message.toString(), false)));

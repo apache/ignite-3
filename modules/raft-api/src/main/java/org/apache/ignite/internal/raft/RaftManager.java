@@ -191,17 +191,10 @@ public interface RaftManager extends IgniteComponent {
             throws NodeStoppingException;
 
     /**
-     * Get a state accessor for the given group type.
+     * Returns information about index and term of the given node, or {@code null} if the group is not started.
      *
-     * @param groupType Group type class.
-     * @param groupListenerType Group listener class.
-     * @return State accessor.
-     *
-     * @param <G> Group class.
-     * @param <L> Group listener class.
+     * @param nodeId ID of the Raft node.
+     * @throws NodeStoppingException If the node is already being stopped.
      */
-    <G extends ReplicationGroupId, L> RaftGroupStateProvider<G, L> getGroupStateProvider(
-            Class<G> groupType,
-            Class<L> groupListenerType
-    );
+    @Nullable IndexWithTerm raftNodeIndex(RaftNodeId nodeId) throws NodeStoppingException;
 }

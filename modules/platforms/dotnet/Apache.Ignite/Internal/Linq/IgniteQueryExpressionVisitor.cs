@@ -481,8 +481,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             }
             else if ((Nullable.GetUnderlyingType(expression.Type) ?? expression.Type) == typeof(decimal))
             {
-                // TODO IGNITE-21743 Cast to decimal loses precision: we should specify precision and scale here.
-                ResultBuilder.Append(" as decimal)");
+                // .NET decimal has 28-29 digit precision, Ignite CatalogUtils.MAX_DECIMAL_PRECISION = Short.MAX_VALUE = 32767.
+                // Use (precision, scale) = (60, 30) to avoid rounding errors, but not greater to avoid performance issues.
+                // If we do not specify the scale, SQL engine will use MAX_DECIMAL_SCALE = 32767,
+                // causing unnecessary data transfer and CPU usage for conversion.
+                ResultBuilder.Append(" as decimal(60, 30))");
             }
             else
             {

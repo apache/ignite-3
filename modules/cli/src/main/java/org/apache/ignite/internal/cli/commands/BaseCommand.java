@@ -36,6 +36,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipelineBuilder;
+import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -58,8 +61,9 @@ import picocli.CommandLine.Spec;
 )
 public abstract class BaseCommand {
     /** Help option specification. */
+    @SuppressWarnings("unused")
     @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, description = HELP_OPTION_DESC, usageHelp = true, order = HELP_OPTION_ORDER)
-    protected boolean usageHelpRequested;
+    private boolean usageHelpRequested;
 
     /** Verbose option specification. */
     @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC, order = VERBOSE_OPTION_ORDER)
@@ -68,4 +72,28 @@ public abstract class BaseCommand {
     /** Instance of picocli command specification. */
     @Spec
     protected CommandSpec spec;
+
+    /**
+     * Sets output printers and verbosity flag and runs the pipeline.
+     *
+     * @param pipelineBuilder Pipeline builder.
+     * @return Exit code.
+     */
+    protected <I extends CallInput, O> int runPipeline(CallExecutionPipelineBuilder<I, O> pipelineBuilder) {
+        return pipelineBuilder
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
+                .build()
+                .runPipeline();
+    }
+
+    /**
+     * Sets verbosity flag and starts the flow.
+     *
+     * @param flowBuilder Flow builder.
+     */
+    protected <I, O> void runFlow(FlowBuilder<I, O> flowBuilder) {
+        flowBuilder.verbose(verbose).start();
+    }
 }

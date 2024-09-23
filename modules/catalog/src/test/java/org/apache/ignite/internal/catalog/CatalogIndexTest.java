@@ -483,7 +483,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         // Create table with PK index.
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class));
-        verify(eventListener).notify(any(MakeIndexAvailableEventParameters.class));
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
@@ -597,24 +596,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         );
 
         makeIndexAvailable(indexId);
-
-        assertThat(fireEventFuture, willCompleteSuccessfully());
-    }
-
-    @Test
-    public void testPkAvailableIndexEvent() {
-        String tableName = TABLE_NAME + "_new";
-
-        var fireEventFuture = new CompletableFuture<Void>();
-
-        manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
-            CatalogIndexDescriptor catalogIndexDescriptor = manager.index(parameters.indexId(), parameters.catalogVersion());
-
-            assertNotNull(catalogIndexDescriptor);
-            assertEquals(pkIndexName(tableName), catalogIndexDescriptor.name());
-        }));
-
-        createSomeTable(tableName);
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }

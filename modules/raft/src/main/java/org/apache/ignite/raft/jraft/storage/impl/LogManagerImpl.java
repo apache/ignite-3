@@ -353,8 +353,13 @@ public class LogManagerImpl implements LogManager {
     private void offerEvent(final StableClosure done, final EventType type) {
         assert(done != null);
 
-        if (this.stopped) {
-            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
+            if (this.stopped) {
+                if (type == EventType.LAST_LOG_ID) {
+                    // TODO: remove after fixing the issue https://issues.apache.org/jira/browse/IGNITE-23132
+                    LOG.info("Received a last log id request, but log manager is stopped.");
+                }
+
+                Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
             return;
         }
         this.diskQueue.publishEvent((event, sequence) -> {

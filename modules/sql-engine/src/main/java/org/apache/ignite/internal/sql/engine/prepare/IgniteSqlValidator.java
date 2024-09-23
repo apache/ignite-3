@@ -71,6 +71,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -235,6 +236,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         syncSelectList(select, call);
     }
 
+    @Override
+    public void validateWithItem(SqlWithItem withItem) {
+        if (withItem.recursive.booleanValue()) {
+            // pass withItem.recursive instead of withItem, so exception message
+            // will point to keyword RECURSIVE rather than name of the CTE
+            throw newValidationError(withItem.recursive,
+                    IgniteResource.INSTANCE.recursiveQueryIsNotSupported());
+        }
+
+        super.validateWithItem(withItem);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void validateMerge(SqlMerge call) {
@@ -381,9 +394,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         int startPosition = selectList.size() - sourceExprListSize;
 
         for (var i = 0; i < sourceExprListSize; i++) {
-            SqlNode sourceExpr = sourceExpressionList.get(i);
+            SqlNode replacement = sourceExpressionList.get(i);
             int position = startPosition + i;
-            selectList.set(position, sourceExpr);
+
+            // This method was introduced to replace an expression with an expression that has the
+            // required type cast. Therefore, this only applies when the replacement contains SqlBasicCall.
+            // For example a call with SCALAR_QUERY is only present in sourceSelect, keeping original
+            // SqlSelect in sourceExpressionList, and we should not make a replacement in this case.
+            if (replacement instanceof SqlBasicCall) {
+                selectList.set(position, replacement);
+            }
         }
     }
 

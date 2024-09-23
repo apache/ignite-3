@@ -35,6 +35,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Zone partition replica listener.
@@ -119,5 +120,15 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
         replicas.put(partitionId, replicaListener.apply(raftClient));
+    }
+
+    /**
+     * Return table replicas listeners.
+     *
+     * @return Table replicas listeners.
+     */
+    @VisibleForTesting
+    public Map<TablePartitionId, ReplicaListener> tableReplicaListeners() {
+        return replicas;
     }
 }

@@ -71,7 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
-    private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
+    private final ClusterStateStorage storage = spy(TestClusterStateStorage.initializedClusterStateStorage());
 
     private LogicalTopology topology;
 

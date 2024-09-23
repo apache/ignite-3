@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.commands.treesitter.highlighter.JsonAnsiHighlighter;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -40,18 +39,15 @@ public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
     /** {@inheritDoc} */
     @Override
     public TerminalOutput decorate(JsonString json) {
+        ObjectMapper mapper = new ObjectMapper();
         return () -> {
             try {
-                Config config = ConfigFactory.parseString(json.getValue());
-                String text = config.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
-                if (text.endsWith("\n")) {
-                    // Config renders with the trailing line separator, but we also add a separator in the handleResult.
-                    text = text.substring(0, text.length() - 1);
-                }
+                String text = mapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
 
                 return highlight ? JsonAnsiHighlighter.highlight(text) : text;
 
-            } catch (ConfigException.Parse e) {
+            } catch (JsonProcessingException e) {
                 return json.getValue(); // no-op
             }
         };

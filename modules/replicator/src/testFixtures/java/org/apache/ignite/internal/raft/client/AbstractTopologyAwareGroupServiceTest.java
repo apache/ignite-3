@@ -62,7 +62,7 @@ import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -230,7 +230,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 isServerAddress,
                 nodes,
                 null,
-                new LogicalTopologyServiceTestImpl(clientClusterService),
+                new TestLogicalTopologyService(clientClusterService),
                 false
         );
 
@@ -425,7 +425,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         for (NetworkAddress addr : addresses) {
             ClusterService cluster = clusterServices.get(addr);
 
-            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(cluster);
+            LogicalTopologyService logicalTopologyService = new TestLogicalTopologyService(cluster);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -66,7 +67,7 @@ public interface ClusterState extends NetworkMessage, Serializable {
     }
 
     /**
-     * Returns initial cluster configuration.
+     * Returns initial cluster configuration ({@code null} if no initial configuration was passed on init).
      */
     @Nullable
     String initialClusterConfiguration();
@@ -76,4 +77,21 @@ public interface ClusterState extends NetworkMessage, Serializable {
      */
     @Nullable
     List<UUID> formerClusterIds();
+
+    /**
+     * Returns history of cluster IDs (oldest to newest). Last element is the current ID. Contains at least one element.
+     */
+    default List<UUID> clusterIdHistory() {
+        List<UUID> formerClusterIds = formerClusterIds();
+        UUID currentClusterId = clusterTag().clusterId();
+
+        if (formerClusterIds == null) {
+            return List.of(currentClusterId);
+        }
+
+        List<UUID> history = new ArrayList<>(formerClusterIds);
+        history.add(currentClusterId);
+
+        return history;
+    }
 }

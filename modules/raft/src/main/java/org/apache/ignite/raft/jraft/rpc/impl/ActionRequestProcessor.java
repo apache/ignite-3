@@ -34,6 +34,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -183,13 +184,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 new CommandClosureImpl<>(command) {
                     @Override
                     public void result(Serializable res) {
-                        if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, false);
-
-                            return;
-                        }
-
-                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                        sendResponse(res, rpcCtx);
                     }
 
                     @Override
@@ -221,13 +216,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                 }
 
                                 @Override public void result(Serializable res) {
-                                    if (res instanceof Throwable) {
-                                        sendSMError(rpcCtx, (Throwable)res, false);
-
-                                        return;
-                                    }
-
-                                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                                    sendResponse(res, rpcCtx);
                                 }
                             }).iterator());
                         }
@@ -251,18 +240,23 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     }
 
                     @Override public void result(Serializable res) {
-                        if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, false);
-
-                            return;
-                        }
-                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                        sendResponse(res, rpcCtx);
                     }
                 }).iterator());
             }
             catch (Exception e) {
                 sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
             }
+        }
+    }
+
+    private void sendResponse(Serializable res, RpcContext rpcCtx) {
+        if (res instanceof ShutdownException) {
+            rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.ESHUTDOWN.getNumber()).build());
+        } else if (res instanceof Throwable) {
+            sendSMError(rpcCtx, (Throwable)res, false);
+        } else {
+            rpcCtx.sendResponse(factory.actionResponse().result(res).build());
         }
     }
 

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,6 +53,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandler {
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final MetaStorageWriteHandler writeHandler;
 
     /** Storage. */
@@ -72,6 +75,18 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
+        if (!busyLock.enterBusy()) {
+            iter.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onReadBusy(iter);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onReadBusy(Iterator<CommandClosure<ReadCommand>> iter) {
         while (iter.hasNext()) {
             CommandClosure<ReadCommand> clo = iter.next();
 
@@ -157,7 +172,15 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iter) {
-        iter.forEachRemaining(writeHandler::handleWriteCommand);
+        if (!busyLock.enterBusy()) {
+            iter.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            iter.forEachRemaining(writeHandler::handleWriteCommand);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -180,5 +203,6 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onShutdown() {
+        busyLock.block();
     }
 }

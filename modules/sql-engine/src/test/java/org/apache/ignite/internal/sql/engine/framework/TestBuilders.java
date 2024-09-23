@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +42,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -47,9 +51,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
-import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -81,6 +83,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
@@ -772,48 +777,67 @@ public class TestBuilders {
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
 
-            CompletableFuture<Boolean> indicesReadyFut = new CompletableFuture<>();
-            CopyOnWriteArraySet<Integer> initialIndices = new CopyOnWriteArraySet<>();
+            CompletableFuture<Boolean> indicesReadyFut;
 
             // Make indices registered via builder API available on startup.
             if (!tableBuilders.isEmpty()) {
-                Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                    initialIndices.remove(params.indexId());
+                Set<String> initialIndices = tableBuilders.stream()
+                        .flatMap(builder -> builder.indexBuilders.stream())
+                        .map(builder -> builder.name)
+                        .collect(toCollection(ConcurrentHashMap::newKeySet));
 
-                    if (initialIndices.isEmpty()) {
-                        indicesReadyFut.complete(true);
-                    }
-                };
+                if (initialIndices.isEmpty()) {
+                    indicesReadyFut = trueCompletedFuture();
+                } else {
+                    indicesReadyFut = new CompletableFuture<>();
 
-                EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
-                catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
+                    Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
+                        CatalogIndexDescriptor index = catalogManager.index(params.indexId(), params.catalogVersion());
 
-                // Remove listener, when all indices become available.
-                indicesReadyFut.whenComplete((r, t) -> {
-                    catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
-                });
+                        assertThat(index, is(notNullValue()));
+
+                        initialIndices.remove(index.name());
+
+                        if (initialIndices.isEmpty()) {
+                            indicesReadyFut.complete(true);
+                        }
+                    };
+
+                    EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
+                    catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
+
+                    // Remove listener, when all indices become available.
+                    indicesReadyFut.whenComplete((r, t) -> {
+                        catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
+                    });
+                }
             } else {
-                indicesReadyFut.complete(true);
+                indicesReadyFut = trueCompletedFuture();
             }
 
             // Every time an index is created add `start building `and `make available` commands
             // to make that index accessible to the SQL engine.
             Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
                 CatalogIndexDescriptor index = params.indexDescriptor();
+
+                if (index.status() == CatalogIndexStatus.AVAILABLE) {
+                    return;
+                }
+
                 int indexId = index.id();
 
                 CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
                 CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
 
-                // Collect initial indexes only if catalog init future has not completed.
-                if (!indicesReadyFut.isDone()) {
-                    initialIndices.add(indexId);
-                }
-
                 LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
                         indexId, index.name(), index.status());
 
-                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand));
+                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand))
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Catalog command execution error", e);
+                            }
+                        });
             };
             catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
 

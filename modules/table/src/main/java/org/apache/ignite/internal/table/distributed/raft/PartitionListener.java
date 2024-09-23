@@ -86,6 +86,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -100,6 +101,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     /** Undefined value for {@link #minActiveTxBeginTime}. */
     private static final long UNDEFINED_MIN_TX_TIME = 0L;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -181,6 +184,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        if (!busyLock.enterBusy()) {
+            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onWriteBusy(iterator);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
@@ -564,6 +579,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onShutdown() {
+        busyLock.block();
+
         storage.close();
     }
 

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -98,7 +98,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelectKeyword;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
-import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -341,11 +340,7 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
-        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
-        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
-            RexNode boolLiteral = rexBuilder().makeLiteral(true);
-            map.put("rexList", toJson(boolLiteral));
-        }
+        map.put("rexList", toJson(node.rexList));
         return map;
     }
 
@@ -872,6 +867,13 @@ class RelJson {
 
                 if (literal == null) {
                     return rexBuilder.makeNullLiteral(type);
+                }
+
+                // RexBuilder can transform literal which holds exact numeric representation into E notation form.
+                // I.e. 100 can be presented like 1E2 which is also correct form but can differs from serialized plan notation.
+                // near "if" branch is only matters for fragments serialization\deserialization correctness check
+                if ((literal instanceof Long || literal instanceof Integer) && isApproximateNumeric(type)) {
+                    literal = new BigDecimal(((Number) literal).longValue());
                 }
 
                 if (literal instanceof BigInteger) {

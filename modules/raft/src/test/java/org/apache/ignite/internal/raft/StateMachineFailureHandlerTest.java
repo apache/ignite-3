@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -42,7 +42,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test that checks that {@link FailureProcessor} handles exceptions from {@link RaftGroupListener} correctly.
+ * Test that checks that {@link FailureManager} handles exceptions from {@link RaftGroupListener} correctly.
  */
 public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
     private static final RuntimeException EXPECTED_ERROR = new RuntimeException();
@@ -81,7 +81,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 TEST_LISTENER,
                 mock(Marshaller.class),
-                testFailureProcessor(reached)
+                testFailureManager(reached)
         );
 
         sm.onApply(mock(org.apache.ignite.raft.jraft.Iterator.class));
@@ -96,7 +96,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 TEST_LISTENER,
                 mock(Marshaller.class),
-                testFailureProcessor(reached)
+                testFailureManager(reached)
         );
 
         SnapshotWriter writer = mock(SnapshotWriter.class);
@@ -115,7 +115,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 TEST_LISTENER,
                 mock(Marshaller.class),
-                testFailureProcessor(reached)
+                testFailureManager(reached)
         );
 
         SnapshotReader reader = mock(SnapshotReader.class);
@@ -127,8 +127,8 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         assertTrue(reached.get());
     }
 
-    private static FailureProcessor testFailureProcessor(AtomicBoolean reached) {
-        return new FailureProcessor(new FailureHandler() {
+    private static FailureManager testFailureManager(AtomicBoolean reached) {
+        return new FailureManager(new FailureHandler() {
             @Override
             public boolean onFailure(FailureContext failureCtx) {
                 assertEquals(EXPECTED_ERROR, failureCtx.error());

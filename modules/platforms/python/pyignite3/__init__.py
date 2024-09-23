@@ -15,7 +15,7 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
@@ -36,15 +36,81 @@ BOOLEAN = bool
 INT = int
 FLOAT = float
 STRING = str
-BINARY = memoryview
+BINARY = bytes
 NUMBER = decimal.Decimal
 DATE = datetime.date
 TIME = datetime.time
 DATETIME = datetime.datetime
+DURATION = datetime.timedelta
 UUID = uuid.UUID
 
 
-def type_code_from_int(native: int):
+class TIMESTAMP(float):
+    pass
+
+
+# noinspection PyPep8Naming
+def Date(year, month, day):
+    """
+    This function constructs an object holding a date value.
+    """
+    return DATE(year=year, month=month, day=day)
+
+
+# noinspection PyPep8Naming
+def Time(hour, minute, second):
+    """
+    This function constructs an object holding a time value.
+    """
+    return TIME(hour=hour, minute=minute, second=second)
+
+
+# noinspection PyPep8Naming
+def Timestamp(year, month, day, hour, minute, second):
+    """
+    This function constructs an object holding a time stamp value.
+    """
+    dt = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+    ts = dt.timestamp()
+    return TIMESTAMP(ts)
+
+
+# noinspection PyPep8Naming
+def DateFromTicks(ticks):
+    """
+    This function constructs an object holding a date value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return DATE.fromtimestamp(ticks)
+
+
+# noinspection PyPep8Naming
+def TimeFromTicks(ticks):
+    """
+    This function constructs an object holding a time value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return DATETIME.fromtimestamp(ticks).time()
+
+
+# noinspection PyPep8Naming
+def TimestampFromTicks(ticks):
+    """
+    This function constructs an object holding a time stamp value from the given ticks value (number of seconds since
+    the epoch; see the documentation of the standard Python time module for details).
+    """
+    return TIMESTAMP(ticks)
+
+
+# noinspection PyPep8Naming
+def Binary(string: str):
+    """
+    This function constructs an object capable of holding a binary (long) string value.
+    """
+    return BINARY(string, 'utf-8')
+
+
+def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
         return NIL
     elif native == native_type_code.BOOLEAN:
@@ -79,7 +145,7 @@ class ColumnDescription:
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
-        self.type_code = type_code_from_int(type_code)
+        self.type_code = _type_code_from_int(type_code)
         self.display_size = display_size
         self.internal_size = internal_size
         self.precision = precision
@@ -90,12 +156,17 @@ class ColumnDescription:
 class Cursor:
     """
     Cursor class. Represents a single statement and holds the result of its execution.
+
+    Attributes
+    ----------
+    arraysize: int
+        a read/write attribute, that specifies the number of rows to fetch at a time with .fetchmany().
+        It defaults to 1 meaning to fetch a single row at a time.
     """
+    arraysize: int = 1
+
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
-
-        # TODO: IGNITE-22741 Implement data fetching
-        self.arraysize = 1
         self._description = None
 
     def __enter__(self):
@@ -152,7 +223,7 @@ class Cursor:
             self._py_cursor.close()
             self._py_cursor = None
 
-    def execute(self, *args):
+    def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
         Execute a database operation (query or command).
 
@@ -165,11 +236,12 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        self._py_cursor.execute(*args)
+        self._py_cursor.execute(query, params)
         self._update_description()
 
     def _update_description(self):
         """
+        Internal method.
         Update column description for the current cursor. To be called after query execution.
         """
         self._description = []
@@ -191,26 +263,64 @@ class Cursor:
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
-    def fetchone(self):
+    def fetchone(self) -> Optional[Sequence[Optional[Any]]]:
+        """
+        Fetch the next row of a query result set, returning a single sequence, or None when no more data is available.
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        return self._py_cursor.fetchone()
 
-    def fetchmany(self):
+    def fetchmany(self, size: Optional[int] = None) -> Optional[Sequence[Sequence[Optional[Any]]]]:
+        """
+        Fetch the next set of rows of a query result, returning a sequence of sequences. An empty sequence is returned
+        when no more rows are available.
+
+        The number of rows to fetch per call is specified by the parameter. If it is not given, the cursor’s arraysize
+        determines the number of rows to be fetched. The method tries to fetch as many rows as indicated by the size
+        parameter. If this is not possible due to the specified number of rows not being available, fewer rows will be
+        returned.
+
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        if size is None:
+            size = self.arraysize
 
-    def fetchall(self):
+        if size <= 0:
+            raise InterfaceError(f'Size parameter should be positive [size={size}]')
+
+        res = []
+        for i in range(size):
+            row = self.fetchone()
+            if row is None:
+                break
+            res.append(row)
+
+        return None if not res else res
+
+    def fetchall(self) -> Optional[Sequence[Sequence[Optional[Any]]]]:
+        """
+        Fetch all remaining rows of a query result, returning them as a sequence of sequences.
+        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        or no call was issued yet.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        res = []
+        row = self.fetchone()
+        while row is not None:
+            res.append(row)
+            row = self.fetchone()
+
+        return None if not res else res
 
     def nextset(self):
         if self._py_cursor is None:
@@ -227,17 +337,17 @@ class Cursor:
         raise NotSupportedError('Operation is not supported')
 
     def setoutputsize(self, *args):
-        if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
-
-        # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        """
+        This operation does nothing currently.
+        """
+        pass
 
 
 class Connection:
     """
     Connection class. Represents a single connection to the Ignite cluster.
     """
+
     def __init__(self):
         self._py_connection = None
 
@@ -276,17 +386,39 @@ class Connection:
         return Cursor(self._py_connection.cursor())
 
 
-def connect(**kwargs) -> Connection:
+def connect(address: [str], **kwargs) -> Connection:
     """
     Establish connection with the Ignite cluster.
+
+    Parameters
+    ----------
+    address: [str]
+        A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+
+    Keyword Arguments
+    ----------
+    identity: str, optional
+        An identifier to use for authentication. E.g. username.
+    secret: str, optional
+        A secret to use for authentication. E.g. password.
+    schema: str, optional
+        A schema name to be used by default. Default value: 'PUBLIC'.
+    timezone: str, optional
+        A timezone to use as a client's timezone. Used to correctly work with date/time values, received from client.
+        By default, a server's timezone is used.
+    page_size: int, optional
+        A maximum number of rows, which are received or sent in a single request. Default value: 1024.
+    timeout: int, optional
+        A timeout in seconds to use for any network operation. Default value: 30.
     """
-    return _pyignite3_extension.connect(**kwargs)
+    return _pyignite3_extension.connect(address=address, **kwargs)
 
 
 class Error(Exception):
     pass
 
 
+# noinspection PyShadowingBuiltins
 class Warning(Exception):
     pass
 

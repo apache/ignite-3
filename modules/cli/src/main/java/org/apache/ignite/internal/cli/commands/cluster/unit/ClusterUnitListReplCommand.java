@@ -55,12 +55,11 @@ public class ClusterUnitListReplCommand extends BaseCommand implements Runnable 
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(listOptions::toListUnitCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list units"))
-                .verbose(verbose)
                 .print(new UnitListDecorator(plain))
-                .start();
+        );
     }
 }

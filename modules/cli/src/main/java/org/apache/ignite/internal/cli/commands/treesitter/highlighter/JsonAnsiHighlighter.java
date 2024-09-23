@@ -50,7 +50,6 @@ public class JsonAnsiHighlighter {
      * @return The highlighted JSON text.
      */
     public static String highlight(String text) {
-        // TODO Use tree-sitter-hocon parser here IGNITE-23108
         var tree = Parser.parseJson(text);
         JsonTokenType[] tokens = Indexer.indexJson(text, tree);
         var sb = new StringBuilder();

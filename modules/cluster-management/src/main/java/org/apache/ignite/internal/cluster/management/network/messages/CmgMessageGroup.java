@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -103,6 +104,11 @@ public class CmgMessageGroup {
          * Message type for {@link ReadValidatedNodesCommand}.
          */
         int READ_VALIDATED_NODES = 46;
+
+        /**
+         * Message type for {@link ChangeMetastorageNodesCommand}.
+         */
+        int CHANGE_METASTORAGE_NODES = 47;
 
         /**
          * Message type for {@link ClusterNodeMessage}.

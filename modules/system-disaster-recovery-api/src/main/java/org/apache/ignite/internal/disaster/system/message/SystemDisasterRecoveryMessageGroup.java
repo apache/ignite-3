@@ -28,4 +28,19 @@ public class SystemDisasterRecoveryMessageGroup {
      * Message type for {@link ResetClusterMessage}.
      */
     public static final short RESET_CLUSTER = 1;
+
+    /**
+     * Message type for {@link MetastorageIndexTermRequestMessage}.
+     */
+    public static final short METASTORAGE_INDEX_TERM_REQUEST = 2;
+
+    /**
+     * Message type for {@link MetastorageIndexTermResponseMessage}.
+     */
+    public static final short METASTORAGE_INDEX_TERM_RESPONSE = 3;
+
+    /**
+     * Message type for {@link BecomeMetastorageLeaderMessage}.
+     */
+    public static final short BECOME_METASTORAGE_LEADER = 4;
 }

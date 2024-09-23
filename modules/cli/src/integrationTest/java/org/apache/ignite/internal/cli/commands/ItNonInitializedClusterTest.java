@@ -117,7 +117,7 @@ public class ItNonInitializedClusterTest extends CliCommandTestNotInitializedInt
 
     @Test
     @DisplayName("Should print error message when recovery restart-partitions on not initialized cluster")
-    void partitionsRestartErrror() {
+    void partitionsRestartError() {
         execute("recovery", "partitions", "restart", CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, "tableName", RECOVERY_ZONE_NAME_OPTION, "zoneName");
         assertAll(

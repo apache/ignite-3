@@ -50,7 +50,7 @@ public interface ComputeApi {
     @Operation(summary = "Retrieve all job states", description = "Fetches the current states of all compute jobs.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful retrieval of job states.",
+            description = "Successfully retrieved job states.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = JobState.class)))
     )
     @Get("jobs")
@@ -62,10 +62,10 @@ public interface ComputeApi {
      * @param jobId The unique identifier of the compute job.
      * @return The state of the specified compute job.
      */
-    @Operation(summary = "Retrieve a job state", description = "Fetches the current state of a specific compute job identified by jobId.")
+    @Operation(summary = "Retrieve job state", description = "Fetches the current state of a specific compute job identified by jobId.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful retrieval of the job state.",
+            description = "Successfully retrieved the job state.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = JobState.class))
     )
     @ApiResponse(
@@ -85,10 +85,10 @@ public interface ComputeApi {
      * @param updateJobPriorityBody The new priority data for the job.
      * @return The result of the operation.
      */
-    @Operation(summary = "Update a job's priority", description = "Updates the priority of a specific compute job identified by jobId.")
+    @Operation(summary = "Update job priority", description = "Updates the priority of a specific compute job identified by jobId.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful update of the job priority.",
+            description = "Successfully updated job priority.",
             content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(
@@ -113,10 +113,10 @@ public interface ComputeApi {
      * @param jobId The unique identifier of the compute job.
      * @return The result of the cancellation operation.
      */
-    @Operation(summary = "Cancel a job", description = "Cancels a specific compute job identified by jobId.")
+    @Operation(summary = "Cancel job", description = "Cancels a specific compute job identified by jobId.")
     @ApiResponse(
             responseCode = "200",
-            description = "Successful cancellation of the job.",
+            description = "Successfully cancelled the job.",
             content = @Content(mediaType = APPLICATION_JSON)
     )
     @ApiResponse(

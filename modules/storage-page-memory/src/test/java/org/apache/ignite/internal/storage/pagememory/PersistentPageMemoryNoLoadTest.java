@@ -55,7 +55,7 @@ import java.util.stream.LongStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -505,7 +505,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 "test",
                 null,
                 null,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 checkpointConfig,
                 filePageStoreManager,
                 partitionMetaManager,
@@ -522,7 +522,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 storagePath,
                 new RandomAccessFileIoFactory(),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
     }
 
     private static void initGroupFilePageStores(

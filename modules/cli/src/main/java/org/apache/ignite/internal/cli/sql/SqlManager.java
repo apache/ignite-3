@@ -23,6 +23,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.internal.cli.sql.SqlQueryResult.SqlQueryResultBuilder;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
 /**
@@ -46,13 +47,23 @@ public class SqlManager implements AutoCloseable {
      * @throws SQLException in any case when SQL command can't be executed.
      */
     public SqlQueryResult execute(String sql) throws SQLException {
+
+        SqlQueryResultBuilder sqlQueryResultBuilder = new SqlQueryResultBuilder();
+
         try (Statement statement = connection.createStatement()) {
-            if (statement.execute(sql)) {
-                ResultSet resultSet = statement.getResultSet();
-                return new SqlQueryResult(Table.fromResultSet(resultSet));
-            }
-            int updateCount = statement.getUpdateCount();
-            return new SqlQueryResult(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
+            statement.execute(sql);
+
+            do {
+                ResultSet rs = statement.getResultSet();
+                if (rs != null) {
+                    sqlQueryResultBuilder.addTable(Table.fromResultSet(rs));
+                } else {
+                    int updateCount = statement.getUpdateCount();
+                    sqlQueryResultBuilder.addMessage(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
+                }
+            } while (statement.getMoreResults() || statement.getUpdateCount() != -1);
+
+            return sqlQueryResultBuilder.build();
         }
     }
 

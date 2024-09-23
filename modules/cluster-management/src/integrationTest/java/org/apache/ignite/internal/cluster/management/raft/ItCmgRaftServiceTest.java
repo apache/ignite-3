@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -153,9 +154,10 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                             configuration,
                             new CmgRaftGroupListener(
                                     clusterStateStorageMgr,
-                                    new LogicalTopologyImpl(clusterStateStorage),
+                                    logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
-                                    term -> {}
+                                    term -> {},
+                                    new ClusterIdHolder()
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())

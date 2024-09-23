@@ -97,7 +97,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.add(metaStorageManager);
 
-        clusterStateStorage = new TestClusterStateStorage();
+        clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
         components.add(clusterStateStorage);
 

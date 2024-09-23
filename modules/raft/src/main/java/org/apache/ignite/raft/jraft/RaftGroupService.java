@@ -217,7 +217,7 @@ public class RaftGroupService {
     /**
      * Returns the node options.
      */
-    public RpcOptions getNodeOptions() {
+    public NodeOptions getNodeOptions() {
         return this.nodeOptions;
     }
 

@@ -48,17 +48,14 @@ public class ClusterUnitListCommand extends BaseCommand implements Callable<Inte
     private boolean plain;
 
     @Inject
-    private ClusterListUnitCall listUnitCall;
+    private ClusterListUnitCall call;
 
     @Override
     public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(listUnitCall)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> listOptions.toListUnitCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
                 .decorator(new UnitListDecorator(plain))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list units"))
-                .build().runPipeline();
+        );
     }
 }

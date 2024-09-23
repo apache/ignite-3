@@ -20,13 +20,16 @@ package org.apache.ignite.internal.util;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToIntKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /** For {@link ByteUtils} testing. */
@@ -125,5 +129,12 @@ public class ByteUtilsTest {
 
         assertEquals(1, bytes.size());
         assertArrayEquals(new byte[]{6, 8}, bytes.get(0));
+    }
+
+    @Test
+    void uuidToBytesFromBytesGivesOriginalUuid() {
+        UUID original = UUID.randomUUID();
+
+        assertThat(bytesToUuid(uuidToBytes(original)), is(original));
     }
 }

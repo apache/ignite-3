@@ -45,6 +45,8 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -69,14 +71,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -86,6 +89,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -105,17 +109,22 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -130,7 +139,8 @@ import org.jetbrains.annotations.Nullable;
  * - Stop the same nodes on the zone removing.
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
-public class PartitionReplicaLifecycleManager implements IgniteComponent {
+public class PartitionReplicaLifecycleManager  extends
+        AbstractEventProducer<LocalPartitionReplicaEvent, PartitionReplicaEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -161,6 +171,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
     private final Set<ReplicationGroupId> replicationGroupIds = ConcurrentHashMap.newKeySet();
+
+    /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
+    private final Map<Integer, StampedLock> zonePartitionsLocks = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -269,8 +282,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> processZonesOnStart(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+        // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
+        // nevertheless everything works correctly.
+        // All components execute the synchronous part of startAsync sequentially and only when they all complete,
+        // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
+        // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
+        // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
+        // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
         int earliestCatalogVersion = catalogMgr.activeCatalogVersion(hybridTimestampToLong(lwm));
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22679
+
         int latestCatalogVersion = catalogMgr.latestCatalogVersion();
 
         var startedZones = new IntOpenHashSet();
@@ -443,18 +463,43 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             try {
-                replicationGroupIds.add(replicaGrpId);
+                AtomicReference<Long> stamp = new AtomicReference<>(null);
 
                 return replicaMgr.startReplica(
-                        replicaGrpId,
-                        (raftClient) -> new ZonePartitionReplicaListener(
-                                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
-                        new FailFastSnapshotStorageFactory(),
-                        stablePeersAndLearners,
-                        raftGroupListener,
-                        raftGroupEventsListener,
-                        busyLock
-                ).thenApply(ignored -> true);
+                                replicaGrpId,
+                                (raftClient) -> new ZonePartitionReplicaListener(
+                                        new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
+                                new FailFastSnapshotStorageFactory(),
+                                stablePeersAndLearners,
+                                raftGroupListener,
+                                raftGroupEventsListener,
+                                busyLock
+                        ).thenCompose(replica -> {
+                            zonePartitionsLocks.compute(zoneId, (id, lock) -> {
+                                if (lock == null) {
+                                    lock = new StampedLock();
+                                }
+
+                                stamp.set(lock.writeLock());
+
+                                return lock;
+                            });
+
+                            replicationGroupIds.add(replicaGrpId);
+
+                            return fireEvent(
+                                    LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
+                                    new PartitionReplicaEventParameters(
+                                            new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
+                                    )
+                            );
+                        })
+                        .whenComplete((unused, throwable) -> {
+                            if (stamp.get() != null) {
+                                zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get());
+                            }
+                        })
+                        .thenApply(unused -> false);
             } catch (NodeStoppingException e) {
                 return failedFuture(e);
             }
@@ -488,8 +533,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     zoneDescriptor.updateToken(),
                     catalogVersion,
                     zoneId
-            ).thenApply(dataNodes ->
-                    AffinityUtils.calculateAssignmentForPartition(
+            ).thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
                             zoneDescriptor.replicas()
@@ -641,7 +685,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                    .thenApply(dataNodes -> calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
@@ -662,11 +706,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     /**
      * Check if the current node has local replica for this {@link ZonePartitionId}.
      *
+     * <p>Important: this method must be invoked always under the according stamped lock.
+     *
      * @param zonePartitionId Zone partition id.
      * @return true if local replica exists, false otherwise.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
+        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
+
         return replicationGroupIds.contains(zonePartitionId);
     }
 
@@ -1263,5 +1311,55 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Unable to clean zones resources", e);
         }
+    }
+
+    /**
+     * Lock the zones replica list for any changes. {@link #hasLocalPartition(ZonePartitionId)} must be executed under this lock always.
+     *
+     * @param zoneId Zone id.
+     * @return Stamp, which must be used for further unlock.
+     */
+    public long lockZoneForRead(int zoneId) {
+        AtomicLong stamp = new AtomicLong();
+
+        zonePartitionsLocks.compute(zoneId, (id, l) -> {
+            if (l == null) {
+                l = new StampedLock();
+            }
+
+            stamp.set(l.readLock());
+
+            return l;
+        });
+
+        return stamp.get();
+    }
+
+    /**
+     * Unlock zones replica list.
+     *
+     * @param zoneId Zone id.
+     * @param stamp Stamp, produced by the according {@link #hasLocalPartition(ZonePartitionId) call.}
+     */
+    public void unlockZoneForRead(int zoneId, long stamp) {
+        zonePartitionsLocks.get(zoneId).unlockRead(stamp);
+    }
+
+    /**
+     * Load a new table partition listener to the zone replica.
+     *
+     * <p>Important: This method must be called only with the guarantee, that the replica is exist at the current moment.
+     *
+     * @param zonePartitionId Zone partition id.
+     * @param tablePartitionId Table partition id.
+     * @param createListener Lazy replica listener from RAFT command runner builder.
+     */
+    public void loadTableListenerToZoneReplica(ZonePartitionId zonePartitionId, TablePartitionId tablePartitionId,
+            Function<RaftCommandRunner, ReplicaListener> createListener) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(zonePartitionId);
+
+        assert replicaFut != null && replicaFut.isDone();
+
+        ((ZonePartitionReplicaListener) replicaFut.join().listener()).addTableReplicaListener(tablePartitionId, createListener);
     }
 }

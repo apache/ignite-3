@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -42,11 +43,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleUpTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyClusterIdKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
@@ -61,6 +64,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -268,7 +272,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            // TODO: IGNITE-22679 CatalogManagerImpl initializes versions in a separate thread, not safe to make this call directly.
+            // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
+            // nevertheless everything works correctly.
+            // All components execute the synchronous part of startAsync sequentially and only when they all complete,
+            // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
+            // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
+            // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
             return allOf(
@@ -607,20 +616,23 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             Set<LogicalNode> logicalTopology = newTopology.nodes();
 
-            Condition updateCondition;
+            Condition condition;
+            Update update;
 
-            if (newTopology.version() == 1) {
-                // Very first start of the cluster, so we just initialize zonesLogicalTopologyVersionKey
-                updateCondition = notExists(zonesLogicalTopologyVersionKey());
+            if (newTopology.version() == LogicalTopologySnapshot.FIRST_VERSION) {
+                // Very first start of the cluster, OR first topology version after a cluster reset, so we just
+                // initialize zonesLogicalTopologyVersionKey.
+                // We don't need to check whether clusterId is 'newer' as it's guaranteed that after a newer clusterId
+                // gets written to the Metastorage, we cannot send a Metastorage update switching it back to older clusterId.
+                condition = notExists(zonesLogicalTopologyVersionKey())
+                        .or(value(zonesLogicalTopologyClusterIdKey()).ne(uuidToBytes(newTopology.clusterId())));
+                update = updateLogicalTopologyAndVersionAndClusterId(newTopology);
             } else {
-                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
+                condition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
+                update = updateLogicalTopologyAndVersion(newTopology);
             }
 
-            Iif iff = iif(
-                    updateCondition,
-                    updateLogicalTopologyAndVersion(logicalTopology, newTopology.version()),
-                    ops().yield(false)
-            );
+            Iif iff = iif(condition, update, ops().yield(false));
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {
@@ -691,9 +703,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 try {
-                    assert evt.entryEvents().size() == 2 :
-                            "Expected an event with logical topology and logical topology version entries but was events with keys: "
-                            + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
+                    assert evt.entryEvents().size() == 2 || evt.entryEvents().size() == 3 :
+                            "Expected an event with logical topology, its version and maybe clusterId entries but was events with keys: "
+                            + evt.entryEvents().stream().map(DistributionZoneManager::entryKeyAsString)
                             .collect(toList());
 
                     byte[] newLogicalTopologyBytes;
@@ -731,6 +743,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.warn("Unable to process logical topology event", e);
             }
         };
+    }
+
+    private static String entryKeyAsString(EntryEvent entry) {
+        return entry.newEntry() == null ? "null" : new String(entry.newEntry().key(), UTF_8);
     }
 
     /**

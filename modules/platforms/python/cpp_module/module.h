@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-#define MODULE_NAME "_pyignite3_extension"
+#pragma once
 
-namespace ignite {
-class diagnosable;
-}
-
-bool check_errors(ignite::diagnosable& diag);
+#define MODULE_NAME "pyignite3"
+#define EXT_MODULE_NAME "_pyignite3_extension"

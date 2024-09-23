@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -65,7 +65,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         ClientSchema clientSchema = clientSchema(type, columnName);
 
         for (int i = 0; i < 10; i++) {
-            Object val = generateValueByType(i, type.spec());
+            Object val = SqlTestUtils.generateValueByType(type);
             Tuple tuple = Tuple.create().set(columnName, val);
 
             int clientHash = ClientTupleSerializer.getColocationHash(clientSchema, tuple);
@@ -139,8 +139,8 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 NativeTypes.INT64,
                 NativeTypes.FLOAT,
                 NativeTypes.DOUBLE,
-                NativeTypes.STRING,
-                NativeTypes.BYTES,
+                NativeTypes.stringOf(100),
+                NativeTypes.blobOf(100),
                 NativeTypes.UUID,
                 NativeTypes.DATE,
         };

@@ -30,7 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,7 +62,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     private final CriticalWorkersConfiguration criticalWorkersConfiguration;
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private volatile List<NettyWorker> workers;
 
@@ -76,20 +76,20 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      *         blocked.
      * @param scheduler Used to schedule periodic tasks.
      * @param bootstrapFactory Used to obtain Netty workers.
-     * @param failureProcessor Used to process failures.
+     * @param failureManager Used to process failures.
      */
     public NettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
             ScheduledExecutorService scheduler,
             NettyBootstrapFactory bootstrapFactory,
             CriticalWorkersConfiguration criticalWorkersConfiguration,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.scheduler = scheduler;
         this.bootstrapFactory = bootstrapFactory;
         this.criticalWorkersConfiguration = criticalWorkersConfiguration;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     @Override
@@ -133,7 +133,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
                         e, worker.threadId()
                 );
 
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
                 throw e;
             }

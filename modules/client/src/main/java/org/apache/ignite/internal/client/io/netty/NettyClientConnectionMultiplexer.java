@@ -168,7 +168,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClientConnection> openAsync(InetSocketAddress addr,
+    public CompletableFuture<ClientConnection> openAsync(
+            InetSocketAddress addr,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)
             throws IgniteClientConnectionException {
@@ -184,7 +185,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 ChannelFuture chFut = (ChannelFuture) f;
                 chFut.channel().closeFuture().addListener(unused -> metrics.connectionsActiveDecrement());
 
-                NettyClientConnection conn = new NettyClientConnection(chFut.channel(), msgHnd, stateHnd, metrics);
+                NettyClientConnection conn = new NettyClientConnection(addr, chFut.channel(), msgHnd, stateHnd, metrics);
 
                 fut.complete(conn);
             } else {

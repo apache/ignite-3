@@ -31,7 +31,7 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
-    private final String affinity;
+    private final String distributionAlgorithm;
 
     private final Integer dataNodesAutoAdjust;
 
@@ -48,7 +48,7 @@ public class ZoneDefinition {
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
-            String affinity,
+            String distributionAlgorithm,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
@@ -59,7 +59,7 @@ public class ZoneDefinition {
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
-        this.affinity = affinity;
+        this.distributionAlgorithm = distributionAlgorithm;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
@@ -114,12 +114,12 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns affinity function.
+     * Returns distribution algorithm.
      *
-     * @return Affinity function.
+     * @return Distribution algorithm.
      */
-    public String affinityFunction() {
-        return affinity;
+    public String distributionAlgorithm() {
+        return distributionAlgorithm;
     }
 
     /**
@@ -188,7 +188,7 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
-        private String affinity;
+        private String distributionAlgorithm;
 
         private Integer dataNodesAutoAdjust;
 
@@ -207,7 +207,7 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
-            affinity = definition.affinity;
+            distributionAlgorithm = definition.distributionAlgorithm;
             dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
@@ -268,18 +268,18 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets the affinity function.
+         * Sets the distribution algorithm.
          *
-         * @param affinity Affinity function.
+         * @param distributionAlgorithm Distribution algorithm.
          * @return This builder instance.
          */
-        public Builder affinity(String affinity) {
-            Objects.requireNonNull(affinity, "Affinity function must not be null.");
-            if (affinity.isBlank()) {
-                throw new IllegalArgumentException("Affinity function must not be blank.");
+        public Builder distributionAlgorithm(String distributionAlgorithm) {
+            Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
+            if (distributionAlgorithm.isBlank()) {
+                throw new IllegalArgumentException("Partition distribution algorithm must not be blank.");
             }
 
-            this.affinity = affinity;
+            this.distributionAlgorithm = distributionAlgorithm;
             return this;
         }
 
@@ -365,7 +365,7 @@ public class ZoneDefinition {
                     ifNotExists,
                     partitions,
                     replicas,
-                    affinity,
+                    distributionAlgorithm,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,

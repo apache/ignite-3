@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -121,6 +120,17 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         SqlTypeName sqlTypeName = SqlTestUtils.columnType2SqlTypeName(columnType);
         int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
         int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+        if (columnType == ColumnType.TIME || columnType == ColumnType.TIMESTAMP || columnType == ColumnType.DATETIME) {
+            precision = 3;
+        }
+
+        // To prevent generate too big values.
+        if (columnType == ColumnType.BYTE_ARRAY || columnType == ColumnType.DECIMAL) {
+            precision = 7_000;
+            scale = precision / 2;
+        }
 
         return TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
     }
@@ -239,12 +249,9 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {
-        ColumnType columnType = table.descriptor().columnDescriptor(index).physicalType().spec().asColumnType();
+        NativeType type = table.descriptor().columnDescriptor(index).physicalType();
 
-        Random current = new Random();
-        current.setSeed(seed);
-
-        Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
+        Object val = SqlTestUtils.generateValueByType(type);
         assert val != null;
 
         return val;

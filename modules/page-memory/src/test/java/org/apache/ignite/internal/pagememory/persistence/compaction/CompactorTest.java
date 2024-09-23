@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -69,7 +69,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
 
         compactor.start();
 
@@ -101,7 +101,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -119,7 +119,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                     return true;
                 });
 
-        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo);
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
         verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class), anyBoolean());
@@ -154,7 +154,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 filePageStoreManager,
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
@@ -165,13 +165,17 @@ public class CompactorTest extends BaseIgniteAbstractTest {
             return null;
         })
                 .when(compactor)
-                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class), any(CompactionMetricsTracker.class));
 
         compactor.doCompaction();
 
         verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
-        verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+        verify(compactor, times(1)).mergeDeltaFileToMainFile(
+                any(FilePageStore.class),
+                any(DeltaFilePageStoreIo.class),
+                any(CompactionMetricsTracker.class)
+        );
     }
 
     @Test
@@ -183,7 +187,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doNothing().when(compactor).waitDeltaFiles();
 
@@ -209,7 +213,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
 
@@ -229,7 +233,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         assertFalse(compactor.isCancelled());
 
