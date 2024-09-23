@@ -46,20 +46,20 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // This makes the MG majority go away.
         cluster.stopNode(1);
 
-        IgniteImpl igniteImpl0BeforeRestart = igniteImpl(0);
+        IgniteImpl node0BeforeRestart = igniteImpl(0);
 
-        assertThatMgHasNoMajority(igniteImpl0BeforeRestart);
+        assertThatMgHasNoMajority(node0BeforeRestart);
 
-        initiateMgRepairVia(igniteImpl0BeforeRestart, 1, 0);
+        initiateMgRepairVia(node0BeforeRestart, 1, 0);
 
-        IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
-        waitTillMgHasMajority(restartedIgniteImpl0);
+        IgniteImpl restartedNode0 = waitTillNodeRestartsInternally(0);
+        waitTillMgHasMajority(restartedNode0);
 
-        IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
-        waitTillMgHasMajority(restartedIgniteImpl2);
+        IgniteImpl restartedNode2 = waitTillNodeRestartsInternally(2);
+        waitTillMgHasMajority(restartedNode2);
 
-        assertResetClusterMessageIsNotPresentAt(restartedIgniteImpl0);
-        assertResetClusterMessageIsNotPresentAt(restartedIgniteImpl2);
+        assertResetClusterMessageIsNotPresentAt(restartedNode0);
+        assertResetClusterMessageIsNotPresentAt(restartedNode2);
     }
 
     private static void assertThatMgHasNoMajority(IgniteImpl ignite) {
