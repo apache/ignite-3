@@ -947,6 +947,21 @@ public class LogManagerImpl implements LogManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+
+        if (c.lastLogId == null) {
+            assert stopped;
+
+            try {
+                shutDownLatch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new IllegalStateException(e);
+            }
+
+            return new LogId(this.lastLogIndex, unsafeGetTerm(this.lastLogIndex));
+        }
+
         return c.lastLogId;
     }
 
