@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import com.typesafe.config.Config;
@@ -47,6 +48,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -440,6 +442,10 @@ public class IgniteImpl implements Ignite {
     private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
     private final IndexMetaStorage indexMetaStorage;
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
     /**
      * The Constructor.
@@ -1443,12 +1449,19 @@ public class IgniteImpl implements Ignite {
      * Asynchronously stops ignite node.
      */
     public CompletableFuture<Void> stopAsync() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return stopFuture;
+        }
+
         ExecutorService lifecycleExecutor = stopExecutor();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570
-        return lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
+        lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
-                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
+                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
+                .whenCompleteAsync(copyStateTo(stopFuture));
+
+        return stopFuture;
     }
 
     private ExecutorService stopExecutor() {
