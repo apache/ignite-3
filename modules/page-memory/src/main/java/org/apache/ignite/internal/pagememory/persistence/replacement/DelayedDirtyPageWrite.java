@@ -133,6 +133,8 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
+        // TODO: IGNITE-23212 вот тут забыл про блокировку от удаления добавить!
+
         try {
             flushDirtyPage.write(pageMemory, pageId, byteBufThreadLoc.get());
         } catch (Throwable t) {
