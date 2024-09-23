@@ -1037,6 +1037,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                     ));
                 }
 
+                // If the target voting set matches the 'lonely leader' voting set, we don't need second step (that is, switching to
+                // the target set), so we don't establish the peers change state.
                 peersChangeState = targetVotingSet.size() > 1 ? new PeersChangeState(termBeforeChange, targetVotingSet) : null;
 
                 RaftNodeId raftNodeId = raftNodeId();
