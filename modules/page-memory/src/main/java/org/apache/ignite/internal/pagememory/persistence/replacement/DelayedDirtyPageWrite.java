@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
@@ -133,7 +134,7 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
-        // TODO: IGNITE-23212 вот тут забыл про блокировку от удаления добавить!
+        checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(pageId));
 
         try {
             flushDirtyPage.write(pageMemory, pageId, byteBufThreadLoc.get());
@@ -142,9 +143,11 @@ public class DelayedDirtyPageWrite {
 
             throw t;
         } finally {
-            tracker.unlock(pageId);
+            checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(pageId));
 
             checkpointPages.finishReplace(pageId, errorOnWrite);
+
+            tracker.unlock(pageId);
 
             pageId = null;
             pageMemory = null;
