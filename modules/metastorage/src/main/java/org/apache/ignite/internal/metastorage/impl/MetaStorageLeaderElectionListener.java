@@ -183,7 +183,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             return nullCompletedFuture();
         }
 
-        LOG.info("Going to really update learners with term {}", term);
+        LOG.info("Actually updating learners with term {}", term);
 
         return learnerManager.updateLearners(term);
     }
