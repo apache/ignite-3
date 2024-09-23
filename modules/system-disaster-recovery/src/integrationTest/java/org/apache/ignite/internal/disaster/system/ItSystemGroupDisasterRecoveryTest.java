@@ -36,6 +36,9 @@ import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Base for tests of CMG and Metastorage group disaster recovery.
+ */
 abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
