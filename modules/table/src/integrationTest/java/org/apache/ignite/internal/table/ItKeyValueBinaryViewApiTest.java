@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -449,19 +447,6 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
                 return (BaseTestCase<K, V>) new TestCase(async, thin, view);
             }
         };
-    }
-
-    void assertEqualsValues(SchemaDescriptor schema, Tuple expected, @Nullable Tuple actual) {
-        assertNotNull(actual);
-
-        for (int i = 0; i < schema.valueColumns().size(); i++) {
-            Column col = schema.valueColumns().get(i);
-
-            Object val1 = expected.value(col.name());
-            Object val2 = actual.value(col.name());
-
-            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.positionInRow());
-        }
     }
 
     static class TestCase extends BaseTestCase<Tuple, Tuple> {

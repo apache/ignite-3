@@ -26,7 +26,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
- * Base class for key-value API integration tests.
+ * Base class for key-value view API integration tests.
  */
 abstract class ItKeyValueViewApiBaseTest extends ItViewsApiUnifiedTest {
     abstract TestCaseFactory getFactory(String tableName);
@@ -57,17 +57,13 @@ abstract class ItKeyValueViewApiBaseTest extends ItViewsApiUnifiedTest {
     }
 
     List<Arguments> generateKeyValueTestArguments(String tableName, Class<?> keyClass, Class<?> valueClass) {
-        return generateKeyValueTestArguments(tableName, keyClass, valueClass, false);
-    }
-
-    List<Arguments> generateKeyValueTestArguments(String tableName, Class<?> keyClass, Class<?> valueClass, boolean tableToTestName) {
         TestCaseFactory caseFactory = getFactory(tableName);
 
         List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
 
         for (TestCaseType type : TestCaseType.values()) {
             arguments.add(Arguments.of(Named.of(
-                    (tableToTestName ? tableName + " " : "") + type.description(),
+                    type.description(),
                     caseFactory.create(type, keyClass, valueClass)
             )));
         }

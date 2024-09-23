@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,9 +32,14 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
@@ -63,15 +70,19 @@ abstract class ItViewsApiUnifiedTest extends ClusterPerClassIntegrationTest {
     }
 
     void createTable(String name, Column... columns) {
-        createTable(name, true, columns);
+        createTable(name, "id", true, columns);
     }
 
-    void createTable(String name, boolean clear, Column... columns) {
-        String createTableTemplate = "CREATE TABLE {} (id BIGINT PRIMARY KEY{})";
+    void createTable(String name, String pkColumnName, boolean clear, Column... columns) {
+        String createTableTemplate = "CREATE TABLE {} ({} BIGINT PRIMARY KEY{})";
 
         IgniteStringBuilder buffer = new IgniteStringBuilder();
 
         for (Column column : columns) {
+            if (column.name().equalsIgnoreCase(pkColumnName)) {
+                continue;
+            }
+
             RelDataType sqlType = TypeUtils.native2relationalType(Commons.typeFactory(), column.type());
 
             String sqlTypeString = sqlType.toString();
@@ -88,14 +99,39 @@ abstract class ItViewsApiUnifiedTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        String query = IgniteStringFormatter.format(createTableTemplate, name, buffer);
-
-        log.info(">sql> " + query);
+        String query = IgniteStringFormatter.format(createTableTemplate, name, pkColumnName, buffer);
 
         sql(query);
 
         if (clear) {
-            tablesToClear.add(name);
+            registerTableForClearing(name);
+        }
+    }
+
+    void registerTableForClearing(String name) {
+        tablesToClear.add(name);
+    }
+
+    protected List<List<Object>> sql(String sql) {
+        log.info(">sql> " + sql);
+
+        return sql(null, sql, ArrayUtils.OBJECT_EMPTY_ARRAY);
+    }
+
+    static void assertEqualsValues(SchemaDescriptor schema, Tuple expected, @Nullable Tuple actual) {
+        assertNotNull(actual);
+
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            Column col = schema.valueColumns().get(i);
+
+            Object val1 = expected.value(col.name());
+            Object val2 = actual.value(col.name());
+
+            if (val1 instanceof byte[] && val2 instanceof byte[]) {
+                Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.positionInRow());
+            } else {
+                assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
+            }
         }
     }
 

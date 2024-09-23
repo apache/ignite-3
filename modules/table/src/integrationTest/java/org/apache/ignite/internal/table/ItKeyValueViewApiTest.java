@@ -45,7 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Unified KeyValueView API test with composite value type.
  */
 public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
-    private static final String TABLE_NAME_COMPLEX_TYPE = "test";
+    private static final String TABLE_NAME_COMPOSITE_TYPE = "test";
 
     private final long seed = System.currentTimeMillis();
 
@@ -53,7 +53,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME_COMPLEX_TYPE, KeyValueTestUtils.ALL_TYPES_COLUMNS);
+        createTable(TABLE_NAME_COMPOSITE_TYPE, KeyValueTestUtils.ALL_TYPES_COLUMNS);
     }
 
     @BeforeEach
@@ -571,7 +571,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     private List<Arguments> views() {
-        return generateKeyValueTestArguments(TABLE_NAME_COMPLEX_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
+        return generateKeyValueTestArguments(TABLE_NAME_COMPOSITE_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
     }
 
     @Override
