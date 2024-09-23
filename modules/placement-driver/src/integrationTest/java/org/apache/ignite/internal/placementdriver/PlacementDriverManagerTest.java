@@ -591,10 +591,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testRedirectionAcceptance() throws Exception {
         AtomicReference<String> redirect = new AtomicReference<>();
+        AtomicReference<String> initialHandler = new AtomicReference<>();
 
         leaseGrantHandler = (req, handler) -> {
-            if (redirect.get() == null) {
+            if (redirect.get() == null || handler.equals(initialHandler.get())) {
                 redirect.set(handler.equals(nodeName) ? anotherNodeName : nodeName);
+                initialHandler.set(handler);
 
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
