@@ -67,6 +67,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -305,7 +306,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                                     mock(SchemaRegistry.class),
                                     clockService,
                                     mock(IndexMetaStorage.class),
-                                    clusterService.topologyService().localMember().id()
+                                    clusterService.topologyService().localMember().id(),
+                                    mock(MinimumRequiredTimeCollectorService.class)
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptions.defaults()

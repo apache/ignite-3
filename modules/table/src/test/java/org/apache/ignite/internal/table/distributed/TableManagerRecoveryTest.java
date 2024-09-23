@@ -117,6 +117,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -324,6 +325,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         AlwaysSyncedSchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -371,7 +374,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         clockService,
                         placementDriver,
                         schemaSyncService
-                )
+                ),
+                minTimeCollectorService
         ) {
 
             @Override

@@ -66,7 +66,6 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
-import org.apache.ignite.internal.catalog.compaction.MinimumRequiredTimeProvider;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
@@ -182,7 +181,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
-import org.apache.ignite.internal.raft.RaftGroupStateProvider;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
@@ -191,7 +189,6 @@ import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCre
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -236,7 +233,7 @@ import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTabl
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -880,13 +877,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        RaftGroupStateProvider<TablePartitionId, PartitionListener> groupStateProvider = raftMgr.getGroupStateProvider(
-                TablePartitionId.class,
-                PartitionListener.class
-        );
-
-        MinimumRequiredTimeProvider partitionStateProvider =
-                () -> groupStateProvider.getState(PartitionListener::minimumActiveTxBeginTime);
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,
@@ -900,7 +891,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker,
-                partitionStateProvider
+                minTimeCollectorService
         );
 
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
@@ -978,7 +969,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                minTimeCollectorService
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(

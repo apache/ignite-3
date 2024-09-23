@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction;
+package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.Map;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.jetbrains.annotations.Nullable;
 
-/** Minimum required time provider. */
-@FunctionalInterface
-public interface MinimumRequiredTimeProvider {
+/** Collects minimum required timestamp for each partition. */
+public interface MinimumRequiredTimeCollectorService {
 
-    /** Returns min required time for each local table partition, if available. */
-    Map<TablePartitionId, @Nullable Long> minTimePerPartition();
+    /** Undefined value of a min timestamp. */
+    long UNDEFINED_MIN_TIME = 0;
+
+    /** Registers a partition. */
+    void addPartition(TablePartitionId tablePartitionId);
+
+    /** Records the given timestamp .*/
+    void recordMinActiveTxTimestamp(TablePartitionId tablePartitionId, long timestamp);
+
+    /** Remove timestamps associated with the given partition .*/
+    void removePartition(TablePartitionId tablePartitionId);
+
+    /** Returns a snapshot of collected timestamps. */
+    Map<TablePartitionId, Long> minTimestampPerPartition();
+
+    /** Closes this service. */
+    void close();
 }

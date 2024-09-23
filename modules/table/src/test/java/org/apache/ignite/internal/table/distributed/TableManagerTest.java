@@ -127,6 +127,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -838,7 +839,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TransactionInflights.class),
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                new MinimumRequiredTimeCollectorServiceImpl()
         ) {
 
             @Override

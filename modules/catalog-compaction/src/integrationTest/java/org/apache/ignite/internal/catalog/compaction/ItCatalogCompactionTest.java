@@ -45,6 +45,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
@@ -213,6 +214,41 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         log.info("Awaiting for the second compaction to run...");
 
         sql("alter table a add column c int");
+
+        Catalog catalog2 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
+        assertNotNull(catalog2);
+
+        assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
+
+        expectEarliestCatalogVersion(catalog2.version() - 1);
+    }
+
+    @Test
+    public void testCompactionAfterDropTable() throws InterruptedException {
+        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
+                CLUSTER_SIZE, CLUSTER_SIZE)
+        );
+
+        sql("alter zone test set default");
+
+        sql("create table a(a int primary key)");
+        sql("alter table a add column b int");
+
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+
+        log.info("Awaiting for the first compaction to run...");
+
+        Catalog catalog1 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
+        assertNotNull(catalog1);
+
+        expectEarliestCatalogVersion(catalog1.version() - 1);
+
+        log.info("Awaiting for the second compaction to run...");
+
+        sql("drop table a");
+        // Compact to the version after DROP table.
+        sql("create table b(a int primary key)");
 
         Catalog catalog2 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
         assertNotNull(catalog2);

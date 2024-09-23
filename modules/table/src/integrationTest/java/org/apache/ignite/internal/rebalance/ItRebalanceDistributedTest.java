@@ -211,6 +211,8 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -1389,6 +1391,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             HybridClockImpl clock = new HybridClockImpl();
 
+            MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -1436,7 +1440,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             clockService,
                             placementDriver,
                             schemaSyncService
-                    )
+                    ),
+                    minTimeCollectorService
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

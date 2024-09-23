@@ -291,7 +291,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 SCHEMA_REGISTRY,
                 clockService,
                 indexMetaStorage,
-                clusterService.topologyService().localMember().id()
+                clusterService.topologyService().localMember().id(),
+                mock(MinimumRequiredTimeCollectorService.class)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -505,7 +506,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 SCHEMA_REGISTRY,
                 clockService,
                 indexMetaStorage,
-                clusterService.topologyService().localMember().id()
+                clusterService.topologyService().localMember().id(),
+                mock(MinimumRequiredTimeCollectorService.class)
         );
 
         txStateStorage.lastApplied(3L, 1L);
