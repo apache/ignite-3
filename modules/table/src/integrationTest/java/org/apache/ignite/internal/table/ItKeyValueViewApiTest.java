@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.table.KeyValueTestUtils.newKey;
 import static org.apache.ignite.internal.table.KeyValueTestUtils.newValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,14 +31,9 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.KeyValueTestUtils.TestKeyObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.function.Executable;
@@ -48,12 +42,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * KeyValueView uniform API test.
+ * Unified KeyValueView API test with composite value type.
  */
 public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_COMPLEX_TYPE = "test";
-
-    private static final String TABLE_NAME_SIMPLE_TYPE = "test_simple";
 
     private final long seed = System.currentTimeMillis();
 
@@ -62,17 +54,11 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     @BeforeAll
     public void createTable() {
         createTable(TABLE_NAME_COMPLEX_TYPE, KeyValueTestUtils.ALL_TYPES_COLUMNS);
-        createTable(TABLE_NAME_SIMPLE_TYPE, new Column("VAL", NativeTypes.STRING, true));
     }
 
     @BeforeEach
     void printSeed() {
         log.info("Seed: " + seed);
-    }
-
-    @AfterEach
-    void clearTables() {
-        sql("DELETE FROM " + TABLE_NAME_COMPLEX_TYPE);
     }
 
     @ParameterizedTest
@@ -142,32 +128,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
-    public void getNullableSimpleTypes(TestCase<TestKeyObject, String> testCase) {
-        KeyValueView<TestKeyObject, String> view = testCase.view();
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-
-        // Non-existing key.
-        {
-            assertNull(view.get(null, key));
-            assertNull(view.getNullable(null, key));
-        }
-
-        view.put(null, key, null);
-
-        // Existing key.
-        {
-            testCase.checkNullValueEError(
-                    () -> view.get(null, key), "getNullable");
-
-            NullableValue<String> nullableVal = view.getNullable(null, key);
-
-            assertNotNull(nullableVal);
-            assertNull(nullableVal.get());
-        }
-    }
-
-    @ParameterizedTest
     @MethodSource("views")
     public void getOrDefault(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
@@ -232,20 +192,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
         testCase.checkNullableNotSupportedError(() -> view.getNullableAndPut(null, key, obj), "getNullableAndPut");
-    }
-
-    @ParameterizedTest
-    @MethodSource("viewsSimple")
-    public void getNullableAndPutSimple(TestCase<TestKeyObject, String> testCase) {
-        KeyValueView<TestKeyObject, String> view = testCase.view();
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        String val = "test";
-
-        assertNull(view.getNullableAndPut(null, key, null));
-
-        NullableValue<String> nullableVal = view.getNullableAndPut(null, key, val);
-        assertNotNull(nullableVal);
-        assertNull(nullableVal.get());
     }
 
     @ParameterizedTest
@@ -386,21 +332,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
-    public void getNullableAndRemoveSimple(TestCase<TestKeyObject, String> testCase) {
-        KeyValueView<TestKeyObject, String> view = testCase.view();
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-
-        assertNull(view.getNullableAndRemove(null, key));
-
-        view.put(null, key, null);
-
-        NullableValue<String> nullableVal = view.getNullableAndRemove(null, key);
-        assertNotNull(nullableVal);
-        assertNull(nullableVal.get());
-    }
-
-    @ParameterizedTest
     @MethodSource("views")
     public void removeExact(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
@@ -524,27 +455,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
-    public void getNullableAndReplaceSimple(TestCase<TestKeyObject, String> testCase) {
-        KeyValueView<TestKeyObject, String> view = testCase.view();
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        String val = "test";
-
-        assertNull(view.getNullableAndReplace(null, key, val));
-        assertNull(view.get(null, key));
-
-        view.put(null, key, null);
-
-        NullableValue<String> nullableVal = view.getNullableAndReplace(null, key, val);
-        assertNotNull(nullableVal);
-        assertNull(nullableVal.get());
-
-        nullableVal = view.getNullableAndReplace(null, key, val);
-        assertNotNull(nullableVal);
-        assertEquals("test", nullableVal.get());
-    }
-
-    @ParameterizedTest
     @MethodSource("views")
     public void replaceExact(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
@@ -664,10 +574,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
         return generateKeyValueTestArguments(TABLE_NAME_COMPLEX_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
     }
 
-    private List<Arguments> viewsSimple() {
-        return generateKeyValueTestArguments(TABLE_NAME_SIMPLE_TYPE, TestKeyObject.class, String.class);
-    }
-
     @Override
     TestCaseFactory getFactory(String name) {
         return new TestCaseFactory(name) {
@@ -710,27 +616,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
             );
 
             IgniteTestUtils.assertThrows(UnsupportedOperationException.class, run, expMessage);
-        }
-
-        @SuppressWarnings("ThrowableNotThrown")
-        private void checkNullValueEError(Executable run, String methodName) {
-            String targetMethodName = async ? methodName + "Async" : methodName;
-
-            String expMessage = IgniteStringFormatter.format(
-                    "Got unexpected null value: use `{}` sibling method instead.",
-                    targetMethodName
-            );
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client should handle null without MarshallerException
-            if (thin) {
-                IgniteTestUtils.assertThrowsWithCause(
-                        run::execute, UnexpectedNullValueException.class, expMessage);
-
-                return;
-            }
-
-            IgniteTestUtils.assertThrows(
-                    UnexpectedNullValueException.class, run, expMessage);
         }
     }
 }
