@@ -25,14 +25,23 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Not thread safe and stateful class for page replacement of one page with write() delay. This allows to write page content without holding
- * segment lock. Page data is copied into temp buffer during {@link #write(PersistentPageMemory, FullPageId, ByteBuffer)} and then sent to
- * real implementation by {@link #finishReplacement}.
+ * Stateful class for page replacement of one page with write() delay. This allows to write page content without holding
+ * segment write lock, which allows for a long time not to block the segment read lock due to IO writes when reading pages or writing dirty
+ * pages at a checkpoint.
+ *
+ * <p>Usage:</p>
+ * <ul>
+ *     <li>On page replacement, invoke {@link #copyPageToTemporaryBuffer}.</li>
+ *     <li>After releasing the segment write lock, invoke {@link #flushCopiedPageIfExists}.</li>
+ * </ul>
+ *
+ * <p>Not thread safe.</p>
  */
-public class DelayedDirtyPageWrite implements WriteDirtyPage {
+public class DelayedDirtyPageWrite {
     /** Real flush dirty page implementation. */
     private final WriteDirtyPage flushDirtyPage;
 
@@ -45,21 +54,26 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
     /** Replacing pages tracker, used to register & unregister pages being written. */
     private final DelayedPageReplacementTracker tracker;
 
-    /** Full page id to be written on {@link #finishReplacement} or {@code null} if nothing to write. */
-    private @Nullable FullPageId fullPageId;
+    /** Full page id to be written on {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
+    private @Nullable FullPageId pageId;
 
-    /** Page memory to be used in {@link #finishReplacement}. */
+    /** Page memory to be used in {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
     private @Nullable PersistentPageMemory pageMemory;
+
+    /**
+     * Dirty pages of the segment that need to be written at the current checkpoint or page replacement, {@code null} if nothing to write.
+     */
+    private @Nullable CheckpointPages checkpointPages;
 
     /**
      * Constructor.
      *
-     * @param flushDirtyPage real writer to save page to store.
-     * @param byteBufThreadLoc thread local buffers to use for pages copying.
-     * @param pageSize page size.
-     * @param tracker tracker to lock/unlock page reads.
+     * @param flushDirtyPage Real writer to IO write page to store.
+     * @param byteBufThreadLoc Thread local buffers to use for pages copying.
+     * @param pageSize Page size in bytes.
+     * @param tracker Tracker to lock/unlock page reads.
      */
-    public DelayedDirtyPageWrite(
+    DelayedDirtyPageWrite(
             WriteDirtyPage flushDirtyPage,
             ThreadLocal<ByteBuffer> byteBufThreadLoc,
             // TODO: IGNITE-17017 Move to common config
@@ -72,40 +86,67 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
         this.tracker = tracker;
     }
 
-    @Override
-    public void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuf) {
-        tracker.lock(fullPageId);
+    /**
+     * Copies a page to a temporary buffer on page replacement.
+     *
+     * @param pageMemory Persistent page memory for subsequent page IO writes.
+     * @param pageId ID of the copied page.
+     * @param originPageBuf Buffer with the full contents of the page being copied (from which we will copy).
+     * @param checkpointPages Dirty pages of the segment that need to be written at the current checkpoint or page replacement.
+     * @see #flushCopiedPageIfExists()
+     */
+    public void copyPageToTemporaryBuffer(
+            PersistentPageMemory pageMemory,
+            FullPageId pageId,
+            ByteBuffer originPageBuf,
+            CheckpointPages checkpointPages
+    ) {
+        tracker.lock(pageId);
 
         ByteBuffer threadLocalBuf = byteBufThreadLoc.get();
 
         threadLocalBuf.rewind();
 
-        long writeAddr = bufferAddress(threadLocalBuf);
-        long origBufAddr = bufferAddress(byteBuf);
+        long dstBufAddr = bufferAddress(threadLocalBuf);
+        long srcBufAddr = bufferAddress(originPageBuf);
 
-        copyMemory(origBufAddr, writeAddr, pageSize);
+        copyMemory(srcBufAddr, dstBufAddr, pageSize);
 
-        this.fullPageId = fullPageId;
+        this.pageId = pageId;
         this.pageMemory = pageMemory;
+        this.checkpointPages = checkpointPages;
     }
 
     /**
-     * Runs actual write if required. Method is 'no op' if there was no page selected for replacement.
+     * Flushes a previously copied page to disk if it was copied.
      *
-     * @throws IgniteInternalCheckedException if write failed.
+     * @throws IgniteInternalCheckedException If write failed.
+     * @see #copyPageToTemporaryBuffer(PersistentPageMemory, FullPageId, ByteBuffer, CheckpointPages)
      */
-    public void finishReplacement() throws IgniteInternalCheckedException {
-        if (fullPageId == null && pageMemory == null) {
+    public void flushCopiedPageIfExists() throws IgniteInternalCheckedException {
+        if (pageId == null) {
             return;
         }
 
-        try {
-            flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
-        } finally {
-            tracker.unlock(fullPageId);
+        assert pageMemory != null : pageId;
+        assert checkpointPages != null : pageId;
 
-            fullPageId = null;
+        Throwable errorOnWrite = null;
+
+        try {
+            flushDirtyPage.write(pageMemory, pageId, byteBufThreadLoc.get());
+        } catch (Throwable t) {
+            errorOnWrite = t;
+
+            throw t;
+        } finally {
+            tracker.unlock(pageId);
+
+            checkpointPages.finishReplace(pageId, errorOnWrite);
+
+            pageId = null;
             pageMemory = null;
+            checkpointPages = null;
         }
     }
 }

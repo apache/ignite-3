@@ -22,8 +22,10 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -103,8 +105,10 @@ public class CheckpointPagesTest {
 
         checkpointProgress.transitTo(PAGES_SORTED);
         assertThat(allowToReplaceFuture, willBe(true));
+        assertTrue(checkpointPages.contains(fullPageId(0, 0)));
 
         assertTrue(checkpointPages.allowToReplace(fullPageId(1, 0)));
+        assertTrue(checkpointPages.contains(fullPageId(1, 0)));
     }
 
     @Test
@@ -139,6 +143,38 @@ public class CheckpointPagesTest {
         // Case after intention to start the fsync phase.
         checkpointProgress.stopBlockingFsyncOnPageReplacement();
         assertFalse(checkpointPages.allowToReplace(fullPageId(0, 0)));
+    }
+
+    @Test
+    void testFinishReplaceSuccessfully() {
+        var checkpointProgress = new CheckpointProgressImpl(10);
+        checkpointProgress.transitTo(PAGES_SORTED);
+
+        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0));
+
+        checkpointPages.allowToReplace(fullPageId(0, 0));
+
+        CompletableFuture<Void> stopBlockingFsyncOnPageReplacementFuture = checkpointProgress.stopBlockingFsyncOnPageReplacement();
+        assertFalse(stopBlockingFsyncOnPageReplacementFuture.isDone());
+
+        checkpointPages.finishReplace(fullPageId(0, 0), null);
+        assertThat(stopBlockingFsyncOnPageReplacementFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testFinishReplaceWithError() {
+        var checkpointProgress = new CheckpointProgressImpl(10);
+        checkpointProgress.transitTo(PAGES_SORTED);
+
+        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0));
+
+        checkpointPages.allowToReplace(fullPageId(0, 0));
+
+        CompletableFuture<Void> stopBlockingFsyncOnPageReplacementFuture = checkpointProgress.stopBlockingFsyncOnPageReplacement();
+        assertFalse(stopBlockingFsyncOnPageReplacementFuture.isDone());
+
+        checkpointPages.finishReplace(fullPageId(0, 0), new Exception("from test"));
+        assertThat(stopBlockingFsyncOnPageReplacementFuture, willThrow(Exception.class, "from test"));
     }
 
     private static CheckpointPages createCheckpointPages(FullPageId... pageIds) {

@@ -163,7 +163,7 @@ public class DelayedPageReplacementTracker {
 
                 boolean add = locked.add(id);
 
-                assert add : "Double locking of page for replacement is not possible";
+                assert add : "Double locking of page for replacement is not possible: " + id;
             }
         }
 
@@ -210,7 +210,7 @@ public class DelayedPageReplacementTracker {
             synchronized (locked) {
                 boolean rmv = locked.remove(id);
 
-                assert rmv : "Unlocking page ID never locked, id " + id;
+                assert rmv : "Unlocking page ID never locked, id: " + id;
 
                 if (locked.isEmpty()) {
                     hasLockedPages = false;

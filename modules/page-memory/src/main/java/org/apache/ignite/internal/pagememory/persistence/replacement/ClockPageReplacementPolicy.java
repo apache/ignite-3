@@ -91,7 +91,7 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
             }
 
-            if (seg.tryToRemovePage(fullId, absPtr)) {
+            if (seg.tryToReplacePage(fullId, absPtr)) {
                 return relPtr;
             }
 

@@ -352,7 +352,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
      * @see #stopBlockingFsyncOnPageReplacement()
      */
-    public boolean tryBlockFsyncOnPageReplacement(FullPageId pageId) {
+    boolean tryBlockFsyncOnPageReplacement(FullPageId pageId) {
         return checkpointPageReplacement.tryBlock(pageId);
     }
 
@@ -376,7 +376,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * @see #tryBlockFsyncOnPageReplacement(FullPageId)
      * @see #stopBlockingFsyncOnPageReplacement()
      */
-    public void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+    void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
         checkpointPageReplacement.unblock(pageId, error);
     }
 
@@ -391,7 +391,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * @see #tryBlockFsyncOnPageReplacement(FullPageId)
      * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
      */
-    public CompletableFuture<Void> stopBlockingFsyncOnPageReplacement() {
+    CompletableFuture<Void> stopBlockingFsyncOnPageReplacement() {
         return checkpointPageReplacement.stopBlocking();
     }
 }

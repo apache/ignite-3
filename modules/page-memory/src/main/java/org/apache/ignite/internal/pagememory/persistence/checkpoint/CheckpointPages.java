@@ -25,6 +25,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class contains dirty pages of the segment that will need to be written at a checkpoint or page replacement. It also contains helper
@@ -50,7 +51,7 @@ public class CheckpointPages {
     }
 
     /**
-     * Checks if the page is available for replacement.
+     * Checks if the page is available for replacement, without removing the page.
      *
      * <p>Page is available for replacement if the following conditions are met:</p>
      * <ul>
@@ -58,14 +59,17 @@ public class CheckpointPages {
      *     partition delta files in which the dirty page order must be preserved.</li>
      *     <li>If the checkpoint dirty page writer has not started writing the page or has already written it.</li>
      *     <li>If the delta file fsync phase is not ready to start or is not in progress. This is necessary so that the data remains
-     *     consistent after the fsync phase is complete.</li>
+     *     consistent after the fsync phase is complete. If the phase has not yet begun, we will block it until we complete the
+     *     replacement.</li>
      * </ul>
      *
-     * <p>It is expected that if the method returns true, it will not be invoked again for the same page ID.</p>
+     * <p>It is expected that if the method returns {@code true}, it will not be invoked again for the same page ID, then
+     * {@link #finishReplace} will be invoked later.</p>
      *
      * @param pageId Page ID of the replacement candidate.
      * @return {@code True} if the page is available for replacement, {@code false} if not.
      * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
+     * @see #finishReplace(FullPageId, Throwable)
      */
     public boolean allowToReplace(FullPageId pageId) throws StorageException {
         try {
@@ -78,6 +82,22 @@ public class CheckpointPages {
         }
 
         return pageIds.contains(pageId) && checkpointProgress.tryBlockFsyncOnPageReplacement(pageId);
+    }
+
+    /**
+     * Finishes the replacement of a page previously allowed by {@link #allowToReplace}.
+     *
+     * <p>Unblocks the fsync delta file phase at the checkpoint. But it will only start when all unlocks that began before the phase are
+     * completed.</p>
+     *
+     * <p>It is expected that if the {@link #allowToReplace} returns {@code true}, then current method will be invoked later.</p>
+     *
+     * @param pageId ID of the replaced page.
+     * @param error Error on IO write of the replaced page, {@code null} if missing.
+     * @see #allowToReplace(FullPageId)
+     */
+    public void finishReplace(FullPageId pageId, @Nullable Throwable error) {
+        checkpointProgress.unblockFsyncOnPageReplacement(pageId, error);
     }
 
     /**
