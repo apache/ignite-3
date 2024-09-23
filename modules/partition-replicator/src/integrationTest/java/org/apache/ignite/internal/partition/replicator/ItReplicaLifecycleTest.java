@@ -1321,7 +1321,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     tableManager,
                     indexManager
             ))).thenComposeAsync(componentFuts -> {
-                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
+                CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
                                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                 clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),

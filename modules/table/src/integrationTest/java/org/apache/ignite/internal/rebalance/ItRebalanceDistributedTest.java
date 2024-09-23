@@ -92,7 +92,6 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -1493,7 +1492,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          * Starts the created components.
          */
         void start() {
-            List<IgniteComponent> firstComponents = List.of(
+            ComponentContext componentContext = new ComponentContext();
+
+            deployWatchesFut = startComponentsAsync(componentContext, List.of(
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1504,53 +1505,43 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     msLogStorageFactory,
                     raftManager,
                     cmgManager
-            );
-
-            ComponentContext componentContext = new ComponentContext();
-            List<CompletableFuture<?>> componentFuts =
-                    firstComponents.stream()
-                            .map(component -> component.startAsync(componentContext))
-                            .collect(Collectors.toList());
-
-            nodeComponents.addAll(firstComponents);
-
-            deployWatchesFut = CompletableFuture.supplyAsync(() -> {
-                List<IgniteComponent> secondComponents = List.of(
-                        lowWatermark,
-                        metaStorageManager,
-                        clusterCfgMgr,
-                        clockWaiter,
-                        catalogManager,
-                        indexMetaStorage,
-                        distributionZoneManager,
-                        replicaManager,
-                        txManager,
-                        dataStorageMgr,
-                        schemaManager,
-                        tableManager,
-                        indexManager
-                );
-
-                componentFuts.addAll(secondComponents.stream()
-                        .map(component -> component.startAsync(componentContext))
-                        .collect(Collectors.toList()));
-
-                nodeComponents.addAll(secondComponents);
-
-                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
-                    return allOf(
-                            nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
-                    );
-                });
+            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
+                    lowWatermark,
+                    metaStorageManager,
+                    clusterCfgMgr,
+                    clockWaiter,
+                    catalogManager,
+                    indexMetaStorage,
+                    distributionZoneManager,
+                    replicaManager,
+                    txManager,
+                    dataStorageMgr,
+                    schemaManager,
+                    tableManager,
+                    indexManager
+            ))).thenComposeAsync(componentFuts -> {
+                CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
+                        .thenCompose(rev -> allOf(
+                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
+                                componentFuts
+                        ));
 
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
                 lowWatermark.scheduleUpdates();
 
                 return metaStorageManager.deployWatches();
-            }).thenCombine(allOf(componentFuts.toArray(CompletableFuture[]::new)), (deployWatchesFut, unused) -> null);
+            });
+        }
+
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
+            nodeComponents.addAll(components);
+
+            return allOf(components.stream()
+                    .map(component -> component.startAsync(componentContext))
+                    .toArray(CompletableFuture[]::new));
         }
 
         /**
