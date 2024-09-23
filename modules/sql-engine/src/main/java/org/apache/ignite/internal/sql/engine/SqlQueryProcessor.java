@@ -98,6 +98,8 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -176,6 +178,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final ReplicaService replicaService;
 
     private final SqlSchemaManager sqlSchemaManager;
+    private final SqlStatisticManager sqlStatisticManager;
 
     private final FailureManager failureManager;
 
@@ -259,8 +262,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
 
+        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
+                sqlStatisticManager,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );

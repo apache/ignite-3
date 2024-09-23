@@ -58,6 +58,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -73,6 +74,7 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
+    private final SqlStatisticManager sqlStatisticManager;
 
     private final Cache<Integer, SchemaPlus> schemaCache;
 
@@ -90,8 +92,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final Cache<Long, ActualIgniteTable> fullDataTableCache;
 
     /** Constructor. */
-    public SqlSchemaManagerImpl(CatalogManager catalogManager, CacheFactory factory, int cacheSize) {
+    public SqlSchemaManagerImpl(
+            CatalogManager catalogManager,
+            SqlStatisticManager sqlStatisticManager,
+            CacheFactory factory,
+            int cacheSize) {
         this.catalogManager = catalogManager;
+        this.sqlStatisticManager = sqlStatisticManager;
         this.schemaCache = factory.create(cacheSize);
         this.tableCache = factory.create(cacheSize);
         this.indexCache = factory.create(cacheSize);
@@ -172,6 +179,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
                 return createTableDataOnlyTable(catalog, tableDescriptor, descriptor);
             });
+
+            igniteTable = igniteTable.createCopyWithStatisticsSnapshot();
 
             Map<String, IgniteIndex> tableIndexes = getIndexes(catalog,
                     tableDescriptor.id(),
@@ -441,7 +450,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(catalog, table.zoneId());
 
-        return createTable(table, descriptor, tableIndexes, zoneDescriptor.partitions());
+        return createTable(table, descriptor, tableIndexes, zoneDescriptor.partitions(), sqlStatisticManager);
     }
 
     private Map<String, IgniteIndex> getIndexes(Catalog catalog, int tableId, int primaryKeyIndexId) {
@@ -487,7 +496,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             CatalogTableDescriptor catalogTableDescriptor,
             TableDescriptor tableDescriptor,
             Map<String, IgniteIndex> indexes,
-            int parititions
+            int parititions,
+            SqlStatisticManager sqlStatisticManager
     ) {
         IgniteIndex primaryIndex = indexes.values().stream()
                 .filter(IgniteIndex::primaryKey)
@@ -505,7 +515,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // TODO IGNITE-19558: The table is not available at planning stage.
         // Let's fix table statistics keeping in mind IGNITE-19558 issue.
-        IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, tableDescriptor.distribution());
+        IgniteStatistic statistic = new IgniteStatistic(() -> sqlStatisticManager.tableSize(tableId), tableDescriptor.distribution());
 
         return new IgniteTableImpl(
                 tableName,

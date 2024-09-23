@@ -121,6 +121,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -653,7 +654,10 @@ public class TestBuilders {
             CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl();
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
+
+            SqlStatisticManager sqlStatisticManager = tableId -> 10_000L;
+
+            var schemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);

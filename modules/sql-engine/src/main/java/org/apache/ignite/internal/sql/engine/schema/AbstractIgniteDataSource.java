@@ -52,6 +52,14 @@ public abstract class AbstractIgniteDataSource extends AbstractTable implements 
 
     private final Statistic statistic;
 
+    protected AbstractIgniteDataSource(AbstractIgniteDataSource source, Statistic statisticSnapshot) {
+        this.id = source.id;
+        this.name = source.name;
+        this.desc = source.desc;
+        this.version = source.version;
+        this.statistic = statisticSnapshot;
+    }
+
     /** Constructor. */
     public AbstractIgniteDataSource(String name, int id,  int version, TableDescriptor desc,
             Statistic statistic) {
