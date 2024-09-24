@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.cluster;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.cluster.RecoveryClusterCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionsCommand;
-import picocli.CommandLine.Command;
+import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
-        subcommands = {
-                PartitionsCommand.class,
-                RecoveryClusterCommand.class
-        },
-        description = "Manages disaster recovery of Ignite cluster")
-public class RecoveryCommand extends BaseCommand {
+/** Test class for {@link ResetClusterCommand}. */
+class ItResetClusterCommandTest extends ItResetClusterTest {
+    @Override
+    protected void execute(String... args) {
+        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "cluster", "reset"}, args);
+
+        super.execute(fullArgs);
+    }
 }

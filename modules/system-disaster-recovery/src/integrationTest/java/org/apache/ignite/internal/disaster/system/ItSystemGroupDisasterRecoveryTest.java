@@ -40,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * Base for tests of CMG and Metastorage group disaster recovery.
  */
 abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
+    final SystemDisasterRecoveryClient recoveryClient = new SystemDisasterRecoveryClient();
+
     @Override
     protected int initialNodes() {
         return 0;

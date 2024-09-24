@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.cluster;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.cluster.RecoveryClusterCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionsCommand;
+import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterReplCommand;
 import picocli.CommandLine.Command;
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
+/** Cluster disaster recovery commands. */
+@Command(name = "cluster",
         subcommands = {
-                PartitionsCommand.class,
-                RecoveryClusterCommand.class
+                ResetClusterReplCommand.class
         },
-        description = "Manages disaster recovery of Ignite cluster")
-public class RecoveryCommand extends BaseCommand {
+        description = "Manages disaster recovery of CMG/Metastorage group")
+public class RecoveryClusterReplCommand extends BaseCommand {
 }
