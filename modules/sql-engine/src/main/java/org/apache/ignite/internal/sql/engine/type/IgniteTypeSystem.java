@@ -113,7 +113,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
                 return typeFactory.createTypeWithNullability(
                         typeFactory.createSqlType(
                                 SqlTypeName.DECIMAL,
-                                type.getPrecision(),
+                                typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
                                 0
                         ), nullable);
             default:
