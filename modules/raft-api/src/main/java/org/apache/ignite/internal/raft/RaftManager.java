@@ -24,7 +24,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Raft manager.
@@ -157,11 +156,8 @@ public interface RaftManager extends IgniteComponent {
      * @return Future that will be completed with an instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    @TestOnly
-    CompletableFuture<RaftGroupService> startRaftGroupService(
-            ReplicationGroupId groupId,
-            PeersAndLearners configuration
-    ) throws NodeStoppingException;
+    CompletableFuture<RaftGroupService> startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
+            throws NodeStoppingException;
 
     /**
      * Creates a Raft group service providing operations on a Raft group, using the given factory.
