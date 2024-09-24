@@ -25,7 +25,7 @@ dependencies {
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation project(':ignite-catalog')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-core')

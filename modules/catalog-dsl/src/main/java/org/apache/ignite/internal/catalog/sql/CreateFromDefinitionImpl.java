@@ -66,8 +66,8 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.replicas(def.replicas());
         }
 
-        if (!StringUtils.nullOrBlank(def.affinityFunction())) {
-            createZone.affinity(def.affinityFunction());
+        if (!StringUtils.nullOrBlank(def.distributionAlgorithm())) {
+            createZone.distributionAlgorithm(def.distributionAlgorithm());
         }
 
         if (isGreaterThanZero(def.dataNodesAutoAdjust())) {

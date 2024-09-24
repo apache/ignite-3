@@ -25,12 +25,12 @@ dependencies {
 
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation libs.jetbrains.annotations
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network-api')
-    testFixturesImplementation project(':ignite-affinity')
+    testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation libs.jetbrains.annotations
 }
 

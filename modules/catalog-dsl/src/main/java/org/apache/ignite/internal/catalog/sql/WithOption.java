@@ -39,8 +39,8 @@ class WithOption extends QueryPart {
         return new WithOption("REPLICAS", replicas);
     }
 
-    public static WithOption affinity(String affinity) {
-        return new WithOption("AFFINITY_FUNCTION", affinity);
+    public static WithOption distributionAlgorithm(String distributionAlgorithm) {
+        return new WithOption("DISTRIBUTION_ALGORITHM", distributionAlgorithm);
     }
 
     public static WithOption dataNodesAutoAdjust(Integer adjust) {

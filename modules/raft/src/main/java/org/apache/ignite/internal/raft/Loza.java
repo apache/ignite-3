@@ -357,12 +357,9 @@ public class Loza implements RaftManager {
         }
     }
 
-    @TestOnly
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupService(
-            ReplicationGroupId groupId,
-            PeersAndLearners configuration
-    ) throws NodeStoppingException {
+    public CompletableFuture<RaftGroupService> startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
+            throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }

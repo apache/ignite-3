@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity;
+package org.apache.ignite.internal.disaster.system.storage;
 
-import java.io.Serializable;
-import java.util.Set;
+import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Set of nodes along with associated token that is guaranteed to be changed if the set was changed.
+ * Storage used by the Metastorage repair tools.
  */
-public interface TokenizedAssignments extends Serializable {
-    /** Returns a set of nodes, represented by this assignments instance. */
-    Set<Assignment> nodes();
-
-    /** Returns a token associated with given assignments that is guaranteed to be changed if assignments were changed. */
-    long token();
+public interface MetastorageRepairStorage {
+    /**
+     * Reads {@link ResetClusterMessage} from the volatile state; returns {@code null} if it's not saved.
+     */
+    @Nullable ResetClusterMessage readVolatileResetClusterMessage();
 }

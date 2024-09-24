@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -74,9 +75,6 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -140,6 +138,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -218,6 +218,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -371,7 +372,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
@@ -593,7 +594,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
                 nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
@@ -1292,7 +1293,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
          * Starts the created components.
          */
         void start() {
-            List<IgniteComponent> firstComponents = List.of(
+            ComponentContext componentContext = new ComponentContext();
+
+            deployWatchesFut = startComponentsAsync(componentContext, List.of(
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1303,54 +1306,44 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     cmgLogStorageFactory,
                     raftManager,
                     cmgManager
-            );
-
-            ComponentContext componentContext = new ComponentContext();
-
-            List<CompletableFuture<?>> componentFuts =
-                    firstComponents.stream()
-                            .map(component -> component.startAsync(componentContext))
-                            .collect(Collectors.toList());
-
-            nodeComponents.addAll(firstComponents);
-
-            deployWatchesFut = CompletableFuture.supplyAsync(() -> {
-                List<IgniteComponent> secondComponents = List.of(
-                        lowWatermark,
-                        metaStorageManager,
-                        clusterCfgMgr,
-                        clockWaiter,
-                        catalogManager,
-                        indexMetaStorage,
-                        distributionZoneManager,
-                        replicaManager,
-                        txManager,
-                        dataStorageMgr,
-                        schemaManager,
-                        partitionReplicaLifecycleManager,
-                        tableManager,
-                        indexManager
-                );
-
-                componentFuts.addAll(secondComponents.stream()
-                        .map(component -> component.startAsync(componentContext)).collect(Collectors.toList()));
-
-                nodeComponents.addAll(secondComponents);
-
-                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
-                    return allOf(
-                            nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
-                    );
-                });
+            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
+                    lowWatermark,
+                    metaStorageManager,
+                    clusterCfgMgr,
+                    clockWaiter,
+                    catalogManager,
+                    indexMetaStorage,
+                    distributionZoneManager,
+                    replicaManager,
+                    txManager,
+                    dataStorageMgr,
+                    schemaManager,
+                    partitionReplicaLifecycleManager,
+                    tableManager,
+                    indexManager
+            ))).thenComposeAsync(componentFuts -> {
+                CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
+                        .thenCompose(rev -> allOf(
+                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
+                                componentFuts
+                        ));
 
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
                 lowWatermark.scheduleUpdates();
 
                 return metaStorageManager.deployWatches();
-            }).thenCombine(allOf(componentFuts.toArray(CompletableFuture[]::new)), (deployWatchesFut, unused) -> null);
+            });
+        }
+
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
+            nodeComponents.addAll(components);
+
+            return allOf(components.stream()
+                    .map(component -> component.startAsync(componentContext))
+                    .toArray(CompletableFuture[]::new));
         }
 
         /**

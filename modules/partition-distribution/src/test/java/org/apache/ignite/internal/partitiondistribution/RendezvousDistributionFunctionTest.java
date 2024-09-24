@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity;
+package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Objects.nonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,14 +37,14 @@ import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for affinity function.
+ * Test for Rendezvous distribution function.
  */
-public class RendezvousAffinityFunctionTest {
+public class RendezvousDistributionFunctionTest {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RendezvousAffinityFunctionTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RendezvousDistributionFunctionTest.class);
 
-    /** Affinity deviation ratio. */
-    public static final double AFFINITY_DEVIATION_RATIO = 0.2;
+    /** Distribution deviation ratio. */
+    public static final double DISTRIBUTION_DEVIATION_RATIO = 0.2;
 
     @Test
     public void testPartitionDistribution() {
@@ -60,7 +60,7 @@ public class RendezvousAffinityFunctionTest {
 
         int ideal = (parts * replicas) / nodeCount;
 
-        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<String>> assignment = RendezvousDistributionFunction.assignPartitions(
                 nodes,
                 parts,
                 replicas,
@@ -91,8 +91,8 @@ public class RendezvousAffinityFunctionTest {
 
             assertNotNull(nodeParts);
 
-            assertTrue(nodeParts.size() > ideal * (1 - AFFINITY_DEVIATION_RATIO)
-                            && nodeParts.size() < ideal * (1 + AFFINITY_DEVIATION_RATIO),
+            assertTrue(nodeParts.size() > ideal * (1 - DISTRIBUTION_DEVIATION_RATIO)
+                            && nodeParts.size() < ideal * (1 + DISTRIBUTION_DEVIATION_RATIO),
                     "Partition distribution is too far from ideal [node=" + node
                             + ", size=" + nodeParts.size()
                             + ", idealSize=" + ideal
@@ -118,7 +118,7 @@ public class RendezvousAffinityFunctionTest {
 
         assertTrue(parts > nodeCount, "Partitions should be more than nodes");
 
-        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<String>> assignment = RendezvousDistributionFunction.assignPartitions(
                 nodes,
                 parts,
                 replicas,

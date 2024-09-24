@@ -75,4 +75,11 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * Consistent IDs of the nodes which were sent the message. Only non-null if Metastorage is to be repaired.
      */
     @Nullable Set<String> participatingNodes();
+
+    /**
+     * Returns whether metastorage repair is requested.
+     */
+    default boolean metastorageRepairRequested() {
+        return metastorageReplicationFactor() != null;
+    }
 }

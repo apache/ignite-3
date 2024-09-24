@@ -26,7 +26,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-root')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 

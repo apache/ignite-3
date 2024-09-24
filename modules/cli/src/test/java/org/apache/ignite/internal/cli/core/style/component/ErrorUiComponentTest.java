@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.cli.core.style.component;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 import java.util.UUID;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -35,6 +37,18 @@ class ErrorUiComponentTest {
 
         // Then
         assertThat(rendered, equalTo("Just single header"));
+    }
+
+    @Test
+    void rendersNullHeader() {
+        // Given
+        ErrorUiComponent errorUiComponent = ErrorUiComponent.builder().build();
+
+        // When
+        String rendered = errorUiComponent.render();
+
+        // Then
+        assertThat(rendered, is(emptyString()));
     }
 
     @Test

@@ -19,7 +19,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-description = 'ignite-affinity'
+description = 'ignite-partition-distribution'
 
 dependencies {
     implementation project(':ignite-api')
