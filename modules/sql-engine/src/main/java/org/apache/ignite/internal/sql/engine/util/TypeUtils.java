@@ -532,15 +532,19 @@ public class TypeUtils {
         }
 
         if (SqlTypeUtil.isIntType(fromType) && SqlTypeUtil.isDecimal(toType)) {
+            if (toType.getScale() != 0) {
+                return true;
+            }
+
             switch (fromType.getSqlTypeName()) {
                 case TINYINT:
-                    return toType.getPrecision() < 3 || toType.getScale() != 0;
+                    return toType.getPrecision() < 3;
                 case SMALLINT:
-                    return toType.getPrecision() < 5 && toType.getScale() != 0;
+                    return toType.getPrecision() < 5;
                 case INTEGER:
-                    return toType.getPrecision() < 10 && toType.getScale() != 0;
+                    return toType.getPrecision() < 10;
                 case BIGINT:
-                    return toType.getPrecision() < 19 && toType.getScale() != 0;
+                    return toType.getPrecision() < 19;
                 default:
                     return false;
             }
