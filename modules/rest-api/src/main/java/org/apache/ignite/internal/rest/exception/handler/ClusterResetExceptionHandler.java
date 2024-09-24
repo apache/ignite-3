@@ -29,7 +29,7 @@ import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link ClusterResetExceptionHandler} and represents it as a rest response.
+ * Handles {@link ClusterResetException} and represents it as a rest response.
  */
 @Singleton
 @Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
