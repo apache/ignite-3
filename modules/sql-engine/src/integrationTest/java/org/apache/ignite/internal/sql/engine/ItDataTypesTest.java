@@ -627,7 +627,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("decimalOpTypeExtension")
-    public void testCalcOpDynParamOverflow(String expr, String expect, Object param) {
+    public void testCalcOpDynParamWithDivisibleOverflow(String expr, String expect, Object param) {
         assertEquals(sql(expr, param).get(0).get(0).toString(), expect);
     }
 
