@@ -115,7 +115,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static ZoneDefinition testZoneDefinition() {
         return ZoneDefinition.builder(ZONE_NAME)
-                .affinity("affinity")
+                .distributionAlgorithm("rendezvous")
                 .dataNodesAutoAdjust(1)
                 .filter("filter")
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)

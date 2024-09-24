@@ -290,7 +290,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private void changeMetastorageNodes(ChangeMetastorageNodesCommand command) {
         ClusterState existingState = storageManager.getClusterState();
 
-        assert existingState != null : "Cluster state is not initialized when got " + command;
+        assert existingState != null : "Cluster state was not initialized when got " + command;
 
         ClusterState newState = cmgMessagesFactory.clusterState()
                 .cmgNodes(Set.copyOf(existingState.cmgNodes()))

@@ -23,9 +23,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage used by the cluster reset tools.
  */
-public interface ClusterResetStorage {
+public interface ClusterResetStorage extends MetastorageRepairStorage {
     /**
-     * Reads {@link ResetClusterMessage}; returns {@code null} if it's not saved.
+     * Reads {@link ResetClusterMessage} from the persistent state; returns {@code null} if it's not saved.
      */
     @Nullable ResetClusterMessage readResetClusterMessage();
 
@@ -33,4 +33,11 @@ public interface ClusterResetStorage {
      * Removes saved {@link ResetClusterMessage}.
      */
     void removeResetClusterMessage();
+
+    /**
+     * Saves a {@link ResetClusterMessage} to the volatile state.
+     *
+     * @param message Message to save.
+     */
+    void saveVolatileResetClusterMessage(ResetClusterMessage message);
 }

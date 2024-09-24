@@ -67,6 +67,7 @@ public class LogEntryCodecPerfTest {
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setData(buf);
         entry.setPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
+        entry.setOldPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
 
         if (barrier != null) {
             barrier.await();

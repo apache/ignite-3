@@ -115,7 +115,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     @Override
     public void sync() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
-        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** Returns path to log storage by group ID. */

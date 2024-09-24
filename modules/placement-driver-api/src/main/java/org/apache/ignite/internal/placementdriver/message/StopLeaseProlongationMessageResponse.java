@@ -33,8 +33,7 @@ public interface StopLeaseProlongationMessageResponse extends PlacementDriverMes
      *
      * @return Lease expiration time of denied lease.
      */
-    @Nullable
-    Long deniedLeaseExpirationTimeLong();
+    long deniedLeaseExpirationTimeLong();
 
     @Nullable
     default HybridTimestamp deniedLeaseExpirationTime() {

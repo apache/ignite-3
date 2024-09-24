@@ -43,6 +43,7 @@ dependencies {
     implementation project(':ignite-eventlog')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-system-disaster-recovery')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -66,6 +67,7 @@ dependencies {
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
 

@@ -64,7 +64,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
 
     private static final List<String> STRING_OPTIONS = Arrays.asList(
-            "AFFINITY_FUNCTION",
+            "DISTRIBUTION_ALGORITHM",
             "DATA_NODES_FILTER",
             "STORAGE_PROFILES"
     );
@@ -89,7 +89,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             SqlNode node = parse("CREATE ZONE test with "
                     + "partitions=2, "
                     + "replicas=3, "
-                    + "affinity_function='rendezvous', "
+                    + "distribution_algorithm='rendezvous', "
                     + "data_nodes_filter='$[?(@.region == \"US\")]', "
                     + "data_nodes_auto_adjust=300, "
                     + "storage_profiles='lru_rocks, segmented_aipersist' "
@@ -103,7 +103,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(desc.partitions(), equalTo(2));
             assertThat(desc.replicas(), equalTo(3));
             // TODO https://issues.apache.org/jira/browse/IGNITE-22162
-            // assertThat(desc.affinity(), equalTo("rendezvous"));
+            // assertThat(desc.distributionAlgorithm(), equalTo("rendezvous"));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
             assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
 
