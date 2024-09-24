@@ -111,6 +111,7 @@ public class PojoConverter {
 
         Map<String, Setter> setters = new HashMap<>();
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23261
         for (Field field : clazz.getDeclaredFields()) {
             if (isSupportedType(field.getType())) {
                 int modifiers = field.getModifiers();
