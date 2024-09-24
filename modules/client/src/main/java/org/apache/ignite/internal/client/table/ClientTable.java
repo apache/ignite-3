@@ -87,6 +87,8 @@ public class ClientTable implements Table {
 
     private volatile PartitionAssignment partitionAssignment = null;
 
+    private volatile int partitionCount = -1;
+
     private final ClientPartitionManager clientPartitionManager;
 
     /**
@@ -621,6 +623,15 @@ public class ClientTable implements Table {
                         int cnt = r.in().unpackInt();
                         assert cnt >= 0 : "Invalid partition count: " + cnt;
 
+                        int oldPartitionCount = partitionCount;
+
+                        if (oldPartitionCount < 0) {
+                            partitionCount = cnt;
+                        } else if (oldPartitionCount != cnt) {
+                            throw new IgniteException(INTERNAL_ERR,
+                                    String.format("Partition count has changed for table '%s': %d -> %d", name, oldPartitionCount, cnt));
+                        }
+
                         boolean assignmentAvailable = r.in().unpackBoolean();
                         if (!assignmentAvailable) {
                             // Invalidate current assignment so that we can retry on the next call.
@@ -649,6 +660,10 @@ public class ClientTable implements Table {
 
             return newAssignment.partitionsFut;
         }
+    }
+
+    int partitionCount() {
+        return partitionCount;
     }
 
     @Nullable
