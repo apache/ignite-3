@@ -23,12 +23,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Request to reset cluster. */
 @Schema(description = "Reset cluster.")
 public class ResetClusterRequest {
     @Schema(description = "Names of the proposed CMG node names.")
+    @IgniteToStringInclude
     private final List<String> cmgNodeNames;
 
     /** Constructor. */
