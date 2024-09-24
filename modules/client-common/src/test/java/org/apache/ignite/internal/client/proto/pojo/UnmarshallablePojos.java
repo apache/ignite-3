@@ -19,21 +19,30 @@ package org.apache.ignite.internal.client.proto.pojo;
 
 /** POJO with incorrect fields. */
 public class UnmarshallablePojos {
+    /** Pojo with unsupported type. */
     public static class UnsupportedType {
         // Unsupported type
         Object obj;
     }
 
+    /** Pojo with private field. */
     public static class PrivateField {
         // Private field
         private int intField;
+
+        @Override
+        public String toString() {
+            return "intField=" + intField;
+        }
     }
 
+    /** Pojo with static field. */
     public static class StaticField {
         // Public but static field
         public static long longField;
     }
 
+    /** Pojo with invalid getter name. */
     public static class InvalidGetterName {
         // Getter not starting with "get"
         public int intField() {
@@ -41,6 +50,7 @@ public class UnmarshallablePojos {
         }
     }
 
+    /** Pojo with private getter. */
     public static class PrivateGetter {
         // Private getter
         private int getI() {
