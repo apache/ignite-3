@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import com.typesafe.config.Config;
@@ -47,6 +48,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -442,6 +444,10 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
+
     /**
      * The Constructor.
      *
@@ -593,13 +599,13 @@ public class IgniteImpl implements Ignite {
                 "cluster-management-group log",
                 clusterSvc.nodeName(),
                 cmgWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
@@ -663,7 +669,7 @@ public class IgniteImpl implements Ignite {
                 "meta-storage log",
                 clusterSvc.nodeName(),
                 metastorageWorkDir.raftLogPath(),
-                raftUseFsync
+                true
         );
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
@@ -1075,7 +1081,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> clusterInfo(systemDisasterRecoveryStorage),
+                () -> clusterInfo(clusterStateStorageMgr),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1098,8 +1104,11 @@ public class IgniteImpl implements Ignite {
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
-    private static ClusterInfo clusterInfo(SystemDisasterRecoveryStorage systemDisasterRecoveryStorage) {
-        ClusterState clusterState = systemDisasterRecoveryStorage.readClusterState();
+    private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
+        // It is safe to read cluster state from CMG state as it can only be read when the node is initialized and fully started,
+        // and in those moments the cluster state is already available in the CMG state storage.
+
+        ClusterState clusterState = clusterStateStorageManager.getClusterState();
 
         assert clusterState != null : "Cluster state cannot be null at the moment when a client connects";
 
@@ -1443,12 +1452,19 @@ public class IgniteImpl implements Ignite {
      * Asynchronously stops ignite node.
      */
     public CompletableFuture<Void> stopAsync() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return stopFuture;
+        }
+
         ExecutorService lifecycleExecutor = stopExecutor();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22570
-        return lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
+        lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
-                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
+                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
+                .whenCompleteAsync(copyStateTo(stopFuture));
+
+        return stopFuture;
     }
 
     private ExecutorService stopExecutor() {

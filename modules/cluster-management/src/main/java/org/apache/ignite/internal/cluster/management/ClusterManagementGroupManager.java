@@ -525,8 +525,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
-                    clusterIdStore.clusterId(state.clusterTag().clusterId());
-
                     return joinCluster(service, state.clusterTag());
                 });
     }
@@ -782,7 +780,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                     clusterStateStorageMgr,
                                     logicalTopology,
                                     validationManager,
-                                    this::onLogicalTopologyChanged
+                                    this::onLogicalTopologyChanged,
+                                    clusterIdStore
                             ),
                             this::onElectedAsLeader,
                             raftGroupOptionsConfigurer
@@ -825,8 +824,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
                     localStateStorage.saveLocalState(localState);
-
-                    clusterIdStore.clusterId(state.clusterTag().clusterId());
 
                     return joinCluster(service, state.clusterTag());
                 });

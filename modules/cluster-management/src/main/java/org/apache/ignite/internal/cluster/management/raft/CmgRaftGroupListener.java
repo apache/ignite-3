@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
@@ -75,6 +76,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final LongConsumer onLogicalTopologyChanged;
 
+    private final ClusterIdStore clusterIdStore;
+
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
     /**
@@ -84,17 +87,20 @@ public class CmgRaftGroupListener implements RaftGroupListener {
      * @param logicalTopology Logical topology that will be updated by this listener.
      * @param validationManager Validator for cluster nodes.
      * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
+     * @param clusterIdStore Used to store cluster ID when init command is executed.
      */
     public CmgRaftGroupListener(
             ClusterStateStorageManager storageManager,
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
-            LongConsumer onLogicalTopologyChanged
+            LongConsumer onLogicalTopologyChanged,
+            ClusterIdStore clusterIdStore
     ) {
         this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
         this.validationManager = validationManager;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
+        this.clusterIdStore = clusterIdStore;
     }
 
     @Override
@@ -198,6 +204,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         if (state == null) {
             storageManager.putClusterState(command.clusterState());
+
+            clusterIdStore.clusterId(command.clusterState().clusterTag().clusterId());
 
             return command.clusterState();
         } else {

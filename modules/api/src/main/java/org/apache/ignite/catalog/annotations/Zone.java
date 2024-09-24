@@ -57,11 +57,11 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
-     * Affinity function.
+     * Distribution algorithm.
      *
-     * @return Affinity function.
+     * @return Distribution algorithm.
      */
-    String affinityFunction() default "";
+    String distributionAlgorithm() default "";
 
     /**
      * Timeout in seconds between node added or node left topology event itself and data nodes switch.

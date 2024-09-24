@@ -170,9 +170,6 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedIgniteImpl0);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodeRestartsInternally(2);
     }
 
     @Test

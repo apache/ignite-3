@@ -106,9 +106,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInternally(3, 4, 5);
     }
 
     @Test
@@ -148,9 +145,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodeRestartsInternally(2);
     }
 
     @Test
@@ -216,9 +210,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         LogicalTopologySnapshot topologySnapshot = igniteImpl(2).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(0, topologySnapshot);
         assertTopologyContainsNode(1, topologySnapshot);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInternally(3, 4);
     }
 
     @Test
@@ -232,9 +223,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         initiateCmgRepairVia(igniteImpl(1), 1);
         IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInternally(0, 1);
     }
 
     @Test
@@ -334,9 +322,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         cluster.startNode(3);
         waitTillDataNodesBecome(new int[]{1, 2, 3}, zoneId, restartedIgniteImpl1);
-
-        // TODO: IGNITE-23096 - remove after the hang is fixed.
-        waitTillNodesRestartInternally(1, 2);
     }
 
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {

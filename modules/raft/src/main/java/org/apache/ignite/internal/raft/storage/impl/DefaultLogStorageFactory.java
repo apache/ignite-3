@@ -220,7 +220,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        assert raftOptions.isSync() == dbOptions.useFsync() : "Sync options must be the same";
+        // raftOptions is ignored as fsync status is passed via dbOptions.
 
         return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, writeOptions, executorService);
     }
@@ -288,6 +288,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
                 .setCreateIfMissing(true)
                 .setCreateMissingColumnFamilies(true)
                 .setUseFsync(fsync);
+    }
+
+    /** Returns current {@link DBOptions} (or {@code null} if the factory is not started yet).. */
+    @TestOnly
+    public @Nullable DBOptions dbOptions() {
+        return dbOptions;
+    }
+
+    /** Returns current {@link WriteOptions} (or {@code null} if the factory is not started yet). */
+    @TestOnly
+    public @Nullable WriteOptions writeOptions() {
+        return writeOptions;
     }
 
     /**
