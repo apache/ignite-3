@@ -662,7 +662,12 @@ public class ClientTable implements Table {
         }
     }
 
-    int partitionCount() {
+    /**
+     * Gets partition count when available; otherwise, returns -1.
+     *
+     * @return Partition count, or -1 if not available.
+     */
+    int tryGetPartitionCount() {
         return partitionCount;
     }
 
