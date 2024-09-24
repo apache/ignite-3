@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -27,10 +33,9 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -46,36 +51,53 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
 
-    private int id = 0;
+    private final AtomicInteger id = new AtomicInteger();
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
+    @Param({"1"})
+    private int batch;
+
+    @Param({"false"})
+    private boolean fsync;
+
+    @Param({"8"})
+    private int partitionCount;
+
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
+//        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
+//        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         super.nodeSetUp();
-    }
 
-    /**
-     * Initializes the tuple.
-     */
-    @Setup
-    public void setUp() {
+        //igniteImpl.metricManager().enable("raft");
+
         kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
         for (int i = 1; i < 11; i++) {
             tuple.set("field" + i, FIELD_VAL);
         }
     }
 
-    @TearDown
-    public void tearDown() {
-        System.out.println("Inserted " + id + " tuples");
+    @Override
+    public void nodeTearDown() throws Exception {
+        MetricSet set = igniteImpl.metricManager().metricSnapshot().get1().get("raft");
+        DistributionMetric b = set.get("raft.shared.disruptor.Batch");
+
+        System.out.println(b);
+
+        DistributionMetric stripes = set.get("raft.shared.disruptor.Stripes");
+
+        System.out.println(stripes);
+
+        super.nodeTearDown();
+
+        System.out.println("Inserted " + (id.get() * batch) + " tuples");
     }
 
     /**
@@ -83,7 +105,18 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void upsert() {
-        kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
+        List<CompletableFuture<Void>> futs = new ArrayList<>();
+
+        for (int i = 0; i < batch - 1; i++) {
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
+            futs.add(fut);
+        }
+
+        for (CompletableFuture<Void> fut : futs) {
+            fut.join();
+        }
+
+        kvView.put(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
     }
 
     /**
@@ -98,12 +131,22 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
+    protected boolean fsync() {
+        return fsync;
+    }
+
+    @Override
     protected int nodes() {
         return 1;
     }
 
     @Override
     protected int partitionCount() {
-        return 8;
+        return partitionCount;
+    }
+
+    @Override
+    protected int replicaCount() {
+        return 1;
     }
 }

@@ -79,6 +79,9 @@ public final class IgniteSystemProperties {
     /** Skip storage update in a benchmark. */
     public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
 
+    /** Use shared event loop. */
+    public static final String IGNITE_USE_SHARED_EVENT_LOOP = "IGNITE_USE_SHARED_EVENT_LOOP";
+
     /**
      * Enforces singleton.
      */

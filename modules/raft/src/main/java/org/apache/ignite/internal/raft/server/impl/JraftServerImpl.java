@@ -50,6 +50,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -71,7 +72,9 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.ThreadUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -82,8 +85,12 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
+import org.apache.ignite.raft.jraft.core.NodeImpl.ILogEntryAndClosure;
 import org.apache.ignite.raft.jraft.core.NodeImpl.LogEntryAndClosure;
+import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
+import org.apache.ignite.raft.jraft.core.SharedEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -97,6 +104,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -262,6 +270,11 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
+//        requestExecutor = opts.isUseVirtualThreads() ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newFixedThreadPool(
+//                opts.getRaftRpcThreadPoolSize(),
+//                IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
+//        );
+
         requestExecutor = Executors.newFixedThreadPool(
                 opts.getRaftRpcThreadPoolSize(),
                 IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
@@ -282,59 +295,99 @@ public class JraftServerImpl implements RaftServer {
             opts.setRaftMetrics(new RaftMetricSource(opts.getStripes(), opts.getLogStripesCount()));
         }
 
-        if (opts.getfSMCallerExecutorDisruptor() == null) {
-            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+        boolean useSharedDisruptor = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP);
+
+        if (!useSharedDisruptor) {
+            if (opts.getfSMCallerExecutorDisruptor() == null) {
+                opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-FSMCaller-Disruptor",
+                        (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        ApplyTask::new,
+                        opts.getStripes(),
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                ));
+            }
+
+            if (opts.getNodeApplyDisruptor() == null) {
+                opts.setNodeApplyDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-NodeImpl-Disruptor",
+                        (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        LogEntryAndClosure::new,
+                        opts.getStripes(),
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                ));
+            }
+
+            if (opts.getReadOnlyServiceDisruptor() == null) {
+                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-ReadOnlyService-Disruptor",
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        ReadIndexEvent::new,
+                        opts.getStripes(),
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                ));
+            }
+
+            if (opts.getLogManagerDisruptor() == null) {
+                opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-LogManager-Disruptor",
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        StableClosureEvent::new,
+                        opts.getLogStripesCount(),
+                        true,
+                        opts.isLogYieldStrategy(),
+                        opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                ));
+
+                opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            }
+        } else {
+            StripedDisruptor<SharedEvent> sharedDisruptor = opts.getfSMCallerExecutorDisruptor() == null ? new StripedDisruptor<>(
                     opts.getServerName(),
-                    "JRaft-FSMCaller-Disruptor",
+                    "JRaft-Shared-Disruptor",
                     (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                     opts.getRaftOptions().getDisruptorBufferSize(),
-                    ApplyTask::new,
+                    SharedEvent::new,
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
-            ));
-        }
+                    opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
+            ) : null;
 
-        if (opts.getNodeApplyDisruptor() == null) {
-            opts.setNodeApplyDisruptor(new StripedDisruptor<>(
-                    opts.getServerName(),
-                    "JRaft-NodeImpl-Disruptor",
-                    opts.getRaftOptions().getDisruptorBufferSize(),
-                    LogEntryAndClosure::new,
-                    opts.getStripes(),
-                    false,
-                    false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
-            ));
-        }
+            if (sharedDisruptor != null) {
+                assert opts.getfSMCallerExecutorDisruptor() == null && opts.getLogManagerDisruptor() == null
+                        && opts.getNodeApplyDisruptor() == null : "Invalid configuration";
 
-        if (opts.getReadOnlyServiceDisruptor() == null) {
-            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
-                    opts.getServerName(),
-                    "JRaft-ReadOnlyService-Disruptor",
-                    opts.getRaftOptions().getDisruptorBufferSize(),
-                    ReadIndexEvent::new,
-                    opts.getStripes(),
-                    false,
-                    false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
-            ));
-        }
+                opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
+                opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
+                opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+                opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+            }
 
-        if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<>(
-                    opts.getServerName(),
-                    "JRaft-LogManager-Disruptor",
-                    opts.getRaftOptions().getDisruptorBufferSize(),
-                    StableClosureEvent::new,
-                    opts.getLogStripesCount(),
-                    true,
-                    opts.isLogYieldStrategy(),
-                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
-            ));
-
-            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            if (opts.getReadOnlyServiceDisruptor() == null) {
+                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-ReadOnlyService-Disruptor",
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        ReadIndexEvent::new,
+                        opts.getStripes(),
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                ));
+            }
         }
 
         rpcServer.init(null);

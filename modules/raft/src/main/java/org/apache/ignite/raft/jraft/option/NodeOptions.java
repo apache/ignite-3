@@ -222,12 +222,12 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Striped disruptor for FSMCaller service. The queue serves of an Append entry requests in the RAFT state machine.
      */
-    private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
+    private StripedDisruptor<FSMCallerImpl.IApplyTask> fSMCallerExecutorDisruptor;
 
     /**
      * Striped disruptor for Node apply service.
      */
-    private StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeApplyDisruptor;
+    private StripedDisruptor<NodeImpl.ILogEntryAndClosure> nodeApplyDisruptor;
 
     /**
      * Striped disruptor for Read only service.
@@ -237,7 +237,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Striped disruptor for Log manager service.
      */
-    private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+    private StripedDisruptor<LogManagerImpl.IStableClosureEvent> logManagerDisruptor;
 
     /** A hybrid clock */
     private HybridClock clock = new HybridClockImpl();
@@ -271,6 +271,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private Marshaller commandsMarshaller;
 
     private RaftMetricSource raftMetrics;
+
+    /** Use virtual threads flag. */
+    private boolean useVirtualThreads;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -628,19 +631,19 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.serverName = serverName;
     }
 
-    public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
+    public StripedDisruptor<FSMCallerImpl.IApplyTask> getfSMCallerExecutorDisruptor() {
         return this.fSMCallerExecutorDisruptor;
     }
 
-    public void setfSMCallerExecutorDisruptor(StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor) {
+    public void setfSMCallerExecutorDisruptor(StripedDisruptor<FSMCallerImpl.IApplyTask> fSMCallerExecutorDisruptor) {
         this.fSMCallerExecutorDisruptor = fSMCallerExecutorDisruptor;
     }
 
-    public StripedDisruptor<NodeImpl.LogEntryAndClosure> getNodeApplyDisruptor() {
+    public StripedDisruptor<NodeImpl.ILogEntryAndClosure> getNodeApplyDisruptor() {
         return this.nodeApplyDisruptor;
     }
 
-    public void setNodeApplyDisruptor(StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeApplyDisruptor) {
+    public void setNodeApplyDisruptor(StripedDisruptor<NodeImpl.ILogEntryAndClosure> nodeApplyDisruptor) {
         this.nodeApplyDisruptor = nodeApplyDisruptor;
     }
 
@@ -652,11 +655,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.readOnlyServiceDisruptor = readOnlyServiceDisruptor;
     }
 
-    public StripedDisruptor<LogManagerImpl.StableClosureEvent> getLogManagerDisruptor() {
+    public StripedDisruptor<LogManagerImpl.IStableClosureEvent> getLogManagerDisruptor() {
         return this.logManagerDisruptor;
     }
 
-    public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor) {
+    public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.IStableClosureEvent> logManagerDisruptor) {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
@@ -718,6 +721,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setStripes(this.getStripes());
         nodeOptions.setLogStripesCount(this.getLogStripesCount());
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
+        nodeOptions.setUseVirtualThreads(this.isUseVirtualThreads());
 
         return nodeOptions;
     }
@@ -764,5 +768,13 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setCommandsMarshaller(Marshaller commandsMarshaller) {
         this.commandsMarshaller = commandsMarshaller;
+    }
+
+    public boolean isUseVirtualThreads() {
+        return useVirtualThreads;
+    }
+
+    public void setUseVirtualThreads(boolean useVirtualThreads) {
+        this.useVirtualThreads = useVirtualThreads;
     }
 }

@@ -102,6 +102,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -283,19 +285,19 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 "unit-test",
                 "JRaft-FSMCaller-Disruptor",
                 1,
-                () -> new ApplyTask(),
+                ApplyTask::new,
                 1,
                 false,
                 false,
                 null
         ) {
             @Override
-            public RingBuffer<ApplyTask> subscribe(
-                    NodeId group,
-                    EventHandler<ApplyTask> handler,
-                    BiConsumer<ApplyTask, Throwable> exceptionHandler
+            public RingBuffer<IApplyTask> subscribe(
+                    NodeId nodeId, EventHandler<IApplyTask> handler,
+                    DisruptorEventSourceType type,
+                    BiConsumer<IApplyTask, Throwable> exceptionHandler
             ) {
-                return super.subscribe(group, (event, sequence, endOfBatch) -> {
+                return super.subscribe(nodeId, (event, sequence, endOfBatch) -> {
                     if (block.compareAndSet(true, false)) {
                         log.info("Raft task is blocked.");
 
@@ -305,7 +307,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     }
 
                     handler.onEvent(event, sequence, endOfBatch);
-                }, exceptionHandler);
+                }, type, exceptionHandler);
             }
         });
 
@@ -3882,7 +3884,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(appendEntriesResponse.get());
     }
 
-    private NodeOptions createNodeOptions(int nodeIdx) {
+    protected NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));

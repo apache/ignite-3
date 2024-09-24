@@ -2751,11 +2751,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resultFuture.thenCompose(res -> {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
-                    if (!updateCommandResult.isPrimaryReplicaMatch()) {
+                    if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                         throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
-                    if (updateCommandResult.isPrimaryInPeersAndLearners()) {
+                    if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
                     } else {
                         if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
