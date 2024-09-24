@@ -61,6 +61,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
