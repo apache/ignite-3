@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.compute.executor;
 
+import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.fromTuple;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMATCH_ERR;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,6 +33,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -43,8 +48,9 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,7 +100,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobInstance, context, inputMarshaller),
+                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
@@ -104,15 +110,31 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
             T input,
+            Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
             @Nullable Marshaller<T, byte[]> inputMarshaller
     ) {
-        return () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
+        return () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input, jobClass));
     }
 
-    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaller<T, byte[]> marshaller, Object input) {
-        if (marshaller == null || input == null) {
+    private static <T, R> @Nullable T unmarshallOrNotIfNull(
+            @Nullable Marshaller<T, byte[]> marshaller,
+            Object input,
+            Class<? extends ComputeJob<T, R>> jobClass
+    ) {
+        if (input == null) {
+            return null;
+        }
+
+        if (marshaller == null) {
+            if (input instanceof Tuple) {
+                Class<?> actualArgumentType = getArgumentType(jobClass);
+                // If input was marshalled as Tuple and argument type is not tuple then it's a pojo.
+                if (actualArgumentType != null && actualArgumentType != Tuple.class) {
+                    return (T) unmarshallPojo(actualArgumentType, (Tuple) input);
+                }
+            }
             return (T) input;
         }
 
@@ -120,7 +142,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             try {
                 return marshaller.unmarshal((byte[]) input);
             } catch (Exception ex) {
-                throw new ComputeException(Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR,
                         "Exception in user-defined marshaller: " + ex.getMessage(),
                         ex
                 );
@@ -128,13 +150,46 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         }
 
         throw new ComputeException(
-                Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                MARSHALLING_TYPE_MISMATCH_ERR,
                 "Marshaller is defined, expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
                         + "If you want to use default marshalling strategy, "
                         + "then you should not define your marshaller in the job. "
                         + "If you would like to use your own marshaller, then double-check "
                         + "that both of them are defined in the client and in the server."
         );
+    }
+
+    static <T, R> @Nullable Class<?> getArgumentType(Class<? extends ComputeJob<T, R>> jobClass) {
+        for (Method method : jobClass.getDeclaredMethods()) {
+            if (method.getParameterCount() == 2
+                    && method.getParameterTypes()[0] == JobExecutionContext.class
+                    && method.getParameterTypes()[1] != Object.class // skip type erased method
+                    && method.getReturnType() == CompletableFuture.class
+            ) {
+                return method.getParameterTypes()[1];
+            }
+        }
+        return null;
+    }
+
+    private static Object unmarshallPojo(Class<?> actualArgumentType, Tuple input) {
+        try {
+            Object obj = actualArgumentType.getConstructor().newInstance();
+
+            fromTuple(obj, input);
+
+            return obj;
+        } catch (NoSuchMethodException e) {
+            throw new UnmarshallingException("Class " + actualArgumentType.getName() + " doesn't have public default constructor", e);
+        } catch (InvocationTargetException e) {
+            throw new UnmarshallingException("Constructor has thrown an exception", e);
+        } catch (InstantiationException e) {
+            throw new UnmarshallingException("Can't instantiate an object of class " + actualArgumentType.getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new UnmarshallingException("Constructor is inaccessible", e);
+        } catch (PojoConversionException e) {
+            throw new UnmarshallingException("Can't unpack object", e);
+        }
     }
 
     @Override

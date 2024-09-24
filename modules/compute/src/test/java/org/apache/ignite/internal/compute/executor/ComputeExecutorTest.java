@@ -205,7 +205,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 null,
-                new Object[]{runTimes}
+                runTimes
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
@@ -214,14 +214,17 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         assertThat(runTimes.get(), is(1));
     }
 
-    private static class JobSuccess implements ComputeJob<Object[], Integer> {
+    private static class JobSuccess implements ComputeJob<AtomicInteger, Integer> {
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, AtomicInteger runTimes) {
             return completedFuture(runTimes.incrementAndGet());
         }
+    }
 
+    @Test
+    void findJobArgumentType() {
+        assertThat(ComputeExecutorImpl.getArgumentType(JobSuccess.class), is(AtomicInteger.class));
     }
 
     @Test

@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_OBJECT_ID;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_POJO_ID;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_TUPLE_ID;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.NATIVE_ID;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_CUSTOM;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_POJO;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_TUPLE;
+import static org.apache.ignite.internal.client.proto.ComputeJobType.NATIVE;
 import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.toTuple;
 
 import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -34,6 +36,11 @@ import org.jetbrains.annotations.Nullable;
 
 /** Packs job arguments and results. */
 public final class ClientComputeJobPacker {
+
+    private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
+            .map(ColumnType::javaClass)
+            .collect(Collectors.toUnmodifiableSet());
+
     /**
      * Packs compute job argument. If the marshaller is provided, it will be used to marshal the argument. If the marshaller is not provided
      * and the argument is a native column type or a tuple, it will be packed accordingly.
@@ -68,7 +75,7 @@ public final class ClientComputeJobPacker {
         }
 
         if (marshaller != null) {
-            packer.packInt(MARSHALLED_OBJECT_ID);
+            packer.packInt(MARSHALLED_CUSTOM);
             byte[] marshalled = marshaller.marshal(obj);
 
             if (marshalled == null) {
@@ -81,31 +88,30 @@ public final class ClientComputeJobPacker {
         }
 
         if (obj instanceof Tuple) {
-            packer.packInt(MARSHALLED_TUPLE_ID);
+            packer.packInt(MARSHALLED_TUPLE);
 
             packTuple((Tuple) obj, packer);
             return;
         }
 
         if (isNativeType(obj.getClass())) {
-            packer.packInt(NATIVE_ID);
+            packer.packInt(NATIVE);
 
             packer.packObjectAsBinaryTuple(obj);
             return;
         }
 
         try {
-            Tuple tuple = toTuple(obj);
-            packer.packInt(MARSHALLED_POJO_ID);
-            packer.packString(obj.getClass().getName());
-            packTuple(tuple, packer);
+            packer.packInt(MARSHALLED_POJO);
+
+            packTuple(toTuple(obj), packer);
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object", e);
         }
     }
 
     private static boolean isNativeType(Class<?> clazz) {
-        return Arrays.stream(ColumnType.values()).map(ColumnType::javaClass).anyMatch(c -> c == clazz);
+        return NATIVE_TYPES.contains(clazz);
     }
 
     private static void packTuple(Tuple tuple, ClientMessagePacker packer) {

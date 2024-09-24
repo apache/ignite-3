@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -25,13 +26,14 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
+import org.apache.ignite.marshalling.UnmarshallingException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test the OOTB support for POJOs in compute api.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
@@ -43,11 +45,29 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
         // When run job with custom marshaller for pojo argument and result.
         PojoResult result = client().compute().execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class).build(),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
         // Then the job returns the expected result.
         assertThat(result.getLongValue(), is(3L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void pojoJobWithoutResultClass(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = node(targetNodeIdx);
+
+        // When run job with custom marshaller for pojo argument and result.
+        assertThrows(
+                UnmarshallingException.class,
+                () -> client().compute().execute(
+                        JobTarget.node(targetNode),
+                        JobDescriptor.builder(PojoJob.class).build(),
+                        new PojoArg().setIntValue(2).setStrValue("1")
+                ),
+                "Can not unpack object because the pojo class is not provided but the object was packed as pojo."
+        );
     }
 }

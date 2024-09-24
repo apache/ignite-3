@@ -272,7 +272,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         List<String> result = client().compute().executeMapReduce(
                 TaskDescriptor.builder(MapReduce.class)
                         .splitJobArgumentMarshaller(ByteArrayMarshaller.create())
-                        .reduceJobArgumentMarshaller(ByteArrayMarshaller.create())
+                        .reduceJobResultMarshaller(ByteArrayMarshaller.create())
                         .build(),
                 // input_O goes to 0 node and input_1 goes to 1 node
                 List.of("Input_0", "Input_1")
