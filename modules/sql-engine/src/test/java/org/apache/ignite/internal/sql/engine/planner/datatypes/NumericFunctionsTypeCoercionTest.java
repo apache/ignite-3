@@ -423,9 +423,41 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     }
 
     private static Stream<NumericPair> round2Args() {
-        List<NativeType> ints = List.of(NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64);
+        return Arrays.stream(NumericPair.values()).filter(p -> INT_TYPES.contains(p.second()));
+    }
 
-        return Arrays.stream(NumericPair.values()).filter(p -> ints.contains(p.second()));
+    @ParameterizedTest
+    @MethodSource("numeric")
+    public void ceil(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithSingleColumnTable(type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
+        NativeType returnType;
+        if (type instanceof DecimalNativeType) {
+            returnType = decimalWithZeroScale((DecimalNativeType) type);
+        } else {
+            returnType = type;
+        }
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(returnType);
+
+        assertPlan("SELECT CEIL(C1) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("numeric")
+    public void floor(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithSingleColumnTable(type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
+        NativeType returnType;
+        if (type instanceof DecimalNativeType) {
+            returnType = decimalWithZeroScale((DecimalNativeType) type);
+        } else {
+            returnType = type;
+        }
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(returnType);
+
+        assertPlan("SELECT FLOOR(C1) FROM T", schema, matcher::matches, List.of());
     }
 
     @ParameterizedTest
