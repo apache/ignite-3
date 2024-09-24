@@ -74,15 +74,11 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     }
 
     private static Stream<Arguments> modArgs() {
-        Stream<Arguments> intTypes =
-                Arrays.stream(NumericPair.values())
-                        .filter(p -> INT_TYPES.contains(p.first()))
-                        .filter(p -> INT_TYPES.contains(p.second()))
-                        .map(p -> Arguments.of(
-                                Types.typePair(p.first(), p.second()),
+        Stream<TypePair> intIntTypes = INT_TYPES.stream().flatMap(t1 -> INT_TYPES.stream().map(t2 -> Types.typePair(t1, t2)));
+
+        Stream<Arguments> intInt = intIntTypes.map(p -> Arguments.of(Types.typePair(p.first(), p.second()),
                                 ofTypeWithoutCast(p.first()), ofTypeWithoutCast(p.second()),
-                                namedType(p.second()))
-                        );
+                                namedType(p.second())));
 
         Stream<Arguments> approxNumInt = Stream.of(
                 Arguments.of(
@@ -168,7 +164,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                         namedType(Types.DECIMAL_30_15))
         );
 
-        return Stream.concat(Stream.concat(intTypes, approxNumInt), intApproxTypes);
+        return Stream.concat(Stream.concat(intInt, approxNumInt), intApproxTypes);
     }
 
     @ParameterizedTest
