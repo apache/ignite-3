@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -39,8 +34,6 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -59,6 +52,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     private final LogicalTopologyService logicalTopologyService;
 
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
+
+    private final MetaStorageLearnerManager learnerManager;
 
     /**
      * Future required to enable serialized processing of topology events.
@@ -103,6 +98,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
+            MetaStorageLearnerManager learnerManager,
             ClusterTimeImpl clusterTime,
             CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
             List<ElectionListener> electionListeners,
@@ -112,6 +108,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
         this.metaStorageSvcFut = metaStorageSvcFut;
+        this.learnerManager = learnerManager;
         this.clusterTime = clusterTime;
         this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
         this.electionListeners = electionListeners;
@@ -120,6 +117,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     @Override
     public void onLeaderElected(ClusterNode node, long term) {
+        LOG.info("New leader is elected for Metastorage, leader {}, term {}", node, term);
+
         electionListeners.forEach(listener -> listener.onLeaderElected(node));
 
         boolean weAreNewLeader = node.name().equals(nodeName);
@@ -179,10 +178,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private CompletableFuture<Void> updateLearnersIfSecondaryDutiesAreNotPaused(long term) {
         if (leaderSecondaryDutiesPaused.getAsBoolean()) {
+            LOG.info("Skipping learners update as secondary duties are still paused");
+
             return nullCompletedFuture();
         }
 
-        return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
+        LOG.info("Actually updating learners with term {}", term);
+
+        return learnerManager.updateLearners(term);
     }
 
     private CompletableFuture<Void> syncTimeIfSecondaryDutiesAreNotPaused(HybridTimestamp safeTime, MetaStorageServiceImpl service) {
@@ -202,12 +205,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {
         @Override
         public void onNodeValidated(LogicalNode validatedNode) {
-            execute((raftService, term) -> addLearner(raftService, validatedNode));
+            execute((raftService, term) -> learnerManager.addLearner(raftService, validatedNode));
         }
 
         @Override
         public void onNodeInvalidated(LogicalNode invalidatedNode) {
-            execute((raftService, term) -> removeLearner(raftService, invalidatedNode));
+            execute((raftService, term) -> learnerManager.removeLearner(raftService, invalidatedNode));
         }
 
         @Override
@@ -217,7 +220,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            execute(MetaStorageLeaderElectionListener.this::resetLearners);
+            execute(learnerManager::resetLearners);
         }
     }
 
@@ -259,69 +262,6 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                         .handle((v, e) -> metaStorageSvcFut.thenCompose(service -> action.apply(service.raftGroupService(), term)))
                         .thenCompose(Function.identity());
             }
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
-        return updateConfigUnderLock(() -> isPeer(raftService, learner)
-                ? nullCompletedFuture()
-                : raftService.addLearners(List.of(new Peer(learner.name()))));
-    }
-
-    private static boolean isPeer(RaftGroupService raftService, ClusterNode node) {
-        return raftService.peers().stream().anyMatch(peer -> peer.consistentId().equals(node.name()));
-    }
-
-    private CompletableFuture<Void> removeLearner(RaftGroupService raftService, ClusterNode learner) {
-        return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
-                .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
-                    if (isPeer(raftService, learner)) {
-                        return nullCompletedFuture();
-                    }
-
-                    // Due to possible races, we can have multiple versions of the same node in the validated set. We only remove
-                    // a learner if there are no such versions left.
-                    if (validatedNodes.stream().anyMatch(n -> n.name().equals(learner.name()))) {
-                        return nullCompletedFuture();
-                    }
-
-                    return raftService.removeLearners(List.of(new Peer(learner.name())));
-                })));
-    }
-
-    private CompletableFuture<Void> resetLearners(RaftGroupService raftService, long term) {
-        return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
-                .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
-                    Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
-
-                    Set<String> learners = validatedNodes.stream()
-                            .map(ClusterNode::name)
-                            .filter(name -> !peers.contains(name))
-                            .collect(toSet());
-
-                    PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                    // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
-                })));
-    }
-
-    private CompletableFuture<Void> updateConfigUnderLock(Supplier<CompletableFuture<Void>> action) {
-        if (!busyLock.enterBusy()) {
-            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
-
-            return nullCompletedFuture();
-        }
-
-        try {
-            return action.get()
-                    .whenComplete((v, e) -> {
-                        if (e != null && !(unwrapCause(e) instanceof CancellationException)) {
-                            LOG.error("Unable to change peers on topology update", e);
-                        }
-                    });
         } finally {
             busyLock.leaveBusy();
         }

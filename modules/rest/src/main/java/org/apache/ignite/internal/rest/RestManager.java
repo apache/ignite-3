@@ -42,7 +42,8 @@ public class RestManager {
             "/management/v1/configuration/node",
             "/management/v1/cluster/init",
             "/management/v1/cluster/topology/physical",
-            "/management/v1/node"
+            "/management/v1/node",
+            "/management/v1/recovery/cluster"
     };
 
     private final String[] availableOnStartEndpoints;

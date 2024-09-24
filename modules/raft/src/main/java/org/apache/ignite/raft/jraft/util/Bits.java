@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import org.apache.ignite.internal.util.GridUnsafe;
+
 /**
  * Bits util.
  */
@@ -42,5 +44,57 @@ public class Bits {
 
     public static void putLong(final byte[] b, final int off, final long val) {
         HeapByteBufUtil.setLong(b, off, val);
+    }
+
+    public static void putShortLittleEndian(long addr, short value) {
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putShort(addr, Short.reverseBytes(value));
+        } else {
+            GridUnsafe.putShort(addr, value);
+        }
+    }
+
+    public static void putShortLittleEndian(byte[] b, int off, short value) {
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putShort(b, GridUnsafe.BYTE_ARR_OFF + off, Short.reverseBytes(value));
+        } else {
+            GridUnsafe.putShort(b, GridUnsafe.BYTE_ARR_OFF + off, value);
+        }
+    }
+
+    public static short getShortLittleEndian(byte[] b, int off) {
+        short value = GridUnsafe.getShort(b, GridUnsafe.BYTE_ARR_OFF + off);
+
+        return GridUnsafe.IS_BIG_ENDIAN ? Short.reverseBytes(value) : value;
+    }
+
+    public static void putIntLittleEndian(long addr, int value) {
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putInt(addr, Integer.reverseBytes(value));
+        } else {
+            GridUnsafe.putInt(addr, value);
+        }
+    }
+
+    public static void putLongLittleEndian(long addr, long value) {
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putLong(addr, Long.reverseBytes(value));
+        } else {
+            GridUnsafe.putLong(addr, value);
+        }
+    }
+
+    public static void putLongLittleEndian(byte[] b, int off, long value) {
+        if (GridUnsafe.IS_BIG_ENDIAN) {
+            GridUnsafe.putLong(b, GridUnsafe.BYTE_ARR_OFF + off, Long.reverseBytes(value));
+        } else {
+            GridUnsafe.putLong(b, GridUnsafe.BYTE_ARR_OFF + off, value);
+        }
+    }
+
+    public static long getLongLittleEndian(byte[] b, int off) {
+        long value = GridUnsafe.getLong(b, GridUnsafe.BYTE_ARR_OFF + off);
+
+        return GridUnsafe.IS_BIG_ENDIAN ? Long.reverseBytes(value) : value;
     }
 }

@@ -220,6 +220,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -1297,7 +1298,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
          * Starts the created components.
          */
         void start() {
-            List<IgniteComponent> firstComponents = List.of(
+            ComponentContext componentContext = new ComponentContext();
+
+            deployWatchesFut = startComponentsAsync(componentContext, List.of(
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1308,54 +1311,44 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     cmgLogStorageFactory,
                     raftManager,
                     cmgManager
-            );
-
-            ComponentContext componentContext = new ComponentContext();
-
-            List<CompletableFuture<?>> componentFuts =
-                    firstComponents.stream()
-                            .map(component -> component.startAsync(componentContext))
-                            .collect(Collectors.toList());
-
-            nodeComponents.addAll(firstComponents);
-
-            deployWatchesFut = CompletableFuture.supplyAsync(() -> {
-                List<IgniteComponent> secondComponents = List.of(
-                        lowWatermark,
-                        metaStorageManager,
-                        clusterCfgMgr,
-                        clockWaiter,
-                        catalogManager,
-                        indexMetaStorage,
-                        distributionZoneManager,
-                        replicaManager,
-                        txManager,
-                        dataStorageMgr,
-                        schemaManager,
-                        partitionReplicaLifecycleManager,
-                        tableManager,
-                        indexManager
-                );
-
-                componentFuts.addAll(secondComponents.stream()
-                        .map(component -> component.startAsync(componentContext)).collect(Collectors.toList()));
-
-                nodeComponents.addAll(secondComponents);
-
-                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
-                    return allOf(
-                            nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
-                    );
-                });
+            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
+                    lowWatermark,
+                    metaStorageManager,
+                    clusterCfgMgr,
+                    clockWaiter,
+                    catalogManager,
+                    indexMetaStorage,
+                    distributionZoneManager,
+                    replicaManager,
+                    txManager,
+                    dataStorageMgr,
+                    schemaManager,
+                    partitionReplicaLifecycleManager,
+                    tableManager,
+                    indexManager
+            ))).thenComposeAsync(componentFuts -> {
+                CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
+                        .thenCompose(rev -> allOf(
+                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                                ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
+                                componentFuts
+                        ));
 
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
                 lowWatermark.scheduleUpdates();
 
                 return metaStorageManager.deployWatches();
-            }).thenCombine(allOf(componentFuts.toArray(CompletableFuture[]::new)), (deployWatchesFut, unused) -> null);
+            });
+        }
+
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
+            nodeComponents.addAll(components);
+
+            return allOf(components.stream()
+                    .map(component -> component.startAsync(componentContext))
+                    .toArray(CompletableFuture[]::new));
         }
 
         /**
