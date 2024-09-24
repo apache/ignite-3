@@ -56,7 +56,7 @@ public class DelayedDirtyPageWrite {
     private final DelayedPageReplacementTracker tracker;
 
     /** Full page id to be written on {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
-    private @Nullable FullPageId pageId;
+    private @Nullable FullPageId fullPageId;
 
     /** Page memory to be used in {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
     private @Nullable PersistentPageMemory pageMemory;
@@ -113,7 +113,7 @@ public class DelayedDirtyPageWrite {
 
         copyMemory(srcBufAddr, dstBufAddr, pageSize);
 
-        this.pageId = pageId;
+        this.fullPageId = pageId;
         this.pageMemory = pageMemory;
         this.checkpointPages = checkpointPages;
     }
@@ -125,31 +125,31 @@ public class DelayedDirtyPageWrite {
      * @see #copyPageToTemporaryBuffer(PersistentPageMemory, FullPageId, ByteBuffer, CheckpointPages)
      */
     public void flushCopiedPageIfExists() throws IgniteInternalCheckedException {
-        if (pageId == null) {
+        if (fullPageId == null) {
             return;
         }
 
-        assert pageMemory != null : pageId;
-        assert checkpointPages != null : pageId;
+        assert pageMemory != null : fullPageId;
+        assert checkpointPages != null : fullPageId;
 
         Throwable errorOnWrite = null;
 
-        checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(pageId));
+        checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(fullPageId));
 
         try {
-            flushDirtyPage.write(pageMemory, pageId, byteBufThreadLoc.get());
+            flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
         } catch (Throwable t) {
             errorOnWrite = t;
 
             throw t;
         } finally {
-            checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(pageId));
+            checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(fullPageId));
 
-            checkpointPages.finishReplace(pageId, errorOnWrite);
+            checkpointPages.finishReplace(fullPageId, errorOnWrite);
 
-            tracker.unlock(pageId);
+            tracker.unlock(fullPageId);
 
-            pageId = null;
+            fullPageId = null;
             pageMemory = null;
             checkpointPages = null;
         }

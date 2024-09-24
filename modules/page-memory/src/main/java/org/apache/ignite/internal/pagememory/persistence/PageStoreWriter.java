@@ -22,7 +22,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 
-/** Interface for IO writing dirty pages in {@link PageStore} on checkpoint. */
+/** Interface for writing dirty pages to {@link PageStore} on checkpoint. */
 public interface PageStoreWriter {
     /**
      * Writes page to {@link PageStore}. {@link PersistentPageMemory} will copy page content to buffer before call.

@@ -1499,8 +1499,9 @@ public class PersistentPageMemory implements PageMemory {
          * <p>The replacement will be successful if the following conditions are met:</p>
          * <ul>
          *     <li>Page is not dirty - just replace it.</li>
-         *     <li>page is dirty, then there should be a checkpoint in the process and the following sub-conditions are met:</li>
+         *     <li>Page is dirty, there is a checkpoint in the process and the following sub-conditions are met:</li>
          *     <ul>
+         *         <li>Page belongs to current checkpoint.</li>
          *         <li>If the dirty page sorting phase is complete, otherwise we wait for it. This is necessary so that we can safely
          *         create partition delta files in which the dirty page order must be preserved.</li>
          *         <li>If the checkpoint dirty page writer has not started writing the page or has already written it.</li>
@@ -1512,12 +1513,12 @@ public class PersistentPageMemory implements PageMemory {
          *
          * <p>It is expected that if the method returns {@code true}, it will not be invoked again for the same page ID.</p>
          *
-         * @param pageId Candidate page ID.
+         * @param fullPageId Candidate page ID.
          * @param absPtr Absolute pointer to the candidate page.
          * @return {@code True} if the page replacement was successful, otherwise need to try another one.
          * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
          */
-        public boolean tryToReplacePage(FullPageId pageId, long absPtr) {
+        public boolean tryToReplacePage(FullPageId fullPageId, long absPtr) {
             assert writeLock().isHeldByCurrentThread();
 
             if (isAcquired(absPtr)) {
@@ -1526,28 +1527,28 @@ public class PersistentPageMemory implements PageMemory {
 
             if (isDirty(absPtr)) {
                 CheckpointPages checkpointPages = this.checkpointPages;
-                // Can replace a dirty page only if should be written by a checkpoint.
+                // Can replace a dirty page only if it should be written by a checkpoint.
                 // Safe to invoke because we keep segment write lock and the checkpoint writer must remove pages on the segment read lock.
-                if (checkpointPages != null && checkpointPages.allowToReplace(pageId) && checkpointPages.remove(pageId)) {
+                if (checkpointPages != null && checkpointPages.allowToReplace(fullPageId) && checkpointPages.remove(fullPageId)) {
                     DelayedDirtyPageWrite delayedDirtyPageWrite = delayedPageReplacementTracker.delayedPageWrite();
 
                     delayedDirtyPageWrite.copyPageToTemporaryBuffer(
                             PersistentPageMemory.this,
-                            pageId,
+                            fullPageId,
                             wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
                             checkpointPages
                     );
 
-                    setDirty(pageId, absPtr, false, true);
+                    setDirty(fullPageId, absPtr, false, true);
 
-                    loadedPages.remove(pageId.groupId(), pageId.effectivePageId());
+                    loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
 
                     return true;
                 }
 
                 return false;
             } else {
-                loadedPages.remove(pageId.groupId(), pageId.effectivePageId());
+                loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
 
                 return true;
             }
@@ -2167,7 +2168,7 @@ public class PersistentPageMemory implements PageMemory {
 
     /** Returns {@code true} if a page replacement has occurred at least once. */
     @TestOnly
-    public boolean isPageReplacementOccurs() {
+    public boolean pageReplacementOccurred() {
         return pageReplacementWarned > 0;
     }
 }

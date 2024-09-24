@@ -43,11 +43,11 @@ public class CheckpointPagesTest {
     void testContains() {
         CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0));
 
-        assertTrue(checkpointPages.contains(fullPageId(0, 0)));
-        assertTrue(checkpointPages.contains(fullPageId(1, 0)));
+        assertTrue(checkpointPages.contains(new FullPageId(0, 0)));
+        assertTrue(checkpointPages.contains(new FullPageId(1, 0)));
 
-        assertFalse(checkpointPages.contains(fullPageId(2, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(3, 0)));
+        assertFalse(checkpointPages.contains(new FullPageId(2, 0)));
+        assertFalse(checkpointPages.contains(new FullPageId(3, 0)));
     }
 
     @Test
@@ -62,15 +62,15 @@ public class CheckpointPagesTest {
         CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0), fullPageId(2, 0));
 
         assertTrue(checkpointPages.remove(fullPageId(0, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(2, checkpointPages.size());
 
         assertFalse(checkpointPages.remove(fullPageId(0, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(2, checkpointPages.size());
 
         assertTrue(checkpointPages.remove(fullPageId(1, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(1, checkpointPages.size());
     }
 

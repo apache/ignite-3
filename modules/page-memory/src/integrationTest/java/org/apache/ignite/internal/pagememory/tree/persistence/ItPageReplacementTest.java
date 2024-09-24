@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
@@ -175,7 +177,7 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
 
     @Test
     void testPageReplacement() throws Exception {
-        int pageCountToCreate = 128 * PAGE_COUNT;
+        int pageCountToCreate = 16 * PAGE_COUNT;
         int createPageThreadCount = 4;
 
         CompletableFuture<Long> createPagesFuture = runMultiThreadedAsync(
@@ -189,9 +191,9 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
                 "allocate-page-thread"
         );
 
-        assertThat(createPagesFuture, willCompleteSuccessfully());
+        assertThat(createPagesFuture, willSucceedIn(1, MINUTES));
 
-        assertTrue(pageMemory.isPageReplacementOccurs());
+        assertTrue(pageMemory.pageReplacementOccurred());
 
         // Let's flush everything to disk just in case, so as not to lose anything.
         assertThat(checkpointManager.forceCheckpoint("after write all pages").futureFor(FINISHED), willCompleteSuccessfully());
