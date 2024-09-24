@@ -60,7 +60,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
             ReliableChannel ch,
             CompletableFuture<SubmitResult> reqFuture,
             @Nullable Marshaller<R, byte[]> marshaller,
-            @Nullable Class<R> resultClass
+            @Nullable Class<?> resultClass
     ) {
         this.ch = ch;
 

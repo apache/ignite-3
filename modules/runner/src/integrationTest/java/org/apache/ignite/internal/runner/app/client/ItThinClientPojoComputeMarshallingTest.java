@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobDescriptor.Builder;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
@@ -38,11 +39,11 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
-    void pojoJobWithMarshallers(int targetNodeIdx) {
+    void pojoJob(int targetNodeIdx) {
         // Given target node.
         var targetNode = node(targetNodeIdx);
 
-        // When run job with custom marshaller for pojo argument and result.
+        // When run job with provided pojo result class.
         PojoResult result = client().compute().execute(
                 JobTarget.node(targetNode),
                 JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
@@ -51,6 +52,24 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
 
         // Then the job returns the expected result.
         assertThat(result.getLongValue(), is(3L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void pojoJobWithDifferentClass(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = node(targetNodeIdx);
+
+        // When run job with pojo result class which is different from the actual class in the job.
+        Builder<PojoArg, PojoResult1> builder = JobDescriptor.builder(PojoJob.class.getName());
+        PojoResult1 result = client().compute().execute(
+                JobTarget.node(targetNode),
+                builder.resultClass(PojoResult1.class).build(),
+                new PojoArg().setIntValue(2).setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertThat(result.longValue, is(3L));
     }
 
     @ParameterizedTest
@@ -69,5 +88,31 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
                 ),
                 "Can not unpack object because the pojo class is not provided but the object was packed as pojo."
         );
+    }
+
+    public static class PojoResult1 {
+        public long longValue;
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            PojoResult1 that = (PojoResult1) obj;
+            return longValue == that.longValue;
+        }
+
+        @Override
+        public int hashCode() {
+            return Long.hashCode(longValue);
+        }
+
+        @Override
+        public String toString() {
+            return "PojoResult{" + "longValue=" + longValue + '}';
+        }
     }
 }

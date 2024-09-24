@@ -40,7 +40,7 @@ import org.apache.ignite.internal.client.proto.pojo.ChildPojo;
 import org.apache.ignite.internal.client.proto.pojo.NoSetterPojo;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
 import org.apache.ignite.internal.client.proto.pojo.ThrowableAccessorsPojo;
-import org.apache.ignite.internal.client.proto.pojo.UnmarshallablePojo;
+import org.apache.ignite.internal.client.proto.pojo.UnmarshallablePojos;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
@@ -88,7 +88,11 @@ class ClientComputeJobPackerUnpackerTest {
     private static List<Object> invalidPojo() {
         return List.of(
                 new ChildPojo(),
-                new UnmarshallablePojo(),
+                new UnmarshallablePojos.UnsupportedType(),
+                new UnmarshallablePojos.PrivateField(),
+                new UnmarshallablePojos.StaticField(),
+                new UnmarshallablePojos.InvalidGetterName(),
+                new UnmarshallablePojos.PrivateGetter(),
                 new ThrowableAccessorsPojo()
         );
     }

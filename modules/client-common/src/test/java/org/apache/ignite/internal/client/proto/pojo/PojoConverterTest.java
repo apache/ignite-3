@@ -30,9 +30,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @SuppressWarnings("ThrowableNotThrown")
 class PojoConverterTest {
@@ -58,12 +61,23 @@ class PojoConverterTest {
         );
     }
 
-    @Test
-    void unmarshallablePojo() {
+    private static List<Object> unmarshallablePojos() {
+        return List.of(
+                new UnmarshallablePojos.UnsupportedType(),
+                new UnmarshallablePojos.PrivateField(),
+                new UnmarshallablePojos.StaticField(),
+                new UnmarshallablePojos.InvalidGetterName(),
+                new UnmarshallablePojos.PrivateGetter()
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("unmarshallablePojos")
+    void unmarshallablePojo(Object pojo) {
         assertThrows(
                 PojoConversionException.class,
-                () -> toTuple(new UnmarshallablePojo()),
-                "Class " + UnmarshallablePojo.class.getName() + " doesn't contain any marshallable fields"
+                () -> toTuple(pojo),
+                "Class " + pojo.getClass().getName() + " doesn't contain any marshallable fields"
         );
     }
 

@@ -65,7 +65,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
             ReliableChannel ch,
             CompletableFuture<SubmitTaskResult> reqFuture,
             Marshaller<R, byte[]> resultMarshaller,
-            Class<R> resultClass
+            Class<?> resultClass
     ) {
         this.ch = ch;
 
