@@ -78,7 +78,8 @@ public final class ClientComputeJobUnpacker {
             case MARSHALLED_POJO:
                 if (resultClass == null) {
                     throw new UnmarshallingException(
-                            "Can not unpack object because the pojo class is not provided but the object was packed as pojo."
+                            "Can not unpack object because the pojo class is not provided but the object was packed as pojo. "
+                                    + "Provide Job result type in JobDescriptor.resultClass."
                     );
                 }
                 return unpackPojo(unpacker, resultClass);
@@ -96,7 +97,9 @@ public final class ClientComputeJobUnpacker {
 
             return obj;
         } catch (NoSuchMethodException e) {
-            throw new UnmarshallingException("Class " + pojoClass.getName() + " doesn't have public default constructor", e);
+            throw new UnmarshallingException("Class " + pojoClass.getName() + " doesn't have public default constructor. "
+                    + "Add the default constructor or provide Marshaller for " + pojoClass.getName() + " in JobDescriptor.resultMarshaller",
+                    e);
         } catch (InvocationTargetException e) {
             throw new UnmarshallingException("Constructor has thrown an exception", e);
         } catch (InstantiationException e) {

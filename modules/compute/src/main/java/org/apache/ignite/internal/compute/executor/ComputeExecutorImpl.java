@@ -120,7 +120,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private static <T, R> @Nullable T unmarshallOrNotIfNull(
             @Nullable Marshaller<T, byte[]> marshaller,
-            Object input,
+            @Nullable Object input,
             Class<? extends ComputeJob<T, R>> jobClass
     ) {
         if (input == null) {
@@ -165,6 +165,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                     && method.getParameterTypes()[0] == JobExecutionContext.class
                     && method.getParameterTypes()[1] != Object.class // skip type erased method
                     && method.getReturnType() == CompletableFuture.class
+                    && "executeAsync".equals(method.getName())
             ) {
                 return method.getParameterTypes()[1];
             }
@@ -180,7 +181,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
             return obj;
         } catch (NoSuchMethodException e) {
-            throw new UnmarshallingException("Class " + actualArgumentType.getName() + " doesn't have public default constructor", e);
+            throw new UnmarshallingException("Class " + actualArgumentType.getName() + " doesn't have public default constructor. "
+                    + "Add the constructor or define argument marshaller in the compute job.", e);
         } catch (InvocationTargetException e) {
             throw new UnmarshallingException("Constructor has thrown an exception", e);
         } catch (InstantiationException e) {
