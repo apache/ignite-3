@@ -106,6 +106,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
+
+        waitTillNodesRestartInternally(3, 4, 5);
     }
 
     @Test
