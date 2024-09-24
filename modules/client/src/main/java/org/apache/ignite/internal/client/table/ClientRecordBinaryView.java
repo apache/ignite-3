@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkCollectionForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
@@ -89,7 +90,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
     @Override
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+        checkCollectionForNulls(keyRecs, "keyRecs", "key");
 
         if (keyRecs.isEmpty()) {
             return emptyListCompletedFuture();
@@ -175,7 +176,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         if (recs.isEmpty()) {
             return nullCompletedFuture();

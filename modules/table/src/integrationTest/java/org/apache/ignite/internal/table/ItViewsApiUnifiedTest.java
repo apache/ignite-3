@@ -43,7 +43,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Base class for integration testing of views API.
+ * Base class for integration testing of key-value/record view API.
+ *
+ *<p>This class is used to run each test case in a consistent manner using
+ * different API types (synchronous or asynchronous) and clients (embedded or thin).
  */
 abstract class ItViewsApiUnifiedTest extends ClusterPerClassIntegrationTest {
     private final List<String> tablesToClear = new ArrayList<>();

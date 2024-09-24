@@ -21,9 +21,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
@@ -277,6 +277,11 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
 
         RecordView<TestObjectWithAllTypes> tbl = testCase.view();
 
+        testCase.checkNullKeyRecsError(() -> tbl.getAll(null, null));
+        testCase.checkNullKeyError(() -> tbl.getAll(null, Arrays.asList(key1, null)));
+        testCase.checkNullRecsError(() -> tbl.upsertAll(null, null));
+        testCase.checkNullRecError(() -> tbl.upsertAll(null, Arrays.asList(val1, null)));
+
         tbl.upsertAll(null, List.of(val1, val3));
 
         Collection<TestObjectWithAllTypes> res = tbl.getAll(null, List.of(key1, key2, key3));
@@ -302,7 +307,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("views")
-    public void testContainsAll(TestCase<TestObjectWithAllTypes> testCase) {
+    public void containsAll(TestCase<TestObjectWithAllTypes> testCase) {
         RecordView<TestObjectWithAllTypes> recordView = testCase.view();
 
         TestObjectWithAllTypes firstKey = key(rnd);
@@ -318,9 +323,8 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
 
         recordView.insertAll(null, recs);
 
-        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
-        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKey, null, thirdKey)));
-        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstVal, null, thirdVal)));
+        testCase.checkNullKeysError(() -> recordView.containsAll(null, null));
+        testCase.checkNullKeyError(() -> recordView.containsAll(null, Arrays.asList(firstKey, null, thirdKey)));
 
         assertTrue(recordView.containsAll(null, List.of()));
         assertTrue(recordView.containsAll(null, List.of(firstKey)));

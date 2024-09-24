@@ -504,19 +504,24 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     @ParameterizedTest
     @MethodSource("allTypesViews")
     public void putGetAllTypes(AllTypesTestCase testCase) {
-        Random rnd = new Random();
-        Long key = 42L;
+        try {
+            Random rnd = new Random();
+            Long key = 42L;
 
-        Object val = SchemaTestUtils.generateRandomValue(rnd, testCase.type);
+            Object val = SchemaTestUtils.generateRandomValue(rnd, testCase.type);
 
-        KeyValueView<Long, Object> kvView = testCase.view();
+            KeyValueView<Long, Object> kvView = testCase.view();
 
-        kvView.put(null, key, val);
+            kvView.put(null, key, val);
 
-        if (val instanceof byte[]) {
-            assertArrayEquals((byte[]) val, (byte[]) kvView.get(null, key));
-        } else {
-            assertEquals(val, kvView.get(null, key));
+            if (val instanceof byte[]) {
+                assertArrayEquals((byte[]) val, (byte[]) kvView.get(null, key));
+            } else {
+                assertEquals(val, kvView.get(null, key));
+            }
+        } finally {
+            // It's very inefficient to clear all tables after each test.
+            sql("DELETE FROM " + testCase.tableName);
         }
     }
 
@@ -700,7 +705,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
             for (TestCaseType testType : TestCaseType.values()) {
                 arguments.add(Arguments.of(Named.of(
                         nativeType.spec().name() + " " + testType.description(),
-                        new AllTypesTestCase(factory.create(testType, Long.class, valueClass), nativeType)
+                        new AllTypesTestCase(factory.create(testType, Long.class, valueClass), tableName, nativeType)
                 )));
             }
         }
@@ -733,11 +738,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
         @SuppressWarnings("ThrowableNotThrown")
         private void checkNotNullableColumnError(Executable run) {
-            IgniteTestUtils.assertThrows(
-                    MarshallerException.class,
-                    run,
-                    "Column 'VAL' does not allow NULLs"
-            );
+            IgniteTestUtils.assertThrows(MarshallerException.class, run, "Column 'VAL' does not allow NULLs");
         }
 
         @SuppressWarnings("ThrowableNotThrown")
@@ -764,10 +765,12 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     static class AllTypesTestCase {
         private final NativeType type;
+        private final String tableName;
         private final KeyValueView<Long, Object> view;
 
-        AllTypesTestCase(BaseTestCase<Long, ?> testCase, NativeType type) {
+        AllTypesTestCase(BaseTestCase<Long, ?> testCase, String tableName, NativeType type) {
             this.type = type;
+            this.tableName = tableName;
             this.view = (KeyValueView<Long, Object>) testCase.view();
         }
 

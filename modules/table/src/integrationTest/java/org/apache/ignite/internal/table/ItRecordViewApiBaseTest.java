@@ -19,8 +19,10 @@ package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.RecordView;
 import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
@@ -82,6 +84,31 @@ abstract class ItRecordViewApiBaseTest extends ItViewsApiUnifiedTest {
 
         RecordView<V> view() {
             return view;
+        }
+
+        void checkNullKeyError(Executable run) {
+            checkNpeMessage(run, "key");
+        }
+
+        void checkNullRecError(Executable run) {
+            checkNpeMessage(run, "rec");
+        }
+
+        void checkNullKeysError(Executable run) {
+            checkNpeMessage(run, "keys");
+        }
+
+        void checkNullRecsError(Executable run) {
+            checkNpeMessage(run, "recs");
+        }
+
+        void checkNullKeyRecsError(Executable run) {
+            checkNpeMessage(run, "keyRecs");
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        static void checkNpeMessage(Executable run, String message) {
+            IgniteTestUtils.assertThrows(NullPointerException.class, run, message);
         }
     }
 }

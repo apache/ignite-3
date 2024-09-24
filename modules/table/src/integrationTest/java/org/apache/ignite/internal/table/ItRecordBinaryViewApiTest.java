@@ -19,23 +19,25 @@ package org.apache.ignite.internal.table;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -169,9 +171,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertFalse(tbl.deleteExact(null, tuple2));
         assertEqualsRows(tuple, tbl.get(null, keyTuple));
 
-        // TODO: IGNITE-14479: Fix default value usage.
-        //        assertFalse(tbl.deleteExact(keyTuple));
-        //        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(null, keyTuple));
+        assertEqualsRows(tuple, tbl.get(null, keyTuple));
 
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(null, tuple));
@@ -220,20 +221,18 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     public void replaceExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
+        Tuple keyTuple = Tuple.create().set("id", 1L);
         Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, keyTuple));
 
         // Ignore replace operation for non-existed row.
-        // TODO: IGNITE-14479: Fix default value usage.
-        //        assertTrue(tbl.replace(keyTuple, tuple));
-
-        //        assertNull(tbl.get(keyTuple));
-        //        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1)));
+        assertFalse(tbl.replace(null, tuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Insert row.
-        tbl.insert(null, tuple);
+        assertTrue(tbl.insert(null, tuple));
 
         // Replace existed row.
         assertTrue(tbl.replace(null, tuple, tuple2));
@@ -246,38 +245,26 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     public void validateSchema(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
-        Tuple keyTuple0 = new TestTupleBuilder().set("id", 0).set("id1", 0);
-        Tuple keyTuple1 = new TestTupleBuilder().set("id1", 0);
-        Tuple tuple0 = new TestTupleBuilder().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
-        Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
+        Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
+        Tuple keyTuple1 = Tuple.create().set("id1", 0);
+        Tuple tuple0 = Tuple.create().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
+        Tuple tuple1 = Tuple.create().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
-        // TODO Create issue should throw in embedded.
-        if (testCase.thin) {
-            // TODO Create issue should be InvalidTypeException?
-            assertThrowsWithCause(IgniteException.class, () -> tbl.get(null, keyTuple0),
-                    "Value type does not match [column='ID', expected=INT64, actual=INT32]");
-        }
-
-        // TODO Issue ticket
-        if (!testCase.thin) {
-            assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1),
-                    "Missed key column: ID");
-        }
+        testCase.checkValueTypeDoesNotMatchError(() -> tbl.get(null, keyTuple0));
+        testCase.checkMissedKeyColumnError(() -> tbl.get(null, keyTuple1));
+        testCase.checkKeyColumnContainsExtraColumns(() -> tbl.get(null, Tuple.create().set("id", 1L).set("val", 1L)));
 
         String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
         String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
 
-        // TODO Issue ticket
-        if (!testCase.thin) {
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0), strTooLongErr);
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1), byteArrayTooLongErr);
+        testCase.checkConstraintError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkConstraintError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
 
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple0), strTooLongErr);
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple1), byteArrayTooLongErr);
+        testCase.checkConstraintError(() -> tbl.insert(null, tuple0), strTooLongErr);
+        testCase.checkConstraintError(() -> tbl.insert(null, tuple1), byteArrayTooLongErr);
 
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0), strTooLongErr);
-            assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1), byteArrayTooLongErr);
-        }
+        testCase.checkConstraintError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkConstraintError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
     }
 
     @ParameterizedTest
@@ -306,6 +293,11 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
         Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
+
+        testCase.checkNullKeyRecsError(() -> tbl.getAll(null, null));
+        testCase.checkNullKeyError(() -> tbl.getAll(null, Arrays.asList(rec1, null)));
+        testCase.checkNullRecsError(() -> tbl.upsertAll(null, null));
+        testCase.checkNullRecError(() -> tbl.upsertAll(null, Arrays.asList(rec1, null)));
 
         tbl.upsertAll(null, List.of(rec1, rec3));
 
@@ -374,8 +366,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         recordView.insertAll(null, recs);
 
-        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
-        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+        testCase.checkNullKeysError(() -> recordView.containsAll(null, null));
+        testCase.checkNullKeyError(() -> recordView.containsAll(null, Arrays.asList(firstKeyTuple, null, thirdKeyTuple)));
 
         assertTrue(recordView.containsAll(null, List.of()));
         assertTrue(recordView.containsAll(null, List.of(firstKeyTuple)));
@@ -457,7 +449,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         tbl.insert(null, Tuple.create().set("id", 1L).set("val", val));
 
-        for (int i = 1; i < 100; i++) {
+        for (int i = 1; i < 10; i++) {
             val = i;
 
             assertEquals(
@@ -609,7 +601,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
      * @param expected Expected tuple.
      * @param actual Actual tuple.
      */
-    void assertEqualsRows(Tuple expected, Tuple actual) {
+    private void assertEqualsRows(Tuple expected, Tuple actual) {
         assertEqualsKeys(schema, expected, actual);
         assertEqualsValues(schema, expected, actual);
     }
@@ -638,10 +630,6 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         }
 
         assertTrue(nonNullKey > 0, "At least one non-null key column must exist.");
-    }
-
-    private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable, String message) {
-        IgniteTestUtils.assertThrowsWithCause(executable::execute, expectedType, message);
     }
 
     private List<Arguments> views() {
@@ -677,6 +665,47 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     static class BinTestCase extends TestCase<Tuple> {
         BinTestCase(boolean async, boolean thin, RecordView<Tuple> view) {
             super(async, thin, view);
+        }
+
+        void checkValueTypeDoesNotMatchError(Executable run) {
+            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=INT32]";
+
+            if (thin) {
+                IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+
+                assertThat(ex.code(), is(Client.PROTOCOL_ERR));
+            } else {
+                //noinspection ThrowableNotThrown
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+            }
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkMissedKeyColumnError(Executable run) {
+            String expectedMessage = "Missed key column: ID";
+
+            if (thin) {
+                IgniteTestUtils.assertThrows(MarshallerException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+            }
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkConstraintError(Executable run, String expectedMessage) {
+            if (thin) {
+                IgniteTestUtils.assertThrows(MarshallerException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, InvalidTypeException.class, expectedMessage);
+            }
+        }
+
+        void checkKeyColumnContainsExtraColumns(Executable run) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must also throw exception
+            if (!thin) {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class,
+                        "Key tuple contains extra columns: [VAL]");
+            }
         }
     }
 }

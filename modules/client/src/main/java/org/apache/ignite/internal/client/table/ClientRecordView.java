@@ -96,7 +96,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     @Override
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+        Objects.requireNonNull(keyRecs, "keyRecs");
 
         if (keyRecs.isEmpty()) {
             return emptyListCompletedFuture();
@@ -182,7 +182,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
-        Objects.requireNonNull(recs);
+        Objects.requireNonNull(recs, "recs");
 
         if (recs.isEmpty()) {
             return nullCompletedFuture();
