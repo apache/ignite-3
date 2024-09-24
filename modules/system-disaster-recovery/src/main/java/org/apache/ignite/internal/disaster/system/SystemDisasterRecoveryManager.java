@@ -20,6 +20,8 @@ package org.apache.ignite.internal.disaster.system;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 
 /**
