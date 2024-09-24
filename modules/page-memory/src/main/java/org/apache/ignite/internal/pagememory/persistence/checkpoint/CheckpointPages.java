@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -72,17 +73,18 @@ public class CheckpointPages {
      *
      * @param pageId Page ID of the replacement candidate.
      * @return {@code True} if the page is available for replacement, {@code false} if not.
-     * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
+     * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
+     *      checkpoint.
      * @see #finishReplace(FullPageId, Throwable)
      */
-    public boolean allowToReplace(FullPageId pageId) throws StorageException {
+    public boolean allowToReplace(FullPageId pageId) throws IgniteInternalCheckedException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
             getUninterruptibly(checkpointProgress.futureFor(PAGES_SORTED));
         } catch (ExecutionException e) {
-            throw new StorageException(e.getCause());
+            throw new IgniteInternalCheckedException(e.getCause());
         } catch (CancellationException e) {
-            throw new StorageException(e);
+            throw new IgniteInternalCheckedException(e);
         }
 
         return pageIds.contains(pageId) && checkpointProgress.tryBlockFsyncOnPageReplacement(pageId);

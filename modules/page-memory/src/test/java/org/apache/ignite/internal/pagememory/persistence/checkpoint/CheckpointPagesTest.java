@@ -92,7 +92,7 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testAllowToReplaceSuccessfully() {
+    void testAllowToReplaceSuccessfully() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
 
         CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0), fullPageId(1, 0));
@@ -127,7 +127,7 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testAllowToReplaceUnsuccessfully() {
+    void testAllowToReplaceUnsuccessfully() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
         checkpointProgress.transitTo(PAGES_SORTED);
 
@@ -146,7 +146,7 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testFinishReplaceSuccessfully() {
+    void testFinishReplaceSuccessfully() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
         checkpointProgress.transitTo(PAGES_SORTED);
 
@@ -162,7 +162,7 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testFinishReplaceWithError() {
+    void testFinishReplaceWithError() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
         checkpointProgress.transitTo(PAGES_SORTED);
 

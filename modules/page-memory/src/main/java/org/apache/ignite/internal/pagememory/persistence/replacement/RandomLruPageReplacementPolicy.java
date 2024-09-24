@@ -159,7 +159,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             final FullPageId fullPageId = fullPageId(absRmvAddr);
 
-            if (!seg.tryToReplacePage(fullPageId, absRmvAddr)) {
+            if (!seg.tryToRemovePage(fullPageId, absRmvAddr)) {
                 if (iterations > 10) {
                     if (ignored == null) {
                         ignored = new HashSet<>();
@@ -201,7 +201,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
      *
      * @param cap Capacity.
      */
-    private long tryToFindSequentially(int cap) {
+    private long tryToFindSequentially(int cap) throws IgniteInternalCheckedException {
         assert seg.getWriteHoldCount() > 0;
 
         long prevAddr = INVALID_REL_PTR;
@@ -235,7 +235,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             final FullPageId fullPageId = fullPageId(absEvictAddr);
 
-            if (seg.tryToReplacePage(fullPageId, absEvictAddr)) {
+            if (seg.tryToRemovePage(fullPageId, absEvictAddr)) {
                 return addr;
             }
 

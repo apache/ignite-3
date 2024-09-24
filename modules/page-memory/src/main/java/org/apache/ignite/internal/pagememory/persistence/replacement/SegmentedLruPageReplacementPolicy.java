@@ -99,7 +99,7 @@ public class SegmentedLruPageReplacementPolicy extends PageReplacementPolicy {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
             }
 
-            if (seg.tryToReplacePage(fullId, absPtr)) {
+            if (seg.tryToRemovePage(fullId, absPtr)) {
                 return relPtr;
             }
 

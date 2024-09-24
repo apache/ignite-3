@@ -1518,7 +1518,7 @@ public class PersistentPageMemory implements PageMemory {
          * @return {@code True} if the page replacement was successful, otherwise need to try another one.
          * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
          */
-        public boolean tryToReplacePage(FullPageId fullPageId, long absPtr) {
+        public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
             if (isAcquired(absPtr)) {
