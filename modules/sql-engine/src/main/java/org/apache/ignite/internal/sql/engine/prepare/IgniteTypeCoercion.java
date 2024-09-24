@@ -65,7 +65,6 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
@@ -779,9 +778,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     private void validateAssignment(SqlDynamicParam node, RelDataType targetType, ContextType ctxType, IgniteSqlValidator validator) {
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23060 This condition must be simplified.
-        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType)
-                || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType);
 
         if (compatible) {
             return;
@@ -811,9 +808,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23060 This condition must be simplified.
-        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType)
-                || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType);
 
         if (compatible) {
             return;

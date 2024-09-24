@@ -751,7 +751,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // nested function call with implicit parameter casting
                 checkStatement()
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", 123456)
-                        .project("SUBSTRING(SUBSTRING(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1), 2)")
+                        .fails("Values passed to SUBSTRING operator must have compatible types. " 
+                                + "Dynamic parameter requires adding explicit type cast")
         );
     }
 

@@ -64,6 +64,20 @@ public class DifferentFamiliesInsertSourcesCoercionTest extends BaseTypeCoercion
                 () -> assertPlan("INSERT INTO t VALUES(" + secondLiteral + "," + secondLiteral + ")", schema, anything -> true),
                 "Cannot assign to target field 'C1' of type"
         );
+
+        IgniteTestUtils.assertThrows(
+                CalciteContextException.class,
+                () -> assertPlan("INSERT INTO t VALUES(" + firstLiteral + "," + secondLiteral + ")," 
+                        + " (" + firstLiteral + "," + firstLiteral + ")", schema, anything -> true),
+                "Values passed to VALUES operator must have compatible types"
+        );
+
+        IgniteTestUtils.assertThrows(
+                CalciteContextException.class,
+                () -> assertPlan("INSERT INTO t VALUES(" + firstLiteral + "," + secondLiteral + "),"
+                        + " (" + secondLiteral + "," + secondLiteral + ")", schema, anything -> true),
+                "Values passed to VALUES operator must have compatible types"
+        );
     }
 
     @ParameterizedTest
@@ -87,6 +101,20 @@ public class DifferentFamiliesInsertSourcesCoercionTest extends BaseTypeCoercion
                 CalciteContextException.class,
                 () -> assertPlan("INSERT INTO t VALUES(?, ?)", schema, anything -> true, List.of(secondVal, secondVal)),
                 "Cannot assign to target field 'C1' of type"
+        );
+
+        IgniteTestUtils.assertThrows(
+                CalciteContextException.class,
+                () -> assertPlan("INSERT INTO t VALUES(?, ?), (?, ?)", schema, anything -> true,
+                        List.of(firstVal, secondVal, firstVal, firstVal)),
+                "Values passed to VALUES operator must have compatible types"
+        );
+
+        IgniteTestUtils.assertThrows(
+                CalciteContextException.class,
+                () -> assertPlan("INSERT INTO t VALUES(?, ?), (?, ?)", schema, anything -> true,
+                        List.of(firstVal, secondVal, secondVal, secondVal)),
+                "Values passed to VALUES operator must have compatible types"
         );
     }
 
