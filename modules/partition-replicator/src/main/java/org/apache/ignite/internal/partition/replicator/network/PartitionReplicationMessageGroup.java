@@ -42,6 +42,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
@@ -197,6 +198,11 @@ public interface PartitionReplicationMessageGroup {
      * Message type for {@link UpdateMinimumActiveTxBeginTimeReplicaRequest}.
      */
     short UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST = 26;
+
+    /**
+     * Message type for {@link ChangePeersAndLearnersReplicaRequest}.
+     */
+    short CHANGE_PEERS_AND_LEARNERS_REPLICA_REQUEST = 27;
 
     /**
      * Message types for partition replicator module RAFT commands.
