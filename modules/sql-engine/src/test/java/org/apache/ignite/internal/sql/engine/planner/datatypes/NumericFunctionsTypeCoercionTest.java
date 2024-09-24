@@ -81,91 +81,91 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                         .map(p -> Arguments.of(
                                 Types.typePair(p.first(), p.second()),
                                 ofTypeWithoutCast(p.first()), ofTypeWithoutCast(p.second()),
-                                p.second())
+                                namedType(p.second()))
                         );
 
         Stream<Arguments> approxNumInt = Stream.of(
                 Arguments.of(
                         Types.typePair(NativeTypes.FLOAT, NativeTypes.INT8),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT8),
-                        Types.DECIMAL_10_7),
+                        namedType(Types.DECIMAL_10_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.FLOAT, NativeTypes.INT16),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT16),
-                        Types.DECIMAL_12_7),
+                        namedType(Types.DECIMAL_12_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.FLOAT, NativeTypes.INT32),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT32),
-                        Types.DECIMAL_14_7),
+                        namedType(Types.DECIMAL_14_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.FLOAT, NativeTypes.INT64),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT64),
-                        Types.DECIMAL_14_7),
+                        namedType(Types.DECIMAL_14_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT8),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT8),
-                        Types.DECIMAL_18_15),
+                        namedType(Types.DECIMAL_18_15)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT16),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT16),
-                        Types.DECIMAL_20_15),
+                        namedType(Types.DECIMAL_20_15)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT32),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT32),
-                        Types.DECIMAL_25_15),
+                        namedType(Types.DECIMAL_25_15)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT64),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT64),
-                        Types.DECIMAL_30_15)
+                        namedType(Types.DECIMAL_30_15))
         );
 
         Stream<Arguments> intApproxTypes = Stream.of(
                 Arguments.of(
                         Types.typePair(NativeTypes.INT8, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT8), castTo(Types.DECIMAL_14_7),
-                        Types.DECIMAL_10_7),
+                        namedType(Types.DECIMAL_10_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT16, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT16), castTo(Types.DECIMAL_14_7),
-                        Types.DECIMAL_12_7),
+                        namedType(Types.DECIMAL_12_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT32, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT32), castTo(Types.DECIMAL_14_7),
-                        Types.DECIMAL_14_7),
+                        namedType(Types.DECIMAL_14_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT64, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT64), castTo(Types.DECIMAL_14_7),
-                        Types.DECIMAL_14_7),
+                        namedType(Types.DECIMAL_14_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT8, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT8), castTo(Types.DECIMAL_30_15),
-                        Types.DECIMAL_18_15),
+                        namedType(Types.DECIMAL_18_15)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT16, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT16), castTo(Types.DECIMAL_14_7),
-                        Types.DECIMAL_12_7),
+                        namedType(Types.DECIMAL_12_7)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT32, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT32), castTo(Types.DECIMAL_30_15),
-                        Types.DECIMAL_25_15),
+                        namedType(Types.DECIMAL_25_15)),
 
                 Arguments.of(
                         Types.typePair(NativeTypes.INT64, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT64), castTo(Types.DECIMAL_30_15),
-                        Types.DECIMAL_30_15)
+                        namedType(Types.DECIMAL_30_15))
         );
 
         return Stream.concat(Stream.concat(intTypes, approxNumInt), intApproxTypes);
@@ -591,5 +591,9 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         private String expectedArguments() {
             return args.stream().map(Object::toString).collect(Collectors.joining(", "));
         }
+    }
+
+    private static Named<NativeType> namedType(NativeType nativeType) {
+        return Named.named(nativeType.displayName(), nativeType);
     }
 }
