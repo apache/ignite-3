@@ -31,15 +31,19 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Adapter for {@link KeyValueView} to run async methods using sync methods.
+ *
+ * <p>NOTE: Class does not support {@link CriteriaQuerySource} and {@link DataStreamerTarget} methods.
  */
 public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     private final KeyValueView<K, V> delegate;
@@ -119,6 +123,31 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
+    @Nullable public V getAndRemove(@Nullable Transaction tx, K key) {
+        return await(delegate.getAndRemoveAsync(tx, key));
+    }
+
+    @Override
+    public boolean replace(@Nullable Transaction tx, K key, @Nullable V val) {
+        return await(delegate.replaceAsync(tx, key, val));
+    }
+
+    @Override
+    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return await(delegate.replaceAsync(tx, key, oldValue, newValue));
+    }
+
+    @Override
+    @Nullable public V getAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
+        return await(delegate.getAndReplaceAsync(tx, key, val));
+    }
+
+    @Override
+    public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
+        return await(delegate.getNullableAndReplaceAsync(tx, key, val));
+    }
+
+    @Override
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         throw new UnsupportedOperationException("Must not be called");
     }
@@ -189,12 +218,6 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    @Nullable
-    public V getAndRemove(@Nullable Transaction tx, K key) {
-        return await(delegate.getAndRemoveAsync(tx, key));
-    }
-
-    @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
         throw new UnsupportedOperationException("Must not be called");
     }
@@ -210,16 +233,6 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return await(delegate.replaceAsync(tx, key, val));
-    }
-
-    @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return await(delegate.replaceAsync(tx, key, oldValue, newValue));
-    }
-
-    @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         throw new UnsupportedOperationException("Must not be called");
     }
@@ -230,19 +243,8 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    @Nullable
-    public V getAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return await(delegate.getAndReplaceAsync(tx, key, val));
-    }
-
-    @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         throw new UnsupportedOperationException("Must not be called");
-    }
-
-    @Override
-    public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return await(delegate.getNullableAndReplaceAsync(tx, key, val));
     }
 
     @Override
@@ -252,46 +254,46 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
 
     @Override
     public Cursor<Entry<K, V>> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return delegate.query(tx, criteria);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Cursor<Entry<K, V>> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName) {
-        return delegate.query(tx, criteria, indexName);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Cursor<Entry<K, V>> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts) {
-        return delegate.query(tx, criteria, indexName, opts);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<AsyncCursor<Entry<K, V>>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return delegate.queryAsync(tx, criteria);
+        throw new UnsupportedOperationException("Must not be called");
     }
 
     @Override
     public CompletableFuture<AsyncCursor<Entry<K, V>>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria,
             @Nullable String indexName) {
-        return delegate.queryAsync(tx, criteria, indexName);
+        throw new UnsupportedOperationException("Must not be called");
     }
 
     @Override
     public CompletableFuture<AsyncCursor<Entry<K, V>>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria,
             @Nullable String indexName, @Nullable CriteriaQueryOptions opts) {
-        return delegate.queryAsync(tx, criteria, indexName, opts);
+        throw new UnsupportedOperationException("Must not be called");
     }
 
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
-        return delegate.streamData(publisher, options);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public <E, S, R, A> CompletableFuture<Void> streamData(Publisher<E> publisher, Function<E, Entry<K, V>> keyFunc,
             Function<E, S> payloadFunc, ReceiverDescriptor<A> receiver, @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options, @Nullable A receiverArg) {
-        return delegate.streamData(publisher, keyFunc, payloadFunc, receiver, resultSubscriber, options, receiverArg);
+        throw new UnsupportedOperationException();
     }
 }
