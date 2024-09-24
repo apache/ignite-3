@@ -145,7 +145,7 @@ public class DelayedDirtyPageWrite {
         } finally {
             checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(fullPageId));
 
-            checkpointPages.finishReplace(fullPageId, errorOnWrite);
+            checkpointPages.unblockFsyncOnPageReplacement(fullPageId, errorOnWrite);
 
             tracker.unlock(fullPageId);
 

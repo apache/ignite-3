@@ -22,10 +22,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,7 +39,7 @@ import org.junit.jupiter.api.Test;
 public class CheckpointPagesTest {
     @Test
     void testContains() {
-        CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0));
+        CheckpointPages checkpointPages = createCheckpointPages(new FullPageId(0, 0), new FullPageId(1, 0));
 
         assertTrue(checkpointPages.contains(new FullPageId(0, 0)));
         assertTrue(checkpointPages.contains(new FullPageId(1, 0)));
@@ -58,18 +56,18 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testRemove() {
+    void testRemoveOnCheckpoint() {
         CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0), fullPageId(2, 0));
 
-        assertTrue(checkpointPages.remove(fullPageId(0, 0)));
+        assertTrue(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
         assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(2, checkpointPages.size());
 
-        assertFalse(checkpointPages.remove(fullPageId(0, 0)));
+        assertFalse(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
         assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(2, checkpointPages.size());
 
-        assertTrue(checkpointPages.remove(fullPageId(1, 0)));
+        assertTrue(checkpointPages.removeOnCheckpoint(fullPageId(1, 0)));
         assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
         assertEquals(1, checkpointPages.size());
     }
@@ -92,7 +90,7 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testAllowToReplaceSuccessfully() throws Exception {
+    void testRemoveOnPageReplacement() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
 
         CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0), fullPageId(1, 0));
@@ -100,19 +98,27 @@ public class CheckpointPagesTest {
         // Let's make sure that the check will not complete until the dirty page sorting phase completes.
         checkpointProgress.transitTo(LOCK_RELEASED);
 
-        CompletableFuture<Boolean> allowToReplaceFuture = runAsync(() -> checkpointPages.allowToReplace(fullPageId(0, 0)));
-        assertThat(allowToReplaceFuture, willTimeoutFast());
+        CompletableFuture<Boolean> removeOnPageReplacementFuture = runAsync(
+                () -> checkpointPages.removeOnPageReplacement(fullPageId(0, 0))
+        );
+        assertThat(removeOnPageReplacementFuture, willTimeoutFast());
 
         checkpointProgress.transitTo(PAGES_SORTED);
-        assertThat(allowToReplaceFuture, willBe(true));
-        assertTrue(checkpointPages.contains(fullPageId(0, 0)));
+        assertThat(removeOnPageReplacementFuture, willBe(true));
+        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertEquals(1, checkpointPages.size());
 
-        assertTrue(checkpointPages.allowToReplace(fullPageId(1, 0)));
-        assertTrue(checkpointPages.contains(fullPageId(1, 0)));
+        assertFalse(checkpointPages.removeOnPageReplacement(fullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertEquals(1, checkpointPages.size());
+
+        assertTrue(checkpointPages.removeOnPageReplacement(fullPageId(1, 0)));
+        assertFalse(checkpointPages.contains(fullPageId(1, 0)));
+        assertEquals(0, checkpointPages.size());
     }
 
     @Test
-    void testAllowToReplaceErrorOnWaitPageSortingPhase() {
+    void testRemoveOnPageReplacementErrorOnWaitPageSortingPhase() {
         var checkpointProgress = new CheckpointProgressImpl(10);
 
         CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress);
@@ -121,60 +127,9 @@ public class CheckpointPagesTest {
 
         assertThrows(
                 Exception.class,
-                () -> checkpointPages.allowToReplace(fullPageId(0, 0)),
+                () -> checkpointPages.removeOnPageReplacement(fullPageId(0, 0)),
                 "from test"
         );
-    }
-
-    @Test
-    void testAllowToReplaceUnsuccessfully() throws Exception {
-        var checkpointProgress = new CheckpointProgressImpl(10);
-        checkpointProgress.transitTo(PAGES_SORTED);
-
-        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0), fullPageId(1, 0));
-
-        // Case of a page that never existed.
-        assertFalse(checkpointPages.allowToReplace(fullPageId(1, 1)));
-
-        // Case of a page that no longer exists.
-        checkpointPages.remove(fullPageId(1, 0));
-        assertFalse(checkpointPages.allowToReplace(fullPageId(1, 0)));
-
-        // Case after intention to start the fsync phase.
-        checkpointProgress.stopBlockingFsyncOnPageReplacement();
-        assertFalse(checkpointPages.allowToReplace(fullPageId(0, 0)));
-    }
-
-    @Test
-    void testFinishReplaceSuccessfully() throws Exception {
-        var checkpointProgress = new CheckpointProgressImpl(10);
-        checkpointProgress.transitTo(PAGES_SORTED);
-
-        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0));
-
-        checkpointPages.allowToReplace(fullPageId(0, 0));
-
-        CompletableFuture<Void> stopBlockingFsyncOnPageReplacementFuture = checkpointProgress.stopBlockingFsyncOnPageReplacement();
-        assertFalse(stopBlockingFsyncOnPageReplacementFuture.isDone());
-
-        checkpointPages.finishReplace(fullPageId(0, 0), null);
-        assertThat(stopBlockingFsyncOnPageReplacementFuture, willCompleteSuccessfully());
-    }
-
-    @Test
-    void testFinishReplaceWithError() throws Exception {
-        var checkpointProgress = new CheckpointProgressImpl(10);
-        checkpointProgress.transitTo(PAGES_SORTED);
-
-        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0));
-
-        checkpointPages.allowToReplace(fullPageId(0, 0));
-
-        CompletableFuture<Void> stopBlockingFsyncOnPageReplacementFuture = checkpointProgress.stopBlockingFsyncOnPageReplacement();
-        assertFalse(stopBlockingFsyncOnPageReplacementFuture.isDone());
-
-        checkpointPages.finishReplace(fullPageId(0, 0), new Exception("from test"));
-        assertThat(stopBlockingFsyncOnPageReplacementFuture, willThrow(Exception.class, "from test"));
     }
 
     private static CheckpointPages createCheckpointPages(FullPageId... pageIds) {

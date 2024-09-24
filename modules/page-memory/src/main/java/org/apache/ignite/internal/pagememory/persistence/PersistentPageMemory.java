@@ -1493,6 +1493,7 @@ public class PersistentPageMemory implements PageMemory {
             dirtyPagesCntr.set(0);
         }
 
+        // TODO: IGNITE-23212 документацию поправить
         /**
          * Tries to replace the page.
          *
@@ -1516,7 +1517,8 @@ public class PersistentPageMemory implements PageMemory {
          * @param fullPageId Candidate page ID.
          * @param absPtr Absolute pointer to the candidate page.
          * @return {@code True} if the page replacement was successful, otherwise need to try another one.
-         * @throws StorageException If any error occurred while waiting for the dirty page sorting phase to complete at a checkpoint.
+         * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
+         *      checkpoint.
          */
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
@@ -1529,7 +1531,9 @@ public class PersistentPageMemory implements PageMemory {
                 CheckpointPages checkpointPages = this.checkpointPages;
                 // Can replace a dirty page only if it should be written by a checkpoint.
                 // Safe to invoke because we keep segment write lock and the checkpoint writer must remove pages on the segment read lock.
-                if (checkpointPages != null && checkpointPages.allowToReplace(fullPageId) && checkpointPages.remove(fullPageId)) {
+                if (checkpointPages != null && checkpointPages.removeOnPageReplacement(fullPageId)) {
+                    checkpointPages.blockFsyncOnPageReplacement(fullPageId);
+
                     DelayedDirtyPageWrite delayedDirtyPageWrite = delayedPageReplacementTracker.delayedPageWrite();
 
                     delayedDirtyPageWrite.copyPageToTemporaryBuffer(
@@ -1863,7 +1867,7 @@ public class PersistentPageMemory implements PageMemory {
 
         assert pages0 != null : "Checkpoint has not started or has already completed";
 
-        return pages0.remove(pageId);
+        return pages0.removeOnCheckpoint(pageId);
     }
 
     /**
