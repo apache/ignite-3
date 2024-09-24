@@ -90,29 +90,8 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
         );
     }
 
+    /** Pojo with the same layout as {@link org.apache.ignite.internal.runner.app.Jobs.PojoResult}. */
     public static class PojoResult1 {
         public long longValue;
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            PojoResult1 that = (PojoResult1) obj;
-            return longValue == that.longValue;
-        }
-
-        @Override
-        public int hashCode() {
-            return Long.hashCode(longValue);
-        }
-
-        @Override
-        public String toString() {
-            return "PojoResult{" + "longValue=" + longValue + '}';
-        }
     }
 }
