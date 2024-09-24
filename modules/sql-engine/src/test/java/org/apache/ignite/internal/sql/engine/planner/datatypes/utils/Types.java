@@ -52,9 +52,11 @@ public final class Types {
     public static final NativeType DECIMAL_8_3 = NativeTypes.decimalOf(8, 3);
     public static final NativeType DECIMAL_21_16 = NativeTypes.decimalOf(21, 16);
     public static final NativeType DECIMAL_10_7 = NativeTypes.decimalOf(10, 7);
+    public static final NativeType DECIMAL_12_7 = NativeTypes.decimalOf(12, 7);
 
     public static final NativeType DECIMAL_14_7 = NativeTypes.decimalOf(14, 7);
     public static final NativeType DECIMAL_18_15 = NativeTypes.decimalOf(18, 15);
+    public static final NativeType DECIMAL_20_15 = NativeTypes.decimalOf(20, 15);
 
     public static final NativeType DECIMAL_10_0 = NativeTypes.decimalOf(10, 0);
     public static final NativeType DECIMAL_11_1 = NativeTypes.decimalOf(11, 1);
@@ -77,5 +79,37 @@ public final class Types {
 
     private Types() {
         throw new AssertionError("Should not be called");
+    }
+
+    /** Creates a type pair from the given types. */
+    public static TypePair typePair(NativeType type1, NativeType type2) {
+        return new TypePairImpl(type1, type2);
+    }
+
+    private static final class TypePairImpl implements TypePair {
+
+        final NativeType type1;
+
+        final NativeType type2;
+
+        TypePairImpl(NativeType type1, NativeType type2) {
+            this.type1 = type1;
+            this.type2 = type2;
+        }
+
+        @Override
+        public NativeType first() {
+            return type1;
+        }
+
+        @Override
+        public NativeType second() {
+            return type2;
+        }
+
+        @Override
+        public String toString() {
+            return type1.displayName() + "_" + type2.displayName();
+        }
     }
 }

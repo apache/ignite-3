@@ -48,7 +48,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for numeric functions, when operand belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for numeric functions, when operand belongs to the NUMERIC type family.
  */
 public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
@@ -57,10 +57,13 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("modArgs")
     public void mod(
-            NativeType type1, NativeType type2,
+            TypePair typePair,
             Matcher<RexNode> arg1, Matcher<RexNode> arg2,
             NativeType returnType
     ) throws Exception {
+        NativeType type1 = typePair.first();
+        NativeType type2 = typePair.second();
+
         IgniteSchema schema = createSchemaWithTwoColumnTable(type1, type2);
 
         List<Matcher<RexNode>> args = List.of(arg1, arg2);
@@ -75,71 +78,91 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                         .filter(p -> INT_TYPES.contains(p.first()))
                         .filter(p -> INT_TYPES.contains(p.second()))
                         .map(p -> Arguments.of(
-                                p.first(), p.second(),
+                                Types.typePair(p.first(), p.second()),
                                 ofTypeWithoutCast(p.first()), ofTypeWithoutCast(p.second()),
                                 p.second())
                         );
 
         Stream<Arguments> approxNumInt = Stream.of(
                 Arguments.of(
-                        NativeTypes.FLOAT, NativeTypes.INT8,
+                        Types.typePair(NativeTypes.FLOAT, NativeTypes.INT8),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT8),
                         Types.DECIMAL_10_7),
 
                 Arguments.of(
-                        NativeTypes.FLOAT, NativeTypes.INT32,
+                        Types.typePair(NativeTypes.FLOAT, NativeTypes.INT16),
+                        castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT16),
+                        Types.DECIMAL_12_7),
+
+                Arguments.of(
+                        Types.typePair(NativeTypes.FLOAT, NativeTypes.INT32),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT32),
                         Types.DECIMAL_14_7),
 
                 Arguments.of(
-                        NativeTypes.FLOAT, NativeTypes.INT64,
+                        Types.typePair(NativeTypes.FLOAT, NativeTypes.INT64),
                         castTo(Types.DECIMAL_14_7), ofTypeWithoutCast(NativeTypes.INT64),
                         Types.DECIMAL_14_7),
 
                 Arguments.of(
-                        NativeTypes.DOUBLE, NativeTypes.INT8,
+                        Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT8),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT8),
                         Types.DECIMAL_18_15),
 
                 Arguments.of(
-                        NativeTypes.DOUBLE, NativeTypes.INT32,
+                        Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT16),
+                        castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT16),
+                        Types.DECIMAL_20_15),
+
+                Arguments.of(
+                        Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT32),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT32),
                         Types.DECIMAL_25_15),
 
                 Arguments.of(
-                        NativeTypes.DOUBLE, NativeTypes.INT64,
+                        Types.typePair(NativeTypes.DOUBLE, NativeTypes.INT64),
                         castTo(Types.DECIMAL_30_15), ofTypeWithoutCast(NativeTypes.INT64),
                         Types.DECIMAL_30_15)
         );
 
         Stream<Arguments> intApproxTypes = Stream.of(
                 Arguments.of(
-                        NativeTypes.INT8, NativeTypes.FLOAT,
+                        Types.typePair(NativeTypes.INT8, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT8), castTo(Types.DECIMAL_14_7),
                         Types.DECIMAL_10_7),
 
                 Arguments.of(
-                        NativeTypes.INT32, NativeTypes.FLOAT,
+                        Types.typePair(NativeTypes.INT16, NativeTypes.FLOAT),
+                        ofTypeWithoutCast(NativeTypes.INT16), castTo(Types.DECIMAL_14_7),
+                        Types.DECIMAL_12_7),
+
+                Arguments.of(
+                        Types.typePair(NativeTypes.INT32, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT32), castTo(Types.DECIMAL_14_7),
                         Types.DECIMAL_14_7),
 
                 Arguments.of(
-                        NativeTypes.INT64, NativeTypes.FLOAT,
+                        Types.typePair(NativeTypes.INT64, NativeTypes.FLOAT),
                         ofTypeWithoutCast(NativeTypes.INT64), castTo(Types.DECIMAL_14_7),
                         Types.DECIMAL_14_7),
 
                 Arguments.of(
-                        NativeTypes.INT8, NativeTypes.DOUBLE,
+                        Types.typePair(NativeTypes.INT8, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT8), castTo(Types.DECIMAL_30_15),
                         Types.DECIMAL_18_15),
 
                 Arguments.of(
-                        NativeTypes.INT32, NativeTypes.DOUBLE,
+                        Types.typePair(NativeTypes.INT16, NativeTypes.FLOAT),
+                        ofTypeWithoutCast(NativeTypes.INT16), castTo(Types.DECIMAL_14_7),
+                        Types.DECIMAL_12_7),
+
+                Arguments.of(
+                        Types.typePair(NativeTypes.INT32, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT32), castTo(Types.DECIMAL_30_15),
                         Types.DECIMAL_25_15),
 
                 Arguments.of(
-                        NativeTypes.INT64, NativeTypes.DOUBLE,
+                        Types.typePair(NativeTypes.INT64, NativeTypes.DOUBLE),
                         ofTypeWithoutCast(NativeTypes.INT64), castTo(Types.DECIMAL_30_15),
                         Types.DECIMAL_30_15)
         );
