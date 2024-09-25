@@ -48,13 +48,13 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
         try {
             insertAndUpdateRunQuery(500);
-            // Ьinimum row count is 1000, even we have less rows.
-            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+            // minimum row count is 1000, even we have less rows.
+            assertQuery(getUniqueQuery())
                     .matches(containsRowCount(1000))
                     .check();
 
             insertAndUpdateRunQuery(600);
-            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+            assertQuery(getUniqueQuery())
                     .matches(containsRowCount(1100))
                     .check();
 
@@ -62,7 +62,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             insertAndUpdateRunQuery(900);
 
             // Statistics shouldn't be updated despite we inserted new rows.
-            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+            assertQuery(getUniqueQuery())
                     .matches(containsRowCount(1100))
                     .check();
         } finally {
@@ -79,6 +79,10 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                 .toArray(Object[][]::new);
         insertData("t", columns, values);
         // run unique sql to update statistics
-        sql("SELECT * FROM t where val=" + counter.get());
+        sql(getUniqueQuery());
+    }
+
+    private static String getUniqueQuery() {
+        return "SELECT * FROM t where val=" + counter.incrementAndGet();
     }
 }
