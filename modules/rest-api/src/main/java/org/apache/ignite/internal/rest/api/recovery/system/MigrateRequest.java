@@ -48,7 +48,7 @@ public class MigrateRequest {
     @Schema(description = "Name of the cluster.")
     private final String clusterName;
 
-    @Schema(description = "IDs the cluster had before.")
+    @Schema(description = "IDs the cluster had before. If CMG/Metastorage group were never repaired, this is null.")
     private final @Nullable List<UUID> formerClusterIds;
 
     /** Constructor. */
@@ -105,7 +105,7 @@ public class MigrateRequest {
         return clusterName;
     }
 
-    /** Returns IDs the cluster had before. */
+    /** Returns IDs the cluster had before ({@code null} if CMG/Metastorage group were never repaired. */
     @JsonGetter("formerClusterIds")
     public @Nullable List<UUID> formerClusterIds() {
         return formerClusterIds;
