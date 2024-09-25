@@ -1492,7 +1492,6 @@ public class PersistentPageMemory implements PageMemory {
             dirtyPagesCntr.set(0);
         }
 
-        // TODO: IGNITE-23212 документацию поправить
         /**
          * Tries to replace the page.
          *

@@ -17,33 +17,40 @@
 
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.LongStream;
+import java.util.concurrent.CompletionException;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
@@ -57,6 +64,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
@@ -91,7 +99,7 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.checkpointThreads = 1")
     private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @InjectConfiguration(
@@ -148,7 +156,7 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
         pageMemory = new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
-                LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
+                new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
                 null,
@@ -175,50 +183,147 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
         );
     }
 
+    /** Checks that page replacement will occur after the start of the checkpoint and before its end. */
     @Test
-    void testPageReplacement() throws Exception {
-        int pageCountToCreate = 16 * PAGE_COUNT;
-        int createPageThreadCount = 4;
+    void testPageReplacement() throws Throwable {
+        var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
+        var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Long> createPagesFuture = runMultiThreadedAsync(
-                () -> {
-                    // The values are taken empirically, if make the batch size more than 10, then sometimes it falls with IOOM.
-                    createAndFillTestSimpleValuePages(pageCountToCreate, 10);
+        var startWritePagesOnPageReplacementFuture = new CompletableFuture<Void>();
 
-                    return null;
-                },
-                createPageThreadCount,
-                "allocate-page-thread"
+        CheckpointProgress checkpointProgress = inCheckpointReadLock(() -> {
+            // We make only one dirty page for the checkpoint to work.
+            createAndFillTestSimpleValuePages(1);
+
+            FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
+
+            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            doAnswer(invocation -> {
+                startWritePagesOnCheckpointFuture.complete(null);
+
+                assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
+
+                return invocation.callRealMethod();
+            }).doAnswer(invocation -> {
+                // Second time the method should be invoked on page replacement.
+                startWritePagesOnPageReplacementFuture.complete(null);
+
+                return invocation.callRealMethod();
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+
+            // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
+            // does not start after the lock is released.
+            return checkpointManager.forceCheckpoint("for test");
+        });
+
+        CompletableFuture<Void> finishCheckpointFuture = checkpointProgress.futureFor(FINISHED);
+
+        // Let's wait for the checkpoint writer to start writing the first page.
+        assertThat(startWritePagesOnCheckpointFuture, willCompleteSuccessfully());
+        // Let's make sure that no one has tried to write another page.
+        assertFalse(startWritePagesOnPageReplacementFuture.isDone());
+
+        // We will create dirty pages until the page replacement occurs.
+        // Asynchronously so as not to get into dead locks or something like that.
+        assertThat(
+                runAsync(() -> inCheckpointReadLock(
+                        () -> createAndFillTestSimpleValuePages(() -> !startWritePagesOnPageReplacementFuture.isDone())
+                )),
+                willCompleteSuccessfully()
         );
+        assertFalse(finishCheckpointFuture.isDone());
 
-        assertThat(createPagesFuture, willSucceedIn(1, MINUTES));
-
+        continueWritePagesOnCheckpointFuture.complete(null);
+        assertThat(finishCheckpointFuture, willCompleteSuccessfully());
         assertTrue(pageMemory.pageReplacementOccurred());
-
-        // Let's flush everything to disk just in case, so as not to lose anything.
-        assertThat(checkpointManager.forceCheckpoint("after write all pages").futureFor(FINISHED), willCompleteSuccessfully());
-
-        // Let's restart everything, but we won't delete anything.
-        restartAll();
-
-        // Let's read all the pages and make sure they have the correct content.
-        for (int pageIdx = 1; pageIdx < pageCountToCreate * createPageThreadCount; pageIdx++) {
-            readAndCheckContentTestSimpleValuePage(pageIdx);
-        }
     }
 
-    private void createAndFillTestSimpleValuePages(int pageCountToCreate, int batchSize) throws Exception {
-        for (int i = 0; i < pageCountToCreate; ) {
-            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+    @Test
+    void testFsyncDeltaFilesWillNotStartOnCheckpointUntilPageReplacementIsComplete() throws Exception {
+        var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
+        var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
 
-            try {
-                for (int j = 0; j < batchSize && i < pageCountToCreate; j++, i++) {
-                    createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
-                }
-            } finally {
-                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
-            }
-        }
+        var startWritePagesOnPageReplacementFuture = new CompletableFuture<Void>();
+        var continueWritePagesOnPageReplacementFuture = new CompletableFuture<Void>();
+
+        var deltaFileIoFuture = new CompletableFuture<DeltaFilePageStoreIo>();
+
+        CheckpointProgress checkpointProgress = inCheckpointReadLock(() -> {
+            // We make only one dirty page for the checkpoint to work.
+            createAndFillTestSimpleValuePages(1);
+
+            FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
+
+            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            doAnswer(invocation -> {
+                CompletableFuture<DeltaFilePageStoreIo> callRealMethodResult =
+                        (CompletableFuture<DeltaFilePageStoreIo>) invocation.callRealMethod();
+
+                callRealMethodResult = callRealMethodResult
+                        .handle((deltaFilePageStoreIo, throwable) -> {
+                            if (throwable != null) {
+                                deltaFileIoFuture.completeExceptionally(throwable);
+
+                                throw new CompletionException(throwable);
+                            } else {
+                                deltaFilePageStoreIo = spy(deltaFilePageStoreIo);
+
+                                deltaFileIoFuture.complete(deltaFilePageStoreIo);
+
+                                return deltaFilePageStoreIo;
+                            }
+                        });
+
+                startWritePagesOnCheckpointFuture.complete(null);
+
+                assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
+
+                return callRealMethodResult;
+            }).doAnswer(invocation -> {
+                // Second time the method should be invoked on page replacement, let's hold it.
+                startWritePagesOnPageReplacementFuture.complete(null);
+
+                assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+
+                return invocation.callRealMethod();
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+
+            doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
+
+            // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
+            // does not start after the lock is released.
+            return checkpointManager.forceCheckpoint("for test");
+        });
+
+        CompletableFuture<Void> finishCheckpointFuture = checkpointProgress.futureFor(FINISHED);
+
+        // Let's wait for the checkpoint writer to start writing the first page.
+        assertThat(startWritePagesOnCheckpointFuture, willCompleteSuccessfully());
+        assertThat(deltaFileIoFuture, willCompleteSuccessfully());
+
+        // We will create dirty pages until the page replacement occurs.
+        // Asynchronously so as not to get into dead locks or something like that.
+
+        CompletableFuture<Void> createPagesForPageReplacementFuture = runAsync(
+                () -> inCheckpointReadLock(() -> createAndFillTestSimpleValuePages(() -> !startWritePagesOnPageReplacementFuture.isDone()))
+        );
+        assertThat(startWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+        assertFalse(createPagesForPageReplacementFuture.isDone());
+
+        // Let's release the checkpoint and make sure that it does not complete and fsync does not occur until the page replacement is
+        // complete.
+        continueWritePagesOnCheckpointFuture.complete(null);
+        assertThat(finishCheckpointFuture, willTimeoutFast());
+        // 250 by analogy with willTimeoutFast().
+        verify(deltaFileIoFuture.join(), timeout(250).times(0)).sync();
+        assertFalse(createPagesForPageReplacementFuture.isDone());
+
+        // Let's release the page replacement and make sure everything ends well.
+        continueWritePagesOnPageReplacementFuture.complete(null);
+
+        assertThat(finishCheckpointFuture, willCompleteSuccessfully());
+        assertThat(createPagesForPageReplacementFuture, willCompleteSuccessfully());
+        verify(deltaFileIoFuture.join()).sync();
     }
 
     private void createAndFillTestSimpleValuePage(long pageId) throws Exception {
@@ -233,23 +338,6 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
                 TestSimpleValuePageIo.setLongValue(pageAddr, pageIndex(pageId) * 3L);
             } finally {
                 pageMemory.writeUnlock(GROUP_ID, pageId, page, true);
-            }
-        } finally {
-            pageMemory.releasePage(GROUP_ID, pageId, page);
-        }
-    }
-
-    private void readAndCheckContentTestSimpleValuePage(int pageIdx) throws Exception {
-        long pageId = pageId(PARTITION_ID, FLAG_DATA, pageIdx);
-        long page = pageMemory.acquirePage(GROUP_ID, pageId);
-
-        try {
-            long pageAddr = pageMemory.readLock(GROUP_ID, pageId, page);
-
-            try {
-                assertEquals(pageIdx * 3L, TestSimpleValuePageIo.getLongValue(pageAddr));
-            } finally {
-                pageMemory.readUnlock(GROUP_ID, pageId, page);
             }
         } finally {
             pageMemory.releasePage(GROUP_ID, pageId, page);
@@ -284,7 +372,7 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
                     partitionMeta.incrementPageCount(checkpointProgress == null ? null : checkpointProgress.id());
                 });
 
-                filePageStoreManager.addStore(groupPartitionId, filePageStore);
+                filePageStoreManager.addStore(groupPartitionId, spy(filePageStore));
                 partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
             }
         } finally {
@@ -292,8 +380,35 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void restartAll() throws Exception {
-        tearDown();
-        setUp();
+    private <V> V inCheckpointReadLock(Callable<V> callable) throws Exception {
+        checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+
+        try {
+            return callable.call();
+        } finally {
+            checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+        }
+    }
+
+    private void inCheckpointReadLock(RunnableX runnableX) throws Throwable {
+        checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+
+        try {
+            runnableX.run();
+        } finally {
+            checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+        }
+    }
+
+    private void createAndFillTestSimpleValuePages(int pageCount) throws Exception {
+        for (int i = 0; i < pageCount; i++) {
+            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+        }
+    }
+
+    private void createAndFillTestSimpleValuePages(BooleanSupplier continuePredicate) throws Exception {
+        while (continuePredicate.getAsBoolean()) {
+            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+        }
     }
 }
