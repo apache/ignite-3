@@ -73,7 +73,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;

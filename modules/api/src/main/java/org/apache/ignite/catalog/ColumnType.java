@@ -352,4 +352,6 @@ public class ColumnType<T> {
         this.length = length;
         return this;
     }
+
+
 }

@@ -1,0 +1,166 @@
+package org.apache.ignite.internal.matcher;
+
+import static org.hamcrest.Matchers.equalTo;
+
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.internal.testframework.matchers.AnythingMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
+
+public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
+    private Matcher<String> zoneNameMatcher = AnythingMatcher.anything();
+
+    private Matcher<Boolean> ifNotExistsMatcher = AnythingMatcher.anything();
+
+    private Matcher<Integer> partitionsMatcher = AnythingMatcher.anything();
+
+    private Matcher<Integer> replicasMatcher = AnythingMatcher.anything();
+
+    private Matcher<String> distributionAlgorithmMatcher = AnythingMatcher.anything();
+
+    private Matcher<Integer> dataNodesAutoAdjustMatcher = AnythingMatcher.anything();
+
+    private Matcher<Integer> dataNodesAutoAdjustScaleUpMatcher = AnythingMatcher.anything();
+
+    private Matcher<Integer> dataNodesAutoAdjustScaleDownMatcher = AnythingMatcher.anything();
+
+    private Matcher<String> filterMatcher = AnythingMatcher.anything();
+
+    private Matcher<String> storageProfiles = AnythingMatcher.anything();
+
+    public ZoneDefinitionMatcher withZoneNameMatcher(Matcher<String> zoneNameMatcher) {
+        this.zoneNameMatcher = zoneNameMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withZoneName(String zoneName) {
+        return withZoneNameMatcher(equalTo(zoneName));
+    }
+
+    public ZoneDefinitionMatcher withIfNotExistsMatcher(Matcher<Boolean> ifNotExistsMatcher) {
+        this.ifNotExistsMatcher = ifNotExistsMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withIfNotExists(boolean ifNotExists) {
+        return withIfNotExistsMatcher(equalTo(ifNotExists));
+    }
+
+    public ZoneDefinitionMatcher withPartitionsMatcher(Matcher<Integer> partitionsMatcher) {
+        this.partitionsMatcher = partitionsMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withPartitions(int partitions) {
+        return withPartitionsMatcher(equalTo(partitions));
+    }
+
+    public ZoneDefinitionMatcher withReplicasMatcher(Matcher<Integer> replicasMatcher) {
+        this.replicasMatcher = replicasMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withReplicas(int replicas) {
+        return withReplicasMatcher(equalTo(replicas));
+    }
+
+    public ZoneDefinitionMatcher withDistributionAlgorithmMatcher(Matcher<String> withDistributionAlgorithmMatcher) {
+        this.distributionAlgorithmMatcher = withDistributionAlgorithmMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withDistributionAlgorithm(String distributionAlgorithm) {
+        return withDistributionAlgorithmMatcher(equalTo(distributionAlgorithm));
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjustMatcher(Matcher<Integer> dataNodesAutoAdjustMatcher) {
+        this.dataNodesAutoAdjustMatcher = dataNodesAutoAdjustMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjust(int dataNodesAutoAdjust) {
+        return withDataNodesAutoAdjustMatcher(equalTo(dataNodesAutoAdjust));
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjustScaleUpMatcher(
+            Matcher<Integer> dataNodesAutoAdjustScaleUpMatcher) {
+        this.dataNodesAutoAdjustScaleUpMatcher = dataNodesAutoAdjustScaleUpMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjustScaleUp(int dataNodesAutoAdjustScaleUp) {
+        return withDataNodesAutoAdjustScaleUpMatcher(equalTo(dataNodesAutoAdjustScaleUp));
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjustScaleDownMatcher(
+            Matcher<Integer> dataNodesAutoAdjustScaleDownMatcher) {
+        this.dataNodesAutoAdjustScaleDownMatcher = dataNodesAutoAdjustScaleDownMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withDataNodesAutoAdjustScaleDown(int dataNodesAutoAdjustScaleDown) {
+        return withDataNodesAutoAdjustScaleDownMatcher(equalTo(dataNodesAutoAdjustScaleDown));
+    }
+
+    public ZoneDefinitionMatcher withFilterMatcher(Matcher<String> filterMatcher) {
+        this.filterMatcher = filterMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withFilter(String filter) {
+        return withFilterMatcher(equalTo(filter));
+    }
+
+    public ZoneDefinitionMatcher withStorageProfilesMatcher(Matcher<String> storageProfiles) {
+        this.storageProfiles = storageProfiles;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withStorageProfiles(String storageProfiles) {
+        return withStorageProfilesMatcher(equalTo(storageProfiles));
+    }
+
+    public static ZoneDefinitionMatcher isZoneDefinition() {
+        return new ZoneDefinitionMatcher();
+    }
+
+    @Override
+    protected boolean matchesSafely(ZoneDefinition zoneDefinition) {
+        return zoneNameMatcher.matches(zoneDefinition.zoneName())
+                && ifNotExistsMatcher.matches(zoneDefinition.ifNotExists())
+                && partitionsMatcher.matches(zoneDefinition.partitions())
+                && replicasMatcher.matches(zoneDefinition.replicas())
+                && distributionAlgorithmMatcher.matches(zoneDefinition.distributionAlgorithm())
+                && dataNodesAutoAdjustMatcher.matches(zoneDefinition.dataNodesAutoAdjust())
+                && zoneNameMatcher.matches(zoneDefinition.zoneName())
+                && dataNodesAutoAdjustScaleUpMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleUp())
+                && dataNodesAutoAdjustScaleDownMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleDown())
+                && filterMatcher.matches(zoneDefinition.filter())
+                && storageProfiles.matches(zoneDefinition.storageProfiles());
+    }
+
+    @Override
+    public void describeTo(Description description) {
+        description.appendText("Zone definition with ")
+                .appendText("zone name ").appendDescriptionOf(zoneNameMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("if not exists ").appendDescriptionOf(ifNotExistsMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("partitions ").appendDescriptionOf(partitionsMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("replicas ").appendDescriptionOf(replicasMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("affinity ").appendDescriptionOf(distributionAlgorithmMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("data nodes auto adjust ").appendDescriptionOf(dataNodesAutoAdjustMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("data nodes auto adjust scale up ").appendDescriptionOf(dataNodesAutoAdjustScaleUpMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("data nodes auto adjust scale down ").appendDescriptionOf(dataNodesAutoAdjustScaleDownMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("filter ").appendDescriptionOf(filterMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("storage profiles ").appendDescriptionOf(storageProfiles);
+    }
+}

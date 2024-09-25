@@ -53,6 +53,10 @@ class QueryUtils {
         return n != null && n > 0;
     }
 
+    static boolean isPositive(Integer n) {
+        return n != null && n >= 0;
+    }
+
     /**
      * Converts comma-separated string to a list of strings, leading and trailing spaces are trimmed.
      *

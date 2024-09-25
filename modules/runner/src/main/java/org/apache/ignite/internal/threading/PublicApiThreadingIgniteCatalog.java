@@ -79,6 +79,16 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
+        return doAsyncOperation(() -> catalog.tableDefinitionAsync(tableName));
+    }
+
+    @Override
+    public TableDefinition tableDefinition(String tableName) {
+        return execUserSyncOperation(() -> catalog.tableDefinition(tableName));
+    }
+
+    @Override
     public CompletableFuture<Void> createZoneAsync(ZoneDefinition definition) {
         return doAsyncOperation(() -> catalog.createZoneAsync(definition));
     }
@@ -86,6 +96,17 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     @Override
     public void createZone(ZoneDefinition definition) {
         execUserSyncOperation(() -> catalog.createZone(definition));
+    }
+
+
+    @Override
+    public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
+        return execUserSyncOperation(() -> catalog.zoneDefinitionAsync(zoneName));
+    }
+
+    @Override
+    public ZoneDefinition zoneDefinition(String zoneName) {
+        return execUserSyncOperation(() -> catalog.zoneDefinition(zoneName));
     }
 
     @Override

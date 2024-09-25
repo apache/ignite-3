@@ -192,6 +192,22 @@ public interface IgniteCatalog {
     Table createTable(TableDefinition definition);
 
     /**
+     * Returns definition of the table with provided name.
+     *
+     * @param tableName Table name.
+     * @return Definition of the table with provided name.
+     */
+    CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName);
+
+    /**
+     * Returns definition of the table with provided name.
+     *
+     * @param tableName Table name.
+     * @return Definition of the table with provided name.
+     */
+    TableDefinition tableDefinition(String tableName);
+
+    /**
      * Creates a query object from the zone definition.
      *
      * @param definition Zone definition.
@@ -204,6 +220,10 @@ public interface IgniteCatalog {
      * @param definition Zone definition.
      */
     void createZone(ZoneDefinition definition);
+
+    CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName);
+
+    ZoneDefinition zoneDefinition(String zoneName);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
