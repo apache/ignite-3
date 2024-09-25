@@ -28,7 +28,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Helper class for synchronizing page replacement and the beginning of the fsync phase at a checkpoint.
  *
- * <p>For data consistency, it is important for us that page replacement occurs strictly before the beginning of the fsync phase.</p>
+ * <p>For data consistency, it is important for us that the fsync delta file phase begins strictly after all page replacements are
+ * completed.</p>
  *
  * <p>Usage:</p>
  * <ul>
