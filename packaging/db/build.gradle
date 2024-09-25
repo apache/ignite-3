@@ -98,15 +98,15 @@ def zipStartScriptTokensWin = tokensWin + [
         INSTALL_DIR     : '%IGNITE_HOME%',
 ]
 
-task replaceZipScriptVarsCommon(type: Copy) {
-    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
+def replaceZipScriptVarsCommon = tasks.register('replaceZipScriptVarsCommon', Copy) {
+    from 'zip/ignite.java.util.logging.properties'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensCommon)
 
     into "$buildDir/zip/"
 }
 
-task replaceZipScriptVarsLin(type: Copy) {
+def replaceZipScriptVarsLin = tasks.register('replaceZipScriptVarsLin', Copy) {
     from "$rootDir/packaging/common/linux"
     from 'zip/linux'
 
@@ -115,7 +115,7 @@ task replaceZipScriptVarsLin(type: Copy) {
     into "$buildDir/zip/"
 }
 
-task replaceZipScriptVarsWin(type: Copy) {
+def replaceZipScriptVarsWin = tasks.register('replaceZipScriptVarsWin', Copy) {
     from "$rootDir/packaging/common/windows"
     from 'zip/windows'
 
@@ -124,7 +124,7 @@ task replaceZipScriptVarsWin(type: Copy) {
     into "$buildDir/zip/"
 }
 
-tasks.register('replaceZipScriptVars') {
+def replaceZipScriptVars = tasks.register('replaceZipScriptVars') {
     dependsOn replaceZipScriptVarsCommon
     dependsOn replaceZipScriptVarsLin
     dependsOn replaceZipScriptVarsWin
@@ -187,7 +187,7 @@ distZip.dependsOn replaceZipScriptVars
 distTar.dependsOn replaceZipScriptVars
 installDist.dependsOn replaceZipScriptVars
 
-task createChecksums(type: Checksum) {
+def createChecksums = tasks.register('createChecksums', Checksum) {
     dependsOn distZip
 
     inputFiles.from distZip.outputs.files
@@ -200,7 +200,7 @@ artifacts {
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signDbZip', Sign) {
+def signDbZip = tasks.register('signDbZip', Sign) {
     sign configurations.dbZip
 }
 
@@ -220,7 +220,7 @@ def packageTokens = tokens + tokensLin + [
 ]
 
 
-task replacePackageScriptVars(type: Copy) {
+def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) {
     from 'linux'
     from 'ignite.java.util.logging.properties'
     from "$rootDir/packaging/common/linux"
