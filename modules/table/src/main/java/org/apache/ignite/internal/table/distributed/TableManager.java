@@ -948,6 +948,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
+        if (PartitionReplicaLifecycleManager.ENABLED) {
+            return falseCompletedFuture();
+        }
+
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
                 .thenApply(unused -> false);
     }
@@ -1964,6 +1968,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
                             LOG.info("KKK null tableDescriptor");
+
                             return nullCompletedFuture();
                         }
 

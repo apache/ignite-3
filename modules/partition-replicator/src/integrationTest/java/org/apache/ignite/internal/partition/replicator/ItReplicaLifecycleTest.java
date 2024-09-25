@@ -46,7 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -147,6 +146,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -219,6 +219,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -230,7 +231,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
+//@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -632,27 +633,30 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    @Test
+    @RepeatedTest(10)
     void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
+        String zoneName = "TEST_ZONE";
+        String tableName = "TEST_TABLE";
+
         startNodes(testInfo, 3);
 
-        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 3);
+        DistributionZonesTestUtil.createZone(node.catalogManager, zoneName, 1, 3);
 
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
 
         assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 0), 10_000L));
 
-        createTable(node, "test_zone", "test_table");
+        createTable(node, zoneName, tableName);
 
         assertTrue(waitForCondition(
-                () -> IntStream.range(0, 3).allMatch(i -> getNode(i).tableManager.table("test_table") != null),
+                () -> IntStream.range(0, 3).allMatch(i -> getNode(i).tableManager.table(tableName) != null),
                 30_000L
         ));
 
@@ -661,10 +665,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 30_000L
         ));
 
-        alterZone(node.catalogManager, "test_zone", 1);
+        alterZone(node.catalogManager, zoneName, 1);
 
         nodes.values().stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(n -> {
-            checkInvokeDestroyedPartitionStorages(n, "test_table", 0);
+            checkInvokeDestroyedPartitionStorages(n, tableName, 0);
         });
 
     }

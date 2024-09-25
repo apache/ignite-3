@@ -83,6 +83,7 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     public @Nullable CatalogTableDescriptor table(String name) {
+        System.out.println("KKK table name " + name + "table map " + tablesMap + "table " + tablesMap.get(name));
         return tablesMap.get(name);
     }
 
