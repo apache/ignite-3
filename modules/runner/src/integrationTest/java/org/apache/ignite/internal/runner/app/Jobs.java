@@ -417,7 +417,7 @@ public class Jobs {
         }
 
         public TwoStringPojo(String firstString, String secondString) {
-            firstString = firstString;
+            this.firstString = firstString;
             this.secondString = secondString;
         }
     }
