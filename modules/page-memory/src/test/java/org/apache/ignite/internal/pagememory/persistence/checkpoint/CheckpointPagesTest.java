@@ -73,23 +73,6 @@ public class CheckpointPagesTest {
     }
 
     @Test
-    void testAdd() {
-        CheckpointPages checkpointPages = createCheckpointPages();
-
-        assertTrue(checkpointPages.add(fullPageId(0, 0)));
-        assertTrue(checkpointPages.contains(fullPageId(0, 0)));
-        assertEquals(1, checkpointPages.size());
-
-        assertFalse(checkpointPages.add(fullPageId(0, 0)));
-        assertTrue(checkpointPages.contains(fullPageId(0, 0)));
-        assertEquals(1, checkpointPages.size());
-
-        assertTrue(checkpointPages.add(fullPageId(0, 1)));
-        assertTrue(checkpointPages.contains(fullPageId(0, 1)));
-        assertEquals(2, checkpointPages.size());
-    }
-
-    @Test
     void testRemoveOnPageReplacement() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
 

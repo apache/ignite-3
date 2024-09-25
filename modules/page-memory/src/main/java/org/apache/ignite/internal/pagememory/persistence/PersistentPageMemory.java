@@ -101,7 +101,6 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplace
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -1499,6 +1498,7 @@ public class PersistentPageMemory implements PageMemory {
          *
          * <p>The replacement will be successful if the following conditions are met:</p>
          * <ul>
+         *     <li>Page has acquired by checkpoint - nothing needs to be done.</li>
          *     <li>Page is not dirty - just remove it from the loaded pages.</li>
          *     <li>Page is dirty, there is a checkpoint in the process and the following sub-conditions are met:</li>
          *     <ul>
@@ -1525,6 +1525,7 @@ public class PersistentPageMemory implements PageMemory {
             assert writeLock().isHeldByCurrentThread();
 
             if (isAcquired(absPtr)) {
+                // Page is acquired by the checkpoint on the segment read lock and will be written by it.
                 return false;
             }
 
@@ -1835,54 +1836,31 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns {@code true} if a dirty page needs to be written at a checkpoint.
+     * Returns {@code true} if it was added to the checkpoint list.
      *
      * @param pageId Page ID to check if it was added to the checkpoint list.
      */
-    private boolean isInCheckpoint(FullPageId pageId) {
-        return isInCheckpoint(segment(pageId.groupId(), pageId.pageId()), pageId);
-    }
+    boolean isInCheckpoint(FullPageId pageId) {
+        Segment seg = segment(pageId.groupId(), pageId.pageId());
 
-    /**
-     * Returns {@code true} if a dirty page needs to be written at a checkpoint.
-     *
-     * @param segment Segment for the page ID.
-     * @param pageId Page ID to check if it was added to the checkpoint list.
-     */
-    private boolean isInCheckpoint(Segment segment, FullPageId pageId) {
-        CheckpointPages pages0 = segment.checkpointPages;
+        CheckpointPages pages0 = seg.checkpointPages;
 
         return pages0 != null && pages0.contains(pageId);
     }
 
     /**
-     * Removes a page from the dirty pages of the segment to write at a checkpoint.
+     * Returns {@code true} if remove successfully.
      *
-     * @param segment Segment for the page ID.
-     * @param pageId Page ID to remove.
-     * @return {@code True} if the page was removed by the current invoke and it should be attempted to be written, {@code false} if
-     *      another checkpoint write thread or page replacement took the page.
+     * @param fullPageId Page ID to remove.
      */
-    private boolean removeFromCheckpoint(Segment segment, FullPageId pageId) {
-        CheckpointPages pages0 = segment.checkpointPages;
+    private boolean removeOnCheckpoint(FullPageId fullPageId) {
+        Segment seg = segment(fullPageId.groupId(), fullPageId.pageId());
 
-        assert pages0 != null : "Checkpoint has not started or has already completed";
+        CheckpointPages pages0 = seg.checkpointPages;
 
-        return pages0.removeOnCheckpoint(pageId);
-    }
+        assert pages0 != null : fullPageId;
 
-    /**
-     * Adds a page to the dirty pages of the segment to write at a checkpoint.
-     *
-     * @param segment Segment for the page ID.
-     * @param pageId Page ID to remove.
-     */
-    private void addToCheckpoint(Segment segment, FullPageId pageId) {
-        CheckpointPages pages0 = segment.checkpointPages;
-
-        assert pages0 != null : "Checkpoint has not started or has already completed";
-
-        pages0.add(pageId);
+        return pages0.removeOnCheckpoint(fullPageId);
     }
 
     /**
@@ -1895,7 +1873,6 @@ public class PersistentPageMemory implements PageMemory {
      *      checkpoint temporary buffer is used.
      * @param pageStoreWriter Checkpoint page writer.
      * @param tracker Checkpoint metrics tracker.
-     * @param segment Segment for the page ID.
      */
     private void copyPageForCheckpoint(
             long absPtr,
@@ -1904,8 +1881,7 @@ public class PersistentPageMemory implements PageMemory {
             int tag,
             boolean pageSingleAcquire,
             PageStoreWriter pageStoreWriter,
-            CheckpointMetricsTracker tracker,
-            Segment segment
+            CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
         assert absPtr != 0;
         assert isAcquired(absPtr) || !isInCheckpoint(fullId);
@@ -1914,28 +1890,32 @@ public class PersistentPageMemory implements PageMemory {
         // No need to write if exception occurred.
         boolean canWrite = false;
 
-        if (!rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
-            // We release the page only once here because this page will be copied sometime later and will be released properly then.
+        boolean locked = rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+
+        if (!locked) {
+            // We release the page only once here because this page will be copied sometime later and
+            // will be released properly then.
             if (!pageSingleAcquire) {
                 PageHeader.releasePage(absPtr);
             }
 
-            // Since we failed to take the write lock, we will try to do it again later, for this we will need to invoke the writer with a
-            // special tag TRY_AGAIN_TAG and also return the page in the dirty pages of the segment.
-
             buf.clear();
 
-            pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
-
-            segment.readLock().lock();
-
-            try {
-                addToCheckpoint(segment, fullId);
-
-                return;
-            } finally {
-                segment.readLock().unlock();
+            if (isInCheckpoint(fullId)) {
+                pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
             }
+
+            return;
+        }
+
+        if (!removeOnCheckpoint(fullId)) {
+            rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+
+            if (!pageSingleAcquire) {
+                PageHeader.releasePage(absPtr);
+            }
+
+            return;
         }
 
         try {
@@ -2019,14 +1999,16 @@ public class PersistentPageMemory implements PageMemory {
         seg.readLock().lock();
 
         try {
-            if (!removeFromCheckpoint(seg, fullId)) {
+            if (!isInCheckpoint(fullId)) {
                 return;
             }
 
             relPtr = resolveRelativePointer(seg, fullId, tag = generationTag(seg, fullId));
 
             // Page may have been cleared during eviction. We have nothing to do in this case.
-            assert relPtr != INVALID_REL_PTR : "Page was removed by page replacing, which should not have happened: " + fullId;
+            if (relPtr == INVALID_REL_PTR) {
+                return;
+            }
 
             if (relPtr != OUTDATED_REL_PTR) {
                 absPtr = seg.absolute(relPtr);
@@ -2071,7 +2053,7 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
-        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker, seg);
+        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker);
     }
 
     /**

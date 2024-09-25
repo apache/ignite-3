@@ -20,12 +20,14 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
+import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -35,8 +37,10 @@ import org.jetbrains.annotations.Nullable;
  * Class contains dirty pages of the segment that will need to be written at a checkpoint or page replacement. It also contains helper
  * methods before writing pages.
  *
- * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used, for example,
- * segment read and write locks.</p>
+ * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used.</p>
+ *
+ * @see PersistentPageMemory#checkpointWritePage(FullPageId, ByteBuffer, PageStoreWriter, CheckpointMetricsTracker)
+ * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
  */
 public class CheckpointPages {
     private final Set<FullPageId> pageIds;
@@ -107,19 +111,6 @@ public class CheckpointPages {
      */
     public boolean contains(FullPageId pageId) {
         return pageIds.contains(pageId);
-    }
-
-    /**
-     * Adds a page ID that would be written at a checkpoint or page replacement. The code that invokes this method must ensure that the
-     * added page is written at a checkpoint or page replacement. For example, at a checkpoint when an attempt to take a write lock for the
-     * page fails.
-     *
-     * @param pageId Page ID to add.
-     * @return {@code True} if the page was added by the current method invoke, {@code false} if the page was already exists.
-     */
-    // TODO: IGNITE-23212 кандидат на удаление
-    public boolean add(FullPageId pageId) {
-        return pageIds.add(pageId);
     }
 
     /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */
