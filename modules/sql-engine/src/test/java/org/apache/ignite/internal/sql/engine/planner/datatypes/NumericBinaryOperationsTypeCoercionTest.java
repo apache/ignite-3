@@ -143,7 +143,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
                 RelDataType opType1 = native2relationalType(typeFactory, first);
                 RelDataType opType2 = native2relationalType(typeFactory, second);
-                RelDataType expectedReturnType = null;
+                RelDataType expectedReturnType;
 
                 switch (op) {
                     case ADD:
