@@ -48,12 +48,13 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
         try {
             insertAndUpdateRunQuery(500);
-            // minimum row count is 1000, even we have less rows.
+            // Minimum row count is 1000, even we have less rows.
             assertQuery(getUniqueQuery())
                     .matches(containsRowCount(1000))
                     .check();
 
             insertAndUpdateRunQuery(600);
+            // Should return actual number of rows in the table.
             assertQuery(getUniqueQuery())
                     .matches(containsRowCount(1100))
                     .check();
@@ -78,6 +79,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
                 .mapToObj(i -> new Object[]{i, i})
                 .toArray(Object[][]::new);
         insertData("t", columns, values);
+
         // run unique sql to update statistics
         sql(getUniqueQuery());
     }

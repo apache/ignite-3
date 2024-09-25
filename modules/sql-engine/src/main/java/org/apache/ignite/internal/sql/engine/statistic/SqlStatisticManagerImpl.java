@@ -59,9 +59,9 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     /**
-     * Returns approximate number of rows in table by their id. For first run try to got fresh value, but still can return default table
-     * size if can do it in time. Returns the previous known value and can start process to update asked statistics in background to have
-     * updated values for future requests.
+     * Returns approximate number of rows in table by their id. Returns the previous known value or
+     * {@value SqlStatisticManagerImpl#DEFAULT_TABLE_SIZE} as default value. Can start process to update asked statistics in background to
+     * have updated values for future requests.
      */
     @Override
     public long tableSize(int tableId) {
