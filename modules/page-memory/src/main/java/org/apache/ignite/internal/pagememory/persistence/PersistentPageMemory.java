@@ -1497,7 +1497,8 @@ public class PersistentPageMemory implements PageMemory {
          *
          * <p>The replacement will be successful if the following conditions are met:</p>
          * <ul>
-         *     <li>Page has acquired by checkpoint - nothing needs to be done.</li>
+         *     <li>Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
+         *     needs to be done.</li>
          *     <li>Page is not dirty - just remove it from the loaded pages.</li>
          *     <li>Page is dirty, there is a checkpoint in the process and the following sub-conditions are met:</li>
          *     <ul>
@@ -1524,7 +1525,8 @@ public class PersistentPageMemory implements PageMemory {
             assert writeLock().isHeldByCurrentThread();
 
             if (isAcquired(absPtr)) {
-                // Page is acquired by the checkpoint on the segment read lock and will be written by it.
+                // Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
+                // needs to be done.
                 return false;
             }
 

@@ -25,8 +25,6 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
@@ -45,8 +43,6 @@ import org.jetbrains.annotations.Nullable;
  * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
  */
 public class CheckpointPages {
-    private static final IgniteLogger LOG = Loggers.forClass(IgniteLogger.class);
-
     private final Set<FullPageId> pageIds;
 
     private final CheckpointProgressImpl checkpointProgress;
@@ -58,8 +54,6 @@ public class CheckpointPages {
      * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
     public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
-        LOG.info(">>>>> CheckpointPages pageIds=" + pageIds);
-
         this.pageIds = pageIds;
         this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
