@@ -122,7 +122,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }
 
-    public void removeTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
+    public void removeTableReplicaListener(TablePartitionId partitionId) {
         replicas.get(partitionId).onShutdown();
 
         replicas.remove(partitionId);
@@ -137,5 +137,10 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     @VisibleForTesting
     public Map<TablePartitionId, ReplicaListener> tableReplicaListeners() {
         return replicas;
+    }
+
+    @Override
+    public void onShutdown() {
+        replicas.forEach((id, listener) -> listener.onShutdown());
     }
 }

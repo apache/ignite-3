@@ -81,6 +81,8 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
+        listener.onShutdown();
+
         return nullCompletedFuture();
     }
 

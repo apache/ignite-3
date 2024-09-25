@@ -1311,7 +1311,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                 int i = 0;
 
-                for (ReplicationGroupId partitionId : partitionIds) {
+                for (ZonePartitionId partitionId : partitionIds) {
                     stopReplicaFutures[i++] = stopPartition(partitionId);
                 }
 

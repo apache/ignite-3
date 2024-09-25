@@ -713,9 +713,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
 
-                    partitionReplicaLifecycleManager.unloadTableListenerToZoneReplica(
-                            parameters.zonePartitionId(),
-                            new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId()));
+//                    partitionReplicaLifecycleManager.unloadTableListenerToZoneReplica(
+//                            parameters.zonePartitionId(),
+//                            new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId()));
 
                     mvGc.removeStorage(tablePartitionId);
 
@@ -1963,6 +1963,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
+                            LOG.info("KKK null tableDescriptor");
                             return nullCompletedFuture();
                         }
 
@@ -1988,6 +1989,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (e != null) {
                         getLatestTableFuture.completeExceptionally(e);
                     } else {
+                        LOG.info("KKK tables " + startedTables);
                         getLatestTableFuture.complete(startedTables.get(tableId));
                     }
                 });
