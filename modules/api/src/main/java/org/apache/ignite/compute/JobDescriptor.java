@@ -37,7 +37,7 @@ public class JobDescriptor<T, R> {
 
     private final @Nullable Marshaller<R, byte[]> resultMarshaller;
 
-    private final Class<?> resultClass;
+    private final Class<R> resultClass;
 
     private JobDescriptor(
             String jobClassName,
@@ -45,7 +45,7 @@ public class JobDescriptor<T, R> {
             JobExecutionOptions options,
             @Nullable Marshaller<T, byte[]> argumentMarshaller,
             @Nullable Marshaller<R, byte[]> resultMarshaller,
-            @Nullable Class<?> resultClass
+            @Nullable Class<R> resultClass
     ) {
         this.jobClassName = jobClassName;
         this.units = units;
@@ -125,7 +125,7 @@ public class JobDescriptor<T, R> {
         private JobExecutionOptions options;
         private Marshaller<T, byte[]> argumentMarshaller;
         private Marshaller<R, byte[]> resultMarshaller;
-        private Class<?> resultClass;
+        private Class<R> resultClass;
 
         private Builder(String jobClassName) {
             Objects.requireNonNull(jobClassName);
@@ -197,7 +197,7 @@ public class JobDescriptor<T, R> {
          *
          * @return This builder.
          */
-        public Builder<T, R> resultClass(Class<?> resultClass) {
+        public Builder<T, R> resultClass(Class<R> resultClass) {
             this.resultClass = resultClass;
             return this;
         }
