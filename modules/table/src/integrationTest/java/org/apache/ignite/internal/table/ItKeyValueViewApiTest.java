@@ -225,7 +225,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void testContainsAll(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
+    public void containsAll(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject firstKey = TestKeyObject.randomObject(rnd);
         TestObjectWithAllTypes firstVal = TestObjectWithAllTypes.randomObject(rnd);

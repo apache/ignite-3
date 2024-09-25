@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,6 +39,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -309,12 +309,12 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertThat(res, contains(rec1, null, rec3));
+        assertThat(res, Matchers.contains(rec1, null, rec3));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void testContains(BinTestCase testCase) {
+    public void contains(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
         final long keyId = 1L;
@@ -338,7 +338,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    public void testContainsAll(BinTestCase testCase) {
+    public void containsAll(BinTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
 
         long firstKey = 101L;
@@ -402,7 +402,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertThat(res, contains(rec1, null, rec3));
+        assertThat(res, Matchers.contains(rec1, null, rec3));
 
         Tuple upRec1 = Tuple.create().set("id", 1L).set("val", 112L);
         Tuple rec2 = Tuple.create().set("id", 2L).set("val", 22L);
@@ -418,7 +418,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertThat(res, contains(upRec1, rec2, upRec3));
+        assertThat(res, Matchers.contains(upRec1, rec2, upRec3));
     }
 
     @ParameterizedTest
@@ -524,7 +524,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertThat(current, contains(null, tuple2, null));
+        assertThat(current, Matchers.contains(null, tuple2, null));
     }
 
     @ParameterizedTest
@@ -573,7 +573,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertThat(current, contains(null, null, tuple3Upsert));
+        assertThat(current, Matchers.contains(null, null, tuple3Upsert));
     }
 
     @ParameterizedTest

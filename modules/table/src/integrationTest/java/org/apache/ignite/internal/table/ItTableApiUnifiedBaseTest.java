@@ -47,8 +47,10 @@ import org.junit.jupiter.api.BeforeAll;
  *
  *<p>This class is used to run each test case in a consistent manner using
  * different API types (synchronous or asynchronous) and clients (embedded or thin).
+ *
+ * @see TestCaseType
  */
-abstract class ItViewsApiUnifiedTest extends ClusterPerClassIntegrationTest {
+abstract class ItTableApiUnifiedBaseTest extends ClusterPerClassIntegrationTest {
     private final List<String> tablesToClear = new ArrayList<>();
 
     protected IgniteClient client;
@@ -145,6 +147,9 @@ abstract class ItViewsApiUnifiedTest extends ClusterPerClassIntegrationTest {
                 .collect(toList());
     }
 
+    /**
+     * Defines the type of test case to run.
+     */
     enum TestCaseType {
         EMBEDDED("embedded"),
         EMBEDDED_ASYNC("embedded async"),

@@ -26,9 +26,12 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
- * Base class for record view API integration tests.
+ * Base class for {@link RecordView record view} API integration tests.
  */
-abstract class ItRecordViewApiBaseTest extends ItViewsApiUnifiedTest {
+abstract class ItRecordViewApiBaseTest extends ItTableApiUnifiedBaseTest {
+    /**
+     * Returns a factory for creating a set of test cases for the specific record view.
+     */
     abstract TestCaseFactory getFactory(String tableName);
 
     <T> List<Arguments> generateRecordViewTestArguments(String tableName, Class<T> recordClass) {
@@ -36,10 +39,10 @@ abstract class ItRecordViewApiBaseTest extends ItViewsApiUnifiedTest {
 
         List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
 
-        for (TestCaseType type : TestCaseType.values()) {
+        for (TestCaseType testCaseType : TestCaseType.values()) {
             arguments.add(Arguments.of(Named.of(
-                    type.description(),
-                    caseFactory.create(type, recordClass)
+                    testCaseType.description(),
+                    caseFactory.create(testCaseType, recordClass)
             )));
         }
 
@@ -71,6 +74,7 @@ abstract class ItRecordViewApiBaseTest extends ItViewsApiUnifiedTest {
         abstract <V> TestCase<V> create(boolean async, boolean thin, Class<V> recordClass);
     }
 
+    @SuppressWarnings("MethodMayBeStatic")
     static class TestCase<V> {
         final boolean async;
         final boolean thin;

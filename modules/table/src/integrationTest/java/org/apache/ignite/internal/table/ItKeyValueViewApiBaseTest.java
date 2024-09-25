@@ -26,10 +26,28 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
- * Base class for key-value view API integration tests.
+ * Base class for {@link KeyValueView key-value view} API integration tests.
  */
-abstract class ItKeyValueViewApiBaseTest extends ItViewsApiUnifiedTest {
-    abstract TestCaseFactory getFactory(String tableName);
+abstract class ItKeyValueViewApiBaseTest extends ItTableApiUnifiedBaseTest {
+    /**
+     * Returns a factory for creating a set of test cases for the specific key-value view.
+     */
+    abstract TestCaseFactory getFactory(String viewName);
+
+    List<Arguments> generateKeyValueTestArguments(String tableName, Class<?> keyClass, Class<?> valueClass) {
+        TestCaseFactory caseFactory = getFactory(tableName);
+
+        List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
+
+        for (TestCaseType type : TestCaseType.values()) {
+            arguments.add(Arguments.of(Named.of(
+                    type.description(),
+                    caseFactory.create(type, keyClass, valueClass)
+            )));
+        }
+
+        return arguments;
+    }
 
     abstract static class TestCaseFactory {
         final String tableName;
@@ -56,21 +74,7 @@ abstract class ItKeyValueViewApiBaseTest extends ItViewsApiUnifiedTest {
         abstract <K, V> BaseTestCase<K, V> create(boolean async, boolean thin, Class<K> keyClass, Class<V> valueClass);
     }
 
-    List<Arguments> generateKeyValueTestArguments(String tableName, Class<?> keyClass, Class<?> valueClass) {
-        TestCaseFactory caseFactory = getFactory(tableName);
-
-        List<Arguments> arguments = new ArrayList<>(TestCaseType.values().length);
-
-        for (TestCaseType type : TestCaseType.values()) {
-            arguments.add(Arguments.of(Named.of(
-                    type.description(),
-                    caseFactory.create(type, keyClass, valueClass)
-            )));
-        }
-
-        return arguments;
-    }
-
+    @SuppressWarnings("MethodMayBeStatic")
     static class BaseTestCase<K, V> {
         final boolean async;
         final boolean thin;
