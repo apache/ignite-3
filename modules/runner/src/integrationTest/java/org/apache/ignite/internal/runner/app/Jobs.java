@@ -391,12 +391,12 @@ public class Jobs {
                     MapReduceJob.<String, String>builder()
                             .jobDescriptor(mapJobDescriptor)
                             .node(nodes.get(0))
-                            .args(input.string_0)
+                            .args(input.firstString)
                             .build(),
                     MapReduceJob.<String, String>builder()
                             .jobDescriptor(mapJobDescriptor)
                             .node(nodes.get(1))
-                            .args(input.string_1)
+                            .args(input.secondString)
                             .build()
             ));
         }
@@ -408,16 +408,17 @@ public class Jobs {
         }
     }
 
+    /** Simple two string pojo. */
     public static class TwoStringPojo {
-        public String string_0;
-        public String string_1;
+        public String firstString;
+        public String secondString;
 
         public TwoStringPojo() {
         }
 
-        public TwoStringPojo(String input0, String input1) {
-            string_0 = input0;
-            string_1 = input1;
+        public TwoStringPojo(String firstString, String secondString) {
+            firstString = firstString;
+            this.secondString = secondString;
         }
     }
 }

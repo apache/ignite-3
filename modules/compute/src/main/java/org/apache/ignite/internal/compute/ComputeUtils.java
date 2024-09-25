@@ -414,9 +414,9 @@ public class ComputeUtils {
      * Finds the second argument type of the {@link ComputeJob#executeAsync(JobExecutionContext, T)} method in the provided job class.
      *
      * @param jobClass Job class to introspect.
-     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
      * @param <T> Type of the job argument.
      * @param <R> Type of the job result.
+     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
      */
     public static <T, R> @Nullable Class<?> getJobExecuteArgumentType(Class<? extends ComputeJob<T, R>> jobClass) {
         for (Method method : jobClass.getDeclaredMethods()) {
@@ -436,11 +436,11 @@ public class ComputeUtils {
      * Finds the second argument type of the {@link MapReduceTask#splitAsync(TaskExecutionContext, I)} method in the provided task class.
      *
      * @param taskClass Task class to introspect.
-     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
      * @param <I> Split task (I)nput type.
      * @param <M> (M)ap job input type.
      * @param <T> Map job output (T)ype and reduce job input (T)ype.
      * @param <R> Reduce (R)esult type.
+     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
      */
     public static <I, M, T, R> @Nullable Class<?> getTaskSplitArgumentType(Class<? extends MapReduceTask<I, M, T, R>> taskClass) {
         for (Method method : taskClass.getDeclaredMethods()) {

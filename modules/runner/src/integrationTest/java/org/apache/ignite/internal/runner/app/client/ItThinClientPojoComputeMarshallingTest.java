@@ -112,8 +112,8 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
         );
 
         // Then.
-        assertThat(result.string_0, containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
+        assertThat(result.firstString, containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
         // And.
-        assertThat(result.string_1, containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
+        assertThat(result.secondString, containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
     }
 }
