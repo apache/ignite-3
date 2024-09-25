@@ -46,6 +46,7 @@ public interface SystemDisasterRecoveryApi {
             description = "Initiates cluster reset to repair CMG/Metastorage group/both."
     )
     @ApiResponse(responseCode = "200", description = "Cluster reset initiated.")
+    // TODO: IGNITE-23274 - introduce a constant for common error descriptions.
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Bad request.",
@@ -60,6 +61,7 @@ public interface SystemDisasterRecoveryApi {
             description = "Migrates nodes from old cluster to new (repaired) cluster."
     )
     @ApiResponse(responseCode = "200", description = "Migration initiated.")
+    // TODO: IGNITE-23274 - introduce a constant for common error descriptions.
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Bad request.",
