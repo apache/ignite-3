@@ -279,15 +279,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         // Then.
-        assertThat(
-                result,
-                hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
+        assertThat(result, hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
         // And
-        assertThat(
-                result,
-                hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
+        assertThat(result, hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
     }
 
     @Test

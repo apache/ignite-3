@@ -19,15 +19,20 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobDescriptor.Builder;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.internal.runner.app.Jobs.MapReducePojo;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
+import org.apache.ignite.internal.runner.app.Jobs.TwoStringPojo;
 import org.apache.ignite.marshalling.UnmarshallingException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -93,5 +98,22 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
     /** Pojo with the same layout as {@link org.apache.ignite.internal.runner.app.Jobs.PojoResult}. */
     public static class PojoResult1 {
         public long longValue;
+    }
+
+    @Test
+    void mapReduce() {
+        // When.
+        TwoStringPojo result = client().compute().executeMapReduce(
+                TaskDescriptor.builder(MapReducePojo.class)
+                        .reduceJobResultClass(TwoStringPojo.class)
+                        .build(),
+                // input_O goes to 0 node and input_1 goes to 1 node
+                new TwoStringPojo("Input_0", "Input_1")
+        );
+
+        // Then.
+        assertThat(result.string_0, containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
+        // And.
+        assertThat(result.string_1, containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"));
     }
 }

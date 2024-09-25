@@ -35,14 +35,14 @@ public class TaskDescriptor<T, R> {
 
     private final Marshaller<R, byte[]> reduceJobResultMarshaller;
 
-    private final Class<?> reduceJobResultClass;
+    private final Class<R> reduceJobResultClass;
 
     private TaskDescriptor(
             String taskClassName,
             List<DeploymentUnit> units,
             Marshaller<T, byte[]> splitJobArgumentMarshaller,
             Marshaller<R, byte[]> reduceJobResultMarshaller,
-            Class<?> reduceJobResultClass
+            Class<R> reduceJobResultClass
     ) {
         this.taskClassName = taskClassName;
         this.units = units;
@@ -92,7 +92,7 @@ public class TaskDescriptor<T, R> {
      *
      * @return Reduce job result class.
      */
-    public Class<?> reduceJobResultClass() {
+    public Class<R> reduceJobResultClass() {
         return reduceJobResultClass;
     }
 
@@ -126,7 +126,7 @@ public class TaskDescriptor<T, R> {
         private List<DeploymentUnit> units;
         private Marshaller<T, byte[]> splitJobArgumentMarshaller;
         private Marshaller<R, byte[]> reduceJobResultMarshaller;
-        private Class<?> reduceJobResultClass;
+        private Class<R> reduceJobResultClass;
 
         private Builder(String taskClassName) {
             Objects.requireNonNull(taskClassName);
@@ -185,7 +185,7 @@ public class TaskDescriptor<T, R> {
          *
          * @return This builder.
          */
-        public Builder<T, R> reduceJobResultClass(Class<?> reduceJobResultClass) {
+        public Builder<T, R> reduceJobResultClass(Class<R> reduceJobResultClass) {
             this.reduceJobResultClass = reduceJobResultClass;
             return this;
         }

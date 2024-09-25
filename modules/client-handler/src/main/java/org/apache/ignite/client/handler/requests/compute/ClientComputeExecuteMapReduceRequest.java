@@ -58,10 +58,10 @@ public class ClientComputeExecuteMapReduceRequest {
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object args = unpackJobArgumentWithoutMarshaller(in);
+        Object arg = unpackJobArgumentWithoutMarshaller(in);
 
         TaskExecution<Object> execution = compute.submitMapReduce(
-                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), args);
+                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), arg);
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()

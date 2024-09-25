@@ -371,4 +371,53 @@ public class Jobs {
             return completedFuture(tuple);
         }
     }
+
+    /** MapReduce task that takes two strings from the input pojo, sends them to different nodes then combines results into pojo. */
+    public static class MapReducePojo implements MapReduceTask<TwoStringPojo, String, String, TwoStringPojo> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(
+                TaskExecutionContext taskContext,
+                @Nullable TwoStringPojo input
+        ) {
+
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+
+            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                    .argumentMarshaller(new ArgumentStringMarshaller())
+                    .resultMarshaller(new ResultStringUnMarshaller())
+                    .build();
+
+            return completedFuture(List.of(
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(0))
+                            .args(input.string_0)
+                            .build(),
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(1))
+                            .args(input.string_1)
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<TwoStringPojo> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            List<String> res = new ArrayList<>(results.values());
+            return completedFuture(new TwoStringPojo(res.get(0), res.get(1)));
+        }
+    }
+
+    public static class TwoStringPojo {
+        public String string_0;
+        public String string_1;
+
+        public TwoStringPojo() {
+        }
+
+        public TwoStringPojo(String input0, String input1) {
+            string_0 = input0;
+            string_1 = input1;
+        }
+    }
 }
