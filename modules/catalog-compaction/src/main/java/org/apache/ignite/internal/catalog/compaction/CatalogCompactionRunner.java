@@ -417,7 +417,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             HybridTimestamp lwm,
             Map<String, Map<Integer, BitSet>> allPartitions
     ) {
-        Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
+        Catalog catalog = catalogManagerFacade.catalogPriorToVersionAtTsNullable(minRequiredTime);
 
         if (catalog == null) {
             LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", minRequiredTime);
@@ -471,9 +471,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
     ) {
         HybridTimestamp nowTs = clockService.now();
         ConcurrentHashMap<String, RequiredPartitions> requiredPartitionsPerNode = new ConcurrentHashMap<>();
+        // Used as a set.
         ConcurrentHashMap<Integer, Boolean> deletedTables = new ConcurrentHashMap<>();
 
-        Catalog currentCatalog = catalogManagerFacade.catalogByTsNullable(nowTs.longValue());
+        Catalog currentCatalog = catalogManagerFacade.catalogAtTsNullable(nowTs.longValue());
         assert currentCatalog != null;
 
         return CompletableFutures.allOf(catalog.tables().stream()
@@ -510,15 +511,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }
             }
 
-            Catalog catalogPriorToLwm = catalogManagerFacade.catalogByTsNullable(lwm.longValue());
-            // Wait for the next round, if catalog prior to a low watermark is not available, abort.
-            if (catalogPriorToLwm == null && !deletedTables.isEmpty()) {
-                return new Pair<>(false, requiredNodeNames);
-            }
+            Catalog catalogAtLwm = catalogManagerFacade.catalogAtTsNullable(lwm.longValue());
+            assert catalogAtLwm != null;
 
             for (int tableId : deletedTables.keySet()) {
-                if (catalogPriorToLwm.table(tableId) != null) {
-                    // Table existed in a version prior to a low watermark, abort.
+                if (catalogAtLwm.table(tableId) != null) {
+                    // Table existed in a revision at the low watermark, abort.
                     return new Pair<>(false, requiredNodeNames);
                 }
             }
@@ -532,7 +530,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
             CatalogTableDescriptor table,
             HybridTimestamp nowTs,
             ConcurrentHashMap<String, RequiredPartitions> requiredPartitionsPerNode,
-            Catalog currentCatalog, ConcurrentHashMap<Integer, Boolean> deletedTables
+            Catalog currentCatalog,
+            ConcurrentHashMap<Integer, Boolean> deletedTables
     ) {
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 

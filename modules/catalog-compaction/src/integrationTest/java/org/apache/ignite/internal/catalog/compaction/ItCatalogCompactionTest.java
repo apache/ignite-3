@@ -201,61 +201,40 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         sql("create table a(a int primary key)");
         sql("alter table a add column b int");
 
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+        Ignite ignite = CLUSTER.aliveNode();
 
         log.info("Awaiting for the first compaction to run...");
 
-        Catalog catalog1 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(catalog1);
-
-        expectEarliestCatalogVersion(catalog1.version() - 1);
+        int catalogVersion1 = getLatestCatalogVersion(ignite);
+        expectEarliestCatalogVersion(catalogVersion1 - 1);
 
         log.info("Awaiting for the second compaction to run...");
 
         sql("alter table a add column c int");
 
-        Catalog catalog2 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(catalog2);
+        int catalogVersion2 = getLatestCatalogVersion(ignite);
+        assertTrue(catalogVersion1 < catalogVersion2, "Catalog version should have changed");
 
-        assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
-
-        expectEarliestCatalogVersion(catalog2.version() - 1);
-    }
-
-    @Test
-    public void testCompactionAfterDropTable() throws InterruptedException {
-        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
-                CLUSTER_SIZE, CLUSTER_SIZE)
-        );
-
-        sql("alter zone test set default");
-
-        sql("create table a(a int primary key)");
-        sql("alter table a add column b int");
-
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
-
-        log.info("Awaiting for the first compaction to run...");
-
-        Catalog catalog1 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(catalog1);
-
-        expectEarliestCatalogVersion(catalog1.version() - 1);
-
-        log.info("Awaiting for the second compaction to run...");
+        expectEarliestCatalogVersion(catalogVersion2 - 1);
 
         sql("drop table a");
-        // Compact to the version after DROP table.
-        sql("create table b(a int primary key)");
 
-        Catalog catalog2 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(catalog2);
+        log.info("Awaiting for the third compaction to run...");
 
-        assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
+        int catalogVersion3 = getLatestCatalogVersion(ignite);
+        assertTrue(catalogVersion2 < catalogVersion3, "Catalog version should have changed");
 
-        expectEarliestCatalogVersion(catalog2.version() - 1);
+        expectEarliestCatalogVersion(catalogVersion3 - 1);
+    }
+
+    private static int getLatestCatalogVersion(Ignite ignite) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) igniteImpl.catalogManager());
+
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(igniteImpl.clock().nowLong()));
+        assertNotNull(catalog);
+
+        return catalog.version();
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
