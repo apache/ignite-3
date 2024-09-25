@@ -54,8 +54,11 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-file-io')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))

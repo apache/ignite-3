@@ -17,24 +17,27 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.TestPageIoModule.FAKE_PARTITION_META_PAGE_IO_TYPE;
+import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_VER;
+
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Simple implementation of {@link PartitionMeta} for testing purposes.
- */
+/** Simple implementation of {@link PartitionMeta} for testing purposes. */
 public class FakePartitionMeta extends PartitionMeta {
+    public static final FakePartitionMetaFactory FACTORY = new FakePartitionMetaFactory();
 
-    public static final PartitionMetaFactory FACTORY = new FakePartitionMetaFactory();
-
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public FakePartitionMeta() {
-        super(0);
+        this(0);
+    }
+
+    /** Constructor. */
+    public FakePartitionMeta(int pageCount) {
+        super(pageCount);
     }
 
     /**
@@ -51,7 +54,7 @@ public class FakePartitionMeta extends PartitionMeta {
 
     @Override
     protected FakePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
-        return new FakePartitionMetaSnapshot(checkpointId);
+        return new FakePartitionMetaSnapshot(checkpointId, pageCount());
     }
 
     /**
@@ -60,12 +63,17 @@ public class FakePartitionMeta extends PartitionMeta {
     public static class FakePartitionMetaSnapshot implements PartitionMetaSnapshot {
         private final UUID checkpointId;
 
-        public FakePartitionMetaSnapshot(@Nullable UUID checkpointId) {
+        private final int pageCount;
+
+        FakePartitionMetaSnapshot(@Nullable UUID checkpointId, int pageCount) {
             this.checkpointId = checkpointId;
+            this.pageCount = pageCount;
         }
 
         @Override
         public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
+            FakePartitionMetaIo fakePartitionMetaIo = (FakePartitionMetaIo) metaIo;
+            fakePartitionMetaIo.setPageCount(pageAddr, pageCount);
         }
 
         @Override
@@ -79,14 +87,16 @@ public class FakePartitionMeta extends PartitionMeta {
      */
     public static class FakePartitionMetaIo extends PartitionMetaIo {
         /** I/O versions. */
-        public static final IoVersions<FakePartitionMetaIo> VERSIONS = new IoVersions<>(new FakePartitionMetaIo(1, 1));
+        public static final IoVersions<FakePartitionMetaIo> VERSIONS = new IoVersions<>(
+                new FakePartitionMetaIo(FAKE_PARTITION_META_PAGE_IO_TYPE, TEST_PAGE_VER)
+        );
 
         /**
          * Constructor.
          *
          * @param ver Page format version.
          */
-        protected FakePartitionMetaIo(int type, int ver) {
+        FakePartitionMetaIo(int type, int ver) {
             super(type, ver);
         }
 
@@ -98,13 +108,11 @@ public class FakePartitionMeta extends PartitionMeta {
         }
     }
 
-    /**
-     * Simple implementation of {@link PartitionMetaFactory} for testing purposes.
-     */
+    /** Simple implementation of {@link PartitionMetaFactory} for testing purposes. */
     public static class FakePartitionMetaFactory implements PartitionMetaFactory {
         @Override
-        public FakePartitionMeta createPartitionMeta(UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-            return new FakePartitionMeta().init(checkpointId);
+        public FakePartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
+            return new FakePartitionMeta(metaIo.getPageCount(pageAddr)).init(checkpointId);
         }
 
         @Override

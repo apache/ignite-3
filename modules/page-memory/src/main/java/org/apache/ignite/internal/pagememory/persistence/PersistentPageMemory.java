@@ -68,7 +68,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -93,8 +92,10 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
+import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedDirtyPageWrite;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicy;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicyFactory;
@@ -509,7 +510,6 @@ public class PersistentPageMemory implements PageMemory {
         return dirty(absPtr);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long allocatePageNoReuse(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
@@ -525,7 +525,6 @@ public class PersistentPageMemory implements PageMemory {
         Segment seg = segment(grpId, pageId);
 
         seg.writeLock().lock();
-
 
         try {
             FullPageId fullId = new FullPageId(pageId, grpId);
@@ -587,10 +586,9 @@ public class PersistentPageMemory implements PageMemory {
             throw e;
         } finally {
             seg.writeLock().unlock();
-        }
 
-        // Finish replacement only when an exception wasn't thrown otherwise it possible to corrupt B+Tree.
-        delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
+            delayedPageReplacementTracker.delayedPageWrite().flushCopiedPageIfExists();
+        }
 
         return pageId;
     }
@@ -800,7 +798,7 @@ public class PersistentPageMemory implements PageMemory {
         } finally {
             seg.writeLock().unlock();
 
-            delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
+            delayedPageReplacementTracker.delayedPageWrite().flushCopiedPageIfExists();
 
             if (readPageFromStore) {
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId
@@ -1495,32 +1493,60 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         /**
-         * Prepares a page removal for page replacement, if needed.
+         * Tries to replace the page.
          *
-         * @param fullPageId Candidate page full ID.
-         * @param absPtr Absolute pointer of the page to evict.
-         * @return {@code True} if it is ok to replace this page, {@code false} if another page should be selected.
-         * @throws IgniteInternalCheckedException If failed to write page to the underlying store during eviction.
+         * <p>The replacement will be successful if the following conditions are met:</p>
+         * <ul>
+         *     <li>Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
+         *     needs to be done.</li>
+         *     <li>Page is not dirty - just remove it from the loaded pages.</li>
+         *     <li>Page is dirty, there is a checkpoint in the process and the following sub-conditions are met:</li>
+         *     <ul>
+         *         <li>Page belongs to current checkpoint.</li>
+         *         <li>If the dirty page sorting phase is complete, otherwise we wait for it. This is necessary so that we can safely
+         *         create partition delta files in which the dirty page order must be preserved.</li>
+         *         <li>If the checkpoint dirty page writer has not started writing the page or has already written it.</li>
+         *     </ul>
+         * </ul>
+         *
+         * <p>It is expected that if the method returns {@code true}, it will not be invoked again for the same page ID.</p>
+         *
+         * <p>If we intend to replace a page, it is important for us to block the delta file fsync phase of the checkpoint to preserve data
+         * consistency. The phase should not start until all dirty pages are written by the checkpoint writer, but for page replacement we
+         * must block it ourselves.</p>
+         *
+         * @param fullPageId Candidate page ID.
+         * @param absPtr Absolute pointer to the candidate page.
+         * @return {@code True} if the page replacement was successful, otherwise need to try another one.
+         * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
+         *      checkpoint.
          */
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
             if (isAcquired(absPtr)) {
+                // Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
+                // needs to be done.
                 return false;
             }
 
             if (isDirty(absPtr)) {
                 CheckpointPages checkpointPages = this.checkpointPages;
-                // Can evict a dirty page only if should be written by a checkpoint.
-                // These pages does not have tmp buffer.
-                if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
-                    WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
+                // Can replace a dirty page only if it should be written by a checkpoint.
+                // Safe to invoke because we keep segment write lock and the checkpoint writer must remove pages on the segment read lock.
+                if (checkpointPages != null && checkpointPages.removeOnPageReplacement(fullPageId)) {
+                    checkpointPages.blockFsyncOnPageReplacement(fullPageId);
 
-                    writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
+                    DelayedDirtyPageWrite delayedDirtyPageWrite = delayedPageReplacementTracker.delayedPageWrite();
+
+                    delayedDirtyPageWrite.copyPageToTemporaryBuffer(
+                            PersistentPageMemory.this,
+                            fullPageId,
+                            wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
+                            checkpointPages
+                    );
 
                     setDirty(fullPageId, absPtr, false, true);
-
-                    checkpointPages.markAsSaved(fullPageId);
 
                     loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
 
@@ -1826,23 +1852,23 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Returns {@code true} if remove successfully.
      *
-     * @param fullPageId Page ID to clear.
+     * @param fullPageId Page ID to remove.
      */
-    boolean clearCheckpoint(FullPageId fullPageId) {
+    private boolean removeOnCheckpoint(FullPageId fullPageId) {
         Segment seg = segment(fullPageId.groupId(), fullPageId.pageId());
 
         CheckpointPages pages0 = seg.checkpointPages;
 
-        assert pages0 != null;
+        assert pages0 != null : fullPageId;
 
-        return pages0.markAsSaved(fullPageId);
+        return pages0.removeOnCheckpoint(fullPageId);
     }
 
     /**
      * Makes a full copy of the dirty page for checkpointing, then marks the page as not dirty.
      *
      * @param absPtr Absolute page pointer.
-     * @param fullId Full page id.
+     * @param fullId Full page ID.
      * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
      * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
      *      checkpoint temporary buffer is used.
@@ -1883,7 +1909,7 @@ public class PersistentPageMemory implements PageMemory {
             return;
         }
 
-        if (!clearCheckpoint(fullId)) {
+        if (!removeOnCheckpoint(fullId)) {
             rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
             if (!pageSingleAcquire) {
@@ -1946,8 +1972,8 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Prepare page for write during checkpoint. {@link PageStoreWriter} will be called when the page will be ready to write.
      *
-     * @param fullId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
-     * #beginCheckpoint(CompletableFuture)} method call.
+     * @param fullId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link #beginCheckpoint}
+     *      method call.
      * @param buf Temporary buffer to write changes into.
      * @param pageStoreWriter Checkpoint page write context.
      * @param tracker Checkpoint metrics tracker.
@@ -2067,11 +2093,11 @@ public class PersistentPageMemory implements PageMemory {
      * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
      * finished. This method must be called when no concurrent operations on pages are performed.
      *
-     * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
+     * @param checkpointProgress Progress of the current checkpoint.
      * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public Collection<FullPageId> beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+    public Collection<FullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
         if (segments == null) {
             return List.of();
         }
@@ -2081,11 +2107,15 @@ public class PersistentPageMemory implements PageMemory {
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
 
-            assert segment.checkpointPages == null : "Failed to begin checkpoint (it is already in progress)";
+            assert segment.checkpointPages == null : String.format(
+                    "Failed to begin checkpoint (it is already in progress): [storageProfile=%s, segmentIdx=%s]",
+                    storageProfileView.name(), i
+            );
 
-            Set<FullPageId> segmentDirtyPages = (dirtyPageIds[i] = segment.dirtyPages);
+            Set<FullPageId> segmentDirtyPages = segment.dirtyPages;
+            dirtyPageIds[i] = segmentDirtyPages;
 
-            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
+            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, checkpointProgress);
 
             segment.resetDirtyPages();
         }
@@ -2122,5 +2152,11 @@ public class PersistentPageMemory implements PageMemory {
         int checkpointBufLimit = (int) (checkpointPool.pages() * CP_BUF_FILL_THRESHOLD);
 
         return checkpointPool.size() > checkpointBufLimit;
+    }
+
+    /** Returns {@code true} if a page replacement has occurred at least once. */
+    @TestOnly
+    public boolean pageReplacementOccurred() {
+        return pageReplacementWarned > 0;
     }
 }
