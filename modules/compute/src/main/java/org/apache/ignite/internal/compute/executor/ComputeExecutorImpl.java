@@ -132,7 +132,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 Class<?> actualArgumentType = getArgumentType(jobClass);
                 // If input was marshalled as Tuple and argument type is not tuple then it's a pojo.
                 if (actualArgumentType != null && actualArgumentType != Tuple.class) {
-                    return (T) unmarshallPojo(actualArgumentType, (Tuple) input);
+                    return (T) unmarshalPojo(actualArgumentType, (Tuple) input);
                 }
             }
             return (T) input;
@@ -173,7 +173,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return null;
     }
 
-    private static Object unmarshallPojo(Class<?> actualArgumentType, Tuple input) {
+    private static Object unmarshalPojo(Class<?> actualArgumentType, Tuple input) {
         try {
             Object obj = actualArgumentType.getConstructor().newInstance();
 

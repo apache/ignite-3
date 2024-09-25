@@ -36,7 +36,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Packs job arguments and results. */
 public final class ClientComputeJobPacker {
-
     private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
             .map(ColumnType::javaClass)
             .collect(Collectors.toUnmodifiableSet());
