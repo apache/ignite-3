@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -258,7 +257,7 @@ class CheckpointWorkflow {
             tracker.onMarkCheckpointBeginEnd();
 
             // Page replacement is allowed only after sorting dirty pages.
-            dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(PAGES_SORTED));
+            dirtyPages = beginCheckpoint(curr);
 
             curr.currentCheckpointPagesCount(dirtyPages.dirtyPageCount);
 
@@ -370,10 +369,7 @@ class CheckpointWorkflow {
                 .collect(toUnmodifiableList());
     }
 
-    private DataRegionsDirtyPages beginCheckpoint(
-            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
-            CompletableFuture<?> allowToReplace
-    ) {
+    private DataRegionsDirtyPages beginCheckpoint(CheckpointProgressImpl checkpointProgress) {
         assert checkpointReadWriteLock.isWriteLockHeldByCurrentThread();
 
         Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
@@ -384,7 +380,7 @@ class CheckpointWorkflow {
 
         // First, we iterate all regions that have dirty pages.
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(allowToReplace);
+            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress);
 
             Set<FullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
 
