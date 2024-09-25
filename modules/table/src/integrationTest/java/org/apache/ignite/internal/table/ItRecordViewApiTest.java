@@ -57,7 +57,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void upsert(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
 
@@ -87,7 +87,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void insert(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -107,7 +107,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndUpsert(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -130,7 +130,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void remove(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -159,7 +159,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void removeExact(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -196,7 +196,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replace(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -229,7 +229,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replaceExact(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes obj = randomObject(rnd, key);
@@ -267,7 +267,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAll(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key1 = key(rnd);
         TestObjectWithAllTypes key2 = key(rnd);
@@ -290,7 +290,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void contains(TestCase<TestObjectWithAllTypes> testCase) {
         TestObjectWithAllTypes key = key(rnd);
         TestObjectWithAllTypes wrongKey = key(rnd);
@@ -306,7 +306,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void containsAll(TestCase<TestObjectWithAllTypes> testCase) {
         RecordView<TestObjectWithAllTypes> recordView = testCase.view();
 
@@ -318,6 +318,9 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
 
         TestObjectWithAllTypes thirdKey = key(rnd);
         TestObjectWithAllTypes thirdVal = randomObject(rnd, thirdKey);
+
+        testCase.checkNullRecsError(() -> recordView.insertAll(null, null));
+        testCase.checkNullRecError(() -> recordView.insertAll(null, Arrays.asList(firstKey, null, thirdKey)));
 
         List<TestObjectWithAllTypes> recs = List.of(firstVal, secondVal, thirdVal);
 
@@ -357,7 +360,7 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
         return key;
     }
 
-    private List<Arguments> views() {
+    private List<Arguments> testCases() {
         return generateRecordViewTestArguments(TABLE_NAME, TestObjectWithAllTypes.class);
     }
 

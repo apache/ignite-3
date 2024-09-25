@@ -56,7 +56,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void put(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -90,7 +90,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void putIfAbsent(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -114,7 +114,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void getAndPut(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -139,7 +139,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void nullables(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -164,7 +164,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void getOrDefault(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -203,7 +203,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void contains(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -233,7 +233,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void containsAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key1 = Tuple.create().set("id", 101L);
@@ -258,7 +258,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void remove(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -283,7 +283,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void removeExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -320,7 +320,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void replace(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -344,7 +344,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void replaceExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -361,7 +361,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void getAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key1 = Tuple.create().set("id", 1L);
@@ -380,7 +380,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @SuppressWarnings("DataFlowIssue")
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void nullKeyValidation(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple val = Tuple.create().set("val", "john");
@@ -407,7 +407,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("viewsSimple")
+    @MethodSource("simpleSchemaTestCases")
     public void nonNullableValueColumn(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 11L);
@@ -424,7 +424,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         testCase.checkNullValueError(() -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
-    private List<Arguments> viewsSimple() {
+    private List<Arguments> simpleSchemaTestCases() {
         return generateKeyValueTestArguments(TEST_TABLE, Tuple.class, Tuple.class);
     }
 

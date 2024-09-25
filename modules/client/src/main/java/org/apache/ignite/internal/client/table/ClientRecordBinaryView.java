@@ -238,7 +238,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         if (recs.isEmpty()) {
             return emptyListCompletedFuture();

@@ -85,7 +85,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void upsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -109,7 +109,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndUpsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -130,7 +130,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void remove(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -150,7 +150,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void removeExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -192,7 +192,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replace(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -217,7 +217,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replaceExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -241,7 +241,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("schemaValidationViews")
+    @MethodSource("schemaValidationTestCases")
     public void validateSchema(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -268,7 +268,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("defaultValueViews")
+    @MethodSource("defaultValueTestCases")
     public void defaultValues(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -287,7 +287,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -313,7 +313,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void testContains(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -337,7 +337,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void testContainsAll(BinTestCase testCase) {
         RecordView<Tuple> recordView = testCase.view();
 
@@ -362,6 +362,9 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                 .set("id", thirdKey)
                 .set("val", 203L);
 
+        testCase.checkNullRecsError(() -> recordView.insertAll(null, null));
+        testCase.checkNullRecError(() -> recordView.insertAll(null, Arrays.asList(firstKeyTuple, null)));
+
         List<Tuple> recs = List.of(firstValTuple, secondValTuple, thirdValTuple);
 
         recordView.insertAll(null, recs);
@@ -382,7 +385,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void upsertAllAfterInsertAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -419,7 +422,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void deleteVsDeleteExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -441,7 +444,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndReplace(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -461,7 +464,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndDelete(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -477,7 +480,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void deleteAll(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -525,7 +528,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void deleteExact(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -574,7 +577,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndReplaceVsGetAndUpsert(BinTestCase testCase) {
         RecordView<Tuple> tbl = testCase.view();
 
@@ -632,15 +635,15 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertTrue(nonNullKey > 0, "At least one non-null key column must exist.");
     }
 
-    private List<Arguments> views() {
+    private List<Arguments> testCases() {
         return generateRecordViewTestArguments(TABLE_NAME, Tuple.class);
     }
 
-    private List<Arguments> schemaValidationViews() {
+    private List<Arguments> schemaValidationTestCases() {
         return generateRecordViewTestArguments(TABLE_NAME_FOR_SCHEMA_VALIDATION, Tuple.class);
     }
 
-    private List<Arguments> defaultValueViews() {
+    private List<Arguments> defaultValueTestCases() {
         return generateRecordViewTestArguments(TABLE_NAME_WITH_DEFAULT_VALUES, Tuple.class);
     }
 

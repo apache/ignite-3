@@ -62,7 +62,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void put(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = newKey(rnd);
@@ -97,7 +97,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void putIfAbsent(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -118,7 +118,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getNullable(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -128,7 +128,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getOrDefault(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -160,7 +160,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndPut(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -186,7 +186,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getNullableAndPut(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -195,7 +195,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void contains(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -224,7 +224,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void testContainsAll(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject firstKey = TestKeyObject.randomObject(rnd);
@@ -258,7 +258,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void remove(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -291,7 +291,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndRemove(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -323,7 +323,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getNullableAndRemove(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -332,7 +332,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void removeExact(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -379,7 +379,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replace(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -412,7 +412,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAndReplace(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -445,7 +445,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getNullableAndReplace(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -455,7 +455,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void replaceExact(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -483,7 +483,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void getAll(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key1 = newKey(rnd);
@@ -509,7 +509,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @SuppressWarnings("DataFlowIssue")
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void nullKeyValidation(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
@@ -545,7 +545,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("views")
+    @MethodSource("testCases")
     public void nonNullableValueColumn(TestCase<TestKeyObject, TestObjectWithAllTypes> testCase) {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = testCase.view();
         TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -570,7 +570,7 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
         testCase.checkNotNullableError(() -> view.putAll(null, Collections.singletonMap(key, null)));
     }
 
-    private List<Arguments> views() {
+    private List<Arguments> testCases() {
         return generateKeyValueTestArguments(TABLE_NAME_COMPOSITE_TYPE, TestKeyObject.class, TestObjectWithAllTypes.class);
     }
 

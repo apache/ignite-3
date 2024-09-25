@@ -253,7 +253,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.insertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx)
