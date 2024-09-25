@@ -31,29 +31,25 @@ import org.junit.jupiter.api.Test;
 /** For {@link CheckpointPageReplacement} testing. */
 public class CheckpointPageReplacementTest {
     @Test
-    void testTryBlock() {
+    void testBlock() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        assertTrue(checkpointPageReplacement.tryBlock(fullPageId(0, 0)));
-        assertTrue(checkpointPageReplacement.tryBlock(fullPageId(0, 1)));
+        assertDoesNotThrow(() -> checkpointPageReplacement.block(fullPageId(0, 0)));
+        assertDoesNotThrow(() -> checkpointPageReplacement.block(fullPageId(0, 1)));
 
         checkpointPageReplacement.stopBlocking();
-
-        assertFalse(checkpointPageReplacement.tryBlock(fullPageId(0, 0)));
-        assertFalse(checkpointPageReplacement.tryBlock(fullPageId(0, 1)));
-        assertFalse(checkpointPageReplacement.tryBlock(fullPageId(0, 2)));
     }
 
     @Test
     void testUnblock() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.tryBlock(fullPageId(0, 0));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 1));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 2));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 3));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 4));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 5));
+        checkpointPageReplacement.block(fullPageId(0, 0));
+        checkpointPageReplacement.block(fullPageId(0, 1));
+        checkpointPageReplacement.block(fullPageId(0, 2));
+        checkpointPageReplacement.block(fullPageId(0, 3));
+        checkpointPageReplacement.block(fullPageId(0, 4));
+        checkpointPageReplacement.block(fullPageId(0, 5));
 
         assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 0), null));
         assertDoesNotThrow(() -> checkpointPageReplacement.unblock(fullPageId(0, 1), new Throwable("from test 0")));
@@ -67,11 +63,11 @@ public class CheckpointPageReplacementTest {
     }
 
     @Test
-    void testStopBlockingWithoutError() {
+    void testStopBlocking() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.tryBlock(fullPageId(0, 0));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 1));
+        checkpointPageReplacement.block(fullPageId(0, 0));
+        checkpointPageReplacement.block(fullPageId(0, 1));
 
         CompletableFuture<Void> stopBlockingFuture = checkpointPageReplacement.stopBlocking();
         assertFalse(stopBlockingFuture.isDone());
@@ -83,17 +79,14 @@ public class CheckpointPageReplacementTest {
         assertTrue(stopBlockingFuture.isDone());
 
         assertTrue(checkpointPageReplacement.stopBlocking().isDone());
-
-        checkpointPageReplacement.tryBlock(fullPageId(0, 2));
-        assertTrue(checkpointPageReplacement.stopBlocking().isDone());
     }
 
     @Test
     void testStopBlockingError() {
         var checkpointPageReplacement = new CheckpointPageReplacement();
 
-        checkpointPageReplacement.tryBlock(fullPageId(0, 0));
-        checkpointPageReplacement.tryBlock(fullPageId(0, 1));
+        checkpointPageReplacement.block(fullPageId(0, 0));
+        checkpointPageReplacement.block(fullPageId(0, 1));
 
         CompletableFuture<Void> stopBlockingFuture = checkpointPageReplacement.stopBlocking();
         assertFalse(stopBlockingFuture.isDone());
@@ -109,10 +102,6 @@ public class CheckpointPageReplacementTest {
 
     @Test
     void testStopBlockingNoPageReplacement() {
-        var checkpointPageReplacement = new CheckpointPageReplacement();
-        assertTrue(checkpointPageReplacement.stopBlocking().isDone());
-
-        checkpointPageReplacement.tryBlock(fullPageId(0, 2));
-        assertTrue(checkpointPageReplacement.stopBlocking().isDone());
+        assertTrue(new CheckpointPageReplacement().stopBlocking().isDone());
     }
 }

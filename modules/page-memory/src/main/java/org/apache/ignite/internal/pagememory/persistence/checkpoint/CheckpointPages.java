@@ -138,7 +138,7 @@ public class CheckpointPages {
      * @see #removeOnPageReplacement(FullPageId)
      */
     public void blockFsyncOnPageReplacement(FullPageId pageId) {
-        checkpointProgress.tryBlockFsyncOnPageReplacement(pageId);
+        checkpointProgress.blockFsyncOnPageReplacement(pageId);
     }
 
     /**
