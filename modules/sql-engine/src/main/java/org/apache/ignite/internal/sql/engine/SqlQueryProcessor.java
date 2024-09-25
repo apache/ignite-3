@@ -705,6 +705,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         return metricManager;
     }
 
+    @TestOnly
+    public SqlStatisticManager sqlStatisticManager() {
+        return sqlStatisticManager;
+    }
+
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             SqlProperties properties,

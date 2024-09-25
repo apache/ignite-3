@@ -60,6 +60,16 @@ public interface QueryChecker {
     }
 
     /**
+     * Ignite Row count matcher.
+     *
+     * @param rowCount expected row count.
+     * @return Matcher.
+     */
+    static Matcher<String> containsRowCount(long rowCount) {
+        return CoreMatchers.containsString("IgniteCost [rowCount=" + rowCount + ".0");
+    }
+
+    /**
      * Ignite index scan matcher.
      *
      * @param schema Schema name.

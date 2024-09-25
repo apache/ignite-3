@@ -1,0 +1,84 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.statistic;
+
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsRowCount;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+/** Integration test to check SQL statistics. */
+public class ItStatisticTest extends BaseSqlIntegrationTest {
+    private SqlStatisticManagerImpl sqlStatisticManager;
+
+    @BeforeAll
+    void beforeAll() {
+        sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
+        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
+    }
+
+    @AfterAll
+    void afterAll() {
+        sql("DROP TABLE IF EXISTS t");
+    }
+
+    @Test
+    public void testStatisticsRowCount() throws InterruptedException {
+        // For test we should always update statistics.
+        long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
+        try {
+            insertAndUpdateRunQuery(500);
+            // Ьinimum row count is 1000, even we have less rows.
+            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+                    .matches(containsRowCount(1000))
+                    .check();
+
+            insertAndUpdateRunQuery(600);
+            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+                    .matches(containsRowCount(1100))
+                    .check();
+
+            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
+            insertAndUpdateRunQuery(900);
+
+            // Statistics shouldn't be updated despite we inserted new rows.
+            assertQuery("SELECT * FROM t where val=" + counter.incrementAndGet())
+                    .matches(containsRowCount(1100))
+                    .check();
+        } finally {
+            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
+        }
+    }
+
+    private static AtomicInteger counter = new AtomicInteger(0);
+
+    private static void insertAndUpdateRunQuery(int numberOfRecords) {
+        List<String> columns = List.of("ID", "VAL");
+        Object[][] values = IntStream.range(counter.get(), counter.addAndGet(numberOfRecords))
+                .mapToObj(i -> new Object[]{i, i})
+                .toArray(Object[][]::new);
+        insertData("t", columns, values);
+        // run unique sql to update statistics
+        sql("SELECT * FROM t where val=" + counter.get());
+    }
+}

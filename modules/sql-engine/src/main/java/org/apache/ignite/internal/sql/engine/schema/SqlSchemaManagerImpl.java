@@ -108,10 +108,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(int catalogVersion) {
-        return schemaCache.get(
+        SchemaPlus schemaPlus = schemaCache.get(
                 catalogVersion,
                 version -> createRootSchema(catalogManager.catalog(version))
         );
+
+        return makeSchemaCopyWithStatisticSnapshot(schemaPlus, catalogVersion);
     }
 
 
@@ -180,8 +182,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 return createTableDataOnlyTable(catalog, tableDescriptor, descriptor);
             });
 
-            igniteTable = igniteTable.createCopyWithStatisticsSnapshot();
-
             Map<String, IgniteIndex> tableIndexes = getIndexes(catalog,
                     tableDescriptor.id(),
                     tableDescriptor.primaryKeyIndexId()
@@ -195,6 +195,31 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         long cacheKey = part1;
         cacheKey <<= 32;
         return cacheKey | part2;
+    }
+
+    private SchemaPlus makeSchemaCopyWithStatisticSnapshot(SchemaPlus original, int catalogVersion) {
+        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
+        List<IgniteDataSource> schemaDataSources = new ArrayList<>(original.getSubSchemaNames().size());
+        for (String subSchemaName : original.getSubSchemaNames()) {
+            SchemaPlus originalSubSchema = original.getSubSchema(subSchemaName);
+            for (String tableName : originalSubSchema.getTableNames()) {
+                IgniteDataSource ds = (IgniteDataSource) originalSubSchema.getTable(tableName);
+                if (ds instanceof ActualIgniteTable) {
+                    ActualIgniteTable originalTable = ((ActualIgniteTable) originalSubSchema.getTable(tableName));
+                    IgniteTableImpl copyTable = originalTable.table.createCopyWithStatisticSnapshot();
+                    ActualIgniteTable newActualTable = new ActualIgniteTable(copyTable, originalTable.indexMap);
+
+                    schemaDataSources.add(newActualTable);
+                } else {
+                    schemaDataSources.add(ds);
+                }
+            }
+
+            IgniteSchema igniteSchema = new IgniteSchema(subSchemaName, catalogVersion, schemaDataSources);
+            rootSchema.add(subSchemaName, igniteSchema);
+        }
+
+        return rootSchema;
     }
 
     private SchemaPlus createRootSchema(Catalog catalog) {

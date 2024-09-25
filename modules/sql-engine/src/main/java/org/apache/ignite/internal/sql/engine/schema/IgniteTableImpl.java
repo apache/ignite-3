@@ -56,7 +56,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /**
      * Create a copy of the object with snapshot of statistics, prevent to change it during planning session.
      */
-    IgniteTableImpl createCopyWithStatisticsSnapshot() {
+    IgniteTableImpl createCopyWithStatisticSnapshot() {
         StatisticSnapshot statisticSnapshot = new StatisticSnapshot(getStatistic());
         return new IgniteTableImpl(this, statisticSnapshot);
     }
@@ -68,7 +68,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
      * @param statisticSnapshot Snapshot of statistics to substitute the original one.
      */
     private IgniteTableImpl(IgniteTableImpl source, Statistic statisticSnapshot) {
-        super(source, statisticSnapshot);
+        super(source.name(), source.id(), source.version(), source.descriptor(), statisticSnapshot);
 
         this.keyColumns = source.keyColumns;
         this.indexMap = source.indexMap;

@@ -30,6 +30,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.apache.ignite.internal.util.Pair;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Statistic manager. Provide and manage update of statistics for SQL.
@@ -38,14 +40,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     private static final long DEFAULT_TABLE_SIZE = 1_000_000;
     private static final long MINIMUM_TABLE_SIZE = 1_000L;
-
-    private static final long THRESHOLD_TIME_TO_POSTPONE_UPDATE_MS = TimeUnit.MINUTES.toMillis(1);
+    private static final Pair<Long, Long> DEFAULT_VALUE = new Pair<>(DEFAULT_TABLE_SIZE, 0L);
 
     private final TableManager tableManager;
 
-    private final ConcurrentMap<Integer, Long> tableSizeMap = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Integer, Long> tableSizeUpdateTimeMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, Pair<Long, Long>> tableSizeMap = new ConcurrentHashMap<>();
 
+    private volatile long thresholdTimeToPostponeUpdateMs = TimeUnit.MINUTES.toMillis(1);
 
     /** Constructor. */
     public SqlStatisticManagerImpl(TableManager tableManager, CatalogManager catalogManager) {
@@ -65,31 +66,36 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     @Override
     public long tableSize(int tableId) {
         updateTableSizeStatistics(tableId);
+        long ts = tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getFirst();
 
-        return Math.max(tableSizeMap.getOrDefault(tableId, DEFAULT_TABLE_SIZE), MINIMUM_TABLE_SIZE);
+        return Math.max(ts, MINIMUM_TABLE_SIZE);
     }
 
     /** Update table size statistic in the background if it required. */
     private void updateTableSizeStatistics(int tableId) {
-        long lastUpdateTime = tableSizeUpdateTimeMap.getOrDefault(tableId, -1L);
+        tableSizeMap.putIfAbsent(tableId, DEFAULT_VALUE);
+        Pair<Long, Long> pair = tableSizeMap.get(tableId);
         long currTs = FastTimestamps.coarseCurrentTimeMillis();
-        if (currTs >= lastUpdateTime + THRESHOLD_TIME_TO_POSTPONE_UPDATE_MS) {
+        long lastUpdateTime = pair.getSecond();
+
+        if (lastUpdateTime <= currTs - thresholdTimeToPostponeUpdateMs) {
+            // Prevent to run update for the same table twice concurrently.
+            if (!tableSizeMap.replace(tableId, pair, new Pair<>(pair.getFirst(), currTs))) {
+                return;
+            }
+
             TableViewInternal tableView = tableManager.cachedTable(tableId);
             if (tableView == null) {
                 LOG.debug("There is no table to update statistics [id={}]", tableId);
                 return;
             }
-            tableSizeUpdateTimeMap.put(tableId, currTs);
 
             // just request new table size in background.
             tableView.internalTable().estimatedSize()
                     .thenApply(size -> {
-                        Long prevVal = tableSizeMap.put(tableId, size);
-                        if (prevVal == null && lastUpdateTime != -1) {
-                            // the table was concurrently dropped and we need to remove cached data for them.
-                            onTableDrop(tableId);
-                        }
-                        return prevVal;
+                        // the table can be concurrently dropped and we shouldn't put new value in this case.
+                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new Pair<>(size, currTs));
+                        return size;
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}]", e, tableId);
                         return DEFAULT_TABLE_SIZE;
@@ -99,7 +105,18 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
     /** Cleans up resources after a table is dropped. */
     private void onTableDrop(int tableId) {
-        tableSizeUpdateTimeMap.remove(tableId);
+        // There is no any guarantee that after delete statistics will be not asked again and cache will not contains obsolete data.
         tableSizeMap.remove(tableId);
+    }
+
+    /**
+     * Set threshold time to postpone update statistics.
+     */
+    @TestOnly
+    public long setThresholdTimeToPostponeUpdateMs(long milliseconds) {
+        assert milliseconds >= 0;
+        long prevValue = thresholdTimeToPostponeUpdateMs;
+        thresholdTimeToPostponeUpdateMs = milliseconds;
+        return prevValue;
     }
 }

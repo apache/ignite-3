@@ -24,13 +24,14 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.util.Lazy;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Represent of Sql statistics with immutable state.
  */
 public class StatisticSnapshot implements Statistic {
-    private final Double rowCount;
+    private final Lazy<Double> rowCount;
     private final RelDistribution distribution;
     private final List<RelCollation> collations;
     private final List<RelReferentialConstraint> referentialConstraints;
@@ -42,8 +43,7 @@ public class StatisticSnapshot implements Statistic {
      * @param statistic Base statistics to make snapshot.
      */
     public StatisticSnapshot(Statistic statistic) {
-        this.rowCount = statistic.getRowCount();
-        assert rowCount != null;
+        this.rowCount = new Lazy<>(statistic::getRowCount);
 
         this.distribution = statistic.getDistribution();
         this.collations = statistic.getCollations();
@@ -53,7 +53,7 @@ public class StatisticSnapshot implements Statistic {
 
     @Override
     public Double getRowCount() {
-        return rowCount;
+        return rowCount.get();
     }
 
     @Override
