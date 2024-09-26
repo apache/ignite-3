@@ -101,7 +101,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.9"
-spotbugs = "com.github.spotbugs:6.0.22"
+spotbugs = "com.github.spotbugs:6.0.23"
 
 
 [libraries]
