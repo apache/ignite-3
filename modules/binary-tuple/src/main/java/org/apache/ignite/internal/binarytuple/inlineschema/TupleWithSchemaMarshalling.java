@@ -69,6 +69,7 @@ public final class TupleWithSchemaMarshalling {
         Object[] values = new Object[size];
         String[] columns = new String[size];
         ColumnType[] types = new ColumnType[size];
+        boolean[] nestedTupleFlags = new boolean[size];
 
         // Fill in the values, column names, and types.
         for (int i = 0; i < size; i++) {
@@ -76,10 +77,11 @@ public final class TupleWithSchemaMarshalling {
             values[i] = value;
             columns[i] = tuple.columnName(i);
             types[i] = inferType(value);
+            nestedTupleFlags[i] = value instanceof Tuple;
         }
 
-        ByteBuffer schemaBuff = schemaBuilder(columns, types).build();
-        ByteBuffer valueBuff = valueBuilder(columns, types, values).build();
+        ByteBuffer schemaBuff = schemaBuilder(columns, types, nestedTupleFlags).build();
+        ByteBuffer valueBuff = valueBuilder(columns, types, values, nestedTupleFlags).build();
 
         int schemaBuffLen = schemaBuff.remaining();
         int valueBuffLen = valueBuff.remaining();
@@ -141,46 +143,49 @@ public final class TupleWithSchemaMarshalling {
                 .position(valueOffset).limit(raw.length)
                 .slice().order(BYTE_ORDER);
 
-        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
+        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 3, schemaBuff);
         BinaryTupleReader valueReader = new BinaryTupleReader(size, valueBuff);
 
         Tuple tup = Tuple.create(size);
 
         for (int i = 0; i < size; i++) {
-            String colName = schemaReader.stringValue(i * 2);
-            int colTypeId = schemaReader.intValue(i * 2 + 1);
+            String colName = schemaReader.stringValue(i * 3);
+            int colTypeId = schemaReader.intValue(i * 3 + 1);
+            boolean nestedTupleFlag = schemaReader.booleanValue(i * 3 + 2);
 
-            setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i);
+            setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i, nestedTupleFlag);
         }
 
         return tup;
     }
 
-    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2);
+    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types, boolean[] nestedTupleFlags) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 3);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
             builder.appendInt(types[i].id());
+            builder.appendBoolean(nestedTupleFlags[i]);
         }
 
         return builder;
     }
 
-    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values) {
+    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values, boolean[] nestedTupleFlags) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = types[i];
             Object v = values[i];
+            boolean nestedTupleFlag = nestedTupleFlags[i];
 
-            append(type, columnNames[i], builder, v);
+            append(type, columnNames[i], builder, v, nestedTupleFlag);
         }
 
         return builder;
     }
 
-    private static void append(ColumnType type, String name, BinaryTupleBuilder builder, Object value) {
+    private static void append(ColumnType type, String name, BinaryTupleBuilder builder, Object value, boolean nestedTupleFlag) {
         try {
             switch (type) {
                 case NULL:
@@ -230,7 +235,8 @@ public final class TupleWithSchemaMarshalling {
                     builder.appendUuid((UUID) value);
                     return;
                 case BYTE_ARRAY:
-                    builder.appendBytes((byte[]) value);
+                    byte[] b = nestedTupleFlag ? marshal((Tuple) value) : (byte[]) value;
+                    builder.appendBytes(b);
                     return;
                 case PERIOD:
                     builder.appendPeriod((Period) value);
@@ -305,11 +311,15 @@ public final class TupleWithSchemaMarshalling {
         if (value instanceof Duration) {
             return ColumnType.DURATION;
         }
+        if (value instanceof Tuple) {
+            return ColumnType.BYTE_ARRAY;
+        }
         throw new UnsupportedObjectTypeMarshallingException("Tuple field is of unsupported type: " + value.getClass());
     }
 
 
-    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, ColumnType colType, int i) {
+    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, ColumnType colType, int i,
+            boolean nestedTupleFlag) {
         switch (colType) {
             case NULL:
                 tuple.set(colName, null);
@@ -358,6 +368,12 @@ public final class TupleWithSchemaMarshalling {
                 tuple.set(colName, reader.uuidValue(i));
                 break;
             case BYTE_ARRAY:
+                if (nestedTupleFlag) {
+                    byte[] nestedTupleBytes = reader.bytesValue(i);
+                    Tuple nestedTuple = unmarshal(nestedTupleBytes);
+                    tuple.set(colName, nestedTuple);
+                    break;
+                }
                 tuple.set(colName, reader.bytesValue(i));
                 break;
             case PERIOD:
