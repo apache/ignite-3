@@ -23,7 +23,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Collects minimum required timestamp for each partition. */
 public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredTimeCollectorService {
-
     private final ConcurrentHashMap<TablePartitionId, Long> partitions = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
@@ -48,7 +47,7 @@ public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredT
 
     /** {@inheritDoc} */
     @Override
-    public void removePartition(TablePartitionId tablePartitionId) {
+    public synchronized void removePartition(TablePartitionId tablePartitionId) {
         partitions.remove(tablePartitionId);
     }
 

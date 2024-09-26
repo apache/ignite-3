@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService.UNDEFINED_MIN_TIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -30,9 +30,6 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link MinimumRequiredTimeCollectorServiceImpl}.
  */
 public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstractTest {
-
-    private static final long UNDEFINED_MIN_TIME = MinimumRequiredTimeCollectorService.UNDEFINED_MIN_TIME;
-
     @Test
     public void test() {
         MinimumRequiredTimeCollectorServiceImpl collectorService = new MinimumRequiredTimeCollectorServiceImpl();
@@ -76,10 +73,10 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
 
         // Remove p1
         collectorService.removePartition(p1);
-        assertEquals(Map.of(), collectorService.minTimestampPerPartition());
+        assertEquals(0, collectorService.minTimestampPerPartition().size());
 
         // Cleanup
         collectorService.close();
-        assertEquals(Map.of(), collectorService.minTimestampPerPartition());
+        assertEquals(0, collectorService.minTimestampPerPartition().size());
     }
 }

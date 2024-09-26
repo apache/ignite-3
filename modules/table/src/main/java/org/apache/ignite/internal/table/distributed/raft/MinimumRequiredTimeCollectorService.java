@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.Map;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Collects minimum required timestamp for each partition. */
-public interface MinimumRequiredTimeCollectorService {
-
+public interface MinimumRequiredTimeCollectorService extends ManuallyCloseable {
     /** Undefined value of a min timestamp. */
     long UNDEFINED_MIN_TIME = 0;
 
@@ -39,5 +39,6 @@ public interface MinimumRequiredTimeCollectorService {
     Map<TablePartitionId, Long> minTimestampPerPartition();
 
     /** Closes this service. */
+    @Override
     void close();
 }
