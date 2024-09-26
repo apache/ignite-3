@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
+import org.apache.ignite.internal.sql.engine.statistic.StatisticSnapshot;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -206,9 +207,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 IgniteDataSource ds = (IgniteDataSource) originalSubSchema.getTable(tableName);
                 if (ds instanceof ActualIgniteTable) {
                     ActualIgniteTable originalTable = ((ActualIgniteTable) originalSubSchema.getTable(tableName));
-                    IgniteTableImpl copyTable = originalTable.table.createCopyWithStatisticSnapshot();
-                    ActualIgniteTable newActualTable = new ActualIgniteTable(copyTable, originalTable.indexMap);
-
+                    ActualIgniteTable newActualTable = originalTable.createCopyWithStatisticSnapshot();
                     schemaDataSources.add(newActualTable);
                 } else {
                     schemaDataSources.add(ds);
@@ -567,6 +566,23 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             this.table = igniteTable;
             this.indexMap = indexMap;
+        }
+
+        private ActualIgniteTable(ActualIgniteTable table, StatisticSnapshot statisticSnapshot) {
+            super(table.name(), table.id(), table.version(), table.descriptor(), statisticSnapshot);
+
+            this.table = table.table;
+            this.indexMap = table.indexMap;
+        }
+
+        /**
+         * Create a copy of the object with snapshot of statistics, prevent to change it during planning session.
+         */
+        public ActualIgniteTable createCopyWithStatisticSnapshot() {
+            assert !(getStatistic() instanceof StatisticSnapshot);
+
+            StatisticSnapshot statisticSnapshot = new StatisticSnapshot(getStatistic());
+            return new ActualIgniteTable(this, statisticSnapshot);
         }
 
         @Override

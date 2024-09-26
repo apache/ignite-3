@@ -33,7 +33,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.statistic.StatisticSnapshot;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.Lazy;
@@ -52,31 +51,6 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     private final int partitions;
 
     private final Lazy<NativeType[]> colocationColumnTypes;
-
-    /**
-     * Create a copy of the object with snapshot of statistics, prevent to change it during planning session.
-     */
-    IgniteTableImpl createCopyWithStatisticSnapshot() {
-        StatisticSnapshot statisticSnapshot = new StatisticSnapshot(getStatistic());
-        return new IgniteTableImpl(this, statisticSnapshot);
-    }
-
-    /**
-     * Internal constructor required for make a copy of an object with substituted statistics.
-     *
-     * @param source Source for the copy.
-     * @param statisticSnapshot Snapshot of statistics to substitute the original one.
-     */
-    private IgniteTableImpl(IgniteTableImpl source, Statistic statisticSnapshot) {
-        super(source.name(), source.id(), source.version(), source.descriptor(), statisticSnapshot);
-
-        this.keyColumns = source.keyColumns;
-        this.indexMap = source.indexMap;
-        this.partitions = source.partitions;
-        this.columnsToInsert = source.columnsToInsert;
-        this.columnsToUpdate = source.columnsToUpdate;
-        this.colocationColumnTypes = source.colocationColumnTypes;
-    }
 
     /** Constructor. */
     public IgniteTableImpl(
