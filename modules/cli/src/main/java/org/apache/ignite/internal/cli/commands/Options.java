@@ -292,6 +292,12 @@ public enum Options {
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
                 + "Case-sensitive, without quotes, all nodes if not set";
 
+        public static final String RECOVERY_CMG_NODES_OPTION = "--cluster-management-group";
+
+        public static final String RECOVERY_CMG_NODES_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
+                + "'--cluster-management-group node1, node2' "
+                + "to specify more than one node) that will host the Cluster Management Group.";
+
         public static final String CONFIG_FORMAT_OPTION = "--format";
 
         public static final String CONFIG_FORMAT_OPTION_DESC = "Output format. Valid values: ${COMPLETION-CANDIDATES}";
