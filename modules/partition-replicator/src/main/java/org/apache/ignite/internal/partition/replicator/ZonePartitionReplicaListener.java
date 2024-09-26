@@ -122,13 +122,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }
 
-    public void removeTableReplicaListener(TablePartitionId partitionId) {
-        replicas.get(partitionId).onShutdown();
-
-        replicas.remove(partitionId);
-    }
-
-
     /**
      * Return table replicas listeners.
      *
@@ -141,6 +134,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     @Override
     public void onShutdown() {
-        replicas.forEach((id, listener) -> listener.onShutdown());
+        replicas.forEach((id, listener) -> {
+                    try {
+                        listener.onShutdown();
+                    } catch (Throwable th) {
+                        LOG.error("Error during table partition listener stop for [tableId="
+                                        + id.tableId() + ", partitionId=" + id.partitionId() + "]",
+                                th
+                        );
+                    }
+                }
+        );
     }
 }

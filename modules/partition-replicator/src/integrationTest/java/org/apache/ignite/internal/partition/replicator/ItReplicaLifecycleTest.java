@@ -1288,7 +1288,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             HybridClockImpl clock = new HybridClockImpl();
 
-            tableManager = spy(new TableManager(
+            tableManager = new TableManager(
                     name,
                     registry,
                     gcConfig,
@@ -1341,7 +1341,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                     return txStateTableStorage;
                 }
-            });
+            };
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 

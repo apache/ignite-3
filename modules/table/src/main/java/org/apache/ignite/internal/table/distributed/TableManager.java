@@ -700,32 +700,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(false);
         }
 
-        return inBusyLockAsync(busyLock, () -> {
-            return supplyAsync(() -> {
-                List<CompletableFuture<?>> futs = new ArrayList<>();
+        return inBusyLockAsync(busyLock, () -> supplyAsync(() -> {
+            List<CompletableFuture<?>> futs = new ArrayList<>();
 
-                Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
-                zoneTables.forEach(table -> {
-                    closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
+            zoneTables.forEach(table -> {
+                closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
 
-                    /// KKK do we need update clients?
+                TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
 
-                    TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
+                mvGc.removeStorage(tablePartitionId);
 
-//                    partitionReplicaLifecycleManager.unloadTableListenerToZoneReplica(
-//                            parameters.zonePartitionId(),
-//                            new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId()));
+                futs.add(destroyPartitionStorages(tablePartitionId, table));
+            });
 
-                    mvGc.removeStorage(tablePartitionId);
-
-                    futs.add(destroyPartitionStorages(tablePartitionId, table));
-                });
-
-                return allOf(futs.toArray(new CompletableFuture[]{}));
-            }, ioExecutor).thenCompose(identity());
-
-        }).thenApply((unused) -> false);
+            return allOf(futs.toArray(new CompletableFuture[]{}));
+        }, ioExecutor).thenCompose(identity())).thenApply((unused) -> false);
     }
 
 
@@ -948,10 +939,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
-        if (PartitionReplicaLifecycleManager.ENABLED) {
-            return falseCompletedFuture();
-        }
-
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
                 .thenApply(unused -> false);
     }
@@ -1967,8 +1954,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
-                            LOG.info("KKK null tableDescriptor");
-
                             return nullCompletedFuture();
                         }
 
@@ -1994,7 +1979,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (e != null) {
                         getLatestTableFuture.completeExceptionally(e);
                     } else {
-                        LOG.info("KKK tables " + startedTables);
                         getLatestTableFuture.complete(startedTables.get(tableId));
                     }
                 });
