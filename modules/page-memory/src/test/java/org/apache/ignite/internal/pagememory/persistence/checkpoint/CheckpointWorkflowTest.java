@@ -665,7 +665,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
     private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
-        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(pageIds);
+        when(mock.beginCheckpoint(any(CheckpointProgress.class))).thenReturn(pageIds);
 
         return mock;
     }

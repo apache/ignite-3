@@ -23,7 +23,10 @@ import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -42,13 +45,17 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.recovery.system.MigrateRequest;
 import org.apache.ignite.internal.rest.api.recovery.system.ResetClusterRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -57,6 +64,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 @MicronautTest
@@ -100,7 +108,8 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
         when(systemDisasterRecoveryManager.resetCluster(List.of("a", "b", "c"))).thenReturn(nullCompletedFuture());
 
         HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
-                new ResetClusterRequest(List.of("a", "b", "c")));
+                new ResetClusterRequest(List.of("a", "b", "c"))
+        );
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -113,7 +122,58 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
         when(systemDisasterRecoveryManager.resetCluster(any())).thenReturn(failedFuture(new ClusterResetException("Oops")));
 
         HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
-                new ResetClusterRequest(List.of("a", "b", "c")));
+                new ResetClusterRequest(List.of("a", "b", "c"))
+        );
+
+        HttpClientResponseException ex = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
+
+        assertThat(ex.getStatus().getCode(), is(BAD_REQUEST.code()));
+
+        Optional<Problem> body = ex.getResponse().getBody(Problem.class);
+        assertThat(body, isPresent());
+        assertThat(body.get().detail(), is("Oops"));
+    }
+
+    @Test
+    void initiatesMigration() {
+        ArgumentCaptor<ClusterState> stateCaptor = ArgumentCaptor.forClass(ClusterState.class);
+
+        when(systemDisasterRecoveryManager.migrate(any())).thenReturn(nullCompletedFuture());
+
+        HttpRequest<MigrateRequest> post = HttpRequest.POST("/migrate", migrateRequest());
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+
+        verify(systemDisasterRecoveryManager).migrate(stateCaptor.capture());
+        ClusterState capturedState = stateCaptor.getValue();
+
+        assertThat(capturedState, is(notNullValue()));
+        assertThat(capturedState.cmgNodes(), containsInAnyOrder("a", "b", "c"));
+        assertThat(capturedState.metaStorageNodes(), contains("d"));
+        assertThat(capturedState.version(), is("3.0.0"));
+        assertThat(capturedState.clusterTag().clusterId(), is(new UUID(1, 2)));
+        assertThat(capturedState.clusterTag().clusterName(), is("cluster"));
+        assertThat(capturedState.formerClusterIds(), is(List.of(new UUID(2, 1))));
+    }
+
+    private static MigrateRequest migrateRequest() {
+        return new MigrateRequest(
+                List.of("a", "b", "c"),
+                List.of("d"),
+                "3.0.0",
+                new UUID(1, 2),
+                "cluster",
+                List.of(new UUID(2, 1))
+        );
+    }
+
+    @Test
+    void migratePassesMigrateExceptionToClient() {
+        when(systemDisasterRecoveryManager.migrate(any())).thenReturn(failedFuture(new MigrateException("Oops")));
+
+        HttpRequest<MigrateRequest> post = HttpRequest.POST("/migrate", migrateRequest());
 
         HttpClientResponseException ex = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));
 

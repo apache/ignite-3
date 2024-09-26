@@ -22,19 +22,19 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link ClusterResetException} and represents it as a rest response.
+ * Handles {@link MigrateException} and represents it as a rest response.
  */
 @Singleton
 @Requires(classes = ExceptionHandler.class)
-public class ClusterResetExceptionHandler implements ExceptionHandler<ClusterResetException, HttpResponse<? extends Problem>> {
+public class MigrateExceptionHandler implements ExceptionHandler<MigrateException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterResetException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, MigrateException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                         .detail(exception.getMessage())

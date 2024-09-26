@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.cluster.RecoveryClusterCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionsCommand;
-import picocli.CommandLine.Command;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION_DESC;
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
-        subcommands = {
-                PartitionsCommand.class,
-                RecoveryClusterCommand.class
-        },
-        description = "Manages disaster recovery of Ignite cluster")
-public class RecoveryCommand extends BaseCommand {
+import java.util.List;
+import picocli.CommandLine.Option;
+
+/** Arguments for 'recovery reset cluster' command. */
+public class ResetClusterMixin {
+    @Option(names = RECOVERY_CMG_NODES_OPTION, description = RECOVERY_CMG_NODES_OPTION_DESC, split = ",")
+    private List<String> cmgNodeNames;
+
+    /** Returns names of the proposed CMG nodes. */
+    public List<String> cmgNodeNames() {
+        return cmgNodeNames;
+    }
 }

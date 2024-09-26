@@ -47,6 +47,7 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-cli')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
