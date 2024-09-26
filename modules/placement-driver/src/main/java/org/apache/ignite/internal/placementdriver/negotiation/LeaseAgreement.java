@@ -135,6 +135,14 @@ public class LeaseAgreement {
     }
 
     /**
+     * Returns true if the agreement is cancelled, false otherwise.
+     * @return True if the agreement is cancelled, false otherwise.
+     */
+    public boolean isCancelled() {
+        return responseFut.isDone() && !responseFut.isCompletedExceptionally() && responseFut.join() == null;
+    }
+
+    /**
      * Check the validity of the agreement in the current logical topology and group assignments. If the suggested leaseholder
      * has left topology or not included into the current assignments, the agreement is broken.
      *

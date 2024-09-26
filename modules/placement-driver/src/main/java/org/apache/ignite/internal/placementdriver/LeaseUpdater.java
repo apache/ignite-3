@@ -502,7 +502,7 @@ public class LeaseUpdater {
                     Lease lease = renewedLeases.get(entry.getKey());
                     boolean force = entry.getValue();
 
-                    leaseNegotiator.negotiate(lease, force);
+                    leaseNegotiator.negotiate(lease.replicationGroupId(), force);
                 }
             });
         }
@@ -536,8 +536,8 @@ public class LeaseUpdater {
             // New lease is granted.
             writeNewLease(grpId, candidate, renewedLeases);
 
-            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
-
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23213 Depending on the solution we may refactor this.
+            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name()) && !agreement.isCancelled();
             toBeNegotiated.put(grpId, force);
         }
 

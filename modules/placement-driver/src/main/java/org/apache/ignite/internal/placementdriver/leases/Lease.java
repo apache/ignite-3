@@ -260,7 +260,7 @@ public class Lease implements ReplicaMeta {
      * @param replicationGroupId Replication group ID.
      */
     public static Lease emptyLease(ReplicationGroupId replicationGroupId) {
-        return new Lease(null, null, MIN_VALUE, MIN_VALUE, replicationGroupId);
+        return new Lease(null, null, MIN_VALUE, MIN_VALUE, false, false, null, replicationGroupId);
     }
 
     @Override
