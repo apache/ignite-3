@@ -23,7 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.Ignite;
@@ -35,6 +38,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -51,6 +55,10 @@ import org.junit.jupiter.api.BeforeAll;
  * @see TestCaseType
  */
 abstract class ItTableApiUnifiedBaseTest extends ClusterPerClassIntegrationTest {
+    /** Default primary key columns. */
+    private static final List<Column> DEF_PK = List.of(new Column("ID", NativeTypes.INT64, false));
+
+    /** Tables to clear after each test. */
     private final List<String> tablesToClear = new ArrayList<>();
 
     protected IgniteClient client;
@@ -74,20 +82,19 @@ abstract class ItTableApiUnifiedBaseTest extends ClusterPerClassIntegrationTest 
         return 1;
     }
 
-    void createTable(String name, Column... columns) {
-        createTable(name, "id", true, columns);
+    void createTable(String name, List<Column> columns) {
+        createTable(name, true, DEF_PK, columns);
     }
 
-    void createTable(String name, String pkColumnName, boolean clear, Column... columns) {
-        String createTableTemplate = "CREATE TABLE {} ({} BIGINT PRIMARY KEY{})";
+    void createTable(String name, boolean cleanup, List<Column> pkColumns, List<Column> columns) {
+        String createTableTemplate = "CREATE TABLE {} ({} PRIMARY KEY ({}))";
 
-        IgniteStringBuilder buffer = new IgniteStringBuilder();
+        IgniteStringBuilder columnsBuffer = new IgniteStringBuilder();
+        Set<Column> allColumns = new LinkedHashSet<>(pkColumns);
 
-        for (Column column : columns) {
-            if (column.name().equalsIgnoreCase(pkColumnName)) {
-                continue;
-            }
+        allColumns.addAll(columns);
 
+        for (Column column : allColumns) {
             RelDataType sqlType = TypeUtils.native2relationalType(Commons.typeFactory(), column.type());
 
             String sqlTypeString = sqlType.toString();
@@ -97,24 +104,24 @@ abstract class ItTableApiUnifiedBaseTest extends ClusterPerClassIntegrationTest 
                 sqlTypeString = "TIMESTAMP(" + sqlType.getPrecision() + ") WITH LOCAL TIME ZONE";
             }
 
-            buffer.app(", ").app(column.name()).app(' ').app(sqlTypeString);
+            columnsBuffer.app(column.name()).app(' ').app(sqlTypeString);
 
             if (!column.nullable()) {
-                buffer.app(" NOT NULL");
+                columnsBuffer.app(" NOT NULL");
             }
+
+            columnsBuffer.app(", ");
         }
 
-        String query = IgniteStringFormatter.format(createTableTemplate, name, pkColumnName, buffer);
+        String pkColumnNames = pkColumns.stream().map(Column::name).collect(Collectors.joining(", "));
+
+        String query = IgniteStringFormatter.format(createTableTemplate, name, columnsBuffer, pkColumnNames);
 
         sql(query);
 
-        if (clear) {
-            registerTableForClearing(name);
+        if (cleanup) {
+            tablesToClear.add(name);
         }
-    }
-
-    void registerTableForClearing(String name) {
-        tablesToClear.add(name);
     }
 
     protected List<List<Object>> sql(String sql) {

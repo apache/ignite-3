@@ -26,8 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.table.RecordView;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,7 +50,11 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME, "primitiveLongCol", false, KeyValueTestUtils.ALL_TYPES_COLUMNS);
+        Optional<Column> pkColumn = Arrays.stream(KeyValueTestUtils.ALL_TYPES_COLUMNS)
+                .filter(col -> "primitiveLongCol".equals(col.name()))
+                .findAny();
+
+        createTable(TABLE_NAME, false, List.of(pkColumn.orElseThrow()), List.of(KeyValueTestUtils.ALL_TYPES_COLUMNS));
     }
 
     @BeforeEach

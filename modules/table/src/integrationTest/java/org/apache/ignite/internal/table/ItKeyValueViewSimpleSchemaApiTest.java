@@ -61,13 +61,15 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME_SIMPLE_TYPE, new Column("VAL", NativeTypes.INT64, true));
-        createTable(TABLE_NAME_NON_NULLABLE_VALUE, new Column("VAL", NativeTypes.INT64, false));
+        createTable(TABLE_NAME_SIMPLE_TYPE, List.of(new Column("VAL", NativeTypes.INT64, true)));
+        createTable(TABLE_NAME_NON_NULLABLE_VALUE, List.of(new Column("VAL", NativeTypes.INT64, false)));
 
         for (NativeType type : SchemaTestUtils.ALL_TYPES) {
             String tableName = "T_" + type.spec().name();
 
-            createTable(tableName, "id", false, new Column("VAL", type, true));
+            createTable(tableName, false,
+                    List.of(new Column("id", NativeTypes.INT64, false)),
+                    List.of(new Column("VAL", type, true)));
         }
 
         // Validate all types are tested.

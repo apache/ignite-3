@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -27,9 +29,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,7 +49,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for binary {@link KeyValueView} API.
  */
 public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
-    private static final String TEST_TABLE = "test_simple";
+    private static final String TEST_TABLE = "test_tuple";
+
+    private static final String TABLE_COMPOUND_KEY = "test_tuple_compound_key";
+
+    private static final String TABLE_NAME_FOR_SCHEMA_VALIDATION = "test_schema";
 
     private final SchemaDescriptor schema = new SchemaDescriptor(
             1,
@@ -52,11 +63,23 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @BeforeAll
     public void createTable() {
-        createTable(TEST_TABLE, schema.valueColumns().toArray(new Column[0]));
+        createTable(TEST_TABLE, schema.valueColumns());
+
+        createTable(TABLE_COMPOUND_KEY, false,
+                List.of(new Column("ID", NativeTypes.INT64, false),
+                        new Column("AFFID", NativeTypes.INT64, false)),
+                schema.valueColumns());
+
+        createTable(TABLE_NAME_FOR_SCHEMA_VALIDATION, false,
+                List.of(new Column("ID", NativeTypes.INT64, false)),
+                List.of(new Column("VAL", NativeTypes.INT64, true),
+                        new Column("STR", NativeTypes.stringOf(3), true),
+                        new Column("BLOB", NativeTypes.blobOf(3), true))
+        );
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void put(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -90,7 +113,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void putIfAbsent(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -114,7 +137,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void getAndPut(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -139,7 +162,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void nullables(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -164,7 +187,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void getOrDefault(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -203,7 +226,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void contains(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
 
@@ -233,7 +256,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void containsAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key1 = Tuple.create().set("id", 101L);
@@ -258,7 +281,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void remove(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -283,7 +306,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void removeExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -320,7 +343,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void replace(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -344,7 +367,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void replaceExact(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 1L);
@@ -361,7 +384,39 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("schemaValidationTestCases")
+    public void validateSchema(TestCase testCase) {
+        KeyValueView<Tuple, Tuple> tbl = testCase.view();
+
+        Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
+        Tuple keyTuple1 = Tuple.create().set("id1", 0);
+        Tuple key = Tuple.create().set("id", 1L);
+
+        Tuple valTuple0 = Tuple.create();
+        Tuple valTuple1 = Tuple.create().set("str", "qweqweqwe").set("val", 11L);
+        Tuple valTuple2 = Tuple.create().set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
+
+        testCase.checkValueTypeDoesNotMatchError(() -> tbl.get(null, keyTuple0));
+        testCase.checkMissedKeyColumnError(() -> tbl.get(null, keyTuple1));
+        testCase.checkKeyColumnDoesntMatchSchemaError(() -> tbl.get(null, Tuple.create().set("id", 1L).set("val", 1L)));
+
+        String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
+        String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
+
+        tbl.put(null, key, valTuple0);
+
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple2), byteArrayTooLongErr);
+
+        testCase.checkInvalidTypeError(() -> tbl.put(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.put(null, key, valTuple2), byteArrayTooLongErr);
+
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple1), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, key, valTuple2), byteArrayTooLongErr);
+    }
+
+    @ParameterizedTest
+    @MethodSource("testCases")
     public void getAll(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key1 = Tuple.create().set("id", 1L);
@@ -380,7 +435,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     @SuppressWarnings("DataFlowIssue")
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void nullKeyValidation(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple val = Tuple.create().set("val", "john");
@@ -407,7 +462,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     }
 
     @ParameterizedTest
-    @MethodSource("simpleSchemaTestCases")
+    @MethodSource("testCases")
     public void nonNullableValueColumn(TestCase testCase) {
         KeyValueView<Tuple, Tuple> tbl = testCase.view();
         Tuple key = Tuple.create().set("id", 11L);
@@ -424,8 +479,58 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         testCase.checkNullValueError(() -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
-    private List<Arguments> simpleSchemaTestCases() {
+    @ParameterizedTest
+    @MethodSource("compoundPkTestCases")
+    public void schemaMismatch(TestCase testCase) {
+        KeyValueView<Tuple, Tuple> view = testCase.view();
+
+        testCase.checkSchemaMismatchError(
+                () -> view.get(null, Tuple.create().set("id", 0L)),
+                "Missed key column: AFFID"
+        );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
+        if (!testCase.thin) {
+            testCase.checkSchemaMismatchError(
+                    () -> view.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
+                    "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
+            );
+        }
+
+        testCase.checkSchemaMismatchError(
+                () -> view.put(null, Tuple.create().set("id", 0L), Tuple.create()),
+                "Missed key column: AFFID"
+        );
+        testCase.checkSchemaMismatchError(
+                () -> view.put(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()),
+                "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
+        );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Message should be identical
+        String expectedMessage = testCase.thin
+                ? "Value type does not match [column='VAL', expected=STRING, actual=INT64]"
+                : "Value type does not match [column='VAL', expected=STRING(65536), actual=INT64]";
+
+        testCase.checkInvalidTypeError(
+                () -> view.put(
+                        null,
+                        Tuple.create().set("id", 0L).set("affId", 1L),
+                        Tuple.create().set("id", 0L).set("val", 0L)
+                ),
+                expectedMessage
+        );
+    }
+
+    private List<Arguments> testCases() {
         return generateKeyValueTestArguments(TEST_TABLE, Tuple.class, Tuple.class);
+    }
+
+    private List<Arguments> compoundPkTestCases() {
+        return generateKeyValueTestArguments(TABLE_COMPOUND_KEY, Tuple.class, Tuple.class);
+    }
+
+    private List<Arguments> schemaValidationTestCases() {
+        return generateKeyValueTestArguments(TABLE_NAME_FOR_SCHEMA_VALIDATION, Tuple.class, Tuple.class);
     }
 
     @Override
@@ -457,6 +562,57 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         @SuppressWarnings("ThrowableNotThrown")
         void checkNullValueError(Executable run) {
             IgniteTestUtils.assertThrows(NullPointerException.class, run, "val");
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkSchemaMismatchError(Executable run, String expectedMessage) {
+            if (thin) {
+                IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+            }
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkInvalidTypeError(Executable run, String expectedMessage) {
+            if (thin) {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Must throw MarshallerException
+                IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, InvalidTypeException.class, expectedMessage);
+            }
+        }
+
+        void checkValueTypeDoesNotMatchError(Executable run) {
+            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=INT32]";
+
+            if (thin) {
+                IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+
+                assertThat(ex.code(), is(Client.PROTOCOL_ERR));
+            } else {
+                //noinspection ThrowableNotThrown
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+            }
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkMissedKeyColumnError(Executable run) {
+            String expectedMessage = "Missed key column: ID";
+
+            if (thin) {
+                IgniteTestUtils.assertThrows(MarshallerException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+            }
+        }
+
+        void checkKeyColumnDoesntMatchSchemaError(Executable run) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must also throw exception
+            if (!thin) {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class,
+                        "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]");
+            }
         }
     }
 }

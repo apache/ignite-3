@@ -56,6 +56,14 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     private static final String TABLE_NAME_FOR_SCHEMA_VALIDATION = "test_schema";
 
+    private static final String TABLE_COMPOUND_KEY = "test_tuple_compound_key";
+
+    private static final String TABLE_TYPE_MISMATCH = "test_type_mismatch";
+
+    private static final String TABLE_STRING_TYPE_MATCH = "test_string_type_match";
+
+    private static final String TABLE_BYTE_TYPE_MATCH = "test_byte_type_match";
+
     private final SchemaDescriptor schema = new SchemaDescriptor(
             1,
             new Column[]{new Column("ID", NativeTypes.INT64, false)},
@@ -64,14 +72,36 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME, schema.columns().toArray(new Column[0]));
+        createTable(TABLE_NAME, schema.valueColumns());
 
-        sql("CREATE TABLE " + TABLE_NAME_FOR_SCHEMA_VALIDATION + " ("
-                + "ID BIGINT PRIMARY KEY, "
-                + "VAL BIGINT, "
-                + "STR VARCHAR(3), "
-                + "BLOB VARBINARY(3)"
-                + ")");
+        createTable(TABLE_COMPOUND_KEY, false,
+                List.of(new Column("ID", NativeTypes.INT64, false),
+                        new Column("AFFID", NativeTypes.INT64, false)),
+                schema.valueColumns());
+
+        createTable(TABLE_TYPE_MISMATCH, false,
+                List.of(new Column("ID", NativeTypes.INT64, false)),
+                List.of(new Column("VALSTRING", NativeTypes.stringOf(3), true),
+                        new Column("VALBYTES", NativeTypes.blobOf(3), true))
+        );
+
+        createTable(TABLE_STRING_TYPE_MATCH, false,
+                List.of(new Column("ID", NativeTypes.INT64, false)),
+                List.of(new Column("VALSTRING", NativeTypes.stringOf(3), true))
+        );
+
+        createTable(TABLE_BYTE_TYPE_MATCH, false,
+                List.of(new Column("ID", NativeTypes.INT64, false)),
+                List.of(new Column("VALUNLIMITED", NativeTypes.BYTES, true),
+                        new Column("VALLIMITED", NativeTypes.blobOf(2), true))
+        );
+
+        createTable(TABLE_NAME_FOR_SCHEMA_VALIDATION, false,
+                List.of(new Column("ID", NativeTypes.INT64, false)),
+                List.of(new Column("VAL", NativeTypes.INT64, true),
+                        new Column("STR", NativeTypes.stringOf(3), true),
+                        new Column("BLOB", NativeTypes.blobOf(3), true))
+        );
 
         sql("CREATE TABLE " + TABLE_NAME_WITH_DEFAULT_VALUES + " ("
                 + "ID BIGINT PRIMARY KEY, "
@@ -79,9 +109,6 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                 + "STR VARCHAR(3) DEFAULT 'ABC', "
                 + "BLOB VARBINARY(3) DEFAULT X'000102'"
                 + ")");
-
-        registerTableForClearing(TABLE_NAME_FOR_SCHEMA_VALIDATION);
-        registerTableForClearing(TABLE_NAME_WITH_DEFAULT_VALUES);
     }
 
     @ParameterizedTest
@@ -243,6 +270,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     @ParameterizedTest
     @MethodSource("schemaValidationTestCases")
     public void validateSchema(BinTestCase testCase) {
+        sql("DELETE FROM " + TABLE_NAME_FOR_SCHEMA_VALIDATION);
+
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
@@ -257,19 +286,21 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
         String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
 
-        testCase.checkConstraintError(() -> tbl.replace(null, tuple0), strTooLongErr);
-        testCase.checkConstraintError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
 
-        testCase.checkConstraintError(() -> tbl.insert(null, tuple0), strTooLongErr);
-        testCase.checkConstraintError(() -> tbl.insert(null, tuple1), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.insert(null, tuple0), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.insert(null, tuple1), byteArrayTooLongErr);
 
-        testCase.checkConstraintError(() -> tbl.replace(null, tuple0), strTooLongErr);
-        testCase.checkConstraintError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple0), strTooLongErr);
+        testCase.checkInvalidTypeError(() -> tbl.replace(null, tuple1), byteArrayTooLongErr);
     }
 
     @ParameterizedTest
     @MethodSource("defaultValueTestCases")
     public void defaultValues(BinTestCase testCase) {
+        sql("DELETE FROM " + TABLE_NAME_WITH_DEFAULT_VALUES);
+
         RecordView<Tuple> tbl = testCase.view();
 
         Tuple keyTuple0 = Tuple.create().set("id", 0L);
@@ -598,6 +629,94 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
     }
 
+    @ParameterizedTest
+    @MethodSource("compoundPkTestCases")
+    public void schemaMismatch(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
+        if (!testCase.thin) {
+            testCase.checkSchemaMismatchError(
+                    () -> recordView.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
+                    "Key tuple contains extra columns: [VAL]"
+            );
+        }
+
+        testCase.checkSchemaMismatchError(
+                () -> recordView.get(null, Tuple.create().set("id", 0L)),
+                "Missed key column: AFFID"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeMismatchTestCases")
+    public void typeMismatch(BinTestCase testCase) {
+        RecordView<Tuple> tbl = testCase.view();
+
+        // Check not-nullable column.
+        testCase.checkSchemaMismatchError(
+                () -> tbl.insert(null, Tuple.create().set("id", null)),
+                "Column 'ID' does not allow NULLs"
+        );
+
+        testCase.checkInvalidTypeError(
+                () -> tbl.insert(null, Tuple.create().set("id", 0L).set("valString", "qweqwe")),
+                "Value too long [column='VALSTRING', type=STRING(3)]"
+        );
+
+        testCase.checkInvalidTypeError(
+                () -> tbl.insert(null, Tuple.create().set("id", 0L).set("valBytes", new byte[]{0, 1, 2, 3})),
+                "Value too long [column='VALBYTES', type=BYTE_ARRAY(3)]"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("stringTypeMatchTestCases")
+    public void stringTypeMatch(BinTestCase testCase) {
+        try {
+            RecordView<Tuple> view = testCase.view();
+
+            Tuple tuple = Tuple.create().set("id", 1L);
+
+            view.insert(null, tuple.set("valString", "qwe"));
+            view.insert(null, tuple.set("valString", "qw"));
+            view.insert(null, tuple.set("valString", "q"));
+            view.insert(null, tuple.set("valString", ""));
+            view.insert(null, tuple.set("valString", null));
+
+            // Check string 3 char length and 9 bytes.
+            view.insert(null, tuple.set("valString", "我是谁"));
+
+            testCase.checkInvalidTypeError(() -> view.insert(null, tuple.set("valString", "我是谁我")),
+                    "Value too long [column='VALSTRING', type=STRING(3)]");
+        } finally {
+            sql("DELETE FROM " + TABLE_STRING_TYPE_MATCH);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("byteTypeMatchTestCases")
+    public void bytesTypeMatch(BinTestCase testCase) {
+        try {
+            RecordView<Tuple> recordView = testCase.view();
+
+            Tuple tuple = Tuple.create().set("id", 1L);
+
+            recordView.insert(null, tuple.set("valUnlimited", null));
+            recordView.insert(null, tuple.set("valLimited", null));
+            recordView.insert(null, tuple.set("valUnlimited", new byte[2]));
+            recordView.insert(null, tuple.set("valLimited", new byte[2]));
+            recordView.insert(null, tuple.set("valUnlimited", new byte[3]));
+
+            testCase.checkInvalidTypeError(
+                    () -> recordView.insert(null, tuple.set("valLimited", new byte[3])),
+                    "Value too long [column='VALLIMITED', type=BYTE_ARRAY(2)]"
+            );
+        } finally {
+            sql("DELETE FROM " + TABLE_BYTE_TYPE_MATCH);
+        }
+    }
+
     /**
      * Check tuples equality.
      *
@@ -616,7 +735,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
      * @param expected Expected tuple.
      * @param actual   Actual tuple.
      */
-    void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
+    private static void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         int nonNullKey = 0;
 
         for (int i = 0; i < schema.keyColumns().size(); i++) {
@@ -645,6 +764,22 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
     private List<Arguments> defaultValueTestCases() {
         return generateRecordViewTestArguments(TABLE_NAME_WITH_DEFAULT_VALUES, Tuple.class);
+    }
+
+    private List<Arguments> compoundPkTestCases() {
+        return generateRecordViewTestArguments(TABLE_COMPOUND_KEY, Tuple.class);
+    }
+
+    private List<Arguments> typeMismatchTestCases() {
+        return generateRecordViewTestArguments(TABLE_TYPE_MISMATCH, Tuple.class);
+    }
+
+    private List<Arguments> stringTypeMatchTestCases() {
+        return generateRecordViewTestArguments(TABLE_STRING_TYPE_MATCH, Tuple.class);
+    }
+
+    private List<Arguments> byteTypeMatchTestCases() {
+        return generateRecordViewTestArguments(TABLE_BYTE_TYPE_MATCH, Tuple.class);
     }
 
     @Override
@@ -695,7 +830,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         }
 
         @SuppressWarnings("ThrowableNotThrown")
-        void checkConstraintError(Executable run, String expectedMessage) {
+        void checkInvalidTypeError(Executable run, String expectedMessage) {
             if (thin) {
                 IgniteTestUtils.assertThrows(MarshallerException.class, run, expectedMessage);
             } else {
@@ -708,6 +843,15 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             if (!thin) {
                 IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class,
                         "Key tuple contains extra columns: [VAL]");
+            }
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        void checkSchemaMismatchError(Executable run, String expectedMessage) {
+            if (thin) {
+                IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+            } else {
+                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
             }
         }
     }
