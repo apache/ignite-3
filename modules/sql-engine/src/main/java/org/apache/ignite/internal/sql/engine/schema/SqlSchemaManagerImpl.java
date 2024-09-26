@@ -200,9 +200,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private SchemaPlus makeSchemaCopyWithStatisticSnapshot(SchemaPlus original, int catalogVersion) {
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        List<IgniteDataSource> schemaDataSources = new ArrayList<>(original.getSubSchemaNames().size());
         for (String subSchemaName : original.getSubSchemaNames()) {
             SchemaPlus originalSubSchema = original.getSubSchema(subSchemaName);
+            List<IgniteDataSource> schemaDataSources = new ArrayList<>(originalSubSchema.getTableNames().size());
             for (String tableName : originalSubSchema.getTableNames()) {
                 IgniteDataSource ds = (IgniteDataSource) originalSubSchema.getTable(tableName);
                 if (ds instanceof ActualIgniteTable) {
