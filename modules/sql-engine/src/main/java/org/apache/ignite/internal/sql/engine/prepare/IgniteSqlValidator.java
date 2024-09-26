@@ -298,6 +298,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType targetRowType,
             SqlNode query
     ) {
+        // This method is copy-paste from parent SqlValidatorImpl with to key difference
+        // (both in "Fall back to default behavior" part of the method):
+        // 1) Current implementation doesn't ignore DynamicParams
+        // 2) If SqlTypeUtil.canAssignFrom returns `true`, we do double check to account for 
+        // custom types
         boolean isUpdateModifiableViewTable = false;
         if (query instanceof SqlUpdate) {
             SqlNodeList targetColumnList = requireNonNull(((SqlUpdate) query).getTargetColumnList());
@@ -1117,6 +1122,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // ROW operator is used in VALUES (row), (row1)
         callScopes.push(CallScope.VALUES);
         try {
+            // Special handling of DEFAULT operator.
+            //
+            // By default its return type is ANY, and default implementation of validator
+            // consider ANY as being assignable to any type. We made rules more strict,
+            // therefore return type of DEFAULT operator must be derived as type of the
+            // corresponding column.
+            for (SqlNode rowConstructorNode : node.getOperandList()) {
+                SqlCall rowConstructorCall = (SqlCall) rowConstructorNode;
+
+                for (int i = 0; i < rowConstructorCall.operandCount(); i++) {
+                    SqlNode operand = rowConstructorCall.operand(i);
+
+                    if (operand.getKind() == SqlKind.DEFAULT) {
+                        setValidatedNodeType(operand, targetRowType.getFieldList().get(i).getType());
+                    }
+                }
+            }
+
             super.validateValues(node, targetRowType, scope);
         } finally {
             callScopes.pop();

@@ -432,7 +432,7 @@ statement ok
 create table t_2(a int, b int, c int, d int, e int);
 
 statement ok
-insert into t_2 select x a, length(x) b, mod(x,100) c, 5 d, 10000 e from table(system_range(0, 999));
+insert into t_2 select x a, length(x::varchar) b, mod(x,100) c, 5 d, 10000 e from table(system_range(0, 999));
 
 query IIIII
 select count (a) filter (where a>10 and a < 15), count (b) filter (where b between 1 and 3),

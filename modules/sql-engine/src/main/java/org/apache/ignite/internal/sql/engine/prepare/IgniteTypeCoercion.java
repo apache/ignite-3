@@ -171,16 +171,40 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         ContextStack ctxStack = contextStack.get();
         Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
         try {
+            boolean typesAreCompatible = true;
             if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
                 RelDataType leftType = binding.getOperandType(0);
                 RelDataType rightType = binding.getOperandType(1);
 
                 if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
-                    return false;
+                    typesAreCompatible = false;
+                }
+            } else {
+                assert operandTypes.size() == expectedFamilies.size();
+
+                for (int i = 0; i < operandTypes.size(); i++) {
+                    RelDataType typeFromExpectedFamily = expectedFamilies.get(i).getDefaultConcreteType(typeFactory);
+
+                    if (typeFromExpectedFamily == null) {
+                        // function may accept literally ANY value
+                        continue;
+                    }
+
+                    if (!typeFamiliesAreCompatible(typeFactory, typeFromExpectedFamily, operandTypes.get(i))) {
+                        typesAreCompatible = false;
+
+                        break;
+                    }
                 }
             }
 
+            // if there is any unspecified dynamic params, let's throw a refined exception
             validateFunctionOperands(binding, operandTypes, expectedFamilies);
+
+            //noinspection SimplifiableIfStatement
+            if (!typesAreCompatible) {
+                return false;
+            }
 
             return super.builtinFunctionCoercion(binding, operandTypes, expectedFamilies);
         } finally {

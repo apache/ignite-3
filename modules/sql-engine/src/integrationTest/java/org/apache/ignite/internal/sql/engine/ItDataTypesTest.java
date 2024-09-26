@@ -734,7 +734,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test'))"));
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test')::VARCHAR)"));
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
                     sql("insert into limitedChar(pk, f1) values (1, '12' || ?)", "dynamic param string"));

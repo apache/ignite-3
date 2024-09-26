@@ -124,7 +124,7 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @ValueSource(strings = {"SUM", "AVG", "MIN", "MAX"})
     public void testAggregates(String op) throws Exception {
-        var sql = "SELECT /*+ FORCE_INDEX({}) */ {}(val1) FROM TBL1 where val1=1::VARCHAR group by val2";
+        var sql = "SELECT /*+ FORCE_INDEX({}) */ {}(val1::int) FROM TBL1 where val1=1::VARCHAR group by val2";
 
         assertCertainIndex(format(sql, "IDX_VAL1", op), TBL1, "IDX_VAL1");
         assertCertainIndex(format(sql, "IDX_VAL2_VAL3", op), TBL1, "IDX_VAL2_VAL3");

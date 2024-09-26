@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql.fun;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlFunction;
@@ -28,6 +29,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperatorBinding;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
+import org.apache.calcite.sql.fun.SqlMinMaxAggFunction;
 import org.apache.calcite.sql.fun.SqlMonotonicBinaryOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
@@ -426,6 +428,18 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     null,
                     OperandTypes.EXACT_NUMERIC_EXACT_NUMERIC.and(SAME_SAME));
 
+    /**
+     * {@code EVERY} aggregate function.
+     */
+    public static final SqlAggFunction EVERY =
+            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+
+    /**
+     * {@code SOME} aggregate function.
+     */
+    public static final SqlAggFunction SOME =
+            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -439,9 +453,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             SqlStdOperatorTable.MIN,
             SqlStdOperatorTable.MAX,
             SqlStdOperatorTable.ANY_VALUE,
-            SqlStdOperatorTable.SOME,
+            SOME,
             SqlStdOperatorTable.SINGLE_VALUE,
-            SqlStdOperatorTable.EVERY
+            EVERY
     );
 
     /**
@@ -493,8 +507,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.SINGLE_VALUE);
         register(SqlStdOperatorTable.FILTER);
 
-        register(SqlStdOperatorTable.EVERY);
-        register(SqlStdOperatorTable.SOME);
+        register(EVERY);
+        register(SOME);
 
         // IS ... operator.
         register(SqlStdOperatorTable.IS_NULL);
