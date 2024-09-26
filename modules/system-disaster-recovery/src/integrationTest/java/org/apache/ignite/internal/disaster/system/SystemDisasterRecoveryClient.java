@@ -22,7 +22,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.Main;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -34,23 +36,28 @@ import org.apache.ignite.internal.logger.Loggers;
 class SystemDisasterRecoveryClient {
     private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryClient.class);
 
-    void initiateCmgRepairVia(String httpHost, int httpPort, String... newCmgNodeNames) throws InterruptedException {
+    void initiateCmgRepair(String httpHost, int httpPort, String... newCmgNodeNames) throws InterruptedException {
         LOG.info("Initiating CMG repair via {}:{}, new CMG {}", httpHost, httpPort, List.of(newCmgNodeNames));
 
-        String javaBinaryPath = ProcessHandle.current().info().command().orElseThrow();
-        String javaClassPath = System.getProperty("java.class.path");
-
-        LOG.info("Java binary is {}, classpath is {}", javaBinaryPath, javaClassPath);
-
-        //noinspection UseOfProcessBuilder
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                javaBinaryPath,
-                "-cp", javaClassPath,
+        executeWithSameJavaBinaryAndClasspath(
                 Main.class.getName(),
                 "recovery", "cluster", "reset",
                 "--url", "http://" + httpHost + ":" + httpPort,
                 "--cluster-management-group", String.join(",", newCmgNodeNames)
         );
+    }
+
+    private static void executeWithSameJavaBinaryAndClasspath(String... args) throws InterruptedException {
+        String javaBinaryPath = ProcessHandle.current().info().command().orElseThrow();
+        String javaClassPath = System.getProperty("java.class.path");
+
+        LOG.info("Java binary is {}, classpath is {}", javaBinaryPath, javaClassPath);
+
+        String[] fullArgs = Stream.concat(Stream.of(javaBinaryPath, "-cp", javaClassPath), Arrays.stream(args))
+                .toArray(String[]::new);
+
+        //noinspection UseOfProcessBuilder
+        ProcessBuilder processBuilder = new ProcessBuilder(fullArgs);
         executeProcessFrom(processBuilder);
     }
 
@@ -87,5 +94,16 @@ class SystemDisasterRecoveryClient {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    void initiateMigration(String oldHttpHost, int oldHttpPort, String newHttpHost, int newHttpPort) throws InterruptedException {
+        LOG.info("Initiating migration, old {}:{}, new {}:{}", oldHttpHost, oldHttpPort, newHttpHost, newHttpPort);
+
+        executeWithSameJavaBinaryAndClasspath(
+                Main.class.getName(),
+                "recovery", "cluster", "migrate",
+                "--old-cluster-url", "http://" + oldHttpHost + ":" + oldHttpPort,
+                "--new-cluster-url", "http://" + newHttpHost + ":" + newHttpPort
+        );
     }
 }

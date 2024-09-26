@@ -34,6 +34,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,12 +117,15 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
-    static void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
-        // TODO: IGNITE-22879 - initiate migration via CLI.
+    void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
+        NodeMetadata missingRepairMetadata = nodeMissingRepair.node().nodeMetadata();
+        NodeMetadata repairedMetadata = repairedNode.node().nodeMetadata();
 
-        ClusterState newClusterState = clusterState(repairedNode);
-
-        CompletableFuture<Void> migrationFuture = nodeMissingRepair.systemDisasterRecoveryManager().migrate(newClusterState);
-        assertThat(migrationFuture, willCompleteSuccessfully());
+        recoveryClient.initiateMigration(
+                missingRepairMetadata.restHost(),
+                missingRepairMetadata.httpPort(),
+                repairedMetadata.restHost(),
+                repairedMetadata.httpPort()
+        );
     }
 }
