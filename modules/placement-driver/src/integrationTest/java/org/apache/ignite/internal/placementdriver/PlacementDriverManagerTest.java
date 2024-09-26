@@ -600,7 +600,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return PLACEMENT_DRIVER_MESSAGES_FACTORY
                     .leaseGrantedMessageResponse()
                     .accepted(redirect.get().equals(handler))
-                    .redirectProposal(redirect.get().equals(handler)?null:redirect.get())
+                    .redirectProposal(redirect.get().equals(handler) ? null : redirect.get())
                     .build();
         };
 

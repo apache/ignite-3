@@ -136,6 +136,7 @@ public class LeaseAgreement {
 
     /**
      * Returns true if the agreement is cancelled, false otherwise.
+     *
      * @return True if the agreement is cancelled, false otherwise.
      */
     public boolean isCancelled() {
