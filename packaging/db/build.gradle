@@ -364,3 +364,18 @@ setupBuilder {
         }
     }
 }
+
+// Disable these tasks as we're using buildDeb/buildRpm tasks from the nebula plugin
+tasks.named('deb') {
+    doFirst {
+        logger.error("Don't use 'deb' task, use 'buildDeb' instead")
+        throw new StopExecutionException()
+    }
+}
+
+tasks.named('rpm') {
+    doFirst {
+        logger.error("Don't use 'rpm' task, use buildRpm instead")
+        throw new StopExecutionException()
+    }
+}
