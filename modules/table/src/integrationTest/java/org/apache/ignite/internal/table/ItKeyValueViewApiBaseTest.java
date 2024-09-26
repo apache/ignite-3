@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.Arguments;
 /**
  * Base class for {@link KeyValueView key-value view} API integration tests.
  */
-abstract class ItKeyValueViewApiBaseTest extends ItTableApiUnifiedBaseTest {
+abstract class ItKeyValueViewApiBaseTest extends ItTableViewApiUnifiedBaseTest {
     /**
      * Returns a factory for creating a set of test cases for the specific key-value view.
      */

@@ -17,28 +17,18 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.table.KeyValueTestUtils.ALL_TYPES_COLUMNS;
 import static org.apache.ignite.internal.table.KeyValueTestUtils.newKey;
 import static org.apache.ignite.internal.table.KeyValueTestUtils.newValue;
 import static org.apache.ignite.internal.type.NativeTypes.INT64;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
@@ -48,17 +38,13 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.table.KeyValueTestUtils.TestKeyObject;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -70,6 +56,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     private final Random rnd = new Random();
@@ -589,28 +577,6 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertThrows(NullPointerException.class, () -> tbl.replace(null, key, val, null));
 
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
-    }
-
-    @Test
-    void retriesOnInternalSchemaVersionMismatchException() {
-        KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> view = kvView();
-
-        TestKeyObject key = newKey(1);
-        TestObjectWithAllTypes expectedValue = TestObjectWithAllTypes.randomObject(rnd);
-        MarshallersProvider marshallers = new ReflectionMarshallersProvider();
-
-        BinaryRow resultRow = new KvMarshallerImpl<>(schema, marshallers, keyMapper, valMapper)
-                .marshal(key, expectedValue);
-
-        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
-                .doReturn(completedFuture(resultRow))
-                .when(internalTable).get(any(), any());
-
-        TestObjectWithAllTypes result = view.get(null, newKey(1L));
-
-        assertThat(result, is(equalTo(expectedValue)));
-
-        verify(internalTable, times(2)).get(any(), isNull());
     }
 
     /**

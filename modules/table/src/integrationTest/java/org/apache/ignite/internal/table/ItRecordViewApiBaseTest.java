@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.Arguments;
 /**
  * Base class for {@link RecordView record view} API integration tests.
  */
-abstract class ItRecordViewApiBaseTest extends ItTableApiUnifiedBaseTest {
+abstract class ItRecordViewApiBaseTest extends ItTableViewApiUnifiedBaseTest {
     /**
      * Returns a factory for creating a set of test cases for the specific record view.
      */

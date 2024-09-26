@@ -51,8 +51,8 @@ public class ItRecordViewApiTest extends ItRecordViewApiBaseTest {
     @BeforeAll
     public void createTable() {
         Optional<Column> pkColumn = Arrays.stream(KeyValueTestUtils.ALL_TYPES_COLUMNS)
-                .filter(col -> "primitiveLongCol".equals(col.name()))
-                .findAny();
+                .filter(col -> "primitivelongcol".equalsIgnoreCase(col.name()))
+                .findFirst();
 
         createTable(TABLE_NAME, false, List.of(pkColumn.orElseThrow()), List.of(KeyValueTestUtils.ALL_TYPES_COLUMNS));
     }

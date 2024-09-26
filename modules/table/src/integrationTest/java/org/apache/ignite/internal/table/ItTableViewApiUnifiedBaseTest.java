@@ -47,14 +47,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Base class for integration testing of key-value/record view API.
+ * Base class for integration testing of key-value/record view public API.
  *
  *<p>This class is used to run each test case in a consistent manner using
  * different API types (synchronous or asynchronous) and clients (embedded or thin).
  *
  * @see TestCaseType
  */
-abstract class ItTableApiUnifiedBaseTest extends ClusterPerClassIntegrationTest {
+abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationTest {
     /** Default primary key columns. */
     private static final List<Column> DEF_PK = List.of(new Column("ID", NativeTypes.INT64, false));
 
