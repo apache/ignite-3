@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -146,7 +147,6 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -231,7 +231,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
+// @Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -665,10 +665,12 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 30_000L
         ));
 
+        nodes.values().forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
+
         alterZone(node.catalogManager, zoneName, 1);
 
         nodes.values().stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(n -> {
-            checkInvokeDestroyedPartitionStorages(n, tableName, 0);
+            checkDestroyPartitionStoragesInvokes(n, tableName, 0);
         });
 
     }
@@ -1336,7 +1338,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 protected TxStateTableStorage createTxStateTableStorage(
                         CatalogTableDescriptor tableDescriptor,
                         CatalogZoneDescriptor zoneDescriptor
-            ) {
+                ) {
                     txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
                     return txStateTableStorage;
@@ -1493,7 +1495,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         return ((TableViewInternal) table).internalTable();
     }
 
-    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
+    private static void checkNoDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
+        InternalTable internalTable = getInternalTable(node, tableName);
+
+        verify(internalTable.storage(), never())
+                .destroyPartition(partitionId);
+        verify(internalTable.txStateStorage(), never())
+                .destroyTxStateStorage(partitionId);
+    }
+
+    private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
         InternalTable internalTable = getInternalTable(node, tableName);
 
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))

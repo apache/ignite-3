@@ -1278,6 +1278,8 @@ public class PartitionReplicaLifecycleManager  extends
             stopReplicaFuture = replicaMgr.stopReplica(zonePartitionId)
                     .thenCompose((replicaWasStopped) -> {
                         if (replicaWasStopped) {
+                            replicationGroupIds.remove(zonePartitionId);
+
                             return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, new LocalPartitionReplicaEventParameters(
                                     zonePartitionId));
                         } else {
@@ -1321,7 +1323,7 @@ public class PartitionReplicaLifecycleManager  extends
             try {
                 IgniteUtils.closeAllManually(stopping.build());
             } catch (Throwable t) {
-                LOG.error("Unable to stop partition");
+                LOG.error("Unable to stop partition", t);
             }
         }, ioExecutor);
 
