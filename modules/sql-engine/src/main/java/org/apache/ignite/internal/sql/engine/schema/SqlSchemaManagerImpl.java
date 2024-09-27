@@ -59,7 +59,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
-import org.apache.ignite.internal.sql.engine.statistic.StatisticSnapshot;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -109,12 +108,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(int catalogVersion) {
-        SchemaPlus schemaPlus = schemaCache.get(
+        return schemaCache.get(
                 catalogVersion,
                 version -> createRootSchema(catalogManager.catalog(version))
         );
-
-        return makeSchemaCopyWithStatisticSnapshot(schemaPlus, catalogVersion);
     }
 
 
@@ -196,29 +193,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         long cacheKey = part1;
         cacheKey <<= 32;
         return cacheKey | part2;
-    }
-
-    private SchemaPlus makeSchemaCopyWithStatisticSnapshot(SchemaPlus original, int catalogVersion) {
-        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        for (String subSchemaName : original.getSubSchemaNames()) {
-            SchemaPlus originalSubSchema = original.getSubSchema(subSchemaName);
-            List<IgniteDataSource> schemaDataSources = new ArrayList<>(originalSubSchema.getTableNames().size());
-            for (String tableName : originalSubSchema.getTableNames()) {
-                IgniteDataSource ds = (IgniteDataSource) originalSubSchema.getTable(tableName);
-                if (ds instanceof ActualIgniteTable) {
-                    ActualIgniteTable originalTable = ((ActualIgniteTable) originalSubSchema.getTable(tableName));
-                    ActualIgniteTable newActualTable = originalTable.createCopyWithStatisticSnapshot();
-                    schemaDataSources.add(newActualTable);
-                } else {
-                    schemaDataSources.add(ds);
-                }
-            }
-
-            IgniteSchema igniteSchema = new IgniteSchema(subSchemaName, catalogVersion, schemaDataSources);
-            rootSchema.add(subSchemaName, igniteSchema);
-        }
-
-        return rootSchema;
     }
 
     private SchemaPlus createRootSchema(Catalog catalog) {
@@ -566,23 +540,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             this.table = igniteTable;
             this.indexMap = indexMap;
-        }
-
-        private ActualIgniteTable(ActualIgniteTable table, StatisticSnapshot statisticSnapshot) {
-            super(table.name(), table.id(), table.version(), table.descriptor(), statisticSnapshot);
-
-            this.table = table.table;
-            this.indexMap = table.indexMap;
-        }
-
-        /**
-         * Create a copy of the object with snapshot of statistics, prevent to change it during planning session.
-         */
-        public ActualIgniteTable createCopyWithStatisticSnapshot() {
-            assert !(getStatistic() instanceof StatisticSnapshot);
-
-            StatisticSnapshot statisticSnapshot = new StatisticSnapshot(getStatistic());
-            return new ActualIgniteTable(this, statisticSnapshot);
         }
 
         @Override
