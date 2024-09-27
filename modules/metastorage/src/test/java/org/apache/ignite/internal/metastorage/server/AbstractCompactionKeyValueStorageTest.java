@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -71,6 +70,9 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         storage.invoke(iif, clock.now(), new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId());
 
         storage.remove(SOME_KEY, clock.now());
+
+        // Special revision update to prevent tests from failing.
+        storage.put(fromString("fake"), SOME_VALUE, clock.now());
 
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
@@ -140,16 +142,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision5();
         testCompactRevision6();
     }
-
-    @Test
-    public void testCompactEmptyStorage() throws Exception {
-        restartStorage(true);
-
-        assertDoesNotThrow(() -> storage.compact(0));
-    }
-
-    /** Restarts the storage with the option to clean it. */
-    abstract void restartStorage(boolean clean) throws Exception;
 
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();

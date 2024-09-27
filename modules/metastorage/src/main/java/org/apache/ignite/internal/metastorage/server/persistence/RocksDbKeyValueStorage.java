@@ -980,8 +980,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            assert revision <= rev : String.format(
-                    "Compaction revision should not be greater than the current: [compaction=%s, current=%s]",
+            assert revision < rev : String.format(
+                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
                     revision, rev
             );
 

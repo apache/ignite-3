@@ -254,6 +254,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
      * </ul>
      *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      */
@@ -287,6 +289,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     HybridTimestamp timestampByRevision(long revision);
 
     /**
@@ -295,6 +298,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param timestamp Timestamp by which to do a lookup.
      * @return Revision lesser or equal to the timestamp or -1 if there is no such revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**

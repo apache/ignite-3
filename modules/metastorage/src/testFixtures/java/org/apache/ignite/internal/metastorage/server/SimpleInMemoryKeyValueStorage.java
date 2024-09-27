@@ -520,8 +520,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revision >= 0;
 
         synchronized (mux) {
-            assert revision <= rev : String.format(
-                    "Compaction revision should not be greater than the current: [compaction=%s, current=%s]",
+            assert revision < rev : String.format(
+                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
                     revision, rev
             );
 
