@@ -1032,7 +1032,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param batch Write batch.
      * @param key Target key.
      * @param revs Key revisions.
-     * @param compactionRevision Revision up to which the key will be compacted.
+     * @param compactionRevision Revision up to which (inclusively) the key will be compacted.
      * @throws MetaStorageException If failed.
      */
     private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long compactionRevision) {

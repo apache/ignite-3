@@ -35,12 +35,12 @@ public class KeyValueStorageUtils {
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
      * @param compactionRevisionInclusive Revision up to which you need to compact (inclusive).
-     * @param tombstoneKeyRevisionPredicate Predicate to test whether a key revision is a tombstone.
+     * @param isTombstone Predicate to test whether a key revision is a tombstone.
      */
-    public static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive, LongPredicate tombstoneKeyRevisionPredicate) {
+    public static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive, LongPredicate isTombstone) {
         int i = indexToCompact(keyRevisions, compactionRevisionInclusive);
 
-        if (i != NOTHING_TO_COMPACT_INDEX && i == keyRevisions.length - 1 && !tombstoneKeyRevisionPredicate.test(keyRevisions[i])) {
+        if (i != NOTHING_TO_COMPACT_INDEX && i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
             i--;
         }
 

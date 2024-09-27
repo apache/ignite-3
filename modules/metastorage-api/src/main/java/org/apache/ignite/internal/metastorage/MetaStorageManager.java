@@ -296,7 +296,7 @@ public interface MetaStorageManager extends IgniteComponent {
      *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
      * </ul>
      *
-     * @param revision Revision up to which the metastorage keys will be compacted.
+     * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      */

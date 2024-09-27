@@ -49,7 +49,7 @@ public class KeyValueStorageUtilsTest {
     }
 
     @Test
-    void testIndexToCompactMultipleRevision() {
+    void testIndexToCompactMultipleRevisions() {
         long[] keyRevisions = {2, 4, 5};
 
         assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 1, revision -> true));

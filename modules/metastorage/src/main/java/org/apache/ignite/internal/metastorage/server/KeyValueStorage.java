@@ -254,7 +254,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
      * </ul>
      *
-     * @param revision Revision up to which the metastorage keys will be compacted.
+     * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      */
     // TODO: IGNITE-23281 Do not hold write lock for the entire operation
