@@ -23,7 +23,6 @@ import org.apache.ignite.internal.cli.call.recovery.cluster.ResetClusterCallInpu
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -49,7 +48,6 @@ public class ResetClusterReplCommand extends BaseCommand implements Runnable {
         runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(url -> ResetClusterCallInput.of(options, url))
                 .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot reset cluster"))
                 .print()
         );
     }

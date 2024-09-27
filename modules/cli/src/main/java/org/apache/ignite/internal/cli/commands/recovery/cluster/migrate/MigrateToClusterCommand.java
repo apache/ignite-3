@@ -15,35 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
+package org.apache.ignite.internal.cli.commands.recovery.cluster.migrate;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.recovery.cluster.ResetClusterCall;
-import org.apache.ignite.internal.cli.call.recovery.cluster.ResetClusterCallInput;
+import org.apache.ignite.internal.cli.call.recovery.cluster.MigrateToClusterCall;
+import org.apache.ignite.internal.cli.call.recovery.cluster.MigrateToClusterCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/** Command to reset cluster (that is, initiate CMG/Metastorage group repair). */
-@Command(name = "reset", description = "Resets cluster.")
-public class ResetClusterCommand extends BaseCommand implements Callable<Integer> {
-    /** Cluster endpoint URL option. */
+/** Command to initiate migration of nodes from old (unrepaired) cluster to the new (repaired) one. */
+@Command(name = "migrate", description = "Migrates nodes missed during repair to repaired cluster.")
+public class MigrateToClusterCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
-
-    @Mixin
-    private ResetClusterMixin options;
+    private MigrateToClusterMixin options;
 
     @Inject
-    private ResetClusterCall call;
+    private MigrateToClusterCall call;
 
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> ResetClusterCallInput.of(options, clusterUrl.getClusterUrl()))
+                .inputProvider(() -> MigrateToClusterCallInput.of(options))
         );
     }
 }

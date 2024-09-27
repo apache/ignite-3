@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.cli.commands.recovery.cluster;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.recovery.cluster.migrate.MigrateToClusterCommand;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterCommand;
 import picocli.CommandLine.Command;
 
 /** Cluster disaster recovery commands. */
 @Command(name = "cluster",
         subcommands = {
-                ResetClusterCommand.class
+                ResetClusterCommand.class,
+                MigrateToClusterCommand.class
         },
         description = "Manages disaster recovery of CMG/Metastorage group")
 public class RecoveryClusterCommand extends BaseCommand {

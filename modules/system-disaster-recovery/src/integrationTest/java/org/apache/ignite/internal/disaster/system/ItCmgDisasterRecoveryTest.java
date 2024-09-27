@@ -85,7 +85,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     private void initiateCmgRepairVia(IgniteImpl conductor, int... newCmgIndexes) throws InterruptedException {
         NodeMetadata nodeMetadata = conductor.node().nodeMetadata();
 
-        recoveryClient.initiateCmgRepairVia(nodeMetadata.restHost(), nodeMetadata.httpPort(), nodeNames(newCmgIndexes));
+        recoveryClient.initiateCmgRepair(nodeMetadata.restHost(), nodeMetadata.httpPort(), nodeNames(newCmgIndexes));
     }
 
     @Test
