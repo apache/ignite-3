@@ -75,6 +75,10 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
         collectorService.removePartition(p1);
         assertEquals(0, collectorService.minTimestampPerPartition().size());
 
+        // p1 has already been removed, this call should have no effect
+        collectorService.removePartition(p1);
+        assertEquals(0, collectorService.minTimestampPerPartition().size());
+
         // Cleanup
         collectorService.close();
         assertEquals(0, collectorService.minTimestampPerPartition().size());

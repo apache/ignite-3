@@ -2644,7 +2644,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CompletableFuture<Boolean> stopReplicaFuture;
 
-        minTimeCollectorService.removePartition(tablePartitionId);
         try {
             stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
@@ -2653,7 +2652,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return stopReplicaFuture
-                .thenCompose(v -> mvGc.removeStorage(tablePartitionId));
+                .thenCompose(v -> {
+                    minTimeCollectorService.removePartition(tablePartitionId);
+                    mvGc.removeStorage(tablePartitionId);
+                    return null;
+                });
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
