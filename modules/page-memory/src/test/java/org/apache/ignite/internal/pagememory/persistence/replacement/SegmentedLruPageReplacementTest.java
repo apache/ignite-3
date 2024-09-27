@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.cluster.RecoveryClusterCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionsCommand;
-import picocli.CommandLine.Command;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
-        subcommands = {
-                PartitionsCommand.class,
-                RecoveryClusterCommand.class
-        },
-        description = "Manages disaster recovery of Ignite cluster")
-public class RecoveryCommand extends BaseCommand {
+/**
+ * Tests for the {@link SegmentedLruPageReplacementPolicy}.
+ */
+public class SegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
+    @Override
+    protected String replacementMode() {
+        return SEGMENTED_LRU_REPLACEMENT_MODE;
+    }
 }

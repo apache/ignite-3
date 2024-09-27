@@ -41,6 +41,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 
@@ -81,12 +82,10 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(IgniteImpl conductor, int... newCmgIndexes) {
-        // TODO: IGNITE-22812 - initiate repair via CLI.
+    private void initiateCmgRepairVia(IgniteImpl conductor, int... newCmgIndexes) throws InterruptedException {
+        NodeMetadata nodeMetadata = conductor.node().nodeMetadata();
 
-        CompletableFuture<Void> initiationFuture = conductor.systemDisasterRecoveryManager()
-                .resetCluster(List.of(nodeNames(newCmgIndexes)));
-        assertThat(initiationFuture, willCompleteSuccessfully());
+        recoveryClient.initiateCmgRepair(nodeMetadata.restHost(), nodeMetadata.httpPort(), nodeNames(newCmgIndexes));
     }
 
     @Test
