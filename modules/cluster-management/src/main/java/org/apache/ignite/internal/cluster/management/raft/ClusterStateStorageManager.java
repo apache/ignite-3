@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -91,7 +92,7 @@ public class ClusterStateStorageManager {
     }
 
     private static byte[] validatedNodeKey(UUID nodeId) {
-        byte[] nodeIdBytes = nodeId.toString().getBytes(UTF_8);
+        byte[] nodeIdBytes = ByteUtils.uuidToBytes(nodeId);
 
         return ByteBuffer.allocate(VALIDATED_NODE_PREFIX.length + nodeIdBytes.length)
                 .put(VALIDATED_NODE_PREFIX)
