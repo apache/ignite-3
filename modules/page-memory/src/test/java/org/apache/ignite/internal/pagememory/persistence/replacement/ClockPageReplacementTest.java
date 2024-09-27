@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.persistence.replacement;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-
-import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicy;
 
 /**
  * Tests for the {@link ClockPageReplacementPolicy}.
  */
-public class ItClockPageReplacementTest extends AbstractPageReplacementTest {
+public class ClockPageReplacementTest extends AbstractPageReplacementTest {
     @Override
     protected String replacementMode() {
         return CLOCK_REPLACEMENT_MODE;

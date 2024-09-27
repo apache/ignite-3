@@ -53,8 +53,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+/**
+ * Tests for some internal properties of the {@link RandomLruPageReplacementPolicy}.
+ */
 @ExtendWith(MockitoExtension.class)
-class RandomLruPageReplacementPolicyTest extends BaseIgniteAbstractTest {
+class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 16 * 1024;
 
     @Mock

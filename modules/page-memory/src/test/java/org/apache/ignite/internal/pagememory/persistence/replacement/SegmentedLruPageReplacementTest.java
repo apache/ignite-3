@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.persistence.replacement;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
-
-import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicy;
 
 /**
  * Tests for the {@link SegmentedLruPageReplacementPolicy}.
  */
-public class ItSegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
+public class SegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
     @Override
     protected String replacementMode() {
         return SEGMENTED_LRU_REPLACEMENT_MODE;

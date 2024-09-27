@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.persistence.replacement;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -68,7 +68,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -101,7 +100,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     @InjectConfiguration(
             polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
             value = "mock = {"
-                    + "engine=" + PersistentPageMemoryStorageEngine.ENGINE_NAME + ", "
+                    + "engine=aipersist, "
                     + "size=" + MAX_MEMORY_SIZE
                     + "}"
     )

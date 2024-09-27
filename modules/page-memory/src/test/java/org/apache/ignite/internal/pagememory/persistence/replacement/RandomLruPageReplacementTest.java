@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.persistence.replacement;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-
-import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicy;
 
 /**
  * Tests for the {@link RandomLruPageReplacementPolicy}.
  */
-public class ItRandomLruPageReplacementTest extends AbstractPageReplacementTest {
+public class RandomLruPageReplacementTest extends AbstractPageReplacementTest {
     @Override
     protected String replacementMode() {
         return RANDOM_LRU_REPLACEMENT_MODE;
