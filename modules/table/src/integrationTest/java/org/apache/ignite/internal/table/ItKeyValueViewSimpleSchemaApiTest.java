@@ -230,7 +230,6 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     public void getNullableAndPut(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
 
-        // getNullableAndPut
         assertNull(tbl.getAndPut(null, 1L, 11L));
         assertEquals(11L, tbl.get(null, 1L));
 
