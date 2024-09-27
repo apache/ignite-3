@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.binarySearch;
 
 import java.util.function.LongPredicate;
 
@@ -27,8 +28,8 @@ public class KeyValueStorageUtils {
     public static final int NOTHING_TO_COMPACT_INDEX = -1;
 
     /**
-     * Calculates the revision index in key revisions up to which compaction is needed, {@link #NOTHING_TO_COMPACT_INDEX} if nothing needs
-     * to be compacted.
+     * Calculates the revision index in key revisions up to which compaction is needed or {@link #NOTHING_TO_COMPACT_INDEX} if nothing
+     * needs to be compacted.
      *
      * <p>If the returned index points to the last revision and if the last revision is <b>not</b> a tombstone, then the returned index is
      * decremented by 1.</p>
@@ -38,29 +39,21 @@ public class KeyValueStorageUtils {
      * @param isTombstone Predicate to test whether a key revision is a tombstone.
      */
     public static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive, LongPredicate isTombstone) {
-        int i = indexToCompact(keyRevisions, compactionRevisionInclusive);
+        int i = binarySearch(keyRevisions, compactionRevisionInclusive);
 
-        if (i != NOTHING_TO_COMPACT_INDEX && i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
-            i--;
+        if (i < 0) {
+            if (i == -1) {
+                return NOTHING_TO_COMPACT_INDEX;
+            }
+
+            i = -(i + 2);
+        }
+
+        if (i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
+            i = i == 0 ? NOTHING_TO_COMPACT_INDEX : i - 1;
         }
 
         return i;
-    }
-
-    private static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive) {
-        int index = NOTHING_TO_COMPACT_INDEX;
-
-        for (int i = 0; i < keyRevisions.length; i++) {
-            long keyRevision = keyRevisions[i];
-
-            if (keyRevision > compactionRevisionInclusive) {
-                break;
-            }
-
-            index = i;
-        }
-
-        return index;
     }
 
     /**

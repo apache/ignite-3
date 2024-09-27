@@ -142,9 +142,14 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    public void testCompactEmptyStorage() {
+    public void testCompactEmptyStorage() throws Exception {
+        restartStorage(true);
+
         assertDoesNotThrow(() -> storage.compact(0));
     }
+
+    /** Restarts the storage with the option to clean it. */
+    abstract void restartStorage(boolean clean) throws Exception;
 
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();

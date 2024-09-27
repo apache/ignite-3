@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
+
 import java.nio.file.Path;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -32,6 +34,20 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+        return new RocksDbKeyValueStorage("test", storageDir(), new NoOpFailureManager());
+    }
+
+    @Override
+    void restartStorage(boolean clean) throws Exception {
+        storage.close();
+
+        deleteIfExists(storageDir());
+
+        storage = createStorage();
+        storage.start();
+    }
+
+    private Path storageDir() {
+        return workDir.resolve("storage");
     }
 }
