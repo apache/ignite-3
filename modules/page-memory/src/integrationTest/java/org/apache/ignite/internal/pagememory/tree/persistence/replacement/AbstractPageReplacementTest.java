@@ -76,7 +76,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Integration tests for testing page replacement. */
+/**
+ * Base class for testing various page replacement policies.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "test";
