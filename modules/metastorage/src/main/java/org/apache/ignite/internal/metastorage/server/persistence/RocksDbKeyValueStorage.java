@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToLong;
@@ -44,7 +45,6 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ER
 import static org.rocksdb.util.SizeUnit.MB;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,6 +81,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.CompactedException;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -136,13 +137,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Revision key. */
     private static final byte[] REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
-            "SYSTEM_REVISION_KEY".getBytes(StandardCharsets.UTF_8)
+            "SYSTEM_REVISION_KEY".getBytes(UTF_8)
     );
 
     /** Update counter key. */
     private static final byte[] UPDATE_COUNTER_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
-            "SYSTEM_UPDATE_COUNTER_KEY".getBytes(StandardCharsets.UTF_8)
+            "SYSTEM_UPDATE_COUNTER_KEY".getBytes(UTF_8)
+    );
+
+    /** Compaction revision key. */
+    private static final byte[] COMPACTION_REVISION_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
     );
 
     /** Lexicographic order comparator. */
@@ -191,16 +198,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
      *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     private long rev;
 
     /**
      * Update counter. Will be incremented for each update of any particular entry.
      *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     private long updCntr;
+
+    /**
+     * Last revision of a compact that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    private long compactionRevision = -1;
 
     /** Watch processor. */
     private final WatchProcessor watchProcessor;
@@ -400,8 +416,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void restoreSnapshot(Path path) {
-        long currentRevision;
-
         rwLock.writeLock().lock();
 
         try {
@@ -414,9 +428,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             snapshotManager.restoreSnapshot(path);
 
-            currentRevision = bytesToLong(data.get(REVISION_KEY));
-
-            rev = currentRevision;
+            rev = bytesToLong(data.get(REVISION_KEY));
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
 
@@ -1631,6 +1643,41 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
         } finally {
             rwLock.writeLock().unlock();
+        }
+    }
+
+    // TODO: IGNITE-23290 продолжить!
+
+    @Override
+    public void saveCompactionRevision(long revision) {
+
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        rwLock.writeLock().lock();
+
+        try {
+            assert revision >= 0;
+            assert revision <= rev : String.format(
+                    "Compaction revision should not be greater than the current: [compaction=%s, current=%s]",
+                    revision, rev
+            );
+
+
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        rwLock.readLock().lock();
+
+        try {
+            return compactionRevision;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 }
