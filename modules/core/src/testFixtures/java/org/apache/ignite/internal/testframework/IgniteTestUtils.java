@@ -1049,7 +1049,7 @@ public final class IgniteTestUtils {
 
     /**
      * Derives a UUID from a string in a determenistic way in hope there will be no collisions of derived UUIDs for different strings
-     * in practice..
+     * in practice.
      *
      * @param str String for which to derive a UUID.
      */
