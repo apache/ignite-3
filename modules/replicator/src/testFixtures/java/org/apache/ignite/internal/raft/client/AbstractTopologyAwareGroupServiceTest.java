@@ -215,7 +215,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         assertNotNull(raftClient);
 
-        raftClient.refreshLeader().get();
+        raftClient.refreshLeader().get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;
@@ -233,6 +233,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 new TestLogicalTopologyService(clientClusterService),
                 false
         );
+
+        raftClientNoInitialNotify.refreshLeader().get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         List<NetworkAddress> clientAddress = findLocalAddresses(clientPort, clientPort + 1);
         assertEquals(1, clientAddress.size());
