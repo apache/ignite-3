@@ -502,7 +502,7 @@ public class LeaseUpdater {
                     Lease lease = renewedLeases.get(entry.getKey());
                     boolean force = entry.getValue();
 
-                    leaseNegotiator.negotiate(lease.replicationGroupId(), force);
+                    leaseNegotiator.negotiate(lease, force);
                 }
             });
         }

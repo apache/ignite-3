@@ -61,22 +61,24 @@ public class LeaseNegotiator {
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
-     * @param replicationGroupId Group id for the negotiation.
+     * @param lease Lease to negotiate.
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
-    public void negotiate(ReplicationGroupId replicationGroupId, boolean force) {
-        LeaseAgreement agreement = leaseToNegotiate.get(replicationGroupId);
+    public void negotiate(Lease lease, boolean force) {
+        ReplicationGroupId groupId = lease.replicationGroupId();
 
-        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + replicationGroupId + "].";
+        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
 
-        long leaseInterval = agreement.getLease().getExpirationTime().getPhysical() - agreement.getLease().getStartTime().getPhysical();
+        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
+
+        long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
         clusterService.messagingService().invoke(
-                        agreement.getLease().getLeaseholder(),
+                        lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
-                                .groupId(replicationGroupId)
-                                .leaseStartTime(agreement.getLease().getStartTime())
-                                .leaseExpirationTime(agreement.getLease().getExpirationTime())
+                                .groupId(groupId)
+                                .leaseStartTime(lease.getStartTime())
+                                .leaseExpirationTime(lease.getExpirationTime())
                                 .force(force)
                                 .build(),
                         leaseInterval)
@@ -90,7 +92,7 @@ public class LeaseNegotiator {
                         agreement.onResponse(response);
                     } else {
                         if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                            LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, agreement.getLease());
+                            LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
                         agreement.cancel();
