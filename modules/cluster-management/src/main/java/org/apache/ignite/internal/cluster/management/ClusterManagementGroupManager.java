@@ -198,7 +198,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         cmgMessageHandler = createMessageHandler();
 
-        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, cmgMessageHandler);
+        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
     }
 
     private CmgMessageHandler createMessageHandler() {
