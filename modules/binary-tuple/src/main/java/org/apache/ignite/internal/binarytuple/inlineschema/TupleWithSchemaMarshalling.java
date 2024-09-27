@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -69,7 +70,7 @@ public final class TupleWithSchemaMarshalling {
         Object[] values = new Object[size];
         String[] columns = new String[size];
         ColumnType[] types = new ColumnType[size];
-        boolean[] nestedTupleFlags = new boolean[size];
+        BitSet nestedTupleFlags = new BitSet();
 
         // Fill in the values, column names, and types.
         for (int i = 0; i < size; i++) {
@@ -77,7 +78,9 @@ public final class TupleWithSchemaMarshalling {
             values[i] = value;
             columns[i] = tuple.columnName(i);
             types[i] = inferType(value);
-            nestedTupleFlags[i] = value instanceof Tuple;
+            if (value instanceof Tuple) {
+                nestedTupleFlags.set(i);
+            }
         }
 
         ByteBuffer schemaBuff = schemaBuilder(columns, types, nestedTupleFlags).build();
@@ -143,15 +146,16 @@ public final class TupleWithSchemaMarshalling {
                 .position(valueOffset).limit(raw.length)
                 .slice().order(BYTE_ORDER);
 
-        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 3, schemaBuff);
+        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2 + 1, schemaBuff);
         BinaryTupleReader valueReader = new BinaryTupleReader(size, valueBuff);
 
         Tuple tup = Tuple.create(size);
 
+        BitSet nestedTupleFlags = BitSet.valueOf(schemaReader.bytesValue(size * 2));
         for (int i = 0; i < size; i++) {
-            String colName = schemaReader.stringValue(i * 3);
-            int colTypeId = schemaReader.intValue(i * 3 + 1);
-            boolean nestedTupleFlag = schemaReader.booleanValue(i * 3 + 2);
+            String colName = schemaReader.stringValue(i * 2);
+            int colTypeId = schemaReader.intValue(i * 2 + 1);
+            boolean nestedTupleFlag = nestedTupleFlags.get(i);
 
             setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i, nestedTupleFlag);
         }
@@ -159,25 +163,25 @@ public final class TupleWithSchemaMarshalling {
         return tup;
     }
 
-    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types, boolean[] nestedTupleFlags) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 3);
+    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types, BitSet nestedTupleFlags) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2 + 1);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
             builder.appendInt(types[i].id());
-            builder.appendBoolean(nestedTupleFlags[i]);
         }
+        builder.appendBytes(nestedTupleFlags.toByteArray());
 
         return builder;
     }
 
-    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values, boolean[] nestedTupleFlags) {
+    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values, BitSet nestedTupleFlags) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = types[i];
             Object v = values[i];
-            boolean nestedTupleFlag = nestedTupleFlags[i];
+            boolean nestedTupleFlag = nestedTupleFlags.get(i);
 
             append(type, columnNames[i], builder, v, nestedTupleFlag);
         }
