@@ -70,8 +70,6 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
         TestObjectWithAllTypes obj2 = newValue(rnd);
         TestObjectWithAllTypes obj3 = newValue(rnd);
 
-        // KeyValueView<TestKeyObject, TestObjectWithAllTypes> view = defaultView();
-
         assertNull(view.get(null, key));
 
         // Put KV pair.
