@@ -204,7 +204,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private volatile long leaseStartTime;
 
     /** On-heap-cached lease node id. */
-    private volatile String primaryReplicaNodeId;
+    private volatile UUID primaryReplicaNodeId;
 
     /** On-heap-cached lease node name. */
     private volatile String primaryReplicaNodeName;
@@ -260,12 +260,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 leaseStartTime = bytesToLong(leaseBytes);
 
                 int primaryReplicaNodeIdLength = bytesToInt(leaseBytes, Long.BYTES);
-                primaryReplicaNodeId = new String(
+                primaryReplicaNodeId = UUID.fromString(new String(
                         leaseBytes,
                         Long.BYTES + Integer.BYTES,
                         primaryReplicaNodeIdLength,
                         StandardCharsets.UTF_8
-                );
+                ));
 
                 int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength);
                 primaryReplicaNodeName = new String(
@@ -1100,7 +1100,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     ) {
         busy(() -> {
@@ -1114,7 +1114,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 outputStream.write(longToBytes(leaseStartTime));
 
-                byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
+                byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId.toString());
                 outputStream.write(intToBytes(primaryReplicaNodeIdBytes.length));
                 outputStream.write(primaryReplicaNodeIdBytes);
 
@@ -1141,7 +1141,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable String primaryReplicaNodeId() {
+    public @Nullable UUID primaryReplicaNodeId() {
         return busy(() -> primaryReplicaNodeId);
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
@@ -63,21 +64,21 @@ import org.junit.jupiter.api.Test;
 public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributionZoneManagerTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManagerScaleUpScaleDownTest.class);
 
-    private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_3 = new LogicalNode("3", "node3", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_3 = new LogicalNode(randomUUID(), "node3", new NetworkAddress("localhost", 123));
 
-    private static final Node A  = new Node("A", "id_A");
+    private static final Node A  = new Node("A", randomUUID());
 
-    private static final Node B  = new Node("B", "id_B");
+    private static final Node B  = new Node("B", randomUUID());
 
-    private static final Node C  = new Node("C", "id_C");
+    private static final Node C  = new Node("C", randomUUID());
 
-    private static final Node D  = new Node("D", "id_D");
+    private static final Node D  = new Node("D", randomUUID());
 
-    private static final Node E  = new Node("E", "id_E");
+    private static final Node E  = new Node("E", randomUUID());
 
     @Test
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {

@@ -33,7 +33,7 @@ public class MockAsyncContext implements RpcContext {
     private NodeManager nodeManager = new NodeManager();
 
     private ClusterNode sender = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            UUID.randomUUID(),
             "node0",
             new NetworkAddress("localhost", 12345));
 

@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -57,7 +58,7 @@ import org.apache.ignite.network.NetworkAddress;
 class TestIndexManagementUtils {
     static final String NODE_NAME = "test-node";
 
-    static final String NODE_ID = "test-node-id";
+    static final UUID NODE_ID = new UUID(1, 2);
 
     static final String TABLE_NAME = "test-table";
 

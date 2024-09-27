@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
@@ -273,7 +275,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             assertTrue(tblId.isPresent());
 
             return new PrimaryReplicaEventParameters(
-                    0, new TablePartitionId(tblId.get(), 0), "ignored", "ignored", HybridTimestamp.MIN_VALUE);
+                    0, new TablePartitionId(tblId.get(), 0), new UUID(0, 0), "ignored", HybridTimestamp.MIN_VALUE);
         };
 
         // Initialize mapping service.
@@ -303,7 +305,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
     private static List<LogicalNode> logicalNodes(String... nodeNames) {
         return Arrays.stream(nodeNames)
-                .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
+                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +44,7 @@ public class NodeWithAttributes implements Serializable {
      * @param nodeId Node consistent identifier.
      * @param userAttributes Key value map of user's node's attributes.
      */
-    public NodeWithAttributes(String nodeName, String nodeId, @Nullable Map<String, String> userAttributes) {
+    public NodeWithAttributes(String nodeName, UUID nodeId, @Nullable Map<String, String> userAttributes) {
         this(nodeName, nodeId, userAttributes, List.of());
     }
 
@@ -57,7 +58,7 @@ public class NodeWithAttributes implements Serializable {
      */
     public NodeWithAttributes(
             String nodeName,
-            String nodeId,
+            UUID nodeId,
             @Nullable Map<String, String> userAttributes,
             @Nullable List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
@@ -91,7 +92,7 @@ public class NodeWithAttributes implements Serializable {
         return node.nodeName();
     }
 
-    public String nodeId() {
+    public UUID nodeId() {
         return node.nodeId();
     }
 

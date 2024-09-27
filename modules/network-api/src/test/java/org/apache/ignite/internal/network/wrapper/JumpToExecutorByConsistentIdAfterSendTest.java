@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.wrapper;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -64,9 +65,9 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Mock
     private NetworkMessage message;
 
-    private final ClusterNode sender = new ClusterNodeImpl("senderId", SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000));
+    private final ClusterNode sender = new ClusterNodeImpl(randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000));
     private final ClusterNode recipient = new ClusterNodeImpl(
-            "recipientId",
+            randomUUID(),
             RECIPIENT_CONSISTENT_ID,
             new NetworkAddress("recipient-host", 3000)
     );

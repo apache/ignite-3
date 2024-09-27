@@ -47,6 +47,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -1044,5 +1045,15 @@ public final class IgniteTestUtils {
         public boolean matches(Object o) {
             return predicate.test((DataT) o);
         }
+    }
+
+    /**
+     * Derives a UUID from a string in a determenistic way in hope there will be no collisions of derived UUIDs for different strings
+     * in practice..
+     *
+     * @param str String for which to derive a UUID.
+     */
+    public static UUID deriveUuidFrom(String str) {
+        return new UUID(str.hashCode(), new StringBuilder(str).reverse().toString().hashCode());
     }
 }
