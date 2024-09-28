@@ -17,19 +17,49 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Compaction tests. */
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyValueStorageTest {
+    @WorkDirectory
+    Path workDir;
+
     private final HybridClock clock = new HybridClockImpl();
+
+    @Override
+    @BeforeEach
+    void setUp() {
+        super.setUp();
+
+        // TODO: IGNITE-23290 потом уйдёт
+        storage.put(key(0), key(0), clock.now());
+        storage.put(key(1), key(0), clock.now());
+        storage.put(key(2), key(0), clock.now());
+        storage.put(key(3), key(0), clock.now());
+    }
+
+    abstract boolean isPersistent();
+
+    abstract void restartStorage(boolean clear) throws Exception;
 
     @Test
     public void testCompactionAfterLastRevision() {
@@ -198,5 +228,79 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         Entry entry1 = storage.get(key, storage.revision() - 1);
         assertArrayEquals(value1, entry1.value());
+    }
+
+    @Test
+    void testSetAndGetCompactionRevision() {
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.setCompactionRevision(0);
+        assertEquals(0, storage.getCompactionRevision());
+
+        storage.setCompactionRevision(1);
+        assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testSetAndGetCompactionRevisionAndRestart(boolean clearStorage) throws Exception {
+        storage.setCompactionRevision(1);
+
+        restartStorage(clearStorage);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevision() {
+        assumeTrue(isPersistent());
+
+        storage.saveCompactionRevision(0);
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.saveCompactionRevision(1);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testSaveCompactionRevisionAndRestart(boolean clearStorage) throws Exception {
+        assumeTrue(isPersistent());
+
+        storage.saveCompactionRevision(1);
+
+        restartStorage(clearStorage);
+
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevisionInSnapshot() {
+        assumeTrue(isPersistent());
+
+        storage.saveCompactionRevision(1);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testSaveCompactionRevisionInSnapshotAndRestart(boolean clearStorage) throws Exception {
+        assumeTrue(isPersistent());
+
+        storage.saveCompactionRevision(1);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage(clearStorage);
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(1, storage.getCompactionRevision());
     }
 }

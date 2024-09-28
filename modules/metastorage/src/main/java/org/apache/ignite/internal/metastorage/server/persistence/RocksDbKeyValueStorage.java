@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessCurrent;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToLong;
@@ -364,6 +365,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         if (revision != null) {
             rev = ByteUtils.bytesToLong(revision);
         }
+
+        byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
+
+        if (compactionRevisionBytes != null) {
+            compactionRevision = ByteUtils.bytesToLong(compactionRevisionBytes);
+        }
     }
 
     /**
@@ -431,6 +438,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = bytesToLong(data.get(REVISION_KEY));
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
+
+            compactionRevision = bytesToLong(data.get(COMPACTION_REVISION_KEY));
 
             notifyRevisionUpdate();
         } catch (Exception e) {
@@ -1646,25 +1655,33 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    // TODO: IGNITE-23290 продолжить!
-
     @Override
     public void saveCompactionRevision(long revision) {
+        assert revision >= 0;
 
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessCurrent(revision, rev);
+
+            data.put(COMPACTION_REVISION_KEY, longToBytes(revision));
+        } catch (Throwable t) {
+            throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     @Override
     public void setCompactionRevision(long revision) {
+        assert revision >= 0;
+
         rwLock.writeLock().lock();
 
         try {
-            assert revision >= 0;
-            assert revision <= rev : String.format(
-                    "Compaction revision should not be greater than the current: [compaction=%s, current=%s]",
-                    revision, rev
-            );
+            assertCompactionRevisionLessCurrent(revision, rev);
 
-
+            compactionRevision = revision;
         } finally {
             rwLock.writeLock().unlock();
         }

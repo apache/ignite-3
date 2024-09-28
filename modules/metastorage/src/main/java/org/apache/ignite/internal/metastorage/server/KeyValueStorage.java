@@ -305,13 +305,15 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void advanceSafeTime(HybridTimestamp newSafeTime);
 
     /**
-     * Saves the revision of the compaction to the storage meta.
+     * Saves the compaction revision to the storage meta.
      *
-     * <p>Method only saves the new compaction revision of the the meta of storage. After invoking this method the metastorage read methods
+     * <p>Method only saves the new compaction revision to the meta of storage. After invoking this method the metastorage read methods
      * will <b>not</b> throw a {@link CompactedException} if they request a revision less than or equal to the new saved one.</p>
      *
-     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot} from a snapshot, the
+     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot restore} from a snapshot,
      * compaction revision will be restored after which the metastorage read methods will throw exception {@link CompactedException}.</p>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision to save.
      * @throws MetaStorageException If there is an error while saving a compaction revision.
@@ -323,13 +325,15 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Sets the compaction revision, but does not save it, after invoking this method the metastorage read methods will throw a
      * {@link CompactedException} if they request a revision less than or equal to the new one.
      *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
      * @param revision Compaction revision.
      * @see #saveCompactionRevision(long)
      */
     void setCompactionRevision(long revision);
 
     /**
-     * Returns the last revision of a compact that was set or restored from a snapshot.
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
      *
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long)

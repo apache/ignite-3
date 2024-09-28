@@ -17,26 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import org.junit.jupiter.api.Disabled;
-
-/** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
-public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
-    @Override
-    public KeyValueStorage createStorage() {
-        return new SimpleInMemoryKeyValueStorage("test");
-    }
-
-    @Override
-    boolean isPersistent() {
-        return false;
-    }
-
-    @Override
-    void restartStorage(boolean clear) throws Exception {
-        storage.close();
-
-        storage = createStorage();
-
-        storage.start();
+/** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
+public class KeyValueStorageUtils {
+    /** Asserts that the compaction revision is less than the current repository revision. */
+    public static void assertCompactionRevisionLessCurrent(long compactionRevision, long revision) {
+        assert compactionRevision < revision : String.format(
+                "Compaction revision should be less than the current: [compaction=%s, current=%s]",
+                compactionRevision, revision
+        );
     }
 }
