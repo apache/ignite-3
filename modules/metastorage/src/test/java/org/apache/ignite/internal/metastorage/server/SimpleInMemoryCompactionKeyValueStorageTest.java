@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import org.junit.jupiter.api.Disabled;
-
 /** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
 public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override

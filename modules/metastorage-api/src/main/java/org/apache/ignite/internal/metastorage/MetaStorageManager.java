@@ -296,9 +296,52 @@ public interface MetaStorageManager extends IgniteComponent {
      *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
      * </ul>
      *
+     * <p>Compaction revision is expected to be less than the current metastorage revision.</p>
+     *
+     * <p>Compaction revision is not update or saved.</p>
+     *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      */
     void compactLocally(long revision);
+
+    /**
+     * Saves the compaction revision to the metastorage meta locally.
+     *
+     * <p>Method only saves the new compaction revision to the meta of metastorage. After invoking this method the metastorage read methods
+     * will <b>not</b> throw a {@link CompactedException} if they request a revision less than or equal to the new saved one.</p>
+     *
+     * <p>Last saved compaction revision will be in the metastorage snapshot. When restore from a snapshot, compaction revision will be
+     * restored after which the metastorage read methods will throw exception {@link CompactedException}.</p>
+     *
+     * <p>Compaction revision is expected to be less than the current metastorage revision.</p>
+     *
+     * @param revision Compaction revision to save.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
+     * @see #setCompactionRevisionLocally(long)
+     */
+    void saveCompactionRevisionLocally(long revision);
+
+    /**
+     * Sets the compaction revision locally, but does not save it, after invoking this method the metastorage read methods will throw a
+     * {@link CompactedException} if they request a revision less than or equal to the new one.
+     *
+     * <p>Compaction revision is expected to be less than the current metastorage revision.</p>
+     *
+     * @param revision Compaction revision.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @see #saveCompactionRevisionLocally(long)
+     */
+    void setCompactionRevisionLocally(long revision);
+
+    /**
+     * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if not changed.
+     *
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @see #setCompactionRevisionLocally(long)
+     * @see #saveCompactionRevisionLocally(long)
+     */
+    long getCompactionRevisionLocally();
 }

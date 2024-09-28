@@ -234,6 +234,16 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(1, storage.getCompactionRevision());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testCompactDontSetAndSaveCompactionRevision(boolean clearStorage) throws Exception {
+        storage.compact(1);
+        assertEquals(-1, storage.getCompactionRevision());
+
+        restartStorage(clearStorage);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 

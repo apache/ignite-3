@@ -82,10 +82,10 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.CompactedException;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -1001,10 +1001,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            assert revision < rev : String.format(
-                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
-                    revision, rev
-            );
+            assertCompactionRevisionLessCurrent(revision, rev);
 
             try (RocksIterator iterator = index.newIterator()) {
                 iterator.seekToFirst();

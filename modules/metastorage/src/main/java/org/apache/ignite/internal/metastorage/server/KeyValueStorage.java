@@ -257,8 +257,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
+     * <p>Compaction revision is not update or saved.</p>
+     *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
+     * @see #setCompactionRevision(long)
+     * @see #saveCompactionRevision(long)
      */
     // TODO: IGNITE-23281 Do not hold write lock for the entire operation
     void compact(long revision);

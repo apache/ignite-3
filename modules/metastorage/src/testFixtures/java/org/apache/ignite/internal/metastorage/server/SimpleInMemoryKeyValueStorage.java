@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -538,10 +539,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revision >= 0;
 
         synchronized (mux) {
-            assert revision < rev : String.format(
-                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
-                    revision, rev
-            );
+            assertCompactionRevisionLessCurrent(revision, rev);
 
             keysIdx.forEach((key, revs) -> compactForKey(key, toLongArray(revs), revision));
         }
