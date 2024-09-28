@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -503,8 +504,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
-        // Meta-storage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
-        try (WriteOptions opts = new WriteOptions().setDisableWAL(true)) {
+        try (WriteOptions opts = createWriteOptions()) {
             byte[] revisionBytes = longToBytes(newRev);
 
             data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
@@ -977,25 +977,27 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0;
 
-        rwLock.writeLock().lock();
+        try (RocksIterator iterator = index.newIterator()) {
+            iterator.seekToFirst();
 
-        try (WriteBatch batch = new WriteBatch()) {
-            assert revision < rev : String.format(
-                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
-                    revision, rev
-            );
+            RocksUtils.forEach(iterator, (key, value) -> {
+                rwLock.writeLock().lock();
 
-            try (RocksIterator iterator = index.newIterator()) {
-                iterator.seekToFirst();
+                try (
+                        WriteBatch batch = new WriteBatch();
+                        WriteOptions options = createWriteOptions()
+                ) {
+                    assertCompactionRevisionLessCurrent(revision, rev);
 
-                RocksUtils.forEach(iterator, (key, value) -> compactForKey(batch, key, getAsLongs(value), revision));
-            }
+                    compactForKey(batch, key, getAsLongs(value), revision);
 
-            fillAndWriteBatch(batch, rev, updCntr, null);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(COMPACTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
+                    db.write(options, batch);
+                } finally {
+                    rwLock.writeLock().unlock();
+                }
+            });
+        } catch (Throwable t) {
+            throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
     }
 
@@ -1594,5 +1596,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     e
             );
         }
+    }
+
+    private static WriteOptions createWriteOptions() {
+        // Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
+        return new WriteOptions().setDisableWAL(true);
     }
 }
