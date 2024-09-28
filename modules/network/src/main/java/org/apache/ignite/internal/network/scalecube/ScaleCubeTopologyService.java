@@ -24,6 +24,7 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -60,7 +61,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private final ConcurrentMap<String, ClusterNode> consistentIdToMemberMap = new ConcurrentHashMap<>();
 
     /** Topology members map from the id to the cluster node. */
-    private final ConcurrentMap<String, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
 
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
@@ -192,7 +193,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ClusterNode getById(String id) {
+    public @Nullable ClusterNode getById(UUID id) {
         return idToMemberMap.get(id);
     }
 
@@ -205,7 +206,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private static ClusterNode fromMember(Member member, @Nullable NodeMetadata nodeMetadata) {
         var addr = new NetworkAddress(member.address().host(), member.address().port());
 
-        return new ClusterNodeImpl(member.id(), member.alias(), addr, nodeMetadata);
+        return new ClusterNodeImpl(UUID.fromString(member.id()), member.alias(), addr, nodeMetadata);
     }
 
 

@@ -94,7 +94,12 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
             .formerClusterIds(List.of(randomUUID(), randomUUID()))
             .build();
 
-    private final ClusterNodeMessage node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
+    private final ClusterNodeMessage node = msgFactory.clusterNodeMessage()
+            .id(randomUUID())
+            .name("bar")
+            .host("localhost")
+            .port(666)
+            .build();
 
     private final ClusterIdHolder clusterIdHolder = new ClusterIdHolder();
 

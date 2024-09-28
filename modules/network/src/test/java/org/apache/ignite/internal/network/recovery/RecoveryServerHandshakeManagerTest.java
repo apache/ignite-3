@@ -87,7 +87,6 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
     private static final UUID CORRECT_CLUSTER_ID = new UUID(11, 12);
-    private static final UUID WRONG_CLUSTER_ID = new UUID(13, 14);
 
     @Mock
     private Channel channel;
@@ -178,7 +177,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private RecoveryServerHandshakeManager serverHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryServerHandshakeManager manager = new RecoveryServerHandshakeManager(
-                new ClusterNodeImpl(launchId.toString(), SERVER_CONSISTENT_ID, new NetworkAddress(SERVER_HOST, PORT)),
+                new ClusterNodeImpl(launchId, SERVER_CONSISTENT_ID, new NetworkAddress(SERVER_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
                 () -> List.of(channel.eventLoop()),
@@ -198,7 +197,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
         return MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .clientNode(
                         MESSAGE_FACTORY.clusterNodeMessage()
-                                .id(clientLaunchId.toString())
+                                .id(clientLaunchId)
                                 .name(CLIENT_CONSISTENT_ID)
                                 .host(CLIENT_HOST)
                                 .port(PORT)

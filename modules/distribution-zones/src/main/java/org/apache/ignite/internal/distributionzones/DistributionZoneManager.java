@@ -80,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -186,7 +187,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
-    private Map<String, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
+    private Map<UUID, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -1393,7 +1394,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @return Mapping {@code nodeId} -> node's attributes.
      */
-    public Map<String, NodeWithAttributes> nodesAttributes() {
+    public Map<UUID, NodeWithAttributes> nodesAttributes() {
         return nodesAttributes;
     }
 

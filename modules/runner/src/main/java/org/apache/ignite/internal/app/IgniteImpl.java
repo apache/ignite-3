@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -1588,7 +1589,7 @@ public class IgniteImpl implements Ignite {
      * Returns the id of the current node.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public String id() {
+    public UUID id() {
         return clusterSvc.topologyService().localMember().id();
     }
 

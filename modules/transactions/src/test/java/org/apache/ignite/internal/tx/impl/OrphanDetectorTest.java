@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -72,10 +73,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private static final ClusterNode LOCAL_NODE =
-            new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
     private static final ClusterNode REMOTE_NODE =
-            new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;

@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
@@ -320,7 +321,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             assertNotNull(primaryReplicaFut.join());
 
-            String primaryId = primaryReplicaFut.get().getLeaseholderId();
+            UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
@@ -349,7 +350,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             assertNotNull(primaryReplicaFut.join());
 
-            String primaryId = primaryReplicaFut.get().getLeaseholderId();
+            UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 

@@ -2362,7 +2362,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         for (TxManager txManager : txManagers()) {
             txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(
                     old.txState(),
-                    "restarted",
+                    new UUID(1, 2),
                     old.commitPartitionId(),
                     old.commitTimestamp()
             ));
