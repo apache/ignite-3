@@ -19,6 +19,7 @@ package org.apache.ignite.internal.app;
 
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -42,7 +43,7 @@ class ApiReferencesTestUtils {
 
     static ZoneDefinition zoneDefinition() {
         return ZoneDefinition.builder("zone")
-                .storageProfiles("default")
+                .storageProfiles(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .ifNotExists()
                 .build();
     }
