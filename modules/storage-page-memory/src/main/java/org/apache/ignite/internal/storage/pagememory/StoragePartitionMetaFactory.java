@@ -36,7 +36,7 @@ public class StoragePartitionMetaFactory implements PartitionMetaFactory {
                 metaIo.getLastAppliedTerm(pageAddr),
                 metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
                 metaIo.getLeaseStartTime(pageAddr),
-                metaIo.getPrimaryReplicaNodeIdFirstPageId(pageAddr),
+                metaIo.getPrimaryReplicaNodeId(pageAddr),
                 metaIo.getPrimaryReplicaNodeNameFirstPageId(pageAddr),
                 StoragePartitionMetaIo.getFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
