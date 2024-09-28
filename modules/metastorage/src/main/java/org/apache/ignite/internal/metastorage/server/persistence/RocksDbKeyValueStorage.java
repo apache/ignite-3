@@ -442,7 +442,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
 
-            compactionRevision = bytesToLong(data.get(COMPACTION_REVISION_KEY));
+            byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
+
+            if (compactionRevisionBytes != null) {
+                compactionRevision = bytesToLong(compactionRevisionBytes);
+            }
 
             notifyRevisionUpdate();
         } catch (Exception e) {
@@ -524,8 +528,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
-        // Meta-storage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
-        try (WriteOptions opts = new WriteOptions().setDisableWAL(true)) {
+        try (WriteOptions opts = createWriteOptions()) {
             byte[] revisionBytes = longToBytes(newRev);
 
             data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
@@ -1595,10 +1598,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         rwLock.writeLock().lock();
 
-        try {
+        try (
+                WriteBatch batch = new WriteBatch();
+                WriteOptions options = createWriteOptions()
+        ) {
             assertCompactionRevisionLessCurrent(revision, rev);
 
-            data.put(COMPACTION_REVISION_KEY, longToBytes(revision));
+            data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
+
+            db.write(options, batch);
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
         } finally {
@@ -1656,5 +1664,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     e
             );
         }
+    }
+
+    private static WriteOptions createWriteOptions() {
+        // Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
+        return new WriteOptions().setDisableWAL(true);
     }
 }

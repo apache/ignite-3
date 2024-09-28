@@ -244,6 +244,20 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(-1, storage.getCompactionRevision());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testRestoreFromSnapshotWithoutSaveCompactionRevision(boolean clearStorage) throws Exception {
+        assumeTrue(isPersistent());
+
+        Path snapshotDir = workDir.resolve("snapshot");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage(clearStorage);
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
