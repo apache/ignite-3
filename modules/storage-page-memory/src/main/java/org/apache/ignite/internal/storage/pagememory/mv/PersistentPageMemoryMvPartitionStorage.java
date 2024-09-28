@@ -83,7 +83,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /**
      * Cached primary replica node id in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
      */
-    private String primaryReplicaNodeId;
+    private UUID primaryReplicaNodeId;
 
     /**
      * Cached primary replica node name in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
@@ -320,7 +320,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     ) {
         busy(() -> {
@@ -334,11 +334,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     }
 
                     if (meta.primaryReplicaNodeIdFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                        long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId));
+                        long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId.toString()));
 
                         meta.primaryReplicaNodeIdFirstPageId(lastCheckpointId, primaryReplicaNodeIdFirstPageId);
                     } else {
-                        blobStorage.updateBlob(meta.primaryReplicaNodeIdFirstPageId(), stringToBytes(primaryReplicaNodeId));
+                        blobStorage.updateBlob(meta.primaryReplicaNodeIdFirstPageId(), stringToBytes(primaryReplicaNodeId.toString()));
                     }
                     if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
                         long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
@@ -376,10 +376,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-15119 nodeId type should be changed from String to UUID, after the fix
-    // TODO nodeID will be stored in meta directly and not the blob storage.
+    // TODO: IGNITE-23197 - Store nodeID in directly meta and not in the blob storage.
     @Override
-    public @Nullable String primaryReplicaNodeId() {
+    public @Nullable UUID primaryReplicaNodeId() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
             primaryReplicaMetaReadWriteLock.readLock().lock();
@@ -391,7 +390,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
                     // for example, if the lease itself has not yet been elected.
                     if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
-                        primaryReplicaNodeId = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId));
+                        primaryReplicaNodeId = UUID.fromString(
+                                ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId))
+                        );
                     }
                 }
 

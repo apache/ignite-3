@@ -136,7 +136,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final String localNodeId;
+    private final UUID localNodeId;
 
     private Set<String> currentGroupTopology;
 
@@ -158,7 +158,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             SchemaRegistry schemaRegistry,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
-            String localNodeId
+            UUID localNodeId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -786,7 +786,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new RowId(storageUpdateHandler.partitionId(), rowUuid);
     }
 
-    private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,

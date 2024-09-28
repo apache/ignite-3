@@ -17,8 +17,54 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.binarySearch;
+
+import java.util.function.LongPredicate;
+
 /** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
 public class KeyValueStorageUtils {
+    /** Special value indicating that there are no key revisions that need to be compacted. */
+    public static final int NOTHING_TO_COMPACT_INDEX = -1;
+
+    /**
+     * Calculates the revision index in key revisions up to which compaction is needed or {@link #NOTHING_TO_COMPACT_INDEX} if nothing
+     * needs to be compacted.
+     *
+     * <p>If the returned index points to the last revision and if the last revision is <b>not</b> a tombstone, then the returned index is
+     * decremented by 1.</p>
+     *
+     * @param keyRevisions Metastorage key revisions in ascending order.
+     * @param compactionRevisionInclusive Revision up to which you need to compact (inclusive).
+     * @param isTombstone Predicate to test whether a key revision is a tombstone.
+     */
+    public static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive, LongPredicate isTombstone) {
+        int i = binarySearch(keyRevisions, compactionRevisionInclusive);
+
+        if (i < 0) {
+            if (i == -1) {
+                return NOTHING_TO_COMPACT_INDEX;
+            }
+
+            i = -(i + 2);
+        }
+
+        if (i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
+            i = i == 0 ? NOTHING_TO_COMPACT_INDEX : i - 1;
+        }
+
+        return i;
+    }
+
+    /**
+     * Converts bytes to UTF-8 string.
+     *
+     * @param bytes Bytes.
+     */
+    public static String toUtf8String(byte[] bytes) {
+        return new String(bytes, UTF_8);
+    }
+
     /** Asserts that the compaction revision is less than the current repository revision. */
     public static void assertCompactionRevisionLessCurrent(long compactionRevision, long revision) {
         assert compactionRevision < revision : String.format(

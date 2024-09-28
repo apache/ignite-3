@@ -34,5 +34,5 @@ public interface ReadOnlyScanRetrieveBatchReplicaRequest extends ScanRetrieveBat
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    String coordinatorId();
+    UUID coordinatorId();
 }

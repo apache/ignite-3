@@ -187,7 +187,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static JobTarget getClusterNodes(String... names) {
         return JobTarget.anyNode(Arrays.stream(names)
-                .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .map(s -> new ClientClusterNode(new UUID(1, 2), s, new NetworkAddress("127.0.0.1", 8080)))
                 .collect(Collectors.toSet()));
     }
 }

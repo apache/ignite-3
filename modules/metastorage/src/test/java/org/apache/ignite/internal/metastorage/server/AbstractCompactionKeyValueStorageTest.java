@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
+import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +48,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Compaction tests. */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyValueStorageTest {
+    private static final byte[] FOO_KEY = fromString("foo");
+
+    private static final byte[] BAR_KEY = fromString("bar");
+
+    private static final byte[] SOME_KEY = fromString("someKey");
+
+    private static final byte[] SOME_VALUE = fromString("someValue");
+
     @WorkDirectory
     Path workDir;
 
@@ -50,11 +66,30 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void setUp() {
         super.setUp();
 
-        // TODO: IGNITE-23290 потом уйдёт
-        storage.put(key(0), key(0), clock.now());
-        storage.put(key(1), key(0), clock.now());
-        storage.put(key(2), key(0), clock.now());
-        storage.put(key(3), key(0), clock.now());
+        storage.putAll(List.of(FOO_KEY, BAR_KEY), List.of(SOME_VALUE, SOME_VALUE), clock.now());
+        storage.put(BAR_KEY, SOME_VALUE, clock.now());
+        storage.put(FOO_KEY, SOME_VALUE, clock.now());
+        storage.put(SOME_KEY, SOME_VALUE, clock.now());
+
+        var fooKey = new ByteArray(FOO_KEY);
+        var barKey = new ByteArray(BAR_KEY);
+
+        var iif = new If(
+                new AndCondition(new ExistenceCondition(Type.EXISTS, FOO_KEY), new ExistenceCondition(Type.EXISTS, BAR_KEY)),
+                new Statement(ops(put(fooKey, SOME_VALUE), remove(barKey)).yield()),
+                new Statement(ops(noop()).yield())
+        );
+
+        storage.invoke(iif, clock.now(), new CommandIdGenerator(UUID::randomUUID).newId());
+
+        storage.remove(SOME_KEY, clock.now());
+
+        // Special revision update to prevent tests from failing.
+        storage.put(fromString("fake"), SOME_VALUE, clock.now());
+
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     abstract boolean isPersistent();
@@ -62,172 +97,67 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     abstract void restartStorage(boolean clear) throws Exception;
 
     @Test
-    public void testCompactionAfterLastRevision() {
-        byte[] key = key(0);
-        byte[] value1 = keyValue(0, 0);
-        byte[] value2 = keyValue(0, 1);
+    void testCompactRevision1() {
+        storage.compact(1);
 
-        storage.put(key, value1, clock.now());
-        storage.put(key, value2, clock.now());
-
-        long lastRevision = storage.revision();
-
-        storage.compact(clock.now());
-
-        // Latest value, must exist.
-        Entry entry2 = storage.get(key, lastRevision);
-        assertEquals(lastRevision, entry2.revision());
-        assertArrayEquals(value2, entry2.value());
-
-        // Previous value, must be removed due to compaction.
-        Entry entry1 = storage.get(key, lastRevision - 1);
-        assertTrue(entry1.empty());
+        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testCompactionAfterTombstone() {
-        byte[] key = key(0);
-        byte[] value = keyValue(0, 0);
+    void testCompactRevision2() {
+        storage.compact(2);
 
-        storage.put(key, value, clock.now());
-        storage.remove(key, clock.now());
-
-        long lastRevision = storage.revision();
-
-        storage.compact(clock.now());
-
-        // Current value, must be removed due to being a tombstone.
-        Entry entry2 = storage.get(key, lastRevision);
-        assertTrue(entry2.empty());
-
-        // Previous value, must be removed due to compaction.
-        Entry entry1 = storage.get(key, lastRevision - 1);
-        assertTrue(entry1.empty());
+        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testCompactionBetweenMultipleWrites() {
-        byte[] key = key(0);
-        byte[] value1 = keyValue(0, 0);
-        byte[] value2 = keyValue(0, 1);
-        byte[] value3 = keyValue(0, 2);
-        byte[] value4 = keyValue(0, 3);
+    void testCompactRevision3() {
+        storage.compact(3);
 
-        storage.put(key, value1, clock.now());
-        storage.put(key, value2, clock.now());
-
-        HybridTimestamp compactTs = clock.now();
-
-        storage.put(key, value3, clock.now());
-        storage.put(key, value4, clock.now());
-
-        long lastRevision = storage.revision();
-
-        storage.compact(compactTs);
-
-        Entry entry4 = storage.get(key, lastRevision);
-        assertArrayEquals(value4, entry4.value());
-
-        Entry entry3 = storage.get(key, lastRevision - 1);
-        assertArrayEquals(value3, entry3.value());
-
-        Entry entry2 = storage.get(key, lastRevision - 2);
-        assertArrayEquals(value2, entry2.value());
-
-        // Previous value, must be removed due to compaction.
-        Entry entry1 = storage.get(key, lastRevision - 3);
-        assertTrue(entry1.empty());
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testCompactionAfterTombstoneRemovesTombstone() {
-        byte[] key = key(0);
-        byte[] value1 = keyValue(0, 0);
-        byte[] value2 = keyValue(0, 1);
+    void testCompactRevision4() {
+        storage.compact(4);
 
-        storage.put(key, value1, clock.now());
-
-        storage.remove(key, clock.now());
-
-        HybridTimestamp compactTs = clock.now();
-
-        storage.put(key, value2, clock.now());
-
-        storage.remove(key, clock.now());
-
-        long lastRevision = storage.revision();
-
-        storage.compact(compactTs);
-
-        // Last operation was remove, so this is a tombstone.
-        Entry entry4 = storage.get(key, lastRevision);
-        assertTrue(entry4.tombstone());
-
-        Entry entry3 = storage.get(key, lastRevision - 1);
-        assertArrayEquals(value2, entry3.value());
-
-        // Previous value, must be removed due to compaction.
-        Entry entry2 = storage.get(key, lastRevision - 2);
-        assertTrue(entry2.empty());
-
-        Entry entry1 = storage.get(key, lastRevision - 3);
-        assertTrue(entry1.empty());
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(6), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testCompactEmptyStorage() {
-        storage.compact(clock.now());
+    void testCompactRevision5() {
+        storage.compact(5);
+
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(), collectRevisions(BAR_KEY));
+        assertEquals(List.of(6), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testCompactionBetweenRevisionsOfOneKey() {
-        byte[] key = key(0);
-        byte[] value11 = keyValue(0, 0);
-        byte[] value12 = keyValue(0, 1);
+    void testCompactRevision6() {
+        storage.compact(6);
 
-        storage.put(key, value11, clock.now());
-
-        byte[] key2 = key(1);
-        byte[] value2 = keyValue(1, 0);
-        storage.put(key2, value2, clock.now());
-
-        HybridTimestamp compactTs = clock.now();
-
-        storage.put(key, value12, clock.now());
-
-        storage.compact(compactTs);
-
-        // Both keys should exist, as low watermark's revision is higher than entry11's, but lesser than entry12's,
-        // this means that entry1 is still needed.
-        Entry entry12 = storage.get(key, storage.revision());
-        assertArrayEquals(value12, entry12.value());
-
-        Entry entry11 = storage.get(key, storage.revision() - 1);
-        assertArrayEquals(value11, entry11.value());
-
-        Entry entry2 = storage.get(key2, storage.revision());
-        assertArrayEquals(value2, entry2.value());
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(), collectRevisions(BAR_KEY));
+        assertEquals(List.of(), collectRevisions(SOME_KEY));
     }
 
     @Test
-    public void testInvokeCompactionBeforeAnyEntry() {
-        byte[] key = key(0);
-        byte[] value1 = keyValue(0, 0);
-        byte[] value2 = keyValue(0, 1);
-
-        HybridTimestamp compactTs = clock.now();
-
-        storage.put(key, value1, clock.now());
-        storage.put(key, value2, clock.now());
-
-        storage.compact(compactTs);
-
-        // No entry should be compacted.
-        Entry entry2 = storage.get(key, storage.revision());
-        assertArrayEquals(value2, entry2.value());
-
-        Entry entry1 = storage.get(key, storage.revision() - 1);
-        assertArrayEquals(value1, entry1.value());
+    void testCompactRevisionSequentially() {
+        testCompactRevision1();
+        testCompactRevision2();
+        testCompactRevision3();
+        testCompactRevision4();
+        testCompactRevision5();
+        testCompactRevision6();
     }
 
     @Test
@@ -302,5 +232,23 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
+    }
+
+    private List<Integer> collectRevisions(byte[] key) {
+        var revisions = new ArrayList<Integer>();
+
+        for (int revision = 0; revision <= storage.revision(); revision++) {
+            Entry entry = storage.get(key, revision);
+
+            if (!entry.empty() && entry.revision() == revision) {
+                revisions.add(revision);
+            }
+        }
+
+        return revisions;
+    }
+
+    private static byte[] fromString(String s) {
+        return s.getBytes(UTF_8);
     }
 }

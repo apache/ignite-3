@@ -235,13 +235,33 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void removeWatch(WatchListener listener);
 
     /**
-     * Compacts storage (removes tombstones).
+     * Compacts outdated key versions and removes tombstones of metastorage locally.
      *
-     * @param lowWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
-     *     watermark can be removed.
+     * <p>We do not compact the only and last version of the key unless it is a tombstone.</p>
+     *
+     * <p>Let's look at some examples, let's say we have the following keys with their versions:</p>
+     * <ul>
+     *     <li>Key "foo" with versions that have revisions (1, 3, 5) - "foo" [1, 3, 5].</li>
+     *     <li>Key "bar" with versions that have revisions (1, 2, 5) the last revision is a tombstone - "bar" [1, 2, 5 tomb].</li>
+     * </ul>
+     *
+     * <p>Let's look at examples of invoking the current method and what will be in the storage after:</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}: "foo" [3, 5], "bar" [2, 5 tomb].</li>
+     *     <li>Compaction revision is {@code 2}: "foo" [3, 5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 3}: "foo" [5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 4}: "foo" [5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 5}: "foo" [5].</li>
+     *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
+     * </ul>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Revision up to which (including) the metastorage keys will be compacted.
+     * @throws MetaStorageException If there is an error during the metastorage compaction process.
      */
-    // TODO: IGNITE-19417 Provide low-watermark for compaction.
-    void compact(HybridTimestamp lowWatermark);
+    // TODO: IGNITE-23281 Do not hold write lock for the entire operation
+    void compact(long revision);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.
@@ -270,6 +290,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     HybridTimestamp timestampByRevision(long revision);
 
     /**
@@ -278,6 +299,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param timestamp Timestamp by which to do a lookup.
      * @return Revision lesser or equal to the timestamp or -1 if there is no such revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**

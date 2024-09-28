@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -46,7 +47,7 @@ public class Lease implements ReplicaMeta {
     private final @Nullable String leaseholder;
 
     /** Leaseholder node ID (changes on every node startup), {@code null} if nothing holds the lease. */
-    private final @Nullable String leaseholderId;
+    private final @Nullable UUID leaseholderId;
 
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
     private final boolean accepted;
@@ -78,7 +79,7 @@ public class Lease implements ReplicaMeta {
      */
     public Lease(
             @Nullable String leaseholder,
-            @Nullable String leaseholderId,
+            @Nullable UUID leaseholderId,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             ReplicationGroupId replicationGroupId
@@ -101,7 +102,7 @@ public class Lease implements ReplicaMeta {
      */
     public Lease(
             @Nullable String leaseholder,
-            @Nullable String leaseholderId,
+            @Nullable UUID leaseholderId,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
@@ -163,7 +164,7 @@ public class Lease implements ReplicaMeta {
     }
 
     @Override
-    public @Nullable String getLeaseholderId() {
+    public @Nullable UUID getLeaseholderId() {
         return leaseholderId;
     }
 
@@ -205,7 +206,7 @@ public class Lease implements ReplicaMeta {
      */
     public byte[] bytes() {
         byte[] leaseholderBytes = stringToBytes(leaseholder);
-        byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
+        byte[] leaseholderIdBytes = leaseholderId == null ? null : stringToBytes(leaseholderId.toString());
         byte[] proposedCandidateBytes = stringToBytes(proposedCandidate);
         byte[] groupIdBytes = toBytes(replicationGroupId);
 
@@ -246,7 +247,8 @@ public class Lease implements ReplicaMeta {
         HybridTimestamp expirationTime = getHybridTimestamp(buf);
 
         String leaseholder = stringFromBytes(getBytes(buf));
-        String leaseholderId = stringFromBytes(getBytes(buf));
+        String leaseholderIdString = stringFromBytes(getBytes(buf));
+        UUID leaseholderId = leaseholderIdString == null ? null : UUID.fromString(leaseholderIdString);
         String proposedCandidate = stringFromBytes(getBytes(buf));
 
         ReplicationGroupId groupId = ByteUtils.fromBytes(getBytes(buf));
