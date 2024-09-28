@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -217,7 +218,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ExecutorService replicasCreationExecutor;
 
-    private volatile String localNodeId;
+    private volatile UUID localNodeId;
 
     private volatile String localNodeConsistentId;
 
@@ -445,9 +446,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            String senderId = sender.id();
-
-            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, sender.id());
 
             resFut.whenComplete((res, ex) -> {
                 NetworkMessage msg;
@@ -1279,7 +1278,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         final ReplicaManager replicaManager;
 
-        volatile String localNodeId;
+        volatile UUID localNodeId;
 
         ReplicaStateManager(
                 Executor replicaStartStopPool,
@@ -1293,7 +1292,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             this.replicaManager = replicaManager;
         }
 
-        void start(String localNodeId) {
+        void start(UUID localNodeId) {
             this.localNodeId = localNodeId;
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);

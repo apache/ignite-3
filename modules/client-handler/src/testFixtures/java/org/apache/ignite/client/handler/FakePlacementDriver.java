@@ -17,12 +17,14 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake placement driver.
@@ -48,7 +51,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
-        primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, getReplicaMeta("s", HybridTimestamp.MIN_VALUE.longValue())));
+        primaryReplicas = new ArrayList<>(nCopies(partitions, getReplicaMeta("s", new UUID(3, 4), HybridTimestamp.MIN_VALUE.longValue())));
     }
 
     public void returnError(boolean returnError) {
@@ -70,14 +73,15 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     /**
      * Sets primary replica for the given partition.
      */
-    public void updateReplica(String replica, int tableId, int partition, long leaseStartTime) {
-        primaryReplicas.set(partition, getReplicaMeta(replica, leaseStartTime));
+    public void updateReplica(@Nullable String replica, int tableId, int partition, long leaseStartTime) {
+        UUID leaseHolderId = replica == null ? null : deriveUuidFrom(replica);
+        primaryReplicas.set(partition, getReplicaMeta(replica, leaseHolderId, leaseStartTime));
         TablePartitionId groupId = new TablePartitionId(tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
                 0,
                 groupId,
-                replica,
+                leaseHolderId,
                 replica,
                 HybridTimestamp.hybridTimestamp(leaseStartTime)
         );
@@ -124,7 +128,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return primaryReplicas;
     }
 
-    private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
+    private static ReplicaMeta getReplicaMeta(String leaseholder, UUID leaseHolderId, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {
             @Override
@@ -133,8 +137,8 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             }
 
             @Override
-            public String getLeaseholderId() {
-                return leaseholder;
+            public UUID getLeaseholderId() {
+                return leaseHolderId;
             }
 
             @Override

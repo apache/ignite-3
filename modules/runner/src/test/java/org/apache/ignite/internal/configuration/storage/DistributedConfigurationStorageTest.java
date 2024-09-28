@@ -93,7 +93,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                     success,
                     failure,
                     HybridTimestamp.MIN_VALUE,
-                    new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+                    new CommandIdGenerator(UUID::randomUUID).newId()
             );
 
             return CompletableFuture.completedFuture(invokeResult);

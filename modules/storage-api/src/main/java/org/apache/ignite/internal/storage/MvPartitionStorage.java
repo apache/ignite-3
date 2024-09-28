@@ -279,7 +279,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     );
 
@@ -295,7 +295,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @return Primary replica node id or null if there is no information about lease in the storage.
      */
-    @Nullable String primaryReplicaNodeId();
+    @Nullable UUID primaryReplicaNodeId();
 
     /**
      * Return the node name of the known lease for this replication group.

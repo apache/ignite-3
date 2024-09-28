@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -43,7 +44,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
      */
-    public TxStateMetaFinishing(@Nullable String txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
+    public TxStateMetaFinishing(@Nullable UUID txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
         super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null);
     }
 

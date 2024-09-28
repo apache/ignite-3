@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
@@ -25,7 +26,6 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -118,8 +118,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         return new ExecutionContext<>(
                 taskExecutor,
-                UUID.randomUUID(),
-                new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
+                randomUUID(),
+                new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 "fake-test-node",
                 fragmentDesc,
                 rowHandler(),

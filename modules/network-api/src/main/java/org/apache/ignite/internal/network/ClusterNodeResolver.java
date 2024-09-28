@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import java.util.UUID;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +31,7 @@ public interface ClusterNodeResolver {
      * @param id Node ID.
      * @return The consistent ID; {@code null} if the node has not been discovered or is offline.
      */
-    default @Nullable String getConsistentIdById(String id) {
+    default @Nullable String getConsistentIdById(UUID id) {
         ClusterNode node = getById(id);
 
         return node != null ? node.name() : null;
@@ -50,5 +51,5 @@ public interface ClusterNodeResolver {
      * @param id Node ID.
      * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
-    @Nullable ClusterNode getById(String id);
+    @Nullable ClusterNode getById(UUID id);
 }

@@ -198,7 +198,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         cmgMessageHandler = createMessageHandler();
 
-        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, cmgMessageHandler);
+        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
     }
 
     private CmgMessageHandler createMessageHandler() {
@@ -606,7 +606,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
                 .thenCompose(logicalTopology -> inBusyLock(busyLock, () -> {
-                    Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
+                    Set<UUID> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
                             .map(ClusterNode::id)
                             .collect(toSet());

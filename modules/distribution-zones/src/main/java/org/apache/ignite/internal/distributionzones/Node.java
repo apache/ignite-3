@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 /**
  * Node representation that we store in data nodes.
@@ -30,9 +31,9 @@ public class Node implements Serializable {
 
     private final String nodeName;
 
-    private final String nodeId;
+    private final UUID nodeId;
 
-    public Node(String nodeName, String nodeId) {
+    public Node(String nodeName, UUID nodeId) {
         this.nodeName = nodeName;
         this.nodeId = nodeId;
     }
@@ -61,7 +62,7 @@ public class Node implements Serializable {
         return nodeName;
     }
 
-    public String nodeId() {
+    public UUID nodeId() {
         return nodeId;
     }
 

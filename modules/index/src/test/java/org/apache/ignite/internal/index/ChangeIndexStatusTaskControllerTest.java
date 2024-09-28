@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
@@ -189,7 +189,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplicaAnotherNode() {
-        setPrimaryReplica(new ClusterNodeImpl(NODE_ID + "-next", NODE_NAME + "-next", mock(NetworkAddress.class)));
+        setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {

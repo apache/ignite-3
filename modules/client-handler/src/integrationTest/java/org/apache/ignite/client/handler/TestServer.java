@@ -23,6 +23,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -116,7 +117,7 @@ public class TestServer {
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(new UUID(0, 0));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");

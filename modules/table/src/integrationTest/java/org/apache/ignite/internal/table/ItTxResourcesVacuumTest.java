@@ -1004,7 +1004,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     ) {
         boolean result = true;
 
-        String cpPrimaryId = null;
+        UUID cpPrimaryId = null;
 
         if (checkCpPrimaryOnly) {
             IgniteImpl node = anyNode();
