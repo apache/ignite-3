@@ -45,7 +45,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.BooleanSupplier;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -115,6 +115,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Guarded by {@link #mux}.
      */
     private @Nullable LongConsumer recoveryRevisionListener;
+
+    private final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureManager());
@@ -517,7 +519,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(long revision, BooleanSupplier shutdownNow) {
+    public void compact(long revision) {
         assert revision >= 0;
 
         synchronized (mux) {
@@ -527,7 +529,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             );
 
             for (Map.Entry<byte[], List<Long>> e : keysIdx.entrySet()) {
-                if (shutdownNow.getAsBoolean()) {
+                if (stopCompaction.get()) {
                     return;
                 }
 
@@ -537,7 +539,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public void stopCompact() {
+        stopCompaction.set(true);
+    }
+
+    @Override
     public void close() {
+        stopCompact();
+
         watchProcessor.close();
     }
 

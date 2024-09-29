@@ -64,10 +64,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -242,6 +242,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Tracks RocksDb resources that must be properly closed. */
     private List<AbstractNativeReference> rocksResources = new ArrayList<>();
 
+    private final AtomicBoolean stopCompaction = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -380,6 +382,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void close() {
+        stopCompact();
+
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
@@ -976,7 +980,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(long revision, BooleanSupplier shutdownNow) {
+    public void compact(long revision) {
         assert revision >= 0;
 
         rwLock.writeLock().lock();
@@ -990,7 +994,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             try (RocksIterator iterator = index.newIterator()) {
                 iterator.seekToFirst();
 
-                for (; iterator.isValid() && !shutdownNow.getAsBoolean(); iterator.next()) {
+                for (; iterator.isValid() && !stopCompaction.get(); iterator.next()) {
                     compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
                 }
 
@@ -1003,6 +1007,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } finally {
             rwLock.writeLock().unlock();
         }
+    }
+
+    @Override
+    public void stopCompact() {
+        stopCompaction.set(true);
     }
 
     @Override

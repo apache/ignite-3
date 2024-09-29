@@ -81,7 +81,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision1() {
-        compact(1);
+        storage.compact(1);
 
         assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
@@ -90,7 +90,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision2() {
-        compact(2);
+        storage.compact(2);
 
         assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(5), collectRevisions(BAR_KEY));
@@ -99,7 +99,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision3() {
-        compact(3);
+        storage.compact(3);
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(5), collectRevisions(BAR_KEY));
@@ -108,7 +108,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision4() {
-        compact(4);
+        storage.compact(4);
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(5), collectRevisions(BAR_KEY));
@@ -117,7 +117,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision5() {
-        compact(5);
+        storage.compact(5);
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(), collectRevisions(BAR_KEY));
@@ -126,7 +126,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactRevision6() {
-        compact(6);
+        storage.compact(6);
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(), collectRevisions(BAR_KEY));
@@ -144,8 +144,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testCompactAndShutdownImmediately() {
-        storage.compact(6, () -> true);
+    void testCompactBeforeStopIt() {
+        storage.stopCompact();
+
+        storage.compact(6);
 
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
@@ -168,9 +170,5 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     private static byte[] fromString(String s) {
         return s.getBytes(UTF_8);
-    }
-
-    private void compact(long revision) {
-        storage.compact(revision, () -> false);
     }
 }

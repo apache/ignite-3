@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -261,12 +260,19 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * compaction revision.</p>
      *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
-     * @param shutdownNow Checker of stop operation. For example, when a node stops, the compaction must be completed as quickly as
-     *         possible.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
+     * @see #stopCompact()
      */
     // TODO: IGNITE-23281 Do not hold write lock for the entire operation
-    void compact(long revision, BooleanSupplier shutdownNow);
+    void compact(long revision);
+
+    /**
+     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     *
+     * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
+     * recommended to invoke this method before stopping the external component.</p>
+     */
+    void stopCompact();
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

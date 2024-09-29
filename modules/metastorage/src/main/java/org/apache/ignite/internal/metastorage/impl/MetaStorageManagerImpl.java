@@ -602,6 +602,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             return nullCompletedFuture();
         }
 
+        storage.stopCompact();
+
         busyLock.block();
 
         deployWatchesFuture.cancel(true);
@@ -1133,6 +1135,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public void compactLocally(long revision) {
-        inBusyLock(busyLock, () -> storage.compact(revision, isStopped::get));
+        inBusyLock(busyLock, () -> storage.compact(revision));
     }
 }
