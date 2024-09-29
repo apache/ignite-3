@@ -45,6 +45,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -516,7 +517,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(long revision) {
+    public void compact(long revision, BooleanSupplier shutdownNow) {
         assert revision >= 0;
 
         synchronized (mux) {
@@ -525,7 +526,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     revision, rev
             );
 
-            keysIdx.forEach((key, revs) -> compactForKey(key, toLongArray(revs), revision));
+            for (Map.Entry<byte[], List<Long>> e : keysIdx.entrySet()) {
+                if (shutdownNow.getAsBoolean()) {
+                    return;
+                }
+
+                compactForKey(e.getKey(), toLongArray(e.getValue()), revision);
+            }
         }
     }
 

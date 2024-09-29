@@ -1133,6 +1133,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public void compactLocally(long revision) {
-        inBusyLock(busyLock, () -> storage.compact(revision));
+        inBusyLock(busyLock, () -> storage.compact(revision, isStopped::get));
     }
 }

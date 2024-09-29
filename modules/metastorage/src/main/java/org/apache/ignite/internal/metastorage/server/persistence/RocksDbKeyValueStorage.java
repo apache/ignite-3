@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -66,6 +67,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -974,7 +976,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(long revision) {
+    public void compact(long revision, BooleanSupplier shutdownNow) {
         assert revision >= 0;
 
         rwLock.writeLock().lock();
@@ -988,7 +990,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             try (RocksIterator iterator = index.newIterator()) {
                 iterator.seekToFirst();
 
-                RocksUtils.forEach(iterator, (key, value) -> compactForKey(batch, key, getAsLongs(value), revision));
+                for (; iterator.isValid() && !shutdownNow.getAsBoolean(); iterator.next()) {
+                    compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
+                }
+
+                checkIterator(iterator);
             }
 
             fillAndWriteBatch(batch, rev, updCntr, null);
@@ -1419,7 +1425,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
             }
 
-            RocksUtils.checkIterator(it);
+            checkIterator(it);
 
             // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
@@ -1453,7 +1459,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(tsBytes);
 
-            RocksUtils.checkIterator(rocksIterator);
+            checkIterator(rocksIterator);
 
             byte[] tsValue = rocksIterator.value();
 
