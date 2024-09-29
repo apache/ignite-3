@@ -23,7 +23,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 
 /** Contains methods for implementing metastorage compaction. */
-// IGNITE-23293 Describe the metastore compaction algorithm
+// TODO: IGNITE-23293 Describe the metastore compaction algorithm
 public interface MetaStorageCompactionManager extends IgniteComponent {
     /**
      * Compacts outdated key versions and removes tombstones of metastorage locally.
