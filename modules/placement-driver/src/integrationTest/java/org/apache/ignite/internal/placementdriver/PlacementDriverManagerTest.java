@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -592,8 +593,13 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testRedirectionAcceptance() throws Exception {
         AtomicReference<String> redirect = new AtomicReference<>();
+        AtomicBoolean forceDetected = new AtomicBoolean(false);
 
         leaseGrantHandler = (req, handler) -> {
+            if (req.force()) {
+                forceDetected.set(true);
+            }
+
             if (redirect.get() == null) {
                 redirect.set(handler.equals(nodeName) ? anotherNodeName : nodeName);
             }
@@ -608,6 +614,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
+
+        if (forceDetected.get()) {
+            fail("Unexpected force leaseGrantedMessage detected");
+        }
     }
 
     @Test
