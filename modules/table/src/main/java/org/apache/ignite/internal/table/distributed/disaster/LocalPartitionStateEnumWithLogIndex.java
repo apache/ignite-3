@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INITIALIZING;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
@@ -41,15 +40,8 @@ class LocalPartitionStateEnumWithLogIndex {
         LocalPartitionStateEnum localState = LocalPartitionStateEnum.convert(nodeState);
         long lastLogIndex = raftNode.lastLogIndex();
 
-        if (localState == HEALTHY) {
-            // Node without log didn't process anything yet, it's not really "healthy" before it accepts leader's configuration.
-            if (lastLogIndex == 0) {
-                localState = INITIALIZING;
-            }
-
-            if (raftNode.isInstallingSnapshot()) {
-                localState = INSTALLING_SNAPSHOT;
-            }
+        if (localState == HEALTHY && raftNode.isInstallingSnapshot()) {
+            localState = INSTALLING_SNAPSHOT;
         }
 
         return new LocalPartitionStateEnumWithLogIndex(localState, lastLogIndex);
