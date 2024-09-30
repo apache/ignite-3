@@ -53,6 +53,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageCompactionManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -102,7 +103,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, MetaStorageCompactionManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;

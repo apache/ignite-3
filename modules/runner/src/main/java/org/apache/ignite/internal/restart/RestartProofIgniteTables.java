@@ -74,7 +74,7 @@ class RestartProofIgniteTables implements IgniteTables, Wrapper {
         );
     }
 
-    private @Nullable Table wrapTable(Table table, Ignite ignite) {
+    private @Nullable Table wrapTable(@Nullable Table table, Ignite ignite) {
         if (table == null) {
             return null;
         }
