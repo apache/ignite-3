@@ -99,11 +99,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Undefined value for {@link #minActiveTxBeginTime}. */
-    private static final long UNDEFINED_MIN_TX_TIME = 0L;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Transaction manager. */
     private final TxManager txManager;
 

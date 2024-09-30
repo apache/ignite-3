@@ -2654,8 +2654,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return stopReplicaFuture
                 .thenCompose(v -> {
                     minTimeCollectorService.removePartition(tablePartitionId);
-                    mvGc.removeStorage(tablePartitionId);
-                    return null;
+                    return mvGc.removeStorage(tablePartitionId);
                 });
     }
 
