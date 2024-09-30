@@ -32,6 +32,7 @@ int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
 
     self->m_environment = nullptr;
     self->m_connection = nullptr;
+    self->m_autocommit = true;
 
     return 0;
 }
@@ -85,6 +86,47 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
     return Py_None;
 }
 
+static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
+{
+    if (self->m_autocommit) {
+        Py_RETURN_TRUE;
+    }
+
+    Py_RETURN_FALSE;
+}
+
+static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* value)
+{
+    if (!PyBool_Check(value)) {
+        PyErr_SetString(py_get_module_interface_error_class(), "Autocommit attribute should be of a type bool");
+        return nullptr;
+    }
+
+    self->m_autocommit = Py_IsTrue(value);
+
+    if (!self->m_autocommit) {
+        // TODO: IGNITE-23218 Implement me
+        PyErr_SetString(py_get_module_not_supported_error_class(), "Transactions are not supported yet");
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_connection_commit(py_connection* self, PyObject*)
+{
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_connection_rollback(py_connection* self, PyObject*)
+{
+    // TODO: IGNITE-23218 Implement me
+    PyErr_SetString(py_get_module_not_supported_error_class(), "Transactions are not supported yet");
+    return nullptr;
+}
+
 static PyTypeObject py_connection_type = {
     PyVarObject_HEAD_INIT(nullptr, 0)
     EXT_MODULE_NAME "." PY_CONNECTION_CLASS_NAME
@@ -93,6 +135,10 @@ static PyTypeObject py_connection_type = {
 static struct PyMethodDef py_connection_methods[] = {
     {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
     {"cursor", (PyCFunction)py_connection_cursor, METH_NOARGS, nullptr},
+    {"autocommit", (PyCFunction)py_connection_autocommit, METH_NOARGS, nullptr},
+    {"set_autocommit", (PyCFunction)py_connection_autocommit, METH_O, nullptr},
+    {"commit", (PyCFunction)py_connection_commit, METH_NOARGS, nullptr},
+    {"rollback", (PyCFunction)py_connection_rollback, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 
