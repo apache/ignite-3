@@ -439,6 +439,7 @@ class Connection:
     """
 
     def __init__(self):
+        self._autocommit = True
         self._py_connection = None
 
     def __enter__(self):
@@ -450,6 +451,7 @@ class Connection:
     def close(self):
         """
         Close active connection.
+        Closing a connection without committing the changes first will cause an implicit rollback to be performed.
         Completes without errors on successfully closed connections.
         """
         if self._py_connection is not None:
@@ -457,20 +459,74 @@ class Connection:
             self._py_connection = None
 
     def commit(self):
+        """
+        Commit any pending transaction to the database.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22740 Implement transaction support
-        raise NotSupportedError('Transactions are not supported')
+        raise self._py_connection.commit()
 
     def rollback(self):
+        """
+        Roll back to the start of any pending transaction.
+        Closing a connection without committing the changes first will cause an implicit rollback to be performed.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22740 Implement transaction support
-        raise NotSupportedError('Transactions are not supported')
+        raise self._py_connection.rollback()
+
+    @property
+    def autocommit(self) -> bool:
+        """
+        Attribute to query and set the autocommit mode of the connection.
+        Return True if the connection is operating in autocommit (non-transactional) mode. Return False if
+        the connection is operating in manual commit (transactional) mode.
+
+        Setting the attribute to True or False adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        if self._py_connection is None:
+            return True
+        return self._py_connection.autocommit()
+
+    @autocommit.setter
+    def autocommit(self, value):
+        """
+        Attribute to query and set the autocommit mode of the connection.
+        Setting the attribute to True or False adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        self.setautocommit(value)
+
+    def setautocommit(self, value: bool):
+        """
+        Set the autocommit mode of the connection. Adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        if self._py_connection is not None:
+            self._py_connection.set_autocommit(value)
 
     def cursor(self) -> Cursor:
+        """
+        Return a new Cursor Object using the connection.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
         return Cursor(py_cursor=self._py_connection.cursor(), conn=self)
@@ -500,46 +556,83 @@ def connect(address: [str], **kwargs) -> Connection:
         A maximum number of rows, which are received or sent in a single request. Default value: 1024.
     timeout: int, optional
         A timeout in seconds to use for any network operation. Default value: 30.
+    autocommit: bool, optional
+        The autocommit mode of the connection. Default value: True.
     """
     return _pyignite3_extension.connect(address=address, **kwargs)
 
 
 class Error(Exception):
+    """
+    Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
+    except statement. Warnings are not considered errors and thus should not use this class as base.
+    """
     pass
 
 
 # noinspection PyShadowingBuiltins
 class Warning(Exception):
+    """
+    Exception raised for important warnings like data truncations while inserting, etc.
+    """
     pass
 
 
 class InterfaceError(Error):
+    """
+    Exception raised for errors that are related to the database interface rather than the database itself.
+    """
     pass
 
 
 class DatabaseError(Error):
-    pass
-
-
-class InternalError(DatabaseError):
-    pass
-
-
-class OperationalError(DatabaseError):
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    pass
-
-
-class IntegrityError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database.
+    """
     pass
 
 
 class DataError(DatabaseError):
+    """
+    Exception raised for errors that are due to problems with the processed data like division by zero, numeric value
+    out of range, etc..
+    """
+    pass
+
+
+class InternalError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
+    pass
+
+
+class OperationalError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database’s operation and not necessarily under the control of
+    the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction could not be
+    processed, a memory allocation error occurred during processing, etc.
+    """
+    pass
+
+
+class ProgrammingError(DatabaseError):
+    """
+    Exception raised for programming errors, e.g. table not found or already exists, syntax error in the SQL statement,
+    wrong number of parameters specified, etc.
+    """
+    pass
+
+
+class IntegrityError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
     pass
 
 
 class NotSupportedError(DatabaseError):
+    """
+    Exception raised in case a method or database API was used which is not supported by the database.
+    """
     pass
