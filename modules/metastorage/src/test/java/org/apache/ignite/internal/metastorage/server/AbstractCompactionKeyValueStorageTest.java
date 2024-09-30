@@ -180,6 +180,17 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(), collectRevisions(SOME_KEY));
     }
 
+    @Test
+    void testCompactBeforeStopIt() {
+        storage.stopCompaction();
+
+        storage.compact(6);
+
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
