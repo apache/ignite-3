@@ -174,6 +174,7 @@ class ColumnDescription:
     """
     Represents a description of the single column of the result set.
     """
+
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
@@ -200,6 +201,7 @@ class Cursor:
     def __init__(self, py_cursor):
         self._py_cursor = py_cursor
         self._description = None
+        self._rownumber = None
 
     def __enter__(self):
         return self
@@ -231,14 +233,24 @@ class Cursor:
     @property
     def rowcount(self) -> int:
         """
-        This read-only attribute specifies the number of rows that the last .execute*() produced
-        (for DQL statements like SELECT) or affected (for DML statements like UPDATE or INSERT).
+        This read-only attribute specifies the number of rows that the last .execute*() produced (for DQL statements
+        like SELECT) or affected (for DML statements like UPDATE or INSERT).
         The attribute is -1 in case no .execute*() has been performed on the cursor or the rowcount of the last
         operation is cannot be determined by the interface.
         """
         if self._py_cursor is None:
             return -1
         return self._py_cursor.rowcount()
+
+    @property
+    def rownumber(self) -> Optional[int]:
+        """
+        This read-only attribute provides the current 0-based index of the cursor in the result set or None if the index
+        cannot be determined.
+        The index can be seen as index of the cursor in a sequence (the result set). The next fetch operation will fetch
+        the row indexed by .rownumber in that sequence.
+        """
+        return self._rownumber
 
     def callproc(self, *_args):
         if self._py_cursor is None:
@@ -254,6 +266,7 @@ class Cursor:
         if self._py_cursor is not None:
             self._py_cursor.close()
             self._py_cursor = None
+            self._rownumber = None
 
     def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
@@ -270,6 +283,7 @@ class Cursor:
 
         self._py_cursor.execute(query, params)
         self._update_description()
+        self._rownumber = 0
 
     def _update_description(self):
         """
@@ -304,7 +318,13 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        return self._py_cursor.fetchone()
+        res = self._py_cursor.fetchone()
+        if res is None:
+            self._rownumber = None
+        else:
+            self._rownumber += 1
+
+        return res
 
     def fetchmany(self, size: Optional[int] = None) -> Optional[Sequence[Sequence[Optional[Any]]]]:
         """
