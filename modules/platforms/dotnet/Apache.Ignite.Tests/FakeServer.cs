@@ -400,7 +400,7 @@ namespace Apache.Ignite.Tests
 
                             writer.Write(index); // Partition id.
                             writer.Write(4); // Prop count.
-                            writer.Write(nodeId); // Id.
+                            writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.
                             writer.Write("localhost"); // Host.
                             writer.Write(10900 + index); // Port.
