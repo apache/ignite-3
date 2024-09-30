@@ -63,6 +63,10 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
         collectorService.recordMinActiveTxTimestamp(p1, 3);
         assertEquals(Map.of(p1, 3L, p2, 4L), collectorService.minTimestampPerPartition());
 
+        // Ignore update, timestamps are always increasing.
+        collectorService.recordMinActiveTxTimestamp(p1, 1L);
+        assertEquals(Map.of(p1, 3L, p2, 4L), collectorService.minTimestampPerPartition());
+
         // Remove p2
         collectorService.removePartition(p2);
         assertEquals(Map.of(p1, 3L), collectorService.minTimestampPerPartition());
@@ -77,10 +81,6 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
 
         // p1 has already been removed, this call should have no effect
         collectorService.removePartition(p1);
-        assertEquals(0, collectorService.minTimestampPerPartition().size());
-
-        // Cleanup
-        collectorService.close();
         assertEquals(0, collectorService.minTimestampPerPartition().size());
     }
 }

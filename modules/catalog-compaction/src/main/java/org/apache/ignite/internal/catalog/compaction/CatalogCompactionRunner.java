@@ -191,8 +191,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
 
-        localMinTimeCollectorService.close();
-
         return CompletableFutures.nullCompletedFuture();
     }
 
@@ -207,12 +205,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
     @TestOnly
     public @Nullable String coordinator() {
         return compactionCoordinatorNodeName;
-    }
-
-    /** Returns {@link MinimumRequiredTimeCollectorService}. For test purposes only. */
-    @TestOnly
-    public MinimumRequiredTimeCollectorService localMinTimeCollectorService() {
-        return localMinTimeCollectorService;
     }
 
     /** Enables or disables the compaction process. */

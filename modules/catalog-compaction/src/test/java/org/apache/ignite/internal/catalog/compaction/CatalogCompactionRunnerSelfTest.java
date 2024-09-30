@@ -61,7 +61,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -139,27 +138,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     private ReplicaService replicaService;
 
-    @Test
-    public void stoppingCompactor() {
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assertNotNull(catalog1);
-
-        Map<String, Long> nodeToTime = Map.of(
-                NODE3.name(), catalog1.time(),
-                NODE2.name(), catalog1.time(),
-                NODE1.name(), catalog1.time()
-        );
-
-        CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
-
-        TestMinimumRequiredTimeCollector minTimeCollector =
-                (TestMinimumRequiredTimeCollector) compactionRunner.localMinTimeCollectorService();
-
-        CompletableFuture<Void> f = compactionRunner.stopAsync();
-        f.join();
-
-        assertTrue(minTimeCollector.closed.get(), "MinimumRequiredTimeCollector should have been closed");
-    }
+    private TestMinimumRequiredTimeCollector minTimeCollector;
 
     @Test
     public void routineSucceedOnCoordinator() throws InterruptedException {
@@ -250,8 +229,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
-        TestMinimumRequiredTimeCollector minTimeCollector =
-                (TestMinimumRequiredTimeCollector) compactionRunner.localMinTimeCollectorService();
 
         for (CatalogTableDescriptor table : catalog3.tables()) {
             BitSet partitionsNode2table1 = new BitSet();
@@ -302,8 +279,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
-        TestMinimumRequiredTimeCollector minTimeCollector =
-                (TestMinimumRequiredTimeCollector) compactionRunner.localMinTimeCollectorService();
 
         // Return information on additional table at NODE2
         BitSet partitionsNode2table = new BitSet();
@@ -575,8 +550,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
-        TestMinimumRequiredTimeCollector minTimeCollector =
-                (TestMinimumRequiredTimeCollector) compactionRunner.localMinTimeCollectorService();
 
         for (CatalogTableDescriptor tableDescriptor : catalog1.tables()) {
             // Remove a partition from NODE2 so the compaction won't start
@@ -642,8 +615,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
-        TestMinimumRequiredTimeCollector minTimeCollector =
-                (TestMinimumRequiredTimeCollector) compactionRunner.localMinTimeCollectorService();
 
         for (CatalogTableDescriptor tableDescriptor : catalog1.tables()) {
             // Remove all partitions from all tables from NODE2
@@ -980,7 +951,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             ClusterNode coordinator,
             Function<String, Long> timeSupplier
     ) {
-        return createRunner(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes);
     }
 
     private CatalogCompactionRunner createRunner(
@@ -1010,7 +981,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
-        TestMinimumRequiredTimeCollector minimumRequiredTimeProvider = new TestMinimumRequiredTimeCollector(
+        minTimeCollector = new TestMinimumRequiredTimeCollector(
                 catalogManager, clockService, messagesFactory, timeSupplier, coordinator.name()
         );
 
@@ -1022,7 +993,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                         assertThat("Coordinator shouldn't send messages to himself",
                                 nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                        return minimumRequiredTimeProvider.reply(nodeName);
+                        return minTimeCollector.reply(nodeName);
                     });
                 });
 
@@ -1080,7 +1051,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 topologyService,
                 ForkJoinPool.commonPool(),
                 clockService::now,
-                minimumRequiredTimeProvider
+                minTimeCollector
         );
 
         await(runner.startAsync(mock(ComponentContext.class)));
@@ -1119,8 +1090,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         private final Map<Entry<String, Integer>, BitSet> missingPartitions = new ConcurrentHashMap<>();
 
         private final Map<Entry<String, Integer>, BitSet> additionalPartitions = new ConcurrentHashMap<>();
-
-        private final AtomicBoolean closed = new AtomicBoolean();
 
         private TestMinimumRequiredTimeCollector(
                 CatalogManager catalogManager,
@@ -1210,11 +1179,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             }
 
             return values;
-        }
-
-        @Override
-        public void close() {
-            closed.set(true);
         }
     }
 

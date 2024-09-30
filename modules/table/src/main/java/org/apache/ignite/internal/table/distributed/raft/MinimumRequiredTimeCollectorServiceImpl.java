@@ -33,21 +33,23 @@ public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredT
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void recordMinActiveTxTimestamp(TablePartitionId tablePartitionId, long timestamp) {
-        Long time = partitions.get(tablePartitionId);
-        if (time == null) {
-            // Ignore removed partitions.
-            return;
-        }
+    public void recordMinActiveTxTimestamp(TablePartitionId tablePartitionId, long timestamp) {
+        partitions.computeIfPresent(tablePartitionId, (k, v) -> {
+            if (v == UNDEFINED_MIN_TIME) {
+                return timestamp;
+            }
 
-        if (time == UNDEFINED_MIN_TIME || timestamp > time) {
-            partitions.put(tablePartitionId, timestamp);
-        }
+            if (timestamp > v) {
+                return timestamp;
+            } else {
+                return v;
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void removePartition(TablePartitionId tablePartitionId) {
+    public void removePartition(TablePartitionId tablePartitionId) {
         partitions.remove(tablePartitionId);
     }
 
@@ -55,10 +57,5 @@ public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredT
     @Override
     public Map<TablePartitionId, Long> minTimestampPerPartition() {
         return Map.copyOf(partitions);
-    }
-
-    @Override
-    public void close() {
-        partitions.clear();
     }
 }
