@@ -527,19 +527,23 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             synchronized (mux) {
                 assertCompactionRevisionLessThanCurrent(revision, rev);
 
+                if (stopCompaction.get()) {
+                    return;
+                }
+
                 compactForKey(entry.getKey(), toLongArray(entry.getValue()), revision);
             }
         }
     }
 
     @Override
-    public void stopCompact() {
+    public void stopCompaction() {
         stopCompaction.set(true);
     }
 
     @Override
     public void close() {
-        stopCompact();
+        stopCompaction();
 
         watchProcessor.close();
     }

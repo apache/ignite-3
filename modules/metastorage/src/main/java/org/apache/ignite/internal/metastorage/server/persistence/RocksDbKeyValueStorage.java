@@ -389,7 +389,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void close() throws Exception {
-        stopCompact();
+        stopCompaction();
 
         watchProcessor.close();
 
@@ -997,6 +997,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     assertCompactionRevisionLessThanCurrent(revision, rev);
 
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
+                        if (stopCompaction.get()) {
+                            return;
+                        }
+
                         compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
                     }
 
@@ -1013,7 +1017,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void stopCompact() {
+    public void stopCompaction() {
         stopCompaction.set(true);
     }
 

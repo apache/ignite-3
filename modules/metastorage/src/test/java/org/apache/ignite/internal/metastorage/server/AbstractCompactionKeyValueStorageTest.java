@@ -182,7 +182,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testCompactBeforeStopIt() {
-        storage.stopCompact();
+        storage.stopCompaction();
 
         storage.compact(6);
 

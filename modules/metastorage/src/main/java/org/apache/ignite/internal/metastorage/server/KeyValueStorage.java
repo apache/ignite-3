@@ -261,7 +261,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
-     * @see #stopCompact()
+     * @see #stopCompaction()
      */
     void compact(long revision);
 
@@ -271,7 +271,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
      * recommended to invoke this method before stopping the external component.</p>
      */
-    void stopCompact();
+    void stopCompaction();
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.
