@@ -1609,15 +1609,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         rwLock.writeLock().lock();
 
-        try (
-                WriteBatch batch = new WriteBatch();
-                WriteOptions options = createWriteOptions()
-        ) {
+        try (WriteBatch batch = new WriteBatch()) {
             assertCompactionRevisionLessThanCurrent(revision, rev);
 
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
 
-            db.write(options, batch);
+            db.write(defaultWriteOptions, batch);
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
         } finally {

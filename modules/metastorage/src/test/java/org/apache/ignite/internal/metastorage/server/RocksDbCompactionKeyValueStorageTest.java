@@ -50,26 +50,4 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
     private Path storageDir() {
         return workDir.resolve("storage");
     }
-
-    @Override
-    boolean isPersistent() {
-        return true;
-    }
-
-    @Override
-    void restartStorage(boolean clear) throws Exception {
-        storage.close();
-
-        if (clear) {
-            IgniteUtils.deleteIfExists(storageDir());
-        }
-
-        storage = createStorage();
-
-        storage.start();
-    }
-
-    private Path storageDir() {
-        return workDir.resolve("storage");
-    }
 }
