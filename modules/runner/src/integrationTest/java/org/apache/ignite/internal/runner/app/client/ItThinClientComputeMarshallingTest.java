@@ -23,7 +23,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Comparator;
 import java.util.List;
@@ -69,11 +69,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
 
         assertEquals("itccmt_n_3344", nodes.get(0).name());
         assertEquals(3344, nodes.get(0).address().port());
-        assertTrue(nodes.get(0).id().length() > 10);
+        assertNotNull(nodes.get(0).id());
 
         assertEquals("itccmt_n_3345", nodes.get(1).name());
         assertEquals(3345, nodes.get(1).address().port());
-        assertTrue(nodes.get(1).id().length() > 10);
+        assertNotNull(nodes.get(1).id());
     }
 
     @ParameterizedTest

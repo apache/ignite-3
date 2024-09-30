@@ -229,6 +229,9 @@ namespace Apache.Ignite
 
             /// <summary> OpExecutionTimeout error. </summary>
             public const int OpExecutionTimeout = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> Compacted error. </summary>
+            public const int Compacted = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Index errors. </summary>

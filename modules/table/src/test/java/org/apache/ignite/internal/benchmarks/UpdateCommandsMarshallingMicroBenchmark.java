@@ -120,7 +120,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                             .partitionId(2048)
                             .tableId(10_000)
                             .build())
-                    .txCoordinatorId("node_foo_bar_123_yes")
+                    .txCoordinatorId(UUID.randomUUID())
                     .messageRowsToUpdate(map)
                     .build();
         } else {
@@ -134,7 +134,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                             .partitionId(2048)
                             .tableId(10_000)
                             .build())
-                    .txCoordinatorId("node_foo_bar_123_yes")
+                    .txCoordinatorId(UUID.randomUUID())
                     .messageRowToUpdate(timedBinaryRowMessage)
                     .build();
         }

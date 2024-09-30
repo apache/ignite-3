@@ -100,7 +100,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                                 .binaryRowMessage(binaryRowMessage(1))
                                 .build())
                 .txId(TestTransactionIds.newTransactionId())
-                .txCoordinatorId(UUID.randomUUID().toString())
+                .txCoordinatorId(UUID.randomUUID())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -118,7 +118,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .rowUuid(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
-                .txCoordinatorId(UUID.randomUUID().toString())
+                .txCoordinatorId(UUID.randomUUID())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -150,7 +150,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(UUID.randomUUID())
-                .txCoordinatorId(UUID.randomUUID().toString())
+                .txCoordinatorId(UUID.randomUUID())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
@@ -189,7 +189,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .messageRowsToUpdate(rowsToRemove)
                 .txId(UUID.randomUUID())
-                .txCoordinatorId(UUID.randomUUID().toString())
+                .txCoordinatorId(UUID.randomUUID())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);

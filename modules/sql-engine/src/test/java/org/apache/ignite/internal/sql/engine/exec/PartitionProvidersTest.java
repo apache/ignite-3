@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -28,7 +29,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -197,13 +197,13 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
             ColocationGroup colocationGroup,
             @Nullable PartitionPruningMetadata metadata
     ) {
-        ClusterNodeImpl node = new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("localhost", 1234));
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234));
 
         Long2ObjectMap<ColocationGroup> map = new Long2ObjectOpenHashMap<>();
         map.put(GROUP_ID, colocationGroup);
 
         return TestBuilders.executionContext()
-                .queryId(UUID.randomUUID())
+                .queryId(randomUUID())
                 .executor(queryTaskExecutor)
                 .fragment(new FragmentDescription(1, false, map, null, null, metadata))
                 .localNode(node)

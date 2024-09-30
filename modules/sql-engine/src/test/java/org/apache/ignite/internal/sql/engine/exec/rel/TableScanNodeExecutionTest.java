@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -137,7 +138,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(
-                new ClusterNodeImpl(leaseholder, leaseholder, NetworkAddress.from("127.0.0.1:1111"))
+                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
         );
 
         ClusterService clusterService = mock(ClusterService.class);
@@ -151,7 +152,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            PlacementDriver placementDriver = new TestPlacementDriver(leaseholder, leaseholder);
+            PlacementDriver placementDriver = new TestPlacementDriver(leaseholder, deriveUuidFrom(leaseholder));
 
             HybridClock clock = new HybridClockImpl();
             ClockService clockService = new TestClockService(clock);
@@ -272,7 +273,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
                 @Nullable BitSet columnsToInclude,
-                String txCoordinatorId
+                UUID txCoordinatorId
         ) {
             return s -> {
                 s.onSubscribe(new Subscription() {

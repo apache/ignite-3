@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -38,7 +39,7 @@ public class TxStateMeta implements TransactionMeta {
 
     private final TxState txState;
 
-    private final @Nullable String txCoordinatorId;
+    private final @Nullable UUID txCoordinatorId;
 
     /** ID of the replication group that manages a transaction state. */
     private final @Nullable TablePartitionId commitPartitionId;
@@ -59,7 +60,7 @@ public class TxStateMeta implements TransactionMeta {
      */
     public TxStateMeta(
             TxState txState,
-            @Nullable String txCoordinatorId,
+            @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
@@ -77,7 +78,7 @@ public class TxStateMeta implements TransactionMeta {
      */
     public TxStateMeta(
             TxState txState,
-            @Nullable String txCoordinatorId,
+            @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable Long initialVacuumObservationTimestamp
@@ -97,7 +98,7 @@ public class TxStateMeta implements TransactionMeta {
      */
     public TxStateMeta(
             TxState txState,
-            @Nullable String txCoordinatorId,
+            @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable Long initialVacuumObservationTimestamp,
@@ -136,7 +137,7 @@ public class TxStateMeta implements TransactionMeta {
         return txState;
     }
 
-    public @Nullable String txCoordinatorId() {
+    public @Nullable UUID txCoordinatorId() {
         return txCoordinatorId;
     }
 

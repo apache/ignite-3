@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -166,7 +167,7 @@ public class LeaseAgreement {
 
             responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
-            Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+            Set<UUID> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
             if (!nodeIds.contains(lease.getLeaseholderId())) {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",

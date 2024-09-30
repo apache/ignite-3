@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -152,7 +153,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** List of services to have to close before the test will be completed. */
     private final List<Closeable> servicesToClose = new ArrayList<>();
 
-    private BiFunction<ReplicaRequest, String, CompletableFuture<ReplicaResult>> replicaListener = null;
+    private BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>> replicaListener = null;
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
@@ -509,7 +510,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             Function<RaftGroupService, ReplicaListener> createListener = raftClient ->  new ReplicaListener() {
                 @Override
-                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
                     log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
                     return raftClient

@@ -137,6 +137,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    private Map<UUID, NodeWithAttributes> nodeWithAttributesMap;
+
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
@@ -147,13 +149,13 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
 
-        Map<String, NodeWithAttributes> nodeWithAttributesMap = Map.of(
-                "node0",  new NodeWithAttributes("node0", "node0", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node1",  new NodeWithAttributes("node1", "node1", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node2",  new NodeWithAttributes("node2", "node2", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node3",  new NodeWithAttributes("node3", "node3", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node4",  new NodeWithAttributes("node4", "node4", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node5",  new NodeWithAttributes("node5", "node5", Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
+        nodeWithAttributesMap = Map.of(
+                id(0),  new NodeWithAttributes("node0", id(0), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(1),  new NodeWithAttributes("node1", id(1), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(2),  new NodeWithAttributes("node2", id(2), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(3),  new NodeWithAttributes("node3", id(3), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(4),  new NodeWithAttributes("node4", id(4), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(5),  new NodeWithAttributes("node5", id(5), Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
         );
 
         when(distributionZoneManager.nodesAttributes()).thenReturn(nodeWithAttributesMap);
@@ -228,7 +230,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
 
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
@@ -262,6 +264,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             return completedFuture(result);
         }).when(metaStorageManager).getAll(any());
+    }
+
+    private static UUID id(int n) {
+        return new UUID(0, n);
     }
 
     @AfterEach
@@ -530,7 +536,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         if (nodes != null) {
             newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
-                    .map(n -> new Node(n, n))
+                    .map(n -> new Node(n, findNodeIdByConsistentId(n)))
                     .collect(toSet())));
         } else {
             newLogicalTopology = null;
@@ -543,6 +549,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         WatchEvent evt = new WatchEvent(entryEvent);
 
         watchListener.onUpdate(evt);
+    }
+
+    private UUID findNodeIdByConsistentId(String consistentId) {
+        return nodeWithAttributesMap.values().stream()
+                .filter(node -> node.nodeName().equals(consistentId))
+                .findAny()
+                .orElseThrow(() -> new RuntimeException("Did not find any node by consistentId='" + consistentId + "'"))
+                .nodeId();
     }
 
     private void createZone(String zoneName, int partitions, int replicas) {

@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -396,8 +397,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
-        ConcurrentHashMap<String, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
-        ConcurrentHashMap<String, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, evt -> {
             log.info("Primary replica is elected [grp={}]", evt.groupId());

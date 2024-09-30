@@ -714,7 +714,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryClientHandshakeManager(
-                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
                 () -> List.of(clientSideChannel.eventLoop()),
@@ -750,7 +750,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryServerHandshakeManager(
-                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(SERVER_HOST, PORT)),
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(SERVER_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
                 () -> List.of(serverSideChannel.eventLoop()),

@@ -66,6 +66,8 @@ public class SystemDisasterRecoveryController implements SystemDisasterRecoveryA
 
     @Override
     public CompletableFuture<Void> migrate(MigrateRequest command) {
+        LOG.info("Migrate command is {}", command);
+
         return systemDisasterRecoveryManager.migrate(migrateRequestToClusterState(command));
     }
 

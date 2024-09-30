@@ -30,13 +30,13 @@ public class CommandIdGenerator {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     /** Supplies nodeId for command id generation. */
-    private final Supplier<String> nodeIdSupplier;
+    private final Supplier<UUID> nodeIdSupplier;
 
     private volatile UUID nodeId;
 
     private final AtomicLong counter = new AtomicLong();
 
-    public CommandIdGenerator(Supplier<String> nodeIdSupplier) {
+    public CommandIdGenerator(Supplier<UUID> nodeIdSupplier) {
         this.nodeIdSupplier = nodeIdSupplier;
     }
 
@@ -49,8 +49,7 @@ public class CommandIdGenerator {
         if (nodeId == null) {
             synchronized (this) {
                 if (nodeId == null) {
-                    String nodeIdString = nodeIdSupplier.get();
-                    nodeId = UUID.fromString(nodeIdString);
+                    nodeId = nodeIdSupplier.get();
                 }
             }
         }

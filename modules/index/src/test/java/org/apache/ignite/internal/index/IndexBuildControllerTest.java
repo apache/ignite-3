@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -297,7 +299,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @Test
     void testStopBuildIndexesOnChangePrimaryReplica() {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", NODE_ID + "_other", clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
         verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
     }
@@ -354,7 +356,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private void setPrimaryReplicaWhichExpiresInOneSecond(
             int partitionId,
             String leaseholder,
-            String leaseholderId,
+            UUID leaseholderId,
             HybridTimestamp startTime
     ) {
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, leaseholderId, startTime));
@@ -378,7 +380,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return new TablePartitionId(tableId(), partitionId);
     }
 
-    private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {
+    private ReplicaMeta replicaMetaForOneSecond(String leaseholder, UUID leaseholderId, HybridTimestamp startTime) {
         return new Lease(
                 leaseholder,
                 leaseholderId,

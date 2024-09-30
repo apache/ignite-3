@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
@@ -139,8 +140,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponent computeComponent;
 
-    private final ClusterNode testNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test-host", 1));
-    private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
+    private final ClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
@@ -243,7 +244,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, COMPLETED);
@@ -268,7 +269,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void getsStateAndCancelsRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, EXECUTING);
@@ -288,7 +289,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void changePriorityRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);
 
@@ -404,7 +405,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesRemotelyWithException() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         JobResultResponse jobResultResponse = new ComputeMessagesFactory().jobResultResponse()
                 .throwable(new JobException("Oops", new Exception()))
@@ -477,7 +478,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void remoteExecutionReleasesStopLock() throws Exception {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
 
@@ -511,7 +512,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobResultResponse response = sendRequestAndCaptureResponse(jobResultRequest, testNode, 123L);
 
@@ -525,7 +526,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobStateRequest jobStateRequest = new ComputeMessagesFactory().jobStateRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobStateResponse response = sendRequestAndCaptureResponse(jobStateRequest, testNode, 123L);
 
@@ -539,7 +540,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobCancelRequest jobCancelRequest = new ComputeMessagesFactory().jobCancelRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobCancelResponse response = sendRequestAndCaptureResponse(jobCancelRequest, testNode, 123L);
 
@@ -553,7 +554,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .priority(1)
                 .build();
         JobChangePriorityResponse response = sendRequestAndCaptureResponse(jobChangePriorityRequest, testNode, 123L);
@@ -587,7 +588,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stopCausesCancellationExceptionOnRemoteExecution() {
-        respondWithExecuteResponseWhenExecuteRequestIsSent(UUID.randomUUID());
+        respondWithExecuteResponseWhenExecuteRequestIsSent(randomUUID());
         respondWithIncompleteFutureWhenJobResultRequestIsSent();
 
         CompletableFuture<String> resultFuture = executeRemotely(SimpleJob.class.getName());

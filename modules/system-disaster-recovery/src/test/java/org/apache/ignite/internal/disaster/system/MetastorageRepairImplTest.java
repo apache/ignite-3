@@ -84,10 +84,10 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
-    private final ClusterNode node1 = new ClusterNodeImpl(randomUUID().toString(), "node1", new NetworkAddress("host", 1001));
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID().toString(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID().toString(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID().toString(), "node4", new NetworkAddress("host", 1004));
+    private final ClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node1", new NetworkAddress("host", 1001));
+    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
 
     @BeforeEach
     void configureMocks() {

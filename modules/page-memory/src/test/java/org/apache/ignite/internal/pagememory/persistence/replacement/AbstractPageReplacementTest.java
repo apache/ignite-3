@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -39,7 +39,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
@@ -68,18 +68,18 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Integration tests for testing page replacement. */
-@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
-public class ItPageReplacementTest extends BaseIgniteAbstractTest {
+/**
+ * Base class for testing various page replacement policies.
+ */
+@ExtendWith(ConfigurationExtension.class)
+public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     private static final int GROUP_ID = 1;
@@ -93,11 +93,6 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
     private static final int PAGE_COUNT = 1024;
 
     private static final int MAX_MEMORY_SIZE = PAGE_COUNT * PAGE_SIZE;
-
-    private static final int CPUS = Math.min(4, Runtime.getRuntime().availableProcessors());
-
-    @WorkDirectory
-    private Path workDir;
 
     @InjectConfiguration("mock.checkpointThreads = 1")
     private PageMemoryCheckpointConfiguration checkpointConfig;
@@ -118,6 +113,8 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
     private CheckpointManager checkpointManager;
 
     private PersistentPageMemory pageMemory;
+
+    protected abstract String replacementMode();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -152,6 +149,12 @@ public class ItPageReplacementTest extends BaseIgniteAbstractTest {
                 mock(LogSyncer.class),
                 PAGE_SIZE
         );
+
+        CompletableFuture<Void> changeFuture = storageProfileCfg.change(change -> change
+                .convert(PersistentPageMemoryProfileChange.class)
+                .changeReplacementMode(replacementMode()));
+
+        assertThat(changeFuture, willCompleteSuccessfully());
 
         pageMemory = new PersistentPageMemory(
                 (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),

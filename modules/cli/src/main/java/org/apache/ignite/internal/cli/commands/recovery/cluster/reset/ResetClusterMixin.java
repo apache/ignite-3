@@ -23,9 +23,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import java.util.List;
 import picocli.CommandLine.Option;
 
-/** Arguments for 'recovery reset cluster' command. */
+/** Arguments for 'recovery cluster reset' command. */
 public class ResetClusterMixin {
-    @Option(names = RECOVERY_CMG_NODES_OPTION, description = RECOVERY_CMG_NODES_OPTION_DESC, split = ",")
+    @Option(names = RECOVERY_CMG_NODES_OPTION, description = RECOVERY_CMG_NODES_OPTION_DESC, split = ",", required = true)
     private List<String> cmgNodeNames;
 
     /** Returns names of the proposed CMG nodes. */
