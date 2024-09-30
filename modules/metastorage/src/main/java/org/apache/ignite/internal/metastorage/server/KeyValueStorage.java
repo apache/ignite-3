@@ -257,14 +257,26 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
+     * <p>Since the node may stop or crash, after restoring the node on its startup we need to run the compaction for the latest known
+     * compaction revision.</p>
+     *
      * <p>Compaction revision is not updated or saved.</p>
      *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
+     * @see #stopCompaction()
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long)
      */
     void compact(long revision);
+
+    /**
+     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     *
+     * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
+     * recommended to invoke this method before stopping the external component.</p>
+     */
+    void stopCompaction();
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

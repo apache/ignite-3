@@ -603,6 +603,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             return nullCompletedFuture();
         }
 
+        storage.stopCompaction();
+
         busyLock.block();
 
         deployWatchesFuture.cancel(true);

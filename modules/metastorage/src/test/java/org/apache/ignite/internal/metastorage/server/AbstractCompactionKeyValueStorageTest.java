@@ -181,6 +181,17 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
+    void testCompactBeforeStopIt() {
+        storage.stopCompaction();
+
+        storage.compact(6);
+
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
+    }
+
+    @Test
     void testSetAndGetCompactionRevision() {
         assertEquals(-1, storage.getCompactionRevision());
 

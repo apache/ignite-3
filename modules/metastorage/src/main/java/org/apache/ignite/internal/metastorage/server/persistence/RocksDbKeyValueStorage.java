@@ -65,6 +65,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -264,6 +265,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled. */
     private final WriteOptions defaultWriteOptions = new WriteOptions().setDisableWAL(true);
 
+    private final AtomicBoolean stopCompaction = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -408,6 +411,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void close() throws Exception {
+        stopCompaction();
+
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
@@ -1016,6 +1021,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     assertCompactionRevisionLessThanCurrent(revision, rev);
 
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
+                        if (stopCompaction.get()) {
+                            return;
+                        }
+
                         compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
                     }
 
@@ -1029,6 +1038,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
+    }
+
+    @Override
+    public void stopCompaction() {
+        stopCompaction.set(true);
     }
 
     @Override
