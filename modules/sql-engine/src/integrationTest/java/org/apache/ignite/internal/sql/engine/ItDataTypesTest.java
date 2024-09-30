@@ -28,12 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -41,15 +44,21 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -73,6 +82,69 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         for (var table : igniteTables.tables()) {
             sql("DROP TABLE " + table.name());
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "5, 1, 5, 1",
+            "5, 2, 5, 2",
+            "5, 3, 5, 3",
+            "5, 4, 5, 4",
+
+            "10, 5, 20, 5",
+            "10, 6, 20, 6",
+            "10, 7, 20, 7",
+            "10, 8, 20, 8",
+            "10, 9, 20, 9",
+    })
+    public void divide(int p1, int s1, int p2, int s2) {
+        IgniteTypeFactory tf = Commons.typeFactory();
+        IgniteTypeSystem ts = IgniteTypeSystem.INSTANCE;
+
+        RelDataType t1 = tf.createSqlType(SqlTypeName.DECIMAL, p1, s1);
+        RelDataType t2 = tf.createSqlType(SqlTypeName.DECIMAL, p2, s2);
+        RelDataType rt = ts.deriveDecimalDivideType(tf, t1, t2);
+
+        long seed = System.nanoTime();
+        log.info("Seed: {}", seed);
+
+        Random rnd = new Random();
+        rnd.setSeed(seed);
+
+        BigDecimal a1 = IgniteTestUtils.randomBigDecimal(rnd, t1.getPrecision(), t1.getScale());
+        BigDecimal a2 = IgniteTestUtils.randomBigDecimal(rnd, t2.getPrecision(), t2.getScale());
+        BigDecimal rs = a1.divide(a2, new MathContext(rt.getScale(), RoundingMode.HALF_EVEN));
+
+        String type1 = format("DECIMAL({}, {})", p1, s1);
+        String type2 = format("DECIMAL({}, {})", p2, s2);
+
+        // Literals no casts
+        assertQuery("SELECT " + a1 + "/" + a2)
+                .returns(rs)
+                .columnMetadata(new MetadataMatcher()
+                        .type(ColumnType.DECIMAL)
+                        .precision(rt.getPrecision())
+                        .scale(rt.getScale()))
+                .check();
+
+        // Literals w/ casts
+        assertQuery("SELECT " + a1  + "::" + type1 + "/" + a2 + "::" + type2)
+                .returns(rs)
+                .columnMetadata(new MetadataMatcher()
+                        .type(ColumnType.DECIMAL)
+                        .precision(rt.getPrecision())
+                        .scale(rt.getScale()))
+                .check();
+
+        // Dynamic params
+        assertQuery("SELECT ?::" + type1 + "/?::" + type2)
+                .withParams(a1, a2)
+                .returns(rs)
+                .columnMetadata(new MetadataMatcher()
+                        .type(ColumnType.DECIMAL)
+                        .precision(rt.getPrecision())
+                        .scale(rt.getScale()))
+                .check();
     }
 
     /** Tests correctness with unicode. */
