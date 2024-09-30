@@ -34,6 +34,8 @@ import org.junit.jupiter.api.function.Executable;
 
 /**
  * Checks if data compliant with the schema, otherwise the correct exception is thrown.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class SchemaValidationTest extends TableKvOperationsTestBase {
 

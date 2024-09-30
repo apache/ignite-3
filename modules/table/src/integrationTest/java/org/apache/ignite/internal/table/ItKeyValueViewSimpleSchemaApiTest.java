@@ -22,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -34,36 +34,55 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Basic table operations test.
- *
- *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
+ * Unified KeyValueView API test with simple value type.
  */
-public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTestBase {
-    /**
-     * Creates table view.
-     *
-     * @return Table KV-view.
-     */
-    private KeyValueView<Long, Long> kvView() {
-        return kvViewForValueType(NativeTypes.INT64, Long.class, true);
+public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest {
+    private static final String TABLE_NAME_SIMPLE_TYPE = "test_simple";
+
+    private static final String TABLE_NAME_NON_NULLABLE_VALUE = "test_non_nullable_value";
+
+    @BeforeAll
+    public void createTable() {
+        createTable(TABLE_NAME_SIMPLE_TYPE, List.of(new Column("VAL", NativeTypes.INT64, true)));
+        createTable(TABLE_NAME_NON_NULLABLE_VALUE, List.of(new Column("VAL", NativeTypes.INT64, false)));
+
+        for (NativeType type : SchemaTestUtils.ALL_TYPES) {
+            String tableName = "T_" + type.spec().name();
+
+            createTable(tableName, false,
+                    List.of(new Column("id", NativeTypes.INT64, false)),
+                    List.of(new Column("VAL", type, true)));
+        }
+
+        // Validate all types are tested.
+        Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
+
+        assertEquals(nativeTypes,
+                SchemaTestUtils.ALL_TYPES.stream().map(NativeType::spec).collect(Collectors.toSet()));
     }
 
-    @Test
-    public void put() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void put(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.get(null, 1L));
 
@@ -83,7 +102,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         tbl.put(null, 1L, null);
         assertTrue(tbl.contains(null, 1L));
 
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.get(null, 1L));
+        testCase.checkNullValueError(() -> tbl.get(null, 1L), "getNullable");
         assertNull(tbl.getNullable(null, 1L).get());
 
         // Put KV pair.
@@ -91,9 +110,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 1L));
     }
 
-    @Test
-    public void putIfAbsent() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void putIfAbsent(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.get(null, 1L));
 
@@ -114,9 +134,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 2L).get());
     }
 
-    @Test
-    public void getNullable() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getNullable(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         assertNull(tbl.getNullable(null, 1L));
 
@@ -127,7 +148,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
 
         tbl.put(null, 1L, null);
 
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.get(null, 1L));
+        testCase.checkNullValueError(() -> tbl.get(null, 1L), "getNullable");
         assertNull(tbl.getNullable(null, 1L).get());
 
         // Remove KV pair.
@@ -142,9 +163,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(22L, tbl.getNullable(null, 1L).get());
     }
 
-    @Test
-    public void getOrDefault() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getOrDefault(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
         assertNull(tbl.getOrDefault(null, 1L, null));
@@ -157,9 +179,13 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
 
         tbl.put(null, 1L, null);
 
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.get(null, 1L));
+        testCase.checkNullValueError(() -> tbl.get(null, 1L), "getNullable");
         assertNull(tbl.getOrDefault(null, 1L, null));
-        assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 getOrDefault should return default value for null
+        if (!testCase.thin) {
+            assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
+        }
 
         // Remove KV pair.
         tbl.remove(null, 1L);
@@ -175,9 +201,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(22L, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
     }
 
-    @Test
-    public void getAndPut() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getAndPut(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Insert new tuple.
         assertNull(tbl.getAndPut(null, 1L, 11L));
@@ -191,18 +218,18 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertTrue(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L).get());
 
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.getAndPut(null, 1L, 33L));
+        testCase.checkNullValueError(() -> tbl.getAndPut(null, 1L, 33L), "getNullableAndPut");
         assertEquals(33L, tbl.getNullable(null, 1L).get()); // Previous operation applied.
 
         // Check null value
         assertNotNull(tbl.getAndPut(null, 1L, null));
     }
 
-    @Test
-    public void getNullableAndPut() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getNullableAndPut(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
-        // getNullableAndPut
         assertNull(tbl.getAndPut(null, 1L, 11L));
         assertEquals(11L, tbl.get(null, 1L));
 
@@ -217,9 +244,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 1L));
     }
 
-    @Test
-    public void contains() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void contains(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Not-existed value.
         assertFalse(tbl.contains(null, 1L));
@@ -242,9 +270,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 1L).get());
     }
 
-    @Test
-    public void remove() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void remove(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
         assertFalse(tbl.contains(null, 1L));
@@ -277,9 +306,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertFalse(tbl.contains(null, 1L));
     }
 
-    @Test
-    public void getAndRemove() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getAndRemove(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
         assertNull(tbl.getAndRemove(null, 1L));
@@ -305,14 +335,15 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         tbl.put(null, 1L, null);
         assertTrue(tbl.contains(null, 1L));
 
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.getAndRemove(null, 1L));
+        testCase.checkNullValueError(() -> tbl.getAndRemove(null, 1L), "getNullableAndRemove");
         assertFalse(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L));
     }
 
-    @Test
-    public void getNullableAndRemove() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getNullableAndRemove(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Delete not existed key.
         assertNull(tbl.getNullableAndRemove(null, 1L));
@@ -343,9 +374,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 1L));
     }
 
-    @Test
-    public void removeExact() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void removeExact(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Put KV pair.
         tbl.put(null, 1L, 11L);
@@ -384,9 +416,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.get(null, 1L));
     }
 
-    @Test
-    public void replace() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void replace(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(null, 1L, 11L));
@@ -408,9 +441,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 1L));
     }
 
-    @Test
-    public void getAndReplace() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getAndReplace(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore replace operation for non-existed KV pair.
         assertNull(tbl.getAndReplace(null, 1L, 11L));
@@ -428,7 +462,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 1L).get());
 
         // Replace null-value
-        assertThrows(UnexpectedNullValueException.class, () -> tbl.getAndReplace(null, 1L, 33L));
+        testCase.checkNullValueError(() -> tbl.getAndReplace(null, 1L, 33L), "getNullableAndReplace");
         assertEquals(33L, tbl.get(null, 1L));
 
         // Check null value.
@@ -436,9 +470,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 1L).get());
     }
 
-    @Test
-    public void replaceExact() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void replaceExact(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Ignore non-existed KV pair.
         assertFalse(tbl.replace(null, 1L, null, 11L));
@@ -467,41 +502,16 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 2L));
     }
 
-    @Test
-    public void putGetAllTypes() {
-        Random rnd = new Random();
-        Long key = 42L;
+    @ParameterizedTest
+    @MethodSource("allTypeColumnsTestsCases")
+    public void putGetAllTypes(AllTypesTestCase testCase) {
+        try {
+            Random rnd = new Random();
+            Long key = 42L;
 
-        List<NativeType> allTypes = List.of(
-                NativeTypes.BOOLEAN,
-                NativeTypes.INT8,
-                NativeTypes.INT16,
-                NativeTypes.INT32,
-                NativeTypes.INT64,
-                NativeTypes.FLOAT,
-                NativeTypes.DOUBLE,
-                NativeTypes.DATE,
-                NativeTypes.UUID,
-                NativeTypes.decimalOf(25, 5),
-                NativeTypes.time(0),
-                NativeTypes.datetime(6),
-                NativeTypes.timestamp(6),
-                NativeTypes.BYTES,
-                NativeTypes.STRING
-        );
+            Object val = SchemaTestUtils.generateRandomValue(rnd, testCase.type);
 
-        // Validate all types are tested.
-        Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
-
-        assertEquals(nativeTypes,
-                allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
-
-        for (NativeType type : allTypes) {
-            final Object val = SchemaTestUtils.generateRandomValue(rnd, type);
-
-            assertFalse(type.mismatch(NativeTypes.fromObject(val)));
-
-            KeyValueView<Long, Object> kvView = kvViewForValueType(type, (Class<Object>) val.getClass(), true);
+            KeyValueView<Long, Object> kvView = testCase.view();
 
             kvView.put(null, key, val);
 
@@ -510,12 +520,16 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
             } else {
                 assertEquals(val, kvView.get(null, key));
             }
+        } finally {
+            // It's very inefficient to clear all tables after each test.
+            sql("DELETE FROM " + testCase.tableName);
         }
     }
 
-    @Test
-    public void getAll() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void getAll(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         tbl.put(null, 1L, 11L);
         tbl.put(null, 3L, 33L);
@@ -557,9 +571,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertTrue(res.containsKey(3L));
     }
 
-    @Test
-    public void putAll() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void putAll(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         // Check empty collection.
         tbl.putAll(null, Map.of());
@@ -571,12 +586,9 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 3L));
 
         // Check null values.
-        Map<Long, Long> map = new HashMap<>() {
-            {
-                put(1L, 11L);
-                put(3L, null);
-            }
-        };
+        Map<Long, Long> map = new HashMap<>();
+        map.put(1L, 11L);
+        map.put(3L, null);
 
         tbl.putAll(null, map);
 
@@ -585,9 +597,10 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertNull(tbl.getNullable(null, 3L).get());
     }
 
-    @Test
-    public void removeAll() {
-        KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void removeAll(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
         tbl.put(null, 1L, 11L);
         tbl.put(null, 3L, 33L);
@@ -618,77 +631,152 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
     }
 
     @SuppressWarnings("ConstantConditions")
-    @Test
-    public void nullKeyValidation() {
-        final KeyValueView<Long, Long> tbl = kvView();
+    @ParameterizedTest
+    @MethodSource("testCases")
+    public void nullKeyValidation(TestCase<Long, Long> testCase) {
+        final KeyValueView<Long, Long> tbl = testCase.view();
 
         // Null key.
-        assertThrows(NullPointerException.class, () -> tbl.contains(null, null));
+        testCase.checkNullKeyError(() -> tbl.contains(null, null));
 
-        assertThrows(NullPointerException.class, () -> tbl.get(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.getAndRemove(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.getNullable(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.getNullableAndRemove(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.getNullableAndReplace(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.getNullableAndPut(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.getOrDefault(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.get(null, null));
+        testCase.checkNullKeyError(() -> tbl.getAndPut(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.getAndRemove(null, null));
+        testCase.checkNullKeyError(() -> tbl.getAndReplace(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.getNullable(null, null));
+        testCase.checkNullKeyError(() -> tbl.getNullableAndRemove(null, null));
+        testCase.checkNullKeyError(() -> tbl.getNullableAndReplace(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.getNullableAndPut(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.getOrDefault(null, null, 1L));
 
-        assertThrows(NullPointerException.class, () -> tbl.put(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.remove(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.remove(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, 1L));
-        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, 1L, 2L));
+        testCase.checkNullKeyError(() -> tbl.put(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.putIfAbsent(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.remove(null, null));
+        testCase.checkNullKeyError(() -> tbl.remove(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.replace(null, null, 1L));
+        testCase.checkNullKeyError(() -> tbl.replace(null, null, 1L, 2L));
 
-        assertThrows(NullPointerException.class, () -> tbl.getAll(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAll(null, Collections.singleton(null)));
-        assertThrows(NullPointerException.class, () -> tbl.putAll(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(null, 1L)));
-        assertThrows(NullPointerException.class, () -> tbl.removeAll(null, null));
-        assertThrows(NullPointerException.class, () -> tbl.removeAll(null, Collections.singleton(null)));
+        testCase.checkNullKeysError(() -> tbl.getAll(null, null));
+        testCase.checkNullKeyError(() -> tbl.getAll(null, Collections.singleton(null)));
+        testCase.checkNullPairsError(() -> tbl.putAll(null, null));
+        testCase.checkNullKeyError(() -> tbl.putAll(null, Collections.singletonMap(null, 1L)));
+        testCase.checkNullKeyError(() -> tbl.removeAll(null, null));
+        testCase.checkNullKeyError(() -> tbl.removeAll(null, Collections.singleton(null)));
     }
 
-    @SuppressWarnings("ConstantConditions")
-    @Test
-    public void nonNullableValueColumn() {
-        KeyValueView<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
+    @ParameterizedTest
+    @MethodSource("nonNullableValueTestCases")
+    public void nonNullableValueColumn(TestCase<Long, Long> testCase) {
+        KeyValueView<Long, Long> tbl = testCase.view();
 
-        assertThrows(MarshallerException.class, () -> tbl.getAndPut(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.getAndReplace(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.getAndPut(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.getAndReplace(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.getNullableAndReplace(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.getNullableAndPut(null, 1L, null));
 
-        assertThrows(MarshallerException.class, () -> tbl.put(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.putIfAbsent(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.remove(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, 1L, null));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, 1L, null, 2L));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, 1L, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.put(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.putIfAbsent(null, 1L, null));
+        //noinspection DataFlowIssue
+        testCase.checkNotNullableColumnError(() -> tbl.remove(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, null));
+        testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, null, 2L));
+        testCase.checkNotNullableColumnError(() -> tbl.replace(null, 1L, 1L, null));
 
-        assertThrows(MarshallerException.class, () -> tbl.putAll(null, Collections.singletonMap(1L, null)));
+        testCase.checkNotNullableColumnError(() -> tbl.putAll(null, Collections.singletonMap(1L, null)));
     }
 
-    /**
-     * Creates key-value view.
-     *
-     * @param type Value column native type.
-     * @param valueClass Value class.
-     * @param nullable Nullability flag for the value type.
-     */
-    private <T> KeyValueView<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass, boolean nullable) {
-        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
-        Mapper<T> valMapper = Mapper.of(valueClass, "val");
+    private List<Arguments> testCases() {
+        return generateKeyValueTestArguments(TABLE_NAME_SIMPLE_TYPE, Long.class, Long.class);
+    }
 
-        SchemaDescriptor schema = new SchemaDescriptor(
-                SCHEMA_VERSION,
-                new Column[]{new Column("ID", NativeTypes.INT64, false)},
-                new Column[]{new Column("VAL", type, nullable)}
-        );
+    private List<Arguments> nonNullableValueTestCases() {
+        return generateKeyValueTestArguments(TABLE_NAME_NON_NULLABLE_VALUE, Long.class, Long.class);
+    }
 
-        TableViewInternal table = createTable(schema);
+    private List<Arguments> allTypeColumnsTestsCases() {
+        List<Arguments> arguments = new ArrayList<>();
 
-        return table.keyValueView(keyMapper, valMapper);
+        for (NativeType nativeType : SchemaTestUtils.ALL_TYPES) {
+            String tableName = "T_" + nativeType.spec().name();
+
+            Class<?> valueClass = NativeTypeSpec.toClass(nativeType.spec(), true);
+
+            TestCaseFactory factory = getFactory(tableName);
+
+            for (TestCaseType testType : TestCaseType.values()) {
+                arguments.add(Arguments.of(Named.of(
+                        nativeType.spec().name() + " " + testType.description(),
+                        new AllTypesTestCase(factory.create(testType, Long.class, valueClass), tableName, nativeType)
+                )));
+            }
+        }
+
+        return arguments;
+    }
+
+    @Override
+    TestCaseFactory getFactory(String name) {
+        return new TestCaseFactory(name) {
+            @Override
+            <K, V> BaseTestCase<K, V> create(boolean async, boolean thin, Class<K> keyClass, Class<V> valueClass) {
+                KeyValueView<K, V> view = thin
+                        ? client.tables().table(tableName).keyValueView(keyClass, valueClass)
+                        : CLUSTER.aliveNode().tables().table(tableName).keyValueView(keyClass, valueClass);
+
+                if (async) {
+                    view = new AsyncApiKeyValueViewAdapter<>(view);
+                }
+
+                return new TestCase<>(async, thin, view);
+            }
+        };
+    }
+
+    static class TestCase<K, V> extends BaseTestCase<K, V> {
+        TestCase(boolean async, boolean thin, KeyValueView<K, V> view) {
+            super(async, thin, view);
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        private void checkNotNullableColumnError(Executable run) {
+            IgniteTestUtils.assertThrows(MarshallerException.class, run, "Column 'VAL' does not allow NULLs");
+        }
+
+        @SuppressWarnings("ThrowableNotThrown")
+        private void checkNullValueError(Executable run, String methodName) {
+            String targetMethodName = async ? methodName + "Async" : methodName;
+
+            String expMessage = IgniteStringFormatter.format(
+                    "Got unexpected null value: use `{}` sibling method instead.",
+                    targetMethodName
+            );
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client should handle null without MarshallerException
+            if (thin) {
+                IgniteTestUtils.assertThrowsWithCause(
+                        run::execute, UnexpectedNullValueException.class, expMessage);
+
+                return;
+            }
+
+            IgniteTestUtils.assertThrows(
+                    UnexpectedNullValueException.class, run, expMessage);
+        }
+    }
+
+    static class AllTypesTestCase {
+        private final NativeType type;
+        private final String tableName;
+        private final KeyValueView<Long, Object> view;
+
+        AllTypesTestCase(BaseTestCase<Long, ?> testCase, String tableName, NativeType type) {
+            this.type = type;
+            this.tableName = tableName;
+            this.view = (KeyValueView<Long, Object>) testCase.view();
+        }
+
+        KeyValueView<Long, Object> view() {
+            return view;
+        }
     }
 }
