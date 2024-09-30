@@ -86,9 +86,13 @@ class Option extends QueryPart {
     @Override
     protected void accept(QueryContext ctx) {
         ctx.sql(name).sql("=");
-        boolean isNeedsQuotes = value instanceof String;
-        if (isNeedsQuotes) {
-            ctx.sql("'").sql(value.toString()).sql("'");
+        boolean isStringValue = value instanceof String;
+        if (isStringValue) {
+            String strValue = value.toString();
+            char quoteChar = '\'';
+            if (!QueryUtils.isQuoted(strValue, quoteChar)) {
+                ctx.sql(quoteChar).sql(strValue).sql(quoteChar);
+            }
         } else {
             ctx.sql(value.toString());
         }

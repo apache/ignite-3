@@ -53,7 +53,7 @@ class QueryUtils {
         return n != null && n > 0;
     }
 
-    static boolean isPositive(Integer n) {
+    static boolean isGreaterThanOrEqualToZero(Integer n) {
         return n != null && n >= 0;
     }
 
@@ -68,5 +68,9 @@ class QueryUtils {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
+    }
+
+    static boolean isQuoted(String string, char quoteChar) {
+        return string.charAt(0) == quoteChar && string.charAt(string.length() - 1) == quoteChar;
     }
 }

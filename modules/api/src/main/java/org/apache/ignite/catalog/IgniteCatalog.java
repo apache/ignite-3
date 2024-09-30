@@ -192,18 +192,18 @@ public interface IgniteCatalog {
     Table createTable(TableDefinition definition);
 
     /**
-     * Returns definition of the table with provided name.
+     * Returns definition of the table with provided name or {@code null} if table doesn't exist.
      *
      * @param tableName Table name.
-     * @return Definition of the table with provided name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
      */
     CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName);
 
     /**
-     * Returns definition of the table with provided name.
+     * Returns definition of the table with provided name or {@code null} if table doesn't exist.
      *
      * @param tableName Table name.
-     * @return Definition of the table with provided name.
+     * @return Table definition with provided name.
      */
     TableDefinition tableDefinition(String tableName);
 
@@ -221,8 +221,20 @@ public interface IgniteCatalog {
      */
     void createZone(ZoneDefinition definition);
 
+    /**
+     * Returns definition of the zone with provided name or {@code null} if zone doesn't exist.
+     *
+     * @param zoneName Zone name.
+     * @return Future with zone definition with provided name or {@code null} if zone doesn't exist.
+     */
     CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName);
 
+    /**
+     * Returns definition of the zone with provided name or {@code null} if zone doesn't exist.
+     *
+     * @param zoneName Zone name.
+     * @return Zone definition with provided name.
+     */
     ZoneDefinition zoneDefinition(String zoneName);
 
     /**

@@ -21,7 +21,6 @@ import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -314,8 +313,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withDataNodesAutoAdjustScaleDown(zoneDefinition.dataNodesAutoAdjustScaleDown())
                         .withDataNodesAutoAdjustScaleUp(zoneDefinition.dataNodesAutoAdjustScaleUp())
                         .withFilter(zoneDefinition.filter())
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22162
-//                        .withDistributionAlgorithm(zoneDefinition.distributionAlgorithm())
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22162
+        // .withDistributionAlgorithm(zoneDefinition.distributionAlgorithm())
         );
 
         ColumnDefinition column1 = column("COL1", ColumnType.INT32);

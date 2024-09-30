@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.systemviews;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
-import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,6 +28,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogSystemViewProvider;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -38,50 +38,53 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
  *
  * <ul>
  *     <li>TABLES - available tables</li>
- *     <li>TABLES_COLUMNS - columns of available tables.</li>
- *     <li>TABLES_COLOCATION_COLUMNS - colocated columns of available tables.</li>
+ *     <li>TABLE_COLUMNS - columns of available tables.</li>
  * </ul>
  */
 public class TablesSystemViewProvider implements CatalogSystemViewProvider {
-    private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
-
     @Override
     public List<SystemView<?>> getView(Supplier<Catalog> catalogSupplier) {
         return List.of(
-                getSystemViewView(catalogSupplier),
-                getSystemViewColocationColumnsView(catalogSupplier),
-                getSystemViewColumnsView(catalogSupplier)
+                getTablesSystemView(catalogSupplier),
+                getTableColumnsSystemView(catalogSupplier)
         );
     }
 
-    private static SystemView<?> getSystemViewView(Supplier<Catalog> catalogSupplier) {
-        Iterable<Info> tablesData = () -> {
+    private static SystemView<?> getTablesSystemView(Supplier<Catalog> catalogSupplier) {
+        Iterable<TableWithSchemaAndZoneName> tablesData = () -> {
             Catalog catalog = catalogSupplier.get();
 
             return catalog.tables().stream().map(table -> {
-                String tableName = table.name();
                 String schemaName = Objects.requireNonNull(catalog.schema(table.schemaId()), "Schema must be not null.").name();
                 String zoneName = Objects.requireNonNull(catalog.zone(table.zoneId()), "Zone must be not null.").name();
 
-                int indexId = table.primaryKeyIndexId();
-
-                return new Info(tableName, schemaName, indexId, zoneName);
+                return new TableWithSchemaAndZoneName(table, schemaName, zoneName);
             }).iterator();
         };
 
-        Publisher<Info> viewDataPublisher = SubscriptionUtils.fromIterable(tablesData);
+        Publisher<TableWithSchemaAndZoneName> viewDataPublisher = SubscriptionUtils.fromIterable(tablesData);
 
-        return SystemViews.<Info>clusterViewBuilder()
+        return SystemViews.<TableWithSchemaAndZoneName>clusterViewBuilder()
                 .name("TABLES")
-                .addColumn("SCHEMA", STRING, entry -> entry.schema)
-                .addColumn("NAME", STRING, entry -> entry.name)
-                .addColumn("PK_INDEX_ID", INT32, entry -> entry.pkIndexId)
-                .addColumn("ZONE", STRING, entry -> entry.zone)
+                .addColumn("SCHEMA", STRING, entry -> entry.schemaName)
+                .addColumn("NAME", STRING, entry -> entry.table.name())
+                .addColumn("ID", INT32, entry -> entry.table.id())
+                .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
+                .addColumn("ZONE", STRING, entry -> entry.zoneName)
+                .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
+                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
                 .dataProvider(viewDataPublisher)
                 .build();
     }
 
-    private static SystemView<?> getSystemViewColumnsView(Supplier<Catalog> catalogSupplier) {
+    private static String concatColumns(List<String> columns) {
+        if (columns == null || columns.isEmpty()) {
+            return "NULL";
+        }
+        return String.join(", ", columns);
+    }
+
+    private static SystemView<?> getTableColumnsSystemView(Supplier<Catalog> catalogSupplier) {
         Iterable<ColumnWithTableId> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
@@ -90,6 +93,7 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                             .map(columnDescriptor -> new ColumnWithTableId(
                                     catalog.schema(table.schemaId()).name(),
                                     table.name(),
+                                    table.id(),
                                     columnDescriptor
                                     )
                             )
@@ -100,36 +104,16 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         Publisher<ColumnWithTableId> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
 
         return SystemViews.<ColumnWithTableId>clusterViewBuilder()
-                .name("TABLES_COLUMNS")
+                .name("TABLE_COLUMNS")
                 .addColumn("SCHEMA", STRING, entry -> entry.schema)
                 .addColumn("TABLE_NAME", STRING, entry -> entry.tableName)
+                .addColumn("TABLE_ID", INT32, entry -> entry.tableId)
                 .addColumn("COLUMN_NAME", STRING, entry -> entry.descriptor.name())
                 .addColumn("TYPE", STRING, entry -> entry.descriptor.type().name())
                 .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
-                .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
+                .addColumn("PREC", INT32, entry -> entry.descriptor.precision())
                 .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
-                .dataProvider(viewDataPublisher)
-                .build();
-    }
-
-    private static SystemView<?> getSystemViewColocationColumnsView(Supplier<Catalog> catalogSupplier) {
-        Iterable<ColocationColumnsWithTable> viewData = () -> {
-            Catalog catalog = catalogSupplier.get();
-
-            return catalog.tables().stream()
-                    .flatMap(table -> table.colocationColumns().stream()
-                            .map(colocationColumn -> new ColocationColumnsWithTable(table.name(), colocationColumn))
-                    )
-                    .iterator();
-        };
-
-        Publisher<ColocationColumnsWithTable> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
-
-        return SystemViews.<ColocationColumnsWithTable>clusterViewBuilder()
-                .name("TABLES_COLOCATION_COLUMNS")
-                .addColumn("TABLE_NAME", STRING, entry -> entry.tableName)
-                .addColumn("COLOCATION_COLUMN", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.colocationColumn)
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -138,35 +122,25 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         private final CatalogTableColumnDescriptor descriptor;
         private final String tableName;
         private final String schema;
+        private final int tableId;
 
-        private ColumnWithTableId(String schema, String tableName, CatalogTableColumnDescriptor descriptor) {
+        private ColumnWithTableId(String schema, String tableName, int tableId, CatalogTableColumnDescriptor descriptor) {
             this.schema = schema;
             this.tableName = tableName;
             this.descriptor = descriptor;
+            this.tableId = tableId;
         }
     }
 
-    private static class ColocationColumnsWithTable {
-        private final String tableName;
-        private final String colocationColumn;
+    private static class TableWithSchemaAndZoneName {
+        private final CatalogTableDescriptor table;
+        private final String schemaName;
+        private final String zoneName;
 
-        private ColocationColumnsWithTable(String tableName, String colocationColumn) {
-            this.tableName = tableName;
-            this.colocationColumn = colocationColumn;
-        }
-    }
-
-    private static class Info {
-        private final String name;
-        private final String schema;
-        private final int pkIndexId;
-        private final String zone;
-
-        private Info(String name, String schema, int pkIndexId, String zone) {
-            this.name = name;
-            this.schema = schema;
-            this.pkIndexId = pkIndexId;
-            this.zone = zone;
+        private TableWithSchemaAndZoneName(CatalogTableDescriptor table, String schemaName, String zoneName) {
+            this.table = table;
+            this.schemaName = schemaName;
+            this.zoneName = zoneName;
         }
     }
 }

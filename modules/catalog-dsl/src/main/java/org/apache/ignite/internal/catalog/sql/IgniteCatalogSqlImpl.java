@@ -17,30 +17,18 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.internal.catalog.sql.Option.indexId;
 import static org.apache.ignite.internal.catalog.sql.Option.name;
-import static org.apache.ignite.internal.catalog.sql.Option.tableName;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
-import org.apache.ignite.catalog.ColumnSorted;
-import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.definitions.ColumnDefinition;
-import org.apache.ignite.catalog.definitions.IndexDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.catalog.definitions.TableDefinition.Builder;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.IgniteTables;
@@ -100,60 +88,14 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
 
     @Override
     public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
-        return new SelectFromView<>(sql, "TABLES", name(tableName), row -> {
-            String schema = row.stringValue("SCHEMA");
-            int indexId = row.intValue("PK_INDEX_ID");
-            String zone = row.stringValue("ZONE");
-            Builder builder = TableDefinition.builder(tableName).schema(schema).zone(zone).primaryKey();
-            return new TableDefinitionBuilderWithIndexId(builder, indexId);
-        }).executeAsync()
-                .thenApply(definitions -> {
-                    if (definitions.isEmpty()) {
-                        throw new TableNotFoundException(tableName);
-                    }
+        TableDefinitionCollector collector = new TableDefinitionCollector(tableName, sql);
 
-                    assert definitions.size() == 1;
-
-                    return definitions.get(0);
-                })
-                .thenCompose(tableDefinitionWithPkIndexId ->
-                        new SelectFromView<>(sql, "INDEXES", tableName(tableName), row -> {
-                            int pkIndexId = tableDefinitionWithPkIndexId.indexId;
-
-                            int indexId = row.intValue("INDEX_ID");
-                            String indexName = row.stringValue("INDEX_NAME");
-                            String columns = row.stringValue("COLUMNS");
-                            String type = row.stringValue("TYPE");
-
-                            return Index.create(indexName, type, columns, indexId == pkIndexId);
-                        }).executeAsync().thenApply(indexes -> {
-                            Builder builder = tableDefinitionWithPkIndexId.builder;
-                            for (Index index : indexes) {
-                                if (index.isPkIndex) {
-                                    builder.primaryKey(index.type, index.columns);
-                                } else {
-                                    builder.index(index.name, index.type, index.columns);
-                                }
-                            }
-                            return builder;
-                        }))
-                .thenCompose(tableDefinition -> new SelectFromView<>(sql, "TABLES_COLUMNS", tableName(tableName), row -> {
-                    String columnName = row.stringValue("COLUMN_NAME");
-                    String type = row.stringValue("TYPE");
-                    int length = row.intValue("LENGTH");
-                    int precision = row.intValue("PRECISION");
-                    int scale = row.intValue("SCALE");
-                    boolean nullable = row.booleanValue("NULLABLE");
-
-                    Class<?> typeClass = org.apache.ignite.sql.ColumnType.valueOf(type).javaClass();
-                    return ColumnDefinition.column(columnName, ColumnType.of(typeClass, length, precision, scale, nullable));
-                }).executeAsync().thenApply(tableDefinition::columns))
-                .thenCompose(
-                        tableDefinition -> new SelectFromView<>(sql, "TABLES_COLOCATION_COLUMNS", tableName(tableName),
-                                row -> row.stringValue("COLOCATION_COLUMN"))
-                                .executeAsync()
-                                .thenApply(colocatedColumn -> tableDefinition.colocateBy(colocatedColumn).build())
-                );
+        return collector.collectDefinition().thenApply(builder -> {
+            if (builder != null) {
+                return builder.build();
+            }
+            return null;
+        });
     }
 
     @Override
@@ -166,7 +108,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
         return new CreateFromDefinitionImpl(sql)
                 .from(definition)
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -176,21 +118,36 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
 
     @Override
     public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
-        return new SelectFromView<>(sql, "ZONES", name(zoneName), row -> toZoneDefinition(zoneName, row))
+        List<String> zoneViewColumns = List.of(
+                "PARTITIONS",
+                "REPLICAS",
+                "DATA_NODES_AUTO_ADJUST_SCALE_UP",
+                "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
+                "DATA_NODES_FILTER"
+        );
+        return new SelectFromView<>(sql, zoneViewColumns, "ZONES", name(zoneName), row -> toZoneDefinitionBuilder(zoneName, row))
                 .executeAsync()
                 .thenApply(zoneDefinitions -> {
                     if (zoneDefinitions.isEmpty()) {
-                        throw new DistributionZoneNotFoundException(zoneName);
+                        return null;
                     }
                     assert zoneDefinitions.size() == 1;
 
                     return zoneDefinitions.get(0);
                 })
                 .thenCompose(
-                        zoneDefinition -> new SelectFromView<>(sql, "ZONE_STORAGE_PROFILES", Option.zoneName(zoneName),
-                                row -> row.stringValue("STORAGE_PROFILE"))
-                                .executeAsync()
-                                .thenApply(profiles -> zoneDefinition.toBuilder().storageProfiles(String.join(",", profiles)).build()));
+                        zoneDefinition -> {
+                            if (zoneDefinition == null) {
+                                return CompletableFutures.nullCompletedFuture();
+                            }
+                            return new SelectFromView<>(sql,
+                                    List.of("STORAGE_PROFILE"),
+                                    "ZONE_STORAGE_PROFILES",
+                                    Option.zoneName(zoneName),
+                                    row -> row.stringValue("STORAGE_PROFILE")
+                            ).executeAsync()
+                                    .thenApply(profiles -> zoneDefinition.storageProfiles(String.join(", ", profiles)).build());
+                        });
     }
 
     @Override
@@ -204,7 +161,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(definition.schemaName(), definition.tableName())
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -213,7 +170,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(name)
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -232,7 +189,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(definition.zoneName())
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -241,7 +198,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(name)
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -254,7 +211,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
         join(dropZoneAsync(name));
     }
 
-    private static ZoneDefinition toZoneDefinition(String zoneName, SqlRow row) {
+    private static ZoneDefinition.Builder toZoneDefinitionBuilder(String zoneName, SqlRow row) {
         int partitions = row.intValue("PARTITIONS");
         int replicas = row.intValue("REPLICAS");
         int dataNodesAutoAdjustScaleUp = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_UP");
@@ -266,37 +223,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .replicas(replicas)
                 .dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp)
                 .dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown)
-                .filter(filter)
-                .build();
-    }
-
-    private static class Index {
-        private final String name;
-
-        private final IndexType type;
-
-        private final List<ColumnSorted> columns;
-
-        private final boolean isPkIndex;
-
-        private Index(String name, IndexType type, List<ColumnSorted> columns, boolean isPkIndex) {
-            this.name = name;
-            this.type = type;
-            this.columns = columns;
-            this.isPkIndex = isPkIndex;
-        }
-
-        public static Index create(String name, String type, String columns, boolean isPkIndex) {
-            return new Index(name, IndexType.valueOf(type), fromRaw(columns), isPkIndex);
-        }
-    }
-
-    private static List<ColumnSorted> fromRaw(String columns) {
-        return Arrays.stream(columns.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(ColumnSorted::column)
-                .collect(Collectors.toList());
+                .filter(filter);
     }
 
     private static <R> R join(CompletableFuture<R> future) {
@@ -304,17 +231,6 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
             return future.join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
-        }
-    }
-
-    private static class TableDefinitionBuilderWithIndexId {
-        private final TableDefinition.Builder builder;
-
-        private final int indexId;
-
-        private TableDefinitionBuilderWithIndexId(TableDefinition.Builder builder, int indexId) {
-            this.builder = builder;
-            this.indexId = indexId;
         }
     }
 }

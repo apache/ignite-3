@@ -60,7 +60,7 @@ public class Main {
             AnsiConsole.systemInstall();
             initReplExecutor(micronautFactory);
             initQuestionAsker(micronautFactory);
-            if (args.length != 0 /*|| !isatty()*/) { // do not enter REPL if input or output is redirected
+            if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
                     exitCode = executeCommand(args, micronautFactory);
                 } catch (Exception e) {

@@ -31,17 +31,20 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
     private final String viewName;
 
+    private final List<String> columns;
+
     private final List<Option> whereOptions = new ArrayList<>();
 
     private final Function<SqlRow, T> mapper;
 
-    SelectFromView(IgniteSql sql, String viewName, Option whereOption, Function<SqlRow, T> mapper) {
-        this(sql, viewName, List.of(whereOption), mapper);
+    SelectFromView(IgniteSql sql, List<String> columns, String viewName, Option whereOption, Function<SqlRow, T> mapper) {
+        this(sql, columns, viewName, List.of(whereOption), mapper);
     }
 
-    SelectFromView(IgniteSql sql, String viewName, List<Option> whereOptions, Function<SqlRow, T> mapper) {
+    SelectFromView(IgniteSql sql, List<String> columns, String viewName, List<Option> whereOptions, Function<SqlRow, T> mapper) {
         super(sql);
         this.viewName = viewName;
+        this.columns = columns;
         this.whereOptions.addAll(whereOptions);
         this.mapper = mapper;
     }
@@ -73,7 +76,7 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
 
     @Override
     protected void accept(QueryContext ctx) {
-        ctx.sql("SELECT * FROM SYSTEM." + viewName + " ");
+        ctx.sql("SELECT " + String.join(", ", columns) + " FROM SYSTEM." + viewName + " ");
 
         if (!whereOptions.isEmpty()) {
             ctx.sql("WHERE ");
@@ -82,7 +85,7 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
             }
         }
 
-        System.out.println("SELECT FROM VIEW");
+        System.out.println("SELECT");
         System.out.println(ctx.getSql());
     }
 }

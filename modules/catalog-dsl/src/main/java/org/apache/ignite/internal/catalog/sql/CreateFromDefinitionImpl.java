@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsImpl.processColumns;
+import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanOrEqualToZero;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanZero;
-import static org.apache.ignite.internal.catalog.sql.QueryUtils.isPositive;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,21 +71,19 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.distributionAlgorithm(def.distributionAlgorithm());
         }
 
-        if (isPositive(def.dataNodesAutoAdjust())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjust())) {
             createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
         }
-        if (isPositive(def.dataNodesAutoAdjustScaleUp())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleUp())) {
             createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
         }
-        if (isPositive(def.dataNodesAutoAdjustScaleDown())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleDown())) {
             createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
         }
 
         if (!StringUtils.nullOrBlank(def.filter())) {
             createZone.filter(def.filter());
         }
-        System.out.println("Create");
-        System.out.println(this);
         return this;
     }
 
@@ -132,8 +130,6 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
                 createTable.addIndex(toIndexName(ix), ix.type(), ix.columns());
             }
         }
-        System.out.println("Create");
-        System.out.println(this);
         return this;
     }
 
