@@ -36,14 +36,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.client.proto.pojo.ChildPojo;
-import org.apache.ignite.internal.client.proto.pojo.NoSetterPojo;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
-import org.apache.ignite.internal.client.proto.pojo.ThrowableAccessorsPojo;
-import org.apache.ignite.internal.client.proto.pojo.UnmarshallablePojos;
+import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,18 +81,6 @@ class ClientComputeJobPackerUnpackerTest {
                 LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(),
                 Period.of(1, 2, 3), Duration.of(1, ChronoUnit.DAYS)
         ));
-    }
-
-    private static List<Object> invalidPojo() {
-        return List.of(
-                new ChildPojo(),
-                new UnmarshallablePojos.UnsupportedType(),
-                new UnmarshallablePojos.PrivateField(),
-                new UnmarshallablePojos.StaticField(),
-                new UnmarshallablePojos.InvalidGetterName(),
-                new UnmarshallablePojos.PrivateGetter(),
-                new ThrowableAccessorsPojo()
-        );
     }
 
     private ClientMessagePacker messagePacker;
@@ -206,30 +192,28 @@ class ClientComputeJobPackerUnpackerTest {
         }
     }
 
-    @ParameterizedTest
-    @MethodSource("invalidPojo")
-    void packInvalidPojo(Object arg) {
+    /** Pojo with unsupported type. */
+    public static class UnsupportedType {
+        // Unsupported type
+        Object obj = new Object();
+    }
+
+    @Test
+    void packUnsupportedType() {
         assertThrows(
-                MarshallingException.class,
-                () -> packJobResult(arg, null, messagePacker),
-                "Can't pack object"
+                UnsupportedObjectTypeMarshallingException.class,
+                () -> packJobResult(new UnsupportedType(), null, messagePacker),
+                "Tuple field is of unsupported type: class java.lang.Object"
         );
     }
 
     @Test
-    void unpackNoSetter() {
-        // When pack job argument without marshaller.
-        packJobResult(new NoSetterPojo(), null, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        // And unpack job argument without marshaller.
-        try (var messageUnpacker = messageUnpacker(data)) {
-            assertThrows(
-                    UnmarshallingException.class,
-                    () -> unpackJobResult(messageUnpacker, null, NoSetterPojo.class),
-                    "Can't unpack object"
-            );
-        }
+    void packInvalidPojo() {
+        assertThrows(
+                MarshallingException.class,
+                () -> packJobResult(new StaticFieldPojo(), null, messagePacker),
+                "Can't pack object"
+        );
     }
 
     private static class TestStringMarshaller implements Marshaller<String, byte[]> {

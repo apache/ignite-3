@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.client.proto.pojo;
 
-/** POJO with field without setter. */
-public class NoSetterPojo {
-    public int getI() {
-        return 0;
-    }
+/** Pojo with static field. */
+public class StaticFieldPojo {
+    // Public but static field
+    public static long longField;
 }

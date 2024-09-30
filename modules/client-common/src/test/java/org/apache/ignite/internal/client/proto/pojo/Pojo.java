@@ -28,25 +28,25 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * POJO with all supported types and various accessors.
+ * POJO with all supported types.
  */
 public class Pojo {
-    public boolean bool;
+    private boolean bool;
     private byte byteField;
     private short shortField;
     private int intField;
     private Long longField;
     private float floatField;
-    public double doubleField;
-    public String string;
-    public UUID uuid;
-    public byte[] byteArray;
-    public LocalTime localTime;
-    public LocalDate localDate;
-    public LocalDateTime localDateTime;
-    public Instant instant;
-    public Period period;
-    public Duration duration;
+    private double doubleField;
+    private String string;
+    private UUID uuid;
+    private byte[] byteArray;
+    private LocalTime localTime;
+    private LocalDate localDate;
+    private LocalDateTime localDateTime;
+    private Instant instant;
+    private Period period;
+    private Duration duration;
 
     public Pojo() {
     }
@@ -73,50 +73,6 @@ public class Pojo {
         this.instant = instant;
         this.period = period;
         this.duration = duration;
-    }
-
-    public boolean isBool() {
-        return bool;
-    }
-
-    public byte getB() {
-        return byteField;
-    }
-
-    public void setB(byte byteField) {
-        this.byteField = byteField;
-    }
-
-    public short getShortField() {
-        return shortField;
-    }
-
-    public void setShortField(short shortField) {
-        this.shortField = shortField;
-    }
-
-    public Integer getIntField() {
-        return intField;
-    }
-
-    public void setIntField(Integer intField) {
-        this.intField = intField;
-    }
-
-    public long getLongField() {
-        return longField;
-    }
-
-    public void setLongField(long longField) {
-        this.longField = longField;
-    }
-
-    public float getFloatField() {
-        return floatField;
-    }
-
-    public void setFloatField(float floatField) {
-        this.floatField = floatField;
     }
 
     @Override

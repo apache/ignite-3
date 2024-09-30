@@ -30,12 +30,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 @SuppressWarnings("ThrowableNotThrown")
 class PojoConverterTest {
@@ -61,48 +58,34 @@ class PojoConverterTest {
         );
     }
 
-    private static List<Object> unmarshallablePojos() {
-        return List.of(
-                new UnmarshallablePojos.UnsupportedType(),
-                new UnmarshallablePojos.PrivateField(),
-                new UnmarshallablePojos.StaticField(),
-                new UnmarshallablePojos.InvalidGetterName(),
-                new UnmarshallablePojos.PrivateGetter()
+    @Test
+    void unmarshallablePojo() {
+        assertThrows(
+                PojoConversionException.class,
+                () -> toTuple(new StaticFieldPojo()),
+                "Class " + StaticFieldPojo.class.getName() + " doesn't contain any marshallable fields"
         );
     }
 
-    @ParameterizedTest
-    @MethodSource("unmarshallablePojos")
-    void unmarshallablePojo(Object pojo) {
-        assertThrows(
-                PojoConversionException.class,
-                () -> toTuple(pojo),
-                "Class " + pojo.getClass().getName() + " doesn't contain any marshallable fields"
-        );
+    public static class IntPojo {
+        private int value;
+    }
+
+    public static class LongPojo {
+        private Long value;
     }
 
     @Test
-    void throwableAccessors() {
-        assertThrows(
-                PojoConversionException.class,
-                () -> toTuple(new ThrowableAccessorsPojo()),
-                "Getter for field `i` has thrown an exception"
-        );
-        assertThrows(
-                PojoConversionException.class,
-                () -> fromTuple(new ThrowableAccessorsPojo(), Tuple.create().set("\"i\"", 1)),
-                "Setter for field `i` has thrown an exception"
-        );
-    }
+    void incompatibleTypes() {
+        IntPojo intPojo = new IntPojo();
+        intPojo.value = 1;
 
-    @Test
-    void noSetter() {
-        Tuple tuple = toTuple(new NoSetterPojo());
+        Tuple tuple = toTuple(intPojo);
 
         assertThrows(
                 PojoConversionException.class,
-                () -> fromTuple(new NoSetterPojo(), tuple),
-                "No setter found for the column `i`"
+                () -> fromTuple(new LongPojo(), tuple),
+                "Incompatible types: Field `value` has a type class java.lang.Long while deserializing type class java.lang.Integer"
         );
     }
 }

@@ -19,4 +19,5 @@ package org.apache.ignite.internal.client.proto.pojo;
 
 /** Child POJO. */
 public class ChildPojo extends ParentPojo {
+    public int childField;
 }

@@ -17,23 +17,13 @@
 
 package org.apache.ignite.internal.client.proto.pojo;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.UUID;
+import java.util.Collection;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.PojoMapper;
 
 /** Converts POJO to Tuple and back. */
 public class PojoConverter {
@@ -54,48 +44,33 @@ public class PojoConverter {
             throw new PojoConversionException("Can't convert subclasses");
         }
 
-        Map<String, Getter> getters = new HashMap<>();
-
-        for (Field field : clazz.getDeclaredFields()) {
-            if (isSupportedType(field.getType())) {
-                int modifiers = field.getModifiers();
-                if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
-                    getters.put(field.getName(), () -> field.get(obj));
-                }
-            }
-        }
-
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (isSupportedType(method.getReturnType()) && method.getParameterCount() == 0) {
-                String getterName = getterName(method);
-                if (getterName != null) {
-                    int modifiers = method.getModifiers();
-                    if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
-                        getters.put(getterName, () -> method.invoke(obj));
-                    }
-                }
-            }
+        PojoMapper<?> mapper;
+        try {
+            mapper = (PojoMapper<?>) Mapper.of(clazz);
+        } catch (IllegalArgumentException e) {
+            throw new PojoConversionException("Class " + clazz.getName() + " doesn't contain any marshallable fields", e);
         }
 
         Tuple tuple = Tuple.create();
 
-        for (Entry<String, Getter> getter : getters.entrySet()) {
+        Collection<String> fields = mapper.fields();
+        for (String fieldName : fields) {
             try {
                 // Name needs to be quoted to keep the case
-                String columnName = "\"" + getter.getKey() + "\"";
-                tuple.set(columnName, getter.getValue().get());
-            } catch (InvocationTargetException e) {
-                throw new PojoConversionException("Getter for field `" + getter.getKey() + "` has thrown an exception", e);
-            } catch (IllegalAccessException ignored) {
-                // Skip inaccessible fields
+                String columnName = "\"" + fieldName + "\"";
+                Field field = clazz.getDeclaredField(fieldName);
+                MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
+                VarHandle varHandle = lookup.unreflectVarHandle(field);
+                tuple.set(columnName, varHandle.get(obj));
+            } catch (IllegalAccessException e) {
+                throw new PojoConversionException("Cannot access field `" + fieldName + "`", e);
+            } catch (NoSuchFieldException e) {
+                // This shouldn't ever happen since we're using mapper which takes the fields from the same class
+                throw new PojoConversionException("Field `" + fieldName + "` was not found", e);
             }
         }
 
-        if (tuple.columnCount() > 0) {
-            return tuple;
-        }
-
-        throw new PojoConversionException("Class " + clazz.getName() + " doesn't contain any marshallable fields");
+        return tuple;
     }
 
     /**
@@ -109,87 +84,30 @@ public class PojoConverter {
     public static void fromTuple(Object obj, Tuple tuple) {
         Class<?> clazz = obj.getClass();
 
-        Map<String, Setter> setters = new HashMap<>();
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23261
-        for (Field field : clazz.getDeclaredFields()) {
-            if (isSupportedType(field.getType())) {
-                int modifiers = field.getModifiers();
-                if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers) && !Modifier.isFinal(modifiers)) {
-                    setters.put(field.getName(), value -> field.set(obj, value));
-                }
-            }
-        }
-
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (method.getParameterCount() == 1 && isSupportedType(method.getParameterTypes()[0])) {
-                String setterName = setterName(method);
-                if (setterName != null) {
-                    int modifiers = method.getModifiers();
-                    if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
-                        setters.put(setterName, value -> method.invoke(obj, value));
-                    }
-                }
-            }
-        }
-
         for (int i = 0; i < tuple.columnCount(); i++) {
             String columnName = tuple.columnName(i);
             String fieldName = columnName.substring(1, columnName.length() - 1);
-            if (!setters.containsKey(fieldName)) {
-                throw new PojoConversionException("No setter found for the column `" + fieldName + "`");
-            }
+            Field field = getField(clazz, fieldName);
+            Object value = tuple.value(i);
             try {
-                setters.get(fieldName).set(tuple.value(i));
-            } catch (InvocationTargetException e) {
-                throw new PojoConversionException("Setter for field `" + fieldName + "` has thrown an exception", e);
+                MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
+                VarHandle varHandle = lookup.unreflectVarHandle(field);
+                varHandle.set(obj, value);
+            } catch (ClassCastException e) {
+                throw new PojoConversionException("Incompatible types: Field `" + fieldName + "` has a type " + field.getType()
+                        + " while deserializing type " + value.getClass(), e);
             } catch (IllegalAccessException e) {
                 throw new PojoConversionException("Setter for the column `" + fieldName + "` is not accessible", e);
             }
         }
     }
 
-    private static @Nullable String getterName(Method method) {
-        String methodName = method.getName();
-        if ((method.getReturnType() == Boolean.class || method.getReturnType() == Boolean.TYPE)
-                && methodName.startsWith("is") && methodName.length() > 2 && Character.isUpperCase(methodName.charAt(2))) {
-            return decapitalize(methodName.substring(2));
+    private static Field getField(Class<?> clazz, String fieldName) {
+        try {
+            return clazz.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            throw new PojoConversionException("Field `" + fieldName + "` was not found", e);
         }
-        if (methodName.startsWith("get") && methodName.length() > 3 && Character.isUpperCase(methodName.charAt(3))) {
-            return decapitalize(methodName.substring(3));
-        }
-        return null;
     }
 
-    private static @Nullable String setterName(Method method) {
-        String methodName = method.getName();
-        if (methodName.startsWith("set") && methodName.length() > 3 && Character.isUpperCase(methodName.charAt(3))) {
-            return decapitalize(methodName.substring(3));
-        }
-        return null;
-    }
-
-    private static String decapitalize(String str) {
-        return str.substring(0, 1).toLowerCase() + str.substring(1);
-    }
-
-    @FunctionalInterface
-    private interface Getter {
-        @Nullable Object get() throws IllegalAccessException, InvocationTargetException;
-    }
-
-    @FunctionalInterface
-    private interface Setter {
-        void set(@Nullable Object t) throws IllegalAccessException, InvocationTargetException;
-    }
-
-    private static boolean isSupportedType(Class<?> fieldClass) {
-        return fieldClass.isPrimitive()
-                || Number.class.isAssignableFrom(fieldClass)
-                || fieldClass == Boolean.class
-                || fieldClass.isArray() && fieldClass.getComponentType() == Byte.TYPE
-                || fieldClass == String.class || fieldClass == BigDecimal.class || fieldClass == LocalDate.class
-                || fieldClass == LocalTime.class || fieldClass == LocalDateTime.class || fieldClass == Instant.class
-                || fieldClass == UUID.class || fieldClass == Period.class || fieldClass == Duration.class;
-    }
 }
