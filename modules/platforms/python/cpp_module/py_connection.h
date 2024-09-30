@@ -39,9 +39,6 @@ struct py_connection {
 
     /** Connection. */
     ignite::sql_connection *m_connection;
-
-    /** Auto-commit mode. */
-    bool m_autocommit;
 };
 
 /**

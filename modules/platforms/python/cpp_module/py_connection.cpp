@@ -25,6 +25,20 @@
 
 #include <Python.h>
 
+/**
+ * Check if the connection is open. Set error if not.
+ *
+ * @param self Connection.
+ * @return @c true if open and @c false otherwise.
+ */
+static bool py_connection_expect_open(py_connection* self) {
+    if (!self->m_connection) {
+        PyErr_SetString(py_get_module_interface_error_class(), "Connection is in invalid state (Already closed?)");
+        return false;
+    }
+    return true;
+}
+
 int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
 {
     UNUSED_VALUE args;
@@ -32,7 +46,6 @@ int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
 
     self->m_environment = nullptr;
     self->m_connection = nullptr;
-    self->m_autocommit = true;
 
     return 0;
 }
@@ -88,27 +101,35 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
 
 static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
 {
-    if (self->m_autocommit) {
-        Py_RETURN_TRUE;
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    SQLUINTEGER res = FALSE;
+    self->m_connection->get_attribute(SQL_ATTR_AUTOCOMMIT, &res, 0, nullptr);
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    if (!res) {
+        Py_RETURN_FALSE;
     }
 
-    Py_RETURN_FALSE;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* value)
 {
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
     if (!PyBool_Check(value)) {
         PyErr_SetString(py_get_module_interface_error_class(), "Autocommit attribute should be of a type bool");
         return nullptr;
     }
 
-    self->m_autocommit = Py_IsTrue(value);
-
-    if (!self->m_autocommit) {
-        // TODO: IGNITE-23218 Implement me
-        PyErr_SetString(py_get_module_not_supported_error_class(), "Transactions are not supported yet");
+    void* ptr_autocommit = (void*)(ptrdiff_t(Py_IsTrue(value) ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
+    self->m_connection->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+    if (!check_errors(*self->m_connection))
         return nullptr;
-    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -116,15 +137,28 @@ static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* val
 
 static PyObject* py_connection_commit(py_connection* self, PyObject*)
 {
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    self->m_connection->transaction_commit();
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
     Py_INCREF(Py_None);
     return Py_None;
 }
 
 static PyObject* py_connection_rollback(py_connection* self, PyObject*)
 {
-    // TODO: IGNITE-23218 Implement me
-    PyErr_SetString(py_get_module_not_supported_error_class(), "Transactions are not supported yet");
-    return nullptr;
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    self->m_connection->transaction_rollback();
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyTypeObject py_connection_type = {
