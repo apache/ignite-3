@@ -263,7 +263,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      * @see #stopCompact()
      */
-    // TODO: IGNITE-23281 Do not hold write lock for the entire operation
     void compact(long revision);
 
     /**

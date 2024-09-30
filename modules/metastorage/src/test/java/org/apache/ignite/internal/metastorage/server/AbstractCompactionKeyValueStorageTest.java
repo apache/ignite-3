@@ -22,8 +22,12 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,10 +37,16 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Compaction tests. */
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyValueStorageTest {
     private static final byte[] FOO_KEY = fromString("foo");
 
@@ -45,6 +55,9 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     private static final byte[] SOME_KEY = fromString("someKey");
 
     private static final byte[] SOME_VALUE = fromString("someValue");
+
+    @WorkDirectory
+    Path workDir;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -78,6 +91,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
+
+    abstract boolean isPersistent();
+
+    abstract void restartStorage(boolean clear) throws Exception;
 
     @Test
     void testCompactRevision1() {
@@ -141,6 +158,26 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision4();
         testCompactRevision5();
         testCompactRevision6();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testRevisionsAfterRestart(boolean clearStorage) throws Exception {
+        assumeTrue(isPersistent());
+
+        storage.compact(6);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage(clearStorage);
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(), collectRevisions(BAR_KEY));
+        assertEquals(List.of(), collectRevisions(SOME_KEY));
     }
 
     @Test

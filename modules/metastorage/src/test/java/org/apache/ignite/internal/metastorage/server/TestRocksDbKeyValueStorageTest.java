@@ -46,7 +46,7 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
     }
 
     @Test
-    void testRestoreAfterRestart() {
+    void testRestoreAfterRestart() throws Exception {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
 
