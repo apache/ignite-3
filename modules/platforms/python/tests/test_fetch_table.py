@@ -163,3 +163,12 @@ def test_insert_arguments_fetchone(table_name, cursor, drop_table_cleanup):
 
     end = cursor.fetchone()
     assert end is None
+
+
+def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
+    create_and_populate_test_table(cursor, TEST_ROWS_NUM, table_name)
+
+    cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+    for i, row in enumerate(cursor):
+        check_row(i, row)
