@@ -245,6 +245,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Tracks RocksDb resources that must be properly closed. */
     private List<AbstractNativeReference> rocksResources = new ArrayList<>();
 
+    /** Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled. */
+    private final WriteOptions defaultWriteOptions = new WriteOptions().setDisableWAL(true);
+
     /**
      * Constructor.
      *
@@ -382,14 +385,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {
-            closeRocksResources();
+            IgniteUtils.closeAll(this::closeRocksResources, defaultWriteOptions);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -508,24 +511,22 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
-        try (WriteOptions opts = createWriteOptions()) {
-            byte[] revisionBytes = longToBytes(newRev);
+        byte[] revisionBytes = longToBytes(newRev);
 
-            data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
-            data.put(batch, REVISION_KEY, revisionBytes);
+        data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
+        data.put(batch, REVISION_KEY, revisionBytes);
 
-            if (ts != null) {
-                byte[] tsBytes = hybridTsToArray(ts);
+        if (ts != null) {
+            byte[] tsBytes = hybridTsToArray(ts);
 
-                tsToRevision.put(batch, tsBytes, revisionBytes);
-                revisionToTs.put(batch, revisionBytes, tsBytes);
-            }
-
-            db.write(opts, batch);
-
-            rev = newRev;
-            updCntr = newCntr;
+            tsToRevision.put(batch, tsBytes, revisionBytes);
+            revisionToTs.put(batch, revisionBytes, tsBytes);
         }
+
+        db.write(defaultWriteOptions, batch);
+
+        rev = newRev;
+        updCntr = newCntr;
 
         updatedEntries.ts = ts;
 
@@ -987,17 +988,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             while (iterator.isValid()) {
                 rwLock.writeLock().lock();
 
-                try (
-                        WriteBatch batch = new WriteBatch();
-                        WriteOptions options = createWriteOptions()
-                ) {
+                try (WriteBatch batch = new WriteBatch()) {
                     assertCompactionRevisionLessThanCurrent(revision, rev);
 
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
                         compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
                     }
 
-                    db.write(options, batch);
+                    db.write(defaultWriteOptions, batch);
                 } finally {
                     rwLock.writeLock().unlock();
                 }
@@ -1604,10 +1602,5 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     e
             );
         }
-    }
-
-    private static WriteOptions createWriteOptions() {
-        // Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
-        return new WriteOptions().setDisableWAL(true);
     }
 }
