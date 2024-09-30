@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -45,6 +46,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -94,11 +97,28 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      */
     private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
-    /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
+    /**
+     * Revision. Will be incremented for each single-entry or multi-entry update operation.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long rev;
 
-    /** Update counter. Will be incremented for each update of any particular entry. */
+    /**
+     * Update counter. Will be incremented for each update of any particular entry.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long updCntr;
+
+    /**
+     * Last revision of a compact that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
+    private long compactionRevision = -1;
 
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
@@ -114,6 +134,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Guarded by {@link #mux}.
      */
     private @Nullable LongConsumer recoveryRevisionListener;
+
+    private final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureManager());
@@ -519,18 +541,28 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0;
 
-        synchronized (mux) {
-            assert revision < rev : String.format(
-                    "Compaction revision should be less than the current: [compaction=%s, current=%s]",
-                    revision, rev
-            );
+        for (Map.Entry<byte[], List<Long>> entry : keysIdx.entrySet()) {
+            synchronized (mux) {
+                assertCompactionRevisionLessThanCurrent(revision, rev);
 
-            keysIdx.forEach((key, revs) -> compactForKey(key, toLongArray(revs), revision));
+                if (stopCompaction.get()) {
+                    return;
+                }
+
+                compactForKey(entry.getKey(), toLongArray(entry.getValue()), revision);
+            }
         }
     }
 
     @Override
+    public void stopCompaction() {
+        stopCompaction.set(true);
+    }
+
+    @Override
     public void close() {
+        stopCompaction();
+
         watchProcessor.close();
     }
 
@@ -832,6 +864,29 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             }
 
             watchProcessor.advanceSafeTime(newSafeTime);
+        }
+    }
+
+    @Override
+    public void saveCompactionRevision(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        assert revision >= 0;
+
+        synchronized (mux) {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            compactionRevision = revision;
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        synchronized (mux) {
+            return compactionRevision;
         }
     }
 

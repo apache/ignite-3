@@ -86,8 +86,8 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual(4, res.Count);
 
-            Assert.IsNotEmpty(res[0].Id);
-            Assert.IsNotEmpty(res[1].Id);
+            Assert.AreNotEqual(Guid.Empty, res[0].Id);
+            Assert.AreNotEqual(Guid.Empty, res[1].Id);
 
             var addrs = res.Select(x => (IPEndPoint)x.Address).ToArray();
 
@@ -198,7 +198,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestUnknownNodeSubmitThrows()
         {
-            var unknownNode = JobTarget.Node(new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0)));
+            var unknownNode = JobTarget.Node(new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0)));
 
             var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () =>
                 await Client.Compute.SubmitAsync(unknownNode, EchoJob, "unused"));
@@ -210,7 +210,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestUnknownNodeSubmitBroadcastThrows()
         {
-            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+            var unknownNode = new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0));
 
             IDictionary<IClusterNode, Task<IJobExecution<object>>> taskMap =
                 Client.Compute.SubmitBroadcast(new[] { unknownNode }, EchoJob, "unused");
