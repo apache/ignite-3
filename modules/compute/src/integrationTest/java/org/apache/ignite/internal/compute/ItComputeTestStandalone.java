@@ -35,12 +35,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -49,7 +51,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for Compute functionality in standalone Ignite node.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 class ItComputeTestStandalone extends ItComputeBaseTest {
     private final DeploymentUnit unit = new DeploymentUnit("jobs", Version.parseVersion("1.0.0"));
 
@@ -118,6 +120,23 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 ClassNotFoundException.class,
                 "org.apache.ignite.internal.compute.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
         );
+    }
+
+    @Test
+    void executeJobWithoutUnit() throws IOException {
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
+
+        deployJar(entryNode, "unit", Version.parseVersion("1.0.0"), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
+
+        IgniteTestUtils.assertThrows(
+                ComputeException.class,
+                () -> entryNode.compute().execute(
+                        JobTarget.node(clusterNode(entryNode)),
+                        JobDescriptor.builder("org.apache.ignite.internal.compute.UnitJob").build(),
+                        null
+                ),
+                "Cannot load job class by name 'org.apache.ignite.internal.compute.UnitJob'."
+                        + " Deployment units list is empty.");
     }
 
     @Test
