@@ -208,7 +208,7 @@ class Cursor:
             return -1
         return self._py_cursor.rowcount()
 
-    def callproc(self, *args):
+    def callproc(self, *_args):
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
@@ -256,7 +256,7 @@ class Cursor:
                 null_ok=self._py_cursor.column_null_ok(column_id)
             ))
 
-    def executemany(self, *args):
+    def executemany(self, *_args):
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
@@ -329,7 +329,7 @@ class Cursor:
         # TODO: IGNITE-22743 Implement execution of SQL scripts
         raise NotSupportedError('Operation is not supported')
 
-    def setinputsizes(self, *args):
+    def setinputsizes(self, *_args):
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 

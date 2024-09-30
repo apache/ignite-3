@@ -136,13 +136,13 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
 
         case ignite_type::PERIOD:{
             // TODO: IGNITE-23217 DB API Driver 3: Add support for PERIOD data type
-            PyErr_SetString(PyExc_RuntimeError, "PERIOD data type is not supported");
+            PyErr_SetString(py_get_module_not_supported_error_class(), "PERIOD data type is not supported");
             return nullptr;
         }
 
         default: {
             auto err_msg = "The type is not supported: " + std::to_string(int(value.get_type()));
-            PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+            PyErr_SetString(py_get_module_not_supported_error_class(), err_msg.c_str());
             return nullptr;
         }
     }
