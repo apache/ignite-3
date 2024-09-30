@@ -17,19 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.cluster;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.app.IgniteServerImpl;
-import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -37,7 +27,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 /** Base test class for reset cluster commands. */
 @TestMethodOrder(OrderAnnotation.class)
-abstract class ItResetClusterTest extends CliIntegrationTest {
+abstract class ItResetClusterTest extends ItSystemDisasterRecoveryCliTest {
     @Override
     protected int initialNodes() {
         return 1;
@@ -57,23 +47,6 @@ abstract class ItResetClusterTest extends CliIntegrationTest {
         } finally {
             waitTillNodeRestartsInternally(0);
         }
-    }
-
-    private static void waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
-        // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
-
-        assertTrue(
-                waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
-                "Node did not attempt to be restarted (or shut down) in time"
-        );
-        assertThat(restartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
-
-        unwrapIgniteImpl(CLUSTER.server(nodeIndex).api());
-    }
-
-    @Nullable
-    private static CompletableFuture<Void> restartOrShutdownFuture(int nodeIndex) {
-        return ((IgniteServerImpl) CLUSTER.server(nodeIndex)).restartOrShutdownFuture();
     }
 
     @Test

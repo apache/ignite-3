@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -130,7 +131,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
      */
-    private final Map<String, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
+    private final Map<UUID, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.

@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.UUID;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -159,12 +160,12 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(82, len);
+            assertEquals(117, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
-            assertEquals("id", nodeId);
+            assertEquals(new UUID(0, 0).toString(), nodeId);
             assertEquals("consistent-id", nodeName);
         }
     }
@@ -291,7 +292,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
-            assertEquals("id", nodeId);
+            assertEquals(new UUID(0, 0).toString(), nodeId);
             assertEquals("consistent-id", nodeName);
             assertEquals("Test Server", clusterName);
         }

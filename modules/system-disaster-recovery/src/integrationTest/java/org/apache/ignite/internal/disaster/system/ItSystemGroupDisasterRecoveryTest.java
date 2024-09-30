@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.disaster.system;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -34,6 +35,8 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,12 +119,26 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
-    static void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
-        // TODO: IGNITE-22879 - initiate migration via CLI.
+    void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
+        NodeMetadata missingRepairMetadata = obtainNodeMetadata(nodeMissingRepair);
+        NodeMetadata repairedMetadata = obtainNodeMetadata(repairedNode);
 
-        ClusterState newClusterState = clusterState(repairedNode);
+        recoveryClient.initiateMigration(
+                missingRepairMetadata.restHost(),
+                missingRepairMetadata.httpPort(),
+                repairedMetadata.restHost(),
+                repairedMetadata.httpPort()
+        );
+    }
 
-        CompletableFuture<Void> migrationFuture = nodeMissingRepair.systemDisasterRecoveryManager().migrate(newClusterState);
-        assertThat(migrationFuture, willCompleteSuccessfully());
+    static NodeMetadata obtainNodeMetadata(IgniteImpl ignite) throws InterruptedException {
+        ClusterNode clusterNode = ignite.node();
+
+        assertTrue(
+                waitForCondition(() -> clusterNode.nodeMetadata() != null, SECONDS.toMillis(10)),
+                "Did not see " + ignite.name() + " to get metadata in time"
+        );
+
+        return requireNonNull(clusterNode.nodeMetadata());
     }
 }

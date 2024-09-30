@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
@@ -39,11 +40,11 @@ import org.junit.jupiter.api.Test;
  * Tests reactions to topology changes in accordance with distribution zones logic.
  */
 public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistributionZoneManagerTest {
-    private static final LogicalNode NODE_1 = new LogicalNode("1", "name1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "name1", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_2 = new LogicalNode("2", "name2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(randomUUID(), "name2", new NetworkAddress("localhost", 123));
 
-    private final UUID clusterId = UUID.randomUUID();
+    private final UUID clusterId = randomUUID();
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {

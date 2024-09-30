@@ -141,7 +141,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
         ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
-        String coordinatorId = coord.id();
+        UUID coordinatorId = coord.id();
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
 

@@ -140,7 +140,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         RowId rowId0 = new RowId(PARTITION_ID);
         long leaseStartTime = 1234567;
-        String primaryReplicaNodeId = UUID.randomUUID().toString();
+        UUID primaryReplicaNodeId = UUID.randomUUID();
         String primaryReplicaNodeName = primaryReplicaNodeId + "name";
 
         partitionStorage0.runConsistently(locker -> {

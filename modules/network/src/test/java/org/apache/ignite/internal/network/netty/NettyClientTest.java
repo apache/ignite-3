@@ -30,6 +30,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -259,7 +260,7 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
 
         /** Constructor. */
         private MockClientHandshakeManager(Channel channel) {
-            this.sender = new NettySender(channel, "", "", (short) 0, mock(RecoveryDescriptor.class));
+            this.sender = new NettySender(channel, new UUID(0, 0), "", (short) 0, mock(RecoveryDescriptor.class));
         }
 
         /** {@inheritDoc} */

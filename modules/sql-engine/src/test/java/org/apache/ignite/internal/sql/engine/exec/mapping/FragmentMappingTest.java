@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -444,7 +445,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> {
                     NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                    return new LogicalNode(name, name, addr);
+                    return new LogicalNode(randomUUID(), name, addr);
                 })
                 .collect(Collectors.toList());
 
