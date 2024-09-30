@@ -27,7 +27,7 @@ public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredT
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void addPartition(TablePartitionId tablePartitionId) {
+    public void addPartition(TablePartitionId tablePartitionId) {
         partitions.put(tablePartitionId, UNDEFINED_MIN_TIME);
     }
 
