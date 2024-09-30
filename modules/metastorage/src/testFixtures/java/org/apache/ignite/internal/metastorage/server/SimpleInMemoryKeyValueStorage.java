@@ -538,10 +538,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0;
 
-        synchronized (mux) {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
+        for (Map.Entry<byte[], List<Long>> entry : keysIdx.entrySet()) {
+            synchronized (mux) {
+                assertCompactionRevisionLessThanCurrent(revision, rev);
 
-            keysIdx.forEach((key, revs) -> compactForKey(key, toLongArray(revs), revision));
+                compactForKey(entry.getKey(), toLongArray(entry.getValue()), revision);
+            }
         }
     }
 

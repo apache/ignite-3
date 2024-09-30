@@ -264,7 +264,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long)
      */
-    // TODO: IGNITE-23281 Do not hold write lock for the entire operation
     void compact(long revision);
 
     /**

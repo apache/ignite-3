@@ -160,6 +160,26 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision6();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testRevisionsAfterRestart(boolean clearStorage) throws Exception {
+        assumeTrue(isPersistent());
+
+        storage.compact(6);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage(clearStorage);
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(List.of(5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(), collectRevisions(BAR_KEY));
+        assertEquals(List.of(), collectRevisions(SOME_KEY));
+    }
+
     @Test
     void testSetAndGetCompactionRevision() {
         assertEquals(-1, storage.getCompactionRevision());
