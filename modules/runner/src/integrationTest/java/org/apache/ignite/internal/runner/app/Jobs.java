@@ -39,7 +39,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-/** Jobs and marhallers definitions that are used in tests. */
+/** Jobs and marshallers definitions that are used in tests. */
 public class Jobs {
     /** Marshal string argument and adds ":marshalledOnClient" to it. */
     public static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
@@ -50,7 +50,7 @@ public class Jobs {
     }
 
     /**
-     * Job that unmarhsals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
+     * Job that unmarshals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
      * adds ":processedOnServer" to it.
      */
     public static class ArgMarshallingJob implements ComputeJob<String, String> {
@@ -169,8 +169,8 @@ public class Jobs {
         }
     }
 
-    /** Job that accepts and returns user-defined POJOs. */
-    public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
+    /** Job that accepts and returns user-defined POJOs with custom marshaller. */
+    public static class PojoJobWithCustomMarshallers implements ComputeJob<PojoArg, PojoResult> {
         @Override
         public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
             var numberFromStr = Integer.parseInt(arg.strValue);
@@ -188,7 +188,16 @@ public class Jobs {
         }
     }
 
-    /** POJO argument for {@link PojoJob}. */
+    /** Job that accepts and returns user-defined POJOs. */
+    public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
+        @Override
+        public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
+            var numberFromStr = Integer.parseInt(arg.strValue);
+            return completedFuture(new PojoResult().setLongValue(arg.intValue + numberFromStr));
+        }
+    }
+
+    /** POJO argument for {@link PojoJobWithCustomMarshallers} and {@link PojoJob}. */
     public static class PojoArg {
         String strValue;
         int intValue;
@@ -237,7 +246,7 @@ public class Jobs {
         }
     }
 
-    /** POJO result for {@link PojoJob}. */
+    /** POJO result for {@link PojoJobWithCustomMarshallers} and {@link PojoJob}. */
     public static class PojoResult {
         long longValue;
 

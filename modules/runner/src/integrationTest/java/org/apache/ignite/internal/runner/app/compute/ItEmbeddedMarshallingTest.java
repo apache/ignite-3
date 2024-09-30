@@ -20,8 +20,6 @@ package org.apache.ignite.internal.runner.app.compute;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -38,6 +36,7 @@ import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
+import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
 import org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest;
@@ -48,10 +47,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Test for embedded API marshallers for Compute API.
  */
-@SuppressWarnings("resource")
 public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     @Test
-    void embeddedExecOnAnotherNode() {
+    void pojoWithCustomMarshallersExecOnAnotherNode() {
         // Given entry node that are not supposed to execute job.
         var node = server(0);
         // And another target node.
@@ -61,7 +59,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class)
+                JobDescriptor.builder(PojoJobWithCustomMarshallers.class)
                         .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
                         .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
                         .build(),
@@ -73,7 +71,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void embeddedExecOnSame() {
+    void pojoWithCustomMarshallersExecOnSame() {
         // Given entry node.
         var node = server(0);
         // And target node.
@@ -83,10 +81,48 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class)
+                JobDescriptor.builder(PojoJobWithCustomMarshallers.class)
                         .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
                         .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
                         .build(),
+                new PojoArg().setIntValue(2).setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertEquals(3L, result.getLongValue());
+    }
+
+    @Test
+    void pojoExecOnAnotherNode() {
+        // Given entry node that are not supposed to execute job.
+        var node = server(0);
+        // And another target node.
+        var targetNode = node(1);
+
+        // When run job with custom marshaller for pojo argument and result but for embedded.
+        var embeddedCompute = node.compute();
+        PojoResult result = embeddedCompute.execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoJob.class).build(),
+                new PojoArg().setIntValue(2).setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertEquals(3L, result.getLongValue());
+    }
+
+    @Test
+    void pojoExecOnSame() {
+        // Given entry node.
+        var node = server(0);
+        // And target node.
+        var targetNode = node(0);
+
+        // When run job with custom marshaller for pojo argument and result but for embedded.
+        var embeddedCompute = node.compute();
+        PojoResult result = embeddedCompute.execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoJob.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
@@ -189,13 +225,4 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         );
     }
 
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
-    }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +30,6 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
-import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -65,7 +65,7 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object arg = unpackPayload(in);
+        Object arg = unpackJobArgumentWithoutMarshaller(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(
                 candidates, deploymentUnits, jobClassName, options,  arg
@@ -121,15 +121,5 @@ public class ClientComputeExecuteRequest {
         }
 
         return null;
-    }
-
-    /**
-     * Unpacks args.
-     *
-     * @param in Unpacker.
-     * @return Args array.
-     */
-    static @Nullable Object unpackPayload(ClientMessageUnpacker in) {
-        return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(in);
     }
 }

@@ -40,11 +40,9 @@ import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -63,7 +61,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -98,20 +95,14 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
+        return new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(), descriptor.resultClass());
+    }
+
+    private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
         if (target instanceof AnyNodeJobTarget) {
             AnyNodeJobTarget anyNodeJobTarget = (AnyNodeJobTarget) target;
 
-            return new ClientJobExecution<>(
-                    ch,
-                    executeOnAnyNodeAsync(
-                            anyNodeJobTarget.nodes(),
-                            descriptor.units(),
-                            descriptor.jobClassName(),
-                            descriptor.options(),
-                            descriptor.argumentMarshaller(),
-                            arg),
-                    descriptor.resultMarshaller()
-            );
+            return executeOnAnyNodeAsync(anyNodeJobTarget.nodes(), descriptor, arg);
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -119,33 +110,9 @@ public class ClientCompute implements IgniteCompute {
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
             if (mapper != null) {
-                return new ClientJobExecution<>(
-                        ch,
-                        doExecuteColocatedAsync(
-                                colocatedTarget.tableName(),
-                                colocatedTarget.key(),
-                                mapper,
-                                descriptor.units(),
-                                descriptor.jobClassName(),
-                                descriptor.options(),
-                                descriptor.argumentMarshaller(),
-                                arg
-                        ),
-                        descriptor.resultMarshaller());
+                return doExecuteColocatedAsync(colocatedTarget.tableName(), colocatedTarget.key(), mapper, descriptor, arg);
             } else {
-                return new ClientJobExecution<>(
-                        ch,
-                        doExecuteColocatedAsync(
-                                colocatedTarget.tableName(),
-                                (Tuple) colocatedTarget.key(),
-                                descriptor.units(),
-                                descriptor.jobClassName(),
-                                descriptor.options(),
-                                descriptor.argumentMarshaller(),
-                                arg
-                        ),
-                        descriptor.resultMarshaller()
-                );
+                return doExecuteColocatedAsync(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, arg);
             }
         }
 
@@ -157,54 +124,44 @@ public class ClientCompute implements IgniteCompute {
         return sync(executeAsync(target, descriptor, args));
     }
 
-    private <T> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
+    private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Marshaller<T, byte[]> marshaller,
-            T args
+            JobDescriptor<T, R> descriptor,
+            T arg
     ) {
         return getTable(tableName)
-                .thenCompose(table -> executeColocatedTupleKey(table, key, units, jobClassName, options, marshaller, args))
+                .thenCompose(table -> executeColocatedTupleKey(table, key, descriptor, arg))
                 .handle((res, err) -> handleMissingTable(
                         tableName,
                         res,
                         err,
-                        () -> doExecuteColocatedAsync(tableName, key, units, jobClassName, options, marshaller, args)
+                        () -> doExecuteColocatedAsync(tableName, key, descriptor, arg)
                 ))
                 .thenCompose(Function.identity());
     }
 
-    private <K, T> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
+    private <K, T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Marshaller<T, byte[]> marshaller,
-            T args
+            JobDescriptor<T, R> descriptor,
+            T arg
     ) {
         return getTable(tableName)
-                .thenCompose(table -> executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, options, marshaller, args))
+                .thenCompose(table -> executeColocatedObjectKey(table, key, keyMapper, descriptor, arg))
                 .handle((res, err) -> handleMissingTable(
                         tableName,
                         res,
                         err,
-                        () -> doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, marshaller, args)
+                        () -> doExecuteColocatedAsync(tableName, key, keyMapper, descriptor, arg)
                 ))
                 .thenCompose(Function.identity());
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            T args
-    ) {
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
@@ -213,9 +170,10 @@ public class ClientCompute implements IgniteCompute {
         for (ClusterNode node : nodes) {
             JobExecution<R> execution = new ClientJobExecution<>(
                     ch,
-                    executeOnAnyNodeAsync(Set.of(node), descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                            descriptor.argumentMarshaller(), args),
-                    descriptor.resultMarshaller());
+                    executeOnAnyNodeAsync(Set.of(node), descriptor, arg),
+                    descriptor.resultMarshaller(),
+                    descriptor.resultClass()
+            );
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
@@ -228,13 +186,10 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        return new ClientTaskExecution<>(
-                ch,
-                doExecuteMapReduceAsync(
-                        taskDescriptor.units(), taskDescriptor.taskClassName(), arg,
-                        taskDescriptor.splitJobArgumentMarshaller()
-                ),
-                taskDescriptor.reduceJobResultMarshaller()
+        return new ClientTaskExecution<>(ch,
+                doExecuteMapReduceAsync(taskDescriptor, arg),
+                taskDescriptor.reduceJobResultMarshaller(),
+                taskDescriptor.reduceJobResultClass()
         );
     }
 
@@ -243,15 +198,10 @@ public class ClientCompute implements IgniteCompute {
         return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
-    private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
-            List<DeploymentUnit> units,
-            String taskClassName,
-            @Nullable T arg,
-            @Nullable Marshaller<T, byte[]> argumentMarshaller
-    ) {
+    private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
-                w -> packTask(w.out(), units, taskClassName, arg, (Marshaller<Object, byte[]>) argumentMarshaller),
+                w -> packTask(w.out(), taskDescriptor, arg),
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,
@@ -259,21 +209,14 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private <T> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
-            T args
-    ) {
+    private <T, R> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
         ClusterNode node = randomNode(nodes);
 
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
                     packNodeNames(w.out(), nodes);
-                    packJob(w.out(), units, jobClassName, options, marshaller, args);
+                    packJob(w.out(), descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
@@ -297,54 +240,44 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K, T> CompletableFuture<SubmitResult> executeColocatedObjectKey(
+    private static <K, T, R> CompletableFuture<SubmitResult> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
-            T args) {
+            JobDescriptor<T, R> descriptor,
+            T arg
+    ) {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
-                units,
-                jobClassName,
-                options,
-                marshaller,
-                args);
+                descriptor,
+                arg
+        );
     }
 
-    private static <T> CompletableFuture<SubmitResult> executeColocatedTupleKey(
+    private static <T, R> CompletableFuture<SubmitResult> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
-            T args) {
+            JobDescriptor<T, R> descriptor,
+            T arg
+    ) {
         return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
-                units,
-                jobClassName,
-                options,
-                marshaller,
-                args);
+                descriptor,
+                arg
+        );
     }
 
-    private static <T> CompletableFuture<SubmitResult> executeColocatedInternal(
+    private static <T, R> CompletableFuture<SubmitResult> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
-            T args) {
+            JobDescriptor<T, R> descriptor,
+            T arg
+    ) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -355,7 +288,7 @@ public class ClientCompute implements IgniteCompute {
 
                     keyWriter.accept(outputChannel, schema);
 
-                    packJob(w, units, jobClassName, options, marshaller, args);
+                    packJob(w, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
@@ -418,29 +351,19 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T> void packJob(ClientMessagePacker w,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            @Nullable Marshaller<T, byte[]> marshaller,
-            T args
-    ) {
-        w.packDeploymentUnits(units);
+    private static <T, R> void packJob(ClientMessagePacker w, JobDescriptor<T, R> descriptor, T arg) {
+        w.packDeploymentUnits(descriptor.units());
 
-        w.packString(jobClassName);
-        w.packInt(options.priority());
-        w.packInt(options.maxRetries());
-        ClientComputeJobPacker.packJobArgument(args, marshaller, w);
+        w.packString(descriptor.jobClassName());
+        w.packInt(descriptor.options().priority());
+        w.packInt(descriptor.options().maxRetries());
+        ClientComputeJobPacker.packJobArgument(arg, descriptor.argumentMarshaller(), w);
     }
 
-    private static void packTask(ClientMessagePacker w,
-            List<DeploymentUnit> units,
-            String taskClassName,
-            @Nullable Object arg,
-            @Nullable Marshaller<Object, byte[]> marshaller) {
-        w.packDeploymentUnits(units);
-        w.packString(taskClassName);
-        ClientComputeJobPacker.packJobArgument(arg, marshaller, w);
+    private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        w.packDeploymentUnits(taskDescriptor.units());
+        w.packString(taskDescriptor.taskClassName());
+        ClientComputeJobPacker.packJobArgument(arg, taskDescriptor.splitJobArgumentMarshaller(), w);
     }
 
     /**
