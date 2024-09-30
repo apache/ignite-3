@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -55,11 +56,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param name    Unique name of a member in a cluster.
      * @param address Node address.
      */
-    public LogicalNode(
-            String id,
-            String name,
-            NetworkAddress address
-    ) {
+    public LogicalNode(UUID id, String name, NetworkAddress address) {
         super(id, name, address);
 
         this.userAttributes = Collections.emptyMap();

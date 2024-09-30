@@ -118,13 +118,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNodeImpl(
-            randomUUID().toString(),
+            randomUUID(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
     private final ClusterNode receiverNode = new ClusterNodeImpl(
-            randomUUID().toString(),
+            randomUUID(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );

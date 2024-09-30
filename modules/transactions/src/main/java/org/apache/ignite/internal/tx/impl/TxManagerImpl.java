@@ -186,7 +186,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
-    private volatile String localNodeId;
+    private volatile UUID localNodeId;
 
     /** Server cleanup processor. */
     private final TxCleanupRequestHandler txCleanupRequestHandler;

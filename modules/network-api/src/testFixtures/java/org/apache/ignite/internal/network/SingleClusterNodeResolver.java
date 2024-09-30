@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import java.util.UUID;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -41,7 +42,7 @@ public class SingleClusterNodeResolver implements ClusterNodeResolver {
     }
 
     @Override
-    public ClusterNode getById(String id) {
+    public ClusterNode getById(UUID id) {
         return clusterNode;
     }
 }

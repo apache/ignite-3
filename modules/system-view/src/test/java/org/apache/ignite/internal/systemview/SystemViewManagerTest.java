@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.systemview;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
@@ -352,7 +353,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < allNodes.size(); i++) {
             String name = allNodes.get(i);
 
-            ClusterNode clusterNode = new ClusterNodeImpl(name, name, new NetworkAddress("127.0.0.1", 1010 + i));
+            ClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
 
             Map<String, String> systemAttributes;
             if (owningNodesSet.get(i)) {

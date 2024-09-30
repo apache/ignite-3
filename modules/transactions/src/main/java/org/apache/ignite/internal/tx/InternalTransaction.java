@@ -96,7 +96,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    String coordinatorId();
+    UUID coordinatorId();
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.

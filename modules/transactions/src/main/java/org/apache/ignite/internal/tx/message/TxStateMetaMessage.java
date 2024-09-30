@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -27,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(TxMessageGroup.TX_STATE_META_MESSAGE)
 public interface TxStateMetaMessage extends TransactionMetaMessage {
     /** Transaction coordinator ID. */
-    @Nullable String txCoordinatorId();
+    @Nullable UUID txCoordinatorId();
 
     /** ID of the replication group that manages a transaction state. */
     @Nullable TablePartitionIdMessage commitPartitionId();

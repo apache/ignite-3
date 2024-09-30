@@ -75,7 +75,7 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
     @Nullable
     private Serializable lastCommandResult;
 
-    private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+    private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
 
     @BeforeEach
     public void setUp() {

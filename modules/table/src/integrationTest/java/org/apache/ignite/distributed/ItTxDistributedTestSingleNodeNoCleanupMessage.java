@@ -200,7 +200,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         mock(IndexMetaStorage.class)
                 ) {
                     @Override
-                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
                         if (request instanceof WriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 

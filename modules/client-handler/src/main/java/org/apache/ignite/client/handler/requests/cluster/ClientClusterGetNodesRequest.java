@@ -59,7 +59,7 @@ public class ClientClusterGetNodesRequest {
     public static void packClusterNode(ClusterNode clusterNode, ClientMessagePacker out) {
         out.packInt(4);
 
-        out.packString(clusterNode.id());
+        out.packString(clusterNode.id().toString());
         out.packString(clusterNode.name());
 
         NetworkAddress address = clusterNode.address();

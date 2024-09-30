@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -75,6 +76,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
     private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
+
+    /** Assistant for synchronizing page replacement and fsync phase. */
+    private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
 
     /**
      * Constructor.
@@ -336,5 +340,59 @@ class CheckpointProgressImpl implements CheckpointProgress {
      */
     public @Nullable CompletableFuture<Void> getUnblockPartitionDestructionFuture(GroupPartitionId groupPartitionId) {
         return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
+    }
+
+    /**
+     * Block the start of the fsync phase at a checkpoint before replacing the page.
+     *
+     * <p>It is expected that the method will be invoked once and after that the {@link #unblockFsyncOnPageReplacement} will be invoked on
+     * the same page.</p>
+     *
+     * <p>It is expected that the method will not be invoked after {@link #getUnblockFsyncOnPageReplacementFuture}, since by the start of
+     * the fsync phase, write dirty pages at the checkpoint should be complete and no new page replacements should be started.</p>
+     *
+     * @param pageId Page ID for which page replacement is expected to begin.
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #getUnblockFsyncOnPageReplacementFuture()
+     */
+    void blockFsyncOnPageReplacement(FullPageId pageId) {
+        checkpointPageReplacement.block(pageId);
+    }
+
+    /**
+     * Unblocks the start of the fsync phase at a checkpoint after the page replacement is completed.
+     *
+     * <p>It is expected that the method will be invoked once and after the {@link #blockFsyncOnPageReplacement} for same page ID.</p>
+     *
+     * <p>The fsync phase will only be started after page replacement has been completed for all pages for which
+     * {@link #blockFsyncOnPageReplacement} was invoked before {@link #getUnblockFsyncOnPageReplacementFuture} was invoked, or no page
+     * replacement occurred at all.</p>
+     *
+     * <p>If an error occurs on any page replacement during one checkpoint, the future from {@link #getUnblockFsyncOnPageReplacementFuture}
+     * will complete with the first error.</p>
+     *
+     * <p>The method must be invoked even if any error occurred, so as not to hang a checkpoint.</p>
+     *
+     * @param pageId Page ID for which the page replacement has ended.
+     * @param error Error on page replacement, {@code null} if missing.
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #getUnblockFsyncOnPageReplacementFuture()
+     */
+    void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+        checkpointPageReplacement.unblock(pageId, error);
+    }
+
+    /**
+     * Return future that will be completed successfully if all {@link #blockFsyncOnPageReplacement} are completed, either if there were
+     * none, or with an error from the first {@link #unblockFsyncOnPageReplacement}.
+     *
+     * <p>Must be invoked before the start of the fsync phase at the checkpoint and wait for the future to complete in order to safely
+     * perform the phase.</p>
+     *
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     */
+    CompletableFuture<Void> getUnblockFsyncOnPageReplacementFuture() {
+        return checkpointPageReplacement.stopBlocking();
     }
 }

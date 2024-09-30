@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -98,7 +99,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             }
 
             @Override
-            public String getLeaseholderId() {
+            public UUID getLeaseholderId() {
                 return primary.id();
             }
 

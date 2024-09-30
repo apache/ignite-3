@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -54,7 +55,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     private static final ClusterNode CLUSTER_NODE = new ClusterNodeImpl(
-            "test-node-id",
+            randomUUID(),
             "test-node",
             new NetworkAddress("localhost", 1234)
     );
@@ -101,7 +102,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {
             if (finishedTxs.contains(invocation.getArgument(0))) {
-                return new TxStateMeta(txState, "crd-id", TX_COMMIT_PART, null);
+                return new TxStateMeta(txState, randomUUID(), TX_COMMIT_PART, null);
             }
 
             return null;

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -68,7 +69,7 @@ public class ClusterServiceFactory {
     private ClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
-                key -> new ClusterNodeImpl(UUID.randomUUID().toString(), name, new NetworkAddress(name + "-host", 1000))
+                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
         );
     }
 
@@ -146,7 +147,7 @@ public class ClusterServiceFactory {
         }
 
         private static ClusterNode nodeFromName(String name) {
-            return new ClusterNodeImpl(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+            return new ClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
         }
 
         /** {@inheritDoc} */
@@ -174,7 +175,7 @@ public class ClusterServiceFactory {
         }
 
         @Override
-        public @Nullable ClusterNode getById(String id) {
+        public @Nullable ClusterNode getById(UUID id) {
             return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
         }
     }

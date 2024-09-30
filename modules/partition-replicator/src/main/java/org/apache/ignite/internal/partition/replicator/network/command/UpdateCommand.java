@@ -36,7 +36,7 @@ public interface UpdateCommand extends PartitionCommand {
 
     @Nullable TimedBinaryRowMessage messageRowToUpdate();
 
-    String txCoordinatorId();
+    UUID txCoordinatorId();
 
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
     @Nullable Long leaseStartTime();

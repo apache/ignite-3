@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.file;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.network.ClusterNode;
@@ -49,7 +50,7 @@ public class TestTopologyService extends AbstractTopologyService {
     }
 
     @Override
-    public @Nullable ClusterNode getById(String id) {
+    public @Nullable ClusterNode getById(UUID id) {
         throw new UnsupportedOperationException();
     }
 

@@ -19,9 +19,14 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
+import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
@@ -40,6 +45,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -52,6 +59,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -65,8 +73,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Lexicographical comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
-    /** Keys index. Value is the list of all revisions under which entry corresponding to the key was modified. */
-    private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
+    /**
+     * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
+     *
+     * <p>Concurrent map to avoid {@link java.util.ConcurrentModificationException} on compaction.</p>
+     *
+     * <p>Guarded by {@link #mux}.</p>
+     */
+    private final NavigableMap<byte[], List<Long>> keysIdx = new ConcurrentSkipListMap<>(CMP);
 
     /** Timestamp to revision mapping. */
     private final NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
@@ -74,14 +88,37 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Revision to timestamp mapping. */
     private final Map<Long, HybridTimestamp> revToTsMap = new HashMap<>();
 
-    /** Revisions index. Value contains all entries which were modified under particular revision. */
-    private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
+    /**
+     * Revisions index. Value contains all entries which were modified under particular revision.
+     *
+     * <p>Concurrent map to avoid {@link java.util.ConcurrentModificationException} on compaction.</p>
+     *
+     * <p>Guarded by {@link #mux}.</p>
+     */
+    private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
-    /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
+    /**
+     * Revision. Will be incremented for each single-entry or multi-entry update operation.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long rev;
 
-    /** Update counter. Will be incremented for each update of any particular entry. */
+    /**
+     * Update counter. Will be incremented for each update of any particular entry.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long updCntr;
+
+    /**
+     * Last revision of a compact that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
+    private long compactionRevision = -1;
 
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
@@ -97,6 +134,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Guarded by {@link #mux}.
      */
     private @Nullable LongConsumer recoveryRevisionListener;
+
+    private final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureManager());
@@ -499,28 +538,31 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(HybridTimestamp lowWatermark) {
-        synchronized (mux) {
-            NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
+    public void compact(long revision) {
+        assert revision >= 0;
 
-            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
+        for (Map.Entry<byte[], List<Long>> entry : keysIdx.entrySet()) {
+            synchronized (mux) {
+                assertCompactionRevisionLessThanCurrent(revision, rev);
 
-            long maxRevision = revisionByTimestamp(lowWatermark);
+                if (stopCompaction.get()) {
+                    return;
+                }
 
-            if (maxRevision == -1) {
-                return;
+                compactForKey(entry.getKey(), toLongArray(entry.getValue()), revision);
             }
-
-            keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxRevision));
-
-            keysIdx = compactedKeysIdx;
-
-            revsIdx = compactedRevsIdx;
         }
     }
 
     @Override
+    public void stopCompaction() {
+        stopCompaction.set(true);
+    }
+
+    @Override
     public void close() {
+        stopCompaction();
+
         watchProcessor.close();
     }
 
@@ -547,78 +589,42 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Compacts all entries by the given key, removing revision that are no longer needed.
-     * Last entry with a revision lesser or equal to the {@code minRevisionToKeep} and all consecutive entries will be preserved.
-     * If the first entry to keep is a tombstone, it will be removed.
+     * Compacts the key, see the documentation of {@link KeyValueStorage#compact} for examples.
      *
-     * @param key A key.
-     * @param revs All revisions of a key.
-     * @param compactedKeysIdx Out parameter, revisions that need to be kept must be put here.
-     * @param compactedRevsIdx Out parameter, values that need to be kept must be put here.
-     * @param minRevisionToKeep Minimum revision that should be kept.
+     * @param key Target key.
+     * @param revs Key revisions.
+     * @param compactionRevision Revision up to which (inclusively) the key will be compacted.
+     * @throws MetaStorageException If failed.
      */
-    private void compactForKey(
-            byte[] key,
-            List<Long> revs,
-            Map<byte[], List<Long>> compactedKeysIdx,
-            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx,
-            long minRevisionToKeep
-    ) {
-        List<Long> revsToKeep = new ArrayList<>();
+    private void compactForKey(byte[] key, long[] revs, long compactionRevision) {
+        int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
-        // Index of the first revision we will be keeping in the array of revisions.
-        int idxToKeepFrom = 0;
+        if (indexToCompact == NOTHING_TO_COMPACT_INDEX) {
+            return;
+        }
 
-        // Whether there is an entry with the minRevisionToKeep.
-        boolean hasMinRevision = false;
+        // Let's deal with the key revisions.
+        if (indexToCompact == revs.length - 1) {
+            keysIdx.remove(key);
+        } else {
+            List<Long> keyRevisions = keysIdx.get(key);
 
-        // Traverse revisions, looking for the first revision that needs to be kept.
-        for (long rev : revs) {
-            if (rev >= minRevisionToKeep) {
-                if (rev == minRevisionToKeep) {
-                    hasMinRevision = true;
-                }
-                break;
+            assert keyRevisions != null : toUtf8String(key);
+
+            keyRevisions.subList(0, indexToCompact + 1).clear();
+        }
+
+        // Let's deal with the key values.
+        for (int revisionIndex = 0; revisionIndex < indexToCompact; revisionIndex++) {
+            long revision = revs[revisionIndex];
+
+            NavigableMap<byte[], Value> valueByKey = revsIdx.get(revision);
+
+            valueByKey.remove(key);
+
+            if (valueByKey.isEmpty()) {
+                revsIdx.remove(revision);
             }
-
-            idxToKeepFrom++;
-        }
-
-        if (!hasMinRevision) {
-            // Minimal revision was not encountered, that mean that we are between revisions of a key, so previous revision
-            // must be preserved.
-            idxToKeepFrom--;
-        }
-
-        for (int i = idxToKeepFrom; i < revs.size(); i++) {
-            long rev = revs.get(i);
-
-            // If this revision is higher than max revision or is the last revision, we may need to keep it.
-            NavigableMap<byte[], Value> kv = revsIdx.get(rev);
-
-            Value value = kv.get(key);
-
-            if (i == idxToKeepFrom) {
-                // Check if a first entry to keep is a tombstone.
-                if (value.tombstone()) {
-                    // If this is a first revision we are keeping and it is a tombstone, then don't keep it.
-                    continue;
-                }
-            }
-
-            NavigableMap<byte[], Value> compactedKv = compactedRevsIdx.computeIfAbsent(
-                    rev,
-                    k -> new TreeMap<>(CMP)
-            );
-
-            // Keep the entry and the revision.
-            compactedKv.put(key, value);
-
-            revsToKeep.add(rev);
-        }
-
-        if (!revsToKeep.isEmpty()) {
-            compactedKeysIdx.put(key, revsToKeep);
         }
     }
 
@@ -660,7 +666,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
         assert revUpperBound >= revLowerBound
                 : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
-        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
 
         List<Long> revs = keysIdx.get(key);
 
@@ -860,5 +865,52 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             watchProcessor.advanceSafeTime(newSafeTime);
         }
+    }
+
+    @Override
+    public void saveCompactionRevision(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        assert revision >= 0;
+
+        synchronized (mux) {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            compactionRevision = revision;
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        synchronized (mux) {
+            return compactionRevision;
+        }
+    }
+
+    private static long[] toLongArray(List<Long> list) {
+        if (list.isEmpty()) {
+            return LONG_EMPTY_ARRAY;
+        }
+
+        var array = new long[list.size()];
+
+        for (int i = 0; i < array.length; i++) {
+            array[i] = list.get(i);
+        }
+
+        return array;
+    }
+
+    private boolean isTombstoneForCompaction(byte[] key, long revision) {
+        NavigableMap<byte[], Value> kv = revsIdx.get(revision);
+
+        Value value = kv.get(key);
+
+        assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        return value.tombstone();
     }
 }

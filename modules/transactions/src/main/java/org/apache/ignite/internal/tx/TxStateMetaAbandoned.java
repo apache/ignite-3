@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
+import java.util.UUID;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
@@ -43,7 +44,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * @param commitPartitionId Commit partition replication group ID.
      */
     public TxStateMetaAbandoned(
-            String txCoordinatorId,
+            UUID txCoordinatorId,
             TablePartitionId commitPartitionId
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null);
