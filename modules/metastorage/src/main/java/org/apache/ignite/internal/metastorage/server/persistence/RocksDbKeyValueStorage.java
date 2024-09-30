@@ -84,6 +84,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -151,6 +152,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             "SYSTEM_UPDATE_COUNTER_KEY".getBytes(UTF_8)
     );
 
+    /** Compaction revision key. */
+    private static final byte[] COMPACTION_REVISION_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
+    );
+
     /** Lexicographic order comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
@@ -200,16 +207,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
      *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     private long rev;
 
     /**
      * Update counter. Will be incremented for each update of any particular entry.
      *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     private long updCntr;
+
+    /**
+     * Last revision of a compact that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    private long compactionRevision = -1;
 
     /** Watch processor. */
     private final WatchProcessor watchProcessor;
@@ -362,6 +378,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         if (revision != null) {
             rev = ByteUtils.bytesToLong(revision);
         }
+
+        byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
+
+        if (compactionRevisionBytes != null) {
+            compactionRevision = ByteUtils.bytesToLong(compactionRevisionBytes);
+        }
     }
 
     /**
@@ -416,8 +438,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void restoreSnapshot(Path path) {
-        long currentRevision;
-
         rwLock.writeLock().lock();
 
         try {
@@ -430,11 +450,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             snapshotManager.restoreSnapshot(path);
 
-            currentRevision = bytesToLong(data.get(REVISION_KEY));
-
-            rev = currentRevision;
+            rev = bytesToLong(data.get(REVISION_KEY));
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
+
+            byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
+
+            if (compactionRevisionBytes != null) {
+                compactionRevision = bytesToLong(compactionRevisionBytes);
+            }
 
             notifyRevisionUpdate();
         } catch (Exception e) {
@@ -1592,6 +1616,52 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rwLock.writeLock().unlock();
         }
     }
+
+    @Override
+    public void saveCompactionRevision(long revision) {
+        assert revision >= 0;
+
+        rwLock.writeLock().lock();
+
+        try (WriteBatch batch = new WriteBatch()) {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
+
+            db.write(defaultWriteOptions, batch);
+        } catch (Throwable t) {
+            throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        assert revision >= 0;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            compactionRevision = revision;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        rwLock.readLock().lock();
+
+        try {
+            return compactionRevision;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
 
     private boolean isTombstone(byte[] key, long revision) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(revision, key);

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+        return new RocksDbKeyValueStorage("test", storageDir(), new NoOpFailureManager());
     }
 
     @Override

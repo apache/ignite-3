@@ -30,6 +30,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -259,9 +260,13 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Since the node may stop or crash, after restoring the node on its startup we need to run the compaction for the latest known
      * compaction revision.</p>
      *
+     * <p>Compaction revision is not updated or saved.</p>
+     *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      * @see #stopCompaction()
+     * @see #setCompactionRevision(long)
+     * @see #saveCompactionRevision(long)
      */
     void compact(long revision);
 
@@ -335,4 +340,41 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param newSafeTime New Safe Time value.
      */
     void advanceSafeTime(HybridTimestamp newSafeTime);
+
+    /**
+     * Saves the compaction revision to the storage meta.
+     *
+     * <p>Method only saves the new compaction revision to the meta of storage. After invoking this method the metastorage read methods
+     * will <b>not</b> immediately start throwing a {@link CompactedException} if they request a revision less than or equal to the new
+     * saved one.</p>
+     *
+     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot restoring} from a snapshot,
+     * compaction revision will be restored after which the metastorage read methods will throw exception {@link CompactedException}.</p>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Compaction revision to save.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
+     * @see #setCompactionRevision(long)
+     */
+    void saveCompactionRevision(long revision);
+
+    /**
+     * Sets the compaction revision, but does not save it, after invoking this method the metastorage read methods will throw a
+     * {@link CompactedException} if they request a revision less than or equal to the new one.
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Compaction revision.
+     * @see #saveCompactionRevision(long)
+     */
+    void setCompactionRevision(long revision);
+
+    /**
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     *
+     * @see #setCompactionRevision(long)
+     * @see #saveCompactionRevision(long)
+     */
+    long getCompactionRevision();
 }

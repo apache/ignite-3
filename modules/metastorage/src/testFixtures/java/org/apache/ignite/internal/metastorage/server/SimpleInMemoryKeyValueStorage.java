@@ -59,6 +59,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -96,11 +97,28 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      */
     private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
-    /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
+    /**
+     * Revision. Will be incremented for each single-entry or multi-entry update operation.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long rev;
 
-    /** Update counter. Will be incremented for each update of any particular entry. */
+    /**
+     * Update counter. Will be incremented for each update of any particular entry.
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
     private long updCntr;
+
+    /**
+     * Last revision of a compact that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
+    private long compactionRevision = -1;
 
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
@@ -846,6 +864,29 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             }
 
             watchProcessor.advanceSafeTime(newSafeTime);
+        }
+    }
+
+    @Override
+    public void saveCompactionRevision(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        assert revision >= 0;
+
+        synchronized (mux) {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            compactionRevision = revision;
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        synchronized (mux) {
+            return compactionRevision;
         }
     }
 
