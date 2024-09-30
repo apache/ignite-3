@@ -99,6 +99,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
+    /** Undefined value for {@link #minActiveTxBeginTime}. */
+    private static final long UNDEFINED_MIN_TX_TIME = 0L;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -133,7 +138,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final String localNodeId;
+    private final UUID localNodeId;
 
     private Set<String> currentGroupTopology;
 
@@ -151,7 +156,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             SchemaRegistry schemaRegistry,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
-            String localNodeId,
+            UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService
     ) {
         this.txManager = txManager;
@@ -769,7 +774,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new RowId(storageUpdateHandler.partitionId(), rowUuid);
     }
 
-    private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,

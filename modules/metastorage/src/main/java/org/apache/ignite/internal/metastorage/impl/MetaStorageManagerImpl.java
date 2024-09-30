@@ -958,23 +958,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Compacts Meta storage (removes all tombstone entries and old entries except of entries with latest revision).
-     *
-     * @see MetaStorageService#compact()
-     */
-    public CompletableFuture<Void> compact() {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(MetaStorageService::compact);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private void onSafeTimeAdvanced(HybridTimestamp time) {
         assert time != null;
 
@@ -1146,5 +1129,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         public String toString() {
             return S.toString(this);
         }
+    }
+
+    @Override
+    public void compactLocally(long revision) {
+        inBusyLock(busyLock, () -> storage.compact(revision));
     }
 }

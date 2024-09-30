@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.compute.utils.InteractiveJobs.Signal.RETURN_WORKER_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     private final ClusterNode nonExistingNode = new ClusterNodeImpl(
-            "non-existing-id", "non-existing-name", new NetworkAddress("non-existing-host", 1)
+            randomUUID(), "non-existing-name", new NetworkAddress("non-existing-host", 1)
     );
 
     @Test

@@ -266,7 +266,7 @@ public class ItTxTestCluster {
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
         @Override
-        public @Nullable ClusterNode getById(String id) {
+        public @Nullable ClusterNode getById(UUID id) {
             for (ClusterService service : cluster) {
                 ClusterNode clusterNode = service.topologyService().localMember();
 

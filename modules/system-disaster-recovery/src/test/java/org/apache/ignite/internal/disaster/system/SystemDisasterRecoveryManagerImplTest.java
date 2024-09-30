@@ -137,12 +137,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ComponentContext componentContext = new ComponentContext();
 
-    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID().toString(), thisNodeName, new NetworkAddress("host", 1001));
+    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
 
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID().toString(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID().toString(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID().toString(), "node4", new NetworkAddress("host", 1004));
-    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID().toString(), "node5", new NetworkAddress("host", 1005));
+    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
+    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();

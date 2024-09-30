@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -1124,7 +1125,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clockService);
 
-        var clusterNode = new ClusterNodeImpl(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+        var clusterNode = new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
 
         if (nodeName.equals(nodeNames.get(0))) {
             firstNode = clusterNode;
@@ -1142,7 +1143,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
-                .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
+                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
 
         mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
@@ -1210,7 +1211,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private SqlOperationContext.Builder operationContext(@Nullable PrefetchCallback prefetchCallback) {
         return SqlOperationContext.builder()
-                .queryId(UUID.randomUUID())
+                .queryId(randomUUID())
                 .cancel(new QueryCancel())
                 .prefetchCallback(prefetchCallback != null ? prefetchCallback : new PrefetchCallback())
                 .operationTime(new HybridClockImpl().now())

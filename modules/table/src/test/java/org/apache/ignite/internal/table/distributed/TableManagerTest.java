@@ -243,7 +243,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Test node. */
     private final ClusterNode node = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            UUID.randomUUID(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
     );
@@ -391,7 +391,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         int tableId = table.tableId();
         TableManager tableManager = tblManagerFut.join();
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
-        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.id())));
+        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
@@ -732,17 +732,16 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
-     * @throws Exception If something went wrong.
      */
     private TableViewInternal mockManagersAndCreateTableWithDelay(
             String tableName,
             CompletableFuture<TableManager> tblManagerFut,
             @Nullable Phaser phaser
-    ) throws Exception {
+    ) {
         String consistentId = "node0";
 
         when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 consistentId,
                 new NetworkAddress("localhost", 47500)
         ));

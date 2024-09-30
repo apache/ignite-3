@@ -249,14 +249,6 @@ public interface MetaStorageService extends ManuallyCloseable {
     Publisher<Entry> prefix(ByteArray prefix, long revUpperBound);
 
     /**
-     * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
-     *
-     * @return Completed future. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     */
-    CompletableFuture<Void> compact();
-
-    /**
      * Returns a future which will hold current revision of the metastorage leader.
      */
     CompletableFuture<Long> currentRevision();

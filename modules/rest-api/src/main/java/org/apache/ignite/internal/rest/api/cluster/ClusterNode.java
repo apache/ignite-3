@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.UUID;
 
 /**
  * REST representation of {@link org.apache.ignite.network.ClusterNode}.
@@ -29,7 +30,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class ClusterNode {
     /** Local id assigned to this node instance. Changes between restarts. */
     @Schema(description = "Node ID.")
-    private final String id;
+    private final UUID id;
 
     /** Unique name of member in the cluster. Consistent between restarts. */
     @Schema(description = "Unique cluster name.")
@@ -50,7 +51,7 @@ public class ClusterNode {
      */
     @JsonCreator
     public ClusterNode(
-            @JsonProperty("id") String id,
+            @JsonProperty("id") UUID id,
             @JsonProperty("name") String name,
             @JsonProperty("address") NetworkAddress address,
             @JsonProperty("metadata") NodeMetadata metadata) {
@@ -66,7 +67,7 @@ public class ClusterNode {
      * @return Node's local id.
      */
     @JsonGetter("id")
-    public String id() {
+    public UUID id() {
         return id;
     }
 

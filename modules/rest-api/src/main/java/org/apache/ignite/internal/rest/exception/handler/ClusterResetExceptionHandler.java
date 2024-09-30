@@ -23,7 +23,6 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
@@ -32,7 +31,7 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
  * Handles {@link ClusterResetException} and represents it as a rest response.
  */
 @Singleton
-@Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
+@Requires(classes = ExceptionHandler.class)
 public class ClusterResetExceptionHandler implements ExceptionHandler<ClusterResetException, HttpResponse<? extends Problem>> {
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterResetException exception) {

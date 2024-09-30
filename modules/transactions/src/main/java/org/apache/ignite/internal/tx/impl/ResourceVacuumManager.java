@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -144,11 +145,11 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private void vacuumOrphanTxResources() {
         try {
-            Set<String> remoteHosts = resourceRegistry.registeredRemoteHosts();
+            Set<UUID> remoteHosts = resourceRegistry.registeredRemoteHosts();
 
-            for (String remoteHostId : remoteHosts) {
+            for (UUID remoteHostId : remoteHosts) {
                 if (clusterNodeResolver.getById(remoteHostId) == null) {
-                    resourceRegistry.close(remoteHostId);
+                    resourceRegistry.closeByRemoteHostId(remoteHostId);
                 }
             }
         } catch (Throwable err) {

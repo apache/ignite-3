@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -1284,7 +1285,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 willCompleteSuccessfully()
         );
 
-        String leaseholderId = primaryFut.join().getLeaseholderId();
+        UUID leaseholderId = primaryFut.join().getLeaseholderId();
 
         if (!ignite1.id().equals(leaseholderId)) {
             transferPrimary(List.of(ignite, ignite1), groupId, ignite1.name());

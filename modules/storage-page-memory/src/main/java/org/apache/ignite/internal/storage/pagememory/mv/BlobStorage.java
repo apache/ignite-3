@@ -41,7 +41,8 @@ import org.jetbrains.annotations.Nullable;
  * (probably using a {@link org.apache.ignite.internal.pagememory.freelist.FreeList}) should be used.
  */
 public class BlobStorage extends DataStructure {
-    static final long NO_PAGE_ID = 0;
+    /** ID that means that no page was stored. */
+    public static final long NO_PAGE_ID = 0;
 
     private final IoStatisticsHolder statisticsHolder;
 

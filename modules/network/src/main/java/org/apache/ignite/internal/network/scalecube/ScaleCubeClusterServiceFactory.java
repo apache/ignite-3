@@ -193,7 +193,7 @@ public class ScaleCubeClusterServiceFactory {
 
                 Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
                 ClusterNode localNode = new ClusterNodeImpl(
-                        localMember.id(),
+                        UUID.fromString(localMember.id()),
                         consistentId,
                         new NetworkAddress(localMember.address().host(), localMember.address().port())
                 );

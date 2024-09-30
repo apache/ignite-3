@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -143,7 +144,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private volatile HybridTimestamp lowWatermark;
 
-    private volatile String localNodeId;
+    private volatile UUID localNodeId;
 
     private volatile boolean enabled;
 
@@ -577,7 +578,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, String localNodeId, ObjectIterator<Entry> tabTtr) {
+    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, UUID localNodeId, ObjectIterator<Entry> tabTtr) {
         if (!tabTtr.hasNext()) {
             return CompletableFutures.nullCompletedFuture();
         }

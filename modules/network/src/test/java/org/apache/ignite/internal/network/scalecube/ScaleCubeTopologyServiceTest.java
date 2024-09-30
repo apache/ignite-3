@@ -25,13 +25,14 @@ import static org.hamcrest.Matchers.nullValue;
 import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.net.Address;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ScaleCubeTopologyServiceTest {
     private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService();
 
-    private final Member member1 = new Member("id1", "first", Address.create("host", 1001), "default");
-    private final Member member2 = new Member("id2", "second", Address.create("host", 1002), "default");
+    private final Member member1 = new Member(new UUID(0, 1).toString(), "first", Address.create("host", 1001), "default");
+    private final Member member2 = new Member(new UUID(0, 2).toString(), "second", Address.create("host", 1002), "default");
 
     @Test
     void addedEventAddsNodeToTopology() {

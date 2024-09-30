@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
@@ -152,7 +153,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
     }
 
-    private static String filterForNodes(List<IgniteImpl> nodes, @Nullable String excludeId) {
+    private static String filterForNodes(List<IgniteImpl> nodes, @Nullable UUID excludeId) {
         StringBuilder attrs = new StringBuilder();
 
         for (int idx = 0; idx < nodes.size(); idx++) {
