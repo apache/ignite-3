@@ -24,9 +24,11 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,8 +91,8 @@ public class ClusterStateStorageManager {
         storage.remove(validatedNodeKey(node.id()));
     }
 
-    private static byte[] validatedNodeKey(String nodeId) {
-        byte[] nodeIdBytes = nodeId.getBytes(UTF_8);
+    private static byte[] validatedNodeKey(UUID nodeId) {
+        byte[] nodeIdBytes = ByteUtils.uuidToBytes(nodeId);
 
         return ByteBuffer.allocate(VALIDATED_NODE_PREFIX.length + nodeIdBytes.length)
                 .put(VALIDATED_NODE_PREFIX)

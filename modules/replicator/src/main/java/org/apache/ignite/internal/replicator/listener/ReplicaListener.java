@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.listener;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -31,7 +32,7 @@ public interface ReplicaListener {
      * @param senderId Sender id.
      * @return Listener response.
      */
-    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
+    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId);
 
     /** Returns Raft-client. */
     RaftCommandRunner raftClient();

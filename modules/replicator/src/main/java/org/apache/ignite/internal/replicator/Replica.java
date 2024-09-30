@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -53,7 +54,7 @@ public interface Replica {
      * @param senderId Sender id.
      * @return Response.
      */
-    CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId);
+    CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId);
 
     /**
      * Replica group identity, this id is the same as the considered partition's id.

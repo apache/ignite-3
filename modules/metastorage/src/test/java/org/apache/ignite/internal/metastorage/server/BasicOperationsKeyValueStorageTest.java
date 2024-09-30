@@ -2241,7 +2241,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 success,
                 failure,
                 MIN_VALUE,
-                new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+                new CommandIdGenerator(UUID::randomUUID).newId()
         );
     }
 
@@ -2249,7 +2249,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         return storage.invoke(
                 iif,
                 MIN_VALUE,
-                new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+                new CommandIdGenerator(UUID::randomUUID).newId()
         );
     }
 }

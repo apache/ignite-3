@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -32,7 +33,7 @@ public class DistributionZoneStorageProfilesFilterTest {
     @Test
     void testStorageProfilesScenario1() {
         List<String> nodeStorageProfiles = List.of("qwe", "asd", "zxc");
-        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
+        NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "qwe,asd";
 
@@ -42,7 +43,7 @@ public class DistributionZoneStorageProfilesFilterTest {
     @Test
     void testStorageProfilesScenario2() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
-        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
+        NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "qwe,asd";
 
@@ -52,7 +53,7 @@ public class DistributionZoneStorageProfilesFilterTest {
     @Test
     void testStorageProfilesScenario3() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
-        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
+        NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "zxc,asd";
 
@@ -62,7 +63,7 @@ public class DistributionZoneStorageProfilesFilterTest {
     @Test
     void testStorageProfilesScenario4() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
-        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
+        NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "zxc,   asd";
 

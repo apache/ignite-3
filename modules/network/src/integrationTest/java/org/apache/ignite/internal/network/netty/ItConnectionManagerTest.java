@@ -538,7 +538,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             manager.start();
             manager.setLocalNode(new ClusterNodeImpl(
-                    launchId.toString(),
+                    launchId,
                     consistentId,
                     new NetworkAddress(manager.localAddress().getHostName(), port)
             ));

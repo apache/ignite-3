@@ -53,6 +53,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageCompactionManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -102,7 +103,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, MetaStorageCompactionManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -958,23 +959,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Compacts Meta storage (removes all tombstone entries and old entries except of entries with latest revision).
-     *
-     * @see MetaStorageService#compact()
-     */
-    public CompletableFuture<Void> compact() {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(MetaStorageService::compact);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private void onSafeTimeAdvanced(HybridTimestamp time) {
         assert time != null;
 
@@ -1146,5 +1130,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         public String toString() {
             return S.toString(this);
         }
+    }
+
+    @Override
+    public void compactLocally(long revision) {
+        inBusyLock(busyLock, () -> storage.compact(revision));
     }
 }

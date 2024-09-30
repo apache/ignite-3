@@ -416,7 +416,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packLong(configuration.idleTimeout());
 
         ClusterNode localMember = clusterService.topologyService().localMember();
-        packer.packString(localMember.id());
+        packer.packString(localMember.id().toString());
         packer.packString(localMember.name());
 
         ClusterInfo clusterInfo = clusterInfoSupplier.get();

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
@@ -80,7 +81,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
     private static final String TARGET_CONSISTENT_ID = "target";
 
     private static final ClusterNode TARGET_NODE = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            randomUUID(),
             TARGET_CONSISTENT_ID,
             new NetworkAddress("target", 1234)
     );
@@ -135,7 +136,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void fileTransfersCanceledWhenSenderLeft() {
-        topologyService.fireDisappearedEvent(new ClusterNodeImpl("node1", "sender", new NetworkAddress("localhost", 1234)));
+        topologyService.fireDisappearedEvent(new ClusterNodeImpl(randomUUID(), "sender", new NetworkAddress("localhost", 1234)));
 
         verify(fileReceiver).cancelTransfersFromSender("sender");
     }
@@ -221,7 +222,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         List<Path> paths = List.of(path1);
 
         FileTransferInitMessage uploadRequest = messageFactory.fileTransferInitMessage()
-                .transferId(UUID.randomUUID())
+                .transferId(randomUUID())
                 .identifier(messageFactory.identifier().build())
                 .headers(FileHeader.fromPaths(messageFactory, paths))
                 .build();
@@ -297,7 +298,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         List<Path> paths = List.of(path1);
 
         FileTransferInitMessage fileTransferInitMessage = messageFactory.fileTransferInitMessage()
-                .transferId(UUID.randomUUID())
+                .transferId(randomUUID())
                 .identifier(messageFactory.identifier().build())
                 .headers(FileHeader.fromPaths(messageFactory, paths))
                 .build();

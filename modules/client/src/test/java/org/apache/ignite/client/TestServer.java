@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -302,11 +303,11 @@ public class TestServer implements AutoCloseable {
     }
 
     /**
-     * Gets the node name.
+     * Gets the node ID.
      *
-     * @return Node name.
+     * @return Node ID.
      */
-    public String nodeId() {
+    public UUID nodeId() {
         return getNodeId(nodeName);
     }
 
@@ -347,8 +348,8 @@ public class TestServer implements AutoCloseable {
         return new ClientClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
-    private static String getNodeId(String name) {
-        return name + "-id";
+    private static UUID getNodeId(String name) {
+        return deriveUuidFrom(name);
     }
 
     private static int getFreePort() {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Collections.emptyMap;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -91,7 +92,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster node. */
-    private final LogicalNode node = new LogicalNode("123", "test-node", NetworkAddress.from("127.0.0.1:10000"));
+    private final LogicalNode node = new LogicalNode(randomUUID(), "test-node", NetworkAddress.from("127.0.0.1:10000"));
     @Mock
     private ClusterService clusterService;
     @Mock
