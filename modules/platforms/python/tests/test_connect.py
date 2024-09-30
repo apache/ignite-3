@@ -25,6 +25,6 @@ def test_connection_success():
 
 
 def test_connection_fail():
-    with pytest.raises(RuntimeError) as err:
-        pyignite3.connect(address=server_addresses_invalid)
+    with pytest.raises(pyignite3.OperationalError) as err:
+        pyignite3.connect(address=server_addresses_invalid, timeout=1)
     assert err.match("Failed to establish connection with the host.")
