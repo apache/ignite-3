@@ -31,21 +31,50 @@ threadsafety = 1
 # Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
 
-NIL = None
+# Null constant
+NULL = None
+
+# Boolean type
 BOOLEAN = bool
+
+# Integer type
 INT = int
+
+# Floating point type
 FLOAT = float
+
+# String type
 STRING = str
+
+# Binary type
 BINARY = bytes
+
+# Big number (Decimal) type
 NUMBER = decimal.Decimal
+
+# Date type
 DATE = datetime.date
+
+# Time type
 TIME = datetime.time
+
+# Date-Time type
 DATETIME = datetime.datetime
+
+# Duration type
 DURATION = datetime.timedelta
+
+# UUID type
 UUID = uuid.UUID
+
+# This type object is used to describe the “Row ID” column in a database.
+ROWID = UUID
 
 
 class TIMESTAMP(float):
+    """
+    Timestamp data type.
+    """
     pass
 
 
@@ -112,7 +141,7 @@ def Binary(string: str):
 
 def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
-        return NIL
+        return NULL
     elif native == native_type_code.BOOLEAN:
         return BOOLEAN
     elif (native == native_type_code.INT8 or native == native_type_code.INT16
@@ -142,6 +171,9 @@ def _type_code_from_int(native: int):
 
 
 class ColumnDescription:
+    """
+    Represents a description of the single column of the result set.
+    """
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
