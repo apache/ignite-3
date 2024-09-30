@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_Q
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.tableDefinition;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.zoneDefinition;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
@@ -142,7 +144,19 @@ enum AsyncApiOperation {
             JobDescriptor.builder(NoOpJob.class).build(),
             null
     )),
-    COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null));
+    COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)),
+
+    CATALOG_CREATE_TABLE_BY_RECORD_CLASS(refs -> refs.catalog.createTableAsync(Pojo.class)),
+    CATALOG_CREATE_TABLE_BY_KEY_VALUE_CLASSES(refs -> refs.catalog.createTableAsync(PojoKey.class, PojoValue.class)),
+    CATALOG_CREATE_TABLE_BY_DEFINITION(refs -> refs.catalog.createTableAsync(tableDefinition())),
+
+    CATALOG_CREATE_ZONE(refs -> refs.catalog.createZoneAsync(zoneDefinition())),
+
+    CATALOG_DROP_TABLE_BY_NAME(refs -> refs.catalog.dropTableAsync(tableDefinition().tableName())),
+    CATALOG_DROP_TABLE_BY_DEFINITION(refs -> refs.catalog.dropTableAsync(tableDefinition())),
+
+    CATALOG_DROP_ZONE_BY_NAME(refs -> refs.catalog.dropZoneAsync(zoneDefinition().zoneName())),
+    CATALOG_DROP_ZONE_BY_DEFINITION(refs -> refs.catalog.dropZoneAsync(zoneDefinition()));
 
     private final Function<References, CompletableFuture<?>> action;
 
