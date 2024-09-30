@@ -282,6 +282,14 @@ class Cursor:
         """
         return self._conn
 
+    @property
+    def lastrowid(self):
+        """
+        This read-only attribute provides the rowid of the last modified row (most databases return a rowid only when a
+        single INSERT operation is performed). As Ignite does not support rowids, this attribute is always set to None.
+        """
+        return None
+
     def callproc(self, *_args):
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
