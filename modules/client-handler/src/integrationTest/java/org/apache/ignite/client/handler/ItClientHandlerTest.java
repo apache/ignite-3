@@ -140,7 +140,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertTrue(success);
 
             final var idleTimeout = unpacker.unpackLong();
-            final var nodeId = unpacker.unpackString();
+            unpacker.skipValue(); // Node id.
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(2); // Cluster ids.
             unpacker.skipValue(); // Cluster name.
@@ -160,12 +160,11 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(117, len);
+            assertEquals(97, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
-            assertEquals(new UUID(0, 0).toString(), nodeId);
             assertEquals("consistent-id", nodeName);
         }
     }
@@ -281,7 +280,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertTrue(success);
 
             var idleTimeout = unpacker.unpackLong();
-            var nodeId = unpacker.unpackString();
+            var nodeIdHeader = unpacker.unpackExtensionTypeHeader();
+            var nodeId = unpacker.readPayload(nodeIdHeader.getLength());
             var nodeName = unpacker.unpackString();
 
             unpacker.skipValue(2); // Cluster ids.
@@ -292,7 +292,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
-            assertEquals(new UUID(0, 0).toString(), nodeId);
+            assertEquals(16, nodeId.length);
             assertEquals("consistent-id", nodeName);
             assertEquals("Test Server", clusterName);
         }
