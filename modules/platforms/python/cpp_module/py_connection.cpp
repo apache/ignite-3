@@ -75,8 +75,7 @@ static PyObject* py_connection_close(py_connection* self, PyObject*)
         self->m_environment = nullptr;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_connection_cursor(py_connection* self, PyObject*)
@@ -95,8 +94,7 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
         return py_cursor_obj;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
@@ -131,8 +129,7 @@ static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* val
     if (!check_errors(*self->m_connection))
         return nullptr;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_connection_commit(py_connection* self, PyObject*)
@@ -144,8 +141,7 @@ static PyObject* py_connection_commit(py_connection* self, PyObject*)
     if (!check_errors(*self->m_connection))
         return nullptr;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_connection_rollback(py_connection* self, PyObject*)
@@ -157,8 +153,7 @@ static PyObject* py_connection_rollback(py_connection* self, PyObject*)
     if (!check_errors(*self->m_connection))
         return nullptr;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyTypeObject py_connection_type = {

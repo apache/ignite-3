@@ -38,8 +38,7 @@ static PyObject* primitive_to_pyobject(ignite::primitive value) {
     using ignite::ignite_type;
 
     if (value.is_null()) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     switch (value.get_type()) {
