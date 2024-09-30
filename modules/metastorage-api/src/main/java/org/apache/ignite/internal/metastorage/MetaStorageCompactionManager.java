@@ -49,11 +49,17 @@ public interface MetaStorageCompactionManager extends IgniteComponent {
      *
      * <p>Compaction revision is expected to be less than the current metastorage revision.</p>
      *
+     * <p>Since the node may stop or crash, after restoring the node on its startup we need to run the compaction for the latest known
+     * compaction revision.</p>
+     *
      * <p>Compaction revision is not updated or saved.</p>
      *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
+     * @see #setCompactionRevisionLocally(long)
+     * @see #saveCompactionRevisionLocally(long)
+     * @see #getCompactionRevisionLocally()
      */
     void compactLocally(long revision);
 
