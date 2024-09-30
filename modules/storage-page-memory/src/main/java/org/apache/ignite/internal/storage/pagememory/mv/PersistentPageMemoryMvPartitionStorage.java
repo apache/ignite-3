@@ -81,11 +81,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final ReadWriteLock primaryReplicaMetaReadWriteLock = new ReentrantReadWriteLock();
 
     /**
-     * Cached primary replica node id in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
-     */
-    private UUID primaryReplicaNodeId;
-
-    /**
      * Cached primary replica node name in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
      */
     private String primaryReplicaNodeName;
@@ -333,13 +328,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         return;
                     }
 
-                    if (meta.primaryReplicaNodeIdFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                        long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId.toString()));
+                    meta.primaryReplicaNodeId(lastCheckpointId, primaryReplicaNodeId);
 
-                        meta.primaryReplicaNodeIdFirstPageId(lastCheckpointId, primaryReplicaNodeIdFirstPageId);
-                    } else {
-                        blobStorage.updateBlob(meta.primaryReplicaNodeIdFirstPageId(), stringToBytes(primaryReplicaNodeId.toString()));
-                    }
                     if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
                         long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
 
@@ -350,7 +340,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                     meta.updateLease(lastCheckpointId, leaseStartTime);
 
-                    this.primaryReplicaNodeId = primaryReplicaNodeId;
                     this.primaryReplicaNodeName = primaryReplicaNodeName;
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
@@ -376,38 +365,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    // TODO: IGNITE-23197 - Store nodeID in directly meta and not in the blob storage.
     @Override
     public @Nullable UUID primaryReplicaNodeId() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
-            primaryReplicaMetaReadWriteLock.readLock().lock();
 
-            try {
-                if (primaryReplicaNodeId == null) {
-                    long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
-
-                    // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
-                    // for example, if the lease itself has not yet been elected.
-                    if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
-                        primaryReplicaNodeId = UUID.fromString(
-                                ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId))
-                        );
-                    }
-                }
-
-                return primaryReplicaNodeId;
-
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(
-                        "Failed to read primary replica node id: [tableId={}, partitionId={}]",
-                        e,
-                        tableStorage.getTableId(), partitionId
-                );
-            } finally {
-                primaryReplicaMetaReadWriteLock.readLock().unlock();
-            }
-
+            return meta.primaryReplicaNodeId();
         });
     }
 
