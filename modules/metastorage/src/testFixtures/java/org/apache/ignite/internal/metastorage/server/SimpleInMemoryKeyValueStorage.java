@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -539,7 +539,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revision >= 0;
 
         synchronized (mux) {
-            assertCompactionRevisionLessCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(revision, rev);
 
             keysIdx.forEach((key, revs) -> compactForKey(key, toLongArray(revs), revision));
         }
@@ -861,7 +861,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revision >= 0;
 
         synchronized (mux) {
-            assertCompactionRevisionLessCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(revision, rev);
 
             compactionRevision = revision;
         }

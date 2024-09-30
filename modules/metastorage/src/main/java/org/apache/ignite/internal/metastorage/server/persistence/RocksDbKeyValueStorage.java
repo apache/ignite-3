@@ -19,7 +19,7 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -1004,7 +1004,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            assertCompactionRevisionLessCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(revision, rev);
 
             try (RocksIterator iterator = index.newIterator()) {
                 iterator.seekToFirst();
@@ -1602,7 +1602,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 WriteBatch batch = new WriteBatch();
                 WriteOptions options = createWriteOptions()
         ) {
-            assertCompactionRevisionLessCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(revision, rev);
 
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
 
@@ -1621,7 +1621,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            assertCompactionRevisionLessCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(revision, rev);
 
             compactionRevision = revision;
         } finally {

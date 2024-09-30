@@ -257,7 +257,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
-     * <p>Compaction revision is not update or saved.</p>
+     * <p>Compaction revision is not updated or saved.</p>
      *
      * @param revision Revision up to which (including) the metastorage keys will be compacted.
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
@@ -334,9 +334,10 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Saves the compaction revision to the storage meta.
      *
      * <p>Method only saves the new compaction revision to the meta of storage. After invoking this method the metastorage read methods
-     * will <b>not</b> throw a {@link CompactedException} if they request a revision less than or equal to the new saved one.</p>
+     * will <b>not</b> immediately start throwing a {@link CompactedException} if they request a revision less than or equal to the new
+     * saved one.</p>
      *
-     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot restore} from a snapshot,
+     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot restoring} from a snapshot,
      * compaction revision will be restored after which the metastorage read methods will throw exception {@link CompactedException}.</p>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>

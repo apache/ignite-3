@@ -181,7 +181,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testSaveCompactionRevision() {
+    void testSaveCompactionRevisionDoesNotChangeRevisionInMemory() {
         assumeTrue(isPersistent());
 
         storage.saveCompactionRevision(0);
