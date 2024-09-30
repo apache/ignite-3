@@ -114,18 +114,26 @@ def test_fetch_mixed_table_many_rows(table_name, cursor, drop_table_cleanup):
     cursor.arraysize = 4
     cursor.execute(f"select id, data, fl from {table_name} order by id")
 
+    assert cursor.rownumber == 0
+
     rows0_3 = cursor.fetchmany()
     assert len(rows0_3) == 4
     for i in range(4):
         check_row(i, rows0_3[i])
 
+    assert cursor.rownumber == 4
+
     row4 = cursor.fetchone()
     check_row(4, row4)
+
+    assert cursor.rownumber == 5
 
     rows_remaining = cursor.fetchall()
     assert len(rows_remaining) == TEST_ROWS_NUM - 5
     for i in range(TEST_ROWS_NUM - 5):
         check_row(i + 5, rows_remaining[i])
+
+    assert cursor.rownumber is None
 
     end = cursor.fetchone()
     assert end is None
