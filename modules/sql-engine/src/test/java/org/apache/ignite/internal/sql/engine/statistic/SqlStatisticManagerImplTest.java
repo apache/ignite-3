@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,7 +29,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -58,7 +58,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
 
-        Assertions.assertEquals(1_000_000L, sqlStatisticManager.tableSize(tableId));
+        assertEquals(1_000_000L, sqlStatisticManager.tableSize(tableId));
     }
 
     @Test
@@ -70,7 +70,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
 
-        Assertions.assertEquals(1_000L, sqlStatisticManager.tableSize(tableId));
+        assertEquals(1_000L, sqlStatisticManager.tableSize(tableId));
     }
 
     @Test
@@ -83,10 +83,10 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
 
-        Assertions.assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
         // The second time we should obtain the same value from a cache.
-        Assertions.assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
-        Assertions.assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
         verify(tableManager, times(1)).cachedTable(tableId);
     }
 
@@ -103,15 +103,14 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
 
-        Assertions.assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
         // The second time we should obtain the same value from a cache.
-        Assertions.assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
 
         // Allow to refresh value.
         sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
         // Now we need obtain a fresh value of table size.
-        Assertions.assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
+        assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
         verify(tableManager, times(2)).cachedTable(tableId);
     }
-
 }
