@@ -65,8 +65,8 @@ public class KeyValueStorageUtils {
         return new String(bytes, UTF_8);
     }
 
-    /** Asserts that the compaction revision is less than the current repository revision. */
-    public static void assertCompactionRevisionLessCurrent(long compactionRevision, long revision) {
+    /** Asserts that the compaction revision is less than the current storage revision. */
+    public static void assertCompactionRevisionLessThanCurrent(long compactionRevision, long revision) {
         assert compactionRevision < revision : String.format(
                 "Compaction revision should be less than the current: [compaction=%s, current=%s]",
                 compactionRevision, revision

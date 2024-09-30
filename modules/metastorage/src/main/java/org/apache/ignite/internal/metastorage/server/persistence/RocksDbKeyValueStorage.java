@@ -19,7 +19,7 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -151,6 +152,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     /** Lexicographic order comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
+
+    /** Batch size (number of keys) for storage compaction. The value is arbitrary. */
+    private static final int COMPACT_BATCH_SIZE = 10;
 
     static {
         RocksDB.loadLibrary();
@@ -980,22 +984,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (RocksIterator iterator = index.newIterator()) {
             iterator.seekToFirst();
 
-            RocksUtils.forEach(iterator, (key, value) -> {
+            while (iterator.isValid()) {
                 rwLock.writeLock().lock();
 
                 try (
                         WriteBatch batch = new WriteBatch();
                         WriteOptions options = createWriteOptions()
                 ) {
-                    assertCompactionRevisionLessCurrent(revision, rev);
+                    assertCompactionRevisionLessThanCurrent(revision, rev);
 
-                    compactForKey(batch, key, getAsLongs(value), revision);
+                    for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
+                        compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
+                    }
 
                     db.write(options, batch);
                 } finally {
                     rwLock.writeLock().unlock();
                 }
-            });
+            }
+
+            checkIterator(iterator);
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1421,7 +1429,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
             }
 
-            RocksUtils.checkIterator(it);
+            checkIterator(it);
 
             // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
@@ -1455,7 +1463,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(tsBytes);
 
-            RocksUtils.checkIterator(rocksIterator);
+            checkIterator(rocksIterator);
 
             byte[] tsValue = rocksIterator.value();
 
