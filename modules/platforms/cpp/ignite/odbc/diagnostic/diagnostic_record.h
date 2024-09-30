@@ -102,7 +102,7 @@ public:
      *
      * @return Internal constant.
      */
-    [[nodiscard]] const sql_state get_sql_state_internal() const { return m_sql_state; }
+    [[nodiscard]] sql_state get_sql_state_internal() const { return m_sql_state; }
 
     /**
      * Get row number.
