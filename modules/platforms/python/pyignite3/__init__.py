@@ -198,10 +198,11 @@ class Cursor:
     """
     arraysize: int = 1
 
-    def __init__(self, py_cursor):
+    def __init__(self, py_cursor, conn):
         self._py_cursor = py_cursor
         self._description = None
         self._rownumber = None
+        self._conn = conn
 
     def __enter__(self):
         return self
@@ -251,6 +252,13 @@ class Cursor:
         the row indexed by .rownumber in that sequence.
         """
         return self._rownumber
+
+    @property
+    def connection(self):
+        """
+        This read-only attribute return a reference to the Connection object on which the cursor was created.
+        """
+        return self._conn
 
     def callproc(self, *_args):
         if self._py_cursor is None:
@@ -435,7 +443,7 @@ class Connection:
     def cursor(self) -> Cursor:
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
-        return Cursor(self._py_connection.cursor())
+        return Cursor(py_cursor=self._py_connection.cursor(), conn=self)
 
 
 def connect(address: [str], **kwargs) -> Connection:
