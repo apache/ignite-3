@@ -210,6 +210,28 @@ class Cursor:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def __iter__(self):
+        """
+        Return self to make cursors compatible to the iteration protocol
+        """
+        return self
+
+    def __next__(self) -> Sequence[Optional[Any]]:
+        """
+        Return the next row to make cursors compatible to the iteration protocol.
+        """
+        return self.next()
+
+    def next(self) -> Sequence[Optional[Any]]:
+        """
+        Return the next row from the currently executing SQL statement using the same semantics as .fetchone().
+        A StopIteration exception is raised when the result set is exhausted.
+        """
+        res = self.fetchone()
+        if res is None:
+            raise StopIteration
+        return res
+
     @property
     def description(self) -> Optional[List[ColumnDescription]]:
         """
