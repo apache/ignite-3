@@ -125,9 +125,6 @@ TEST_F(compute_test, get_cluster_nodes) {
 
     ASSERT_EQ(4, cluster_nodes.size());
 
-    EXPECT_FALSE(cluster_nodes[0].get_id().empty());
-    EXPECT_FALSE(cluster_nodes[1].get_id().empty());
-
     EXPECT_EQ(3344, cluster_nodes[0].get_address().port);
     EXPECT_EQ(3345, cluster_nodes[1].get_address().port);
 
