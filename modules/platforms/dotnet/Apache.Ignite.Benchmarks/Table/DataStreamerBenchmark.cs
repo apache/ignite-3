@@ -71,7 +71,9 @@ public class DataStreamerBenchmark
             .ToList();
 
         // 17 partitions per node.
-        var partitionAssignment = Enumerable.Range(0, 17).SelectMany(_ => _servers.Select(x => x.Node.Id)).ToArray();
+        var partitionAssignment = Enumerable.Range(0, 17)
+            .SelectMany(_ => _servers.Select(x => x.Node.Id.ToString()))
+            .ToArray();
 
         var cfg = new IgniteClientConfiguration();
         foreach (var server in _servers)
