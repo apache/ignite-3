@@ -22,6 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -29,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -37,6 +47,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 
 /** Base class for check execution results of numeric operations. */
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
@@ -61,6 +72,16 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    static DataProvider<Object[]> dataProvider(TypePair typePair) {
+        Object val1;
+        Object val2;
+
+        val1 = generateReducedValueByType(typePair.first());
+        val2 = generateReducedValueByType(typePair.second());
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
     static DataProvider<Object[]> eqDataProvider(TypePair typePair) {
         Object val1;
         Object val2;
@@ -76,8 +97,33 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    private static @Nullable Object generateReducedValueByType(NativeType nativeType) {
+        ColumnType type = nativeType.spec().asColumnType();
+
+        switch (type) {
+            case INT8:
+                return (byte) (((byte) SqlTestUtils.generateValueByType(type, 0, 0)) / 2);
+            case INT16:
+                return (short) (((short) SqlTestUtils.generateValueByType(type, 0, 0)) / 2);
+            case INT32:
+                return ((int) SqlTestUtils.generateValueByType(type, 0, 0)) / 2;
+            case INT64:
+                return (((long) SqlTestUtils.generateValueByType(type, 0, 0)) / 2);
+            case FLOAT:
+            case DOUBLE:
+                return SqlTestUtils.generateValueByType(type, 0, 0);
+            case DECIMAL:
+                int scale = ((DecimalNativeType) nativeType).scale();
+                int precision = ((DecimalNativeType) nativeType).precision();
+                return ((BigDecimal) SqlTestUtils.generateValueByType(type, precision, scale))
+                        .divide(BigDecimal.valueOf(2), RoundingMode.HALF_DOWN).setScale(scale, RoundingMode.HALF_DOWN);
+            default:
+                throw new IllegalArgumentException("unsupported type " + type);
+        }
+    }
+
     private static Object generateConstantValueByType(NativeType type) {
-        String numericBase = "9";
+        String numericBase = "7";
         ColumnType type0 = type.spec().asColumnType();
         switch (type0) {
             case INT8:
@@ -95,7 +141,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
             case DECIMAL:
                 int scale = ((DecimalNativeType) type).scale();
                 int precision = ((DecimalNativeType) type).precision();
-                assert precision >= scale : "unexpected precision\\scale";
+                assert precision >= scale : "unexpected precision/scale, precision=" + precision + ", scale=" + scale;
 
                 BigDecimal bd = new BigDecimal(numericBase);
                 return bd.setScale(scale, RoundingMode.UNNECESSARY);
