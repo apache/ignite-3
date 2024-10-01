@@ -445,6 +445,7 @@ void sql_connection::transaction_start() {
 
 sql_result sql_connection::enable_autocommit() {
     assert(!m_auto_commit);
+    LOG_MSG("m_transaction_id: " << (m_transaction_id.has_value() ? *m_transaction_id : -1));
 
     if (m_transaction_id) {
         sql_result res;
@@ -585,11 +586,15 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
             }
 
             auto autocommit_now = mode == SQL_AUTOCOMMIT_ON;
+            LOG_MSG("autocommit current: " << m_auto_commit << ", autocommit to set: " << autocommit_now);
 
-            if (autocommit_now && !m_auto_commit)
-                return enable_autocommit();
-            else
-                return disable_autocommit();
+            if (autocommit_now != m_auto_commit) {
+                if (autocommit_now)
+                    return enable_autocommit();
+                else
+                    return disable_autocommit();
+            }
+            return sql_result::AI_SUCCESS;
         }
 
         default: {

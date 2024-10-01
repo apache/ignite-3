@@ -65,6 +65,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         "timezone",
         "page_size",
         "timeout",
+        "autocommit",
         nullptr
     };
 
@@ -75,9 +76,10 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     const char *timezone = nullptr;
     int timeout = 0;
     int page_size = 0;
+    int autocommit = 1;
 
-    int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "O|$ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiip", kwlist,
+        &address, &identity, &secret, &schema, &timezone, &timeout, &page_size, &autocommit);
 
     if (!parsed)
         return nullptr;
@@ -152,6 +154,14 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     sql_conn->establish(cfg);
     if (!check_errors(*sql_conn))
         return nullptr;
+
+    if (!autocommit)
+    {
+        void* ptr_autocommit = (void*)(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
+        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
 
     return make_connection(std::move(sql_env), std::move(sql_conn));
 }

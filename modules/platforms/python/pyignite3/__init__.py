@@ -31,21 +31,50 @@ threadsafety = 1
 # Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
 
-NIL = None
+# Null constant
+NULL = None
+
+# Boolean type
 BOOLEAN = bool
+
+# Integer type
 INT = int
+
+# Floating point type
 FLOAT = float
+
+# String type
 STRING = str
+
+# Binary type
 BINARY = bytes
+
+# Big number (Decimal) type
 NUMBER = decimal.Decimal
+
+# Date type
 DATE = datetime.date
+
+# Time type
 TIME = datetime.time
+
+# Date-Time type
 DATETIME = datetime.datetime
+
+# Duration type
 DURATION = datetime.timedelta
+
+# UUID type
 UUID = uuid.UUID
+
+# This type object is used to describe the “Row ID” column in a database.
+ROWID = UUID
 
 
 class TIMESTAMP(float):
+    """
+    Timestamp data type.
+    """
     pass
 
 
@@ -112,7 +141,7 @@ def Binary(string: str):
 
 def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
-        return NIL
+        return NULL
     elif native == native_type_code.BOOLEAN:
         return BOOLEAN
     elif (native == native_type_code.INT8 or native == native_type_code.INT16
@@ -142,6 +171,10 @@ def _type_code_from_int(native: int):
 
 
 class ColumnDescription:
+    """
+    Represents a description of the single column of the result set.
+    """
+
     def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
                  precision: Optional[int], scale: Optional[int], null_ok: bool):
         self.name = name
@@ -165,15 +198,39 @@ class Cursor:
     """
     arraysize: int = 1
 
-    def __init__(self, py_cursor):
+    def __init__(self, py_cursor, conn):
         self._py_cursor = py_cursor
         self._description = None
+        self._rownumber = None
+        self._conn = conn
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def __iter__(self):
+        """
+        Return self to make cursors compatible to the iteration protocol
+        """
+        return self
+
+    def __next__(self) -> Sequence[Optional[Any]]:
+        """
+        Return the next row to make cursors compatible to the iteration protocol.
+        """
+        return self.next()
+
+    def next(self) -> Sequence[Optional[Any]]:
+        """
+        Return the next row from the currently executing SQL statement using the same semantics as .fetchone().
+        A StopIteration exception is raised when the result set is exhausted.
+        """
+        res = self.fetchone()
+        if res is None:
+            raise StopIteration
+        return res
 
     @property
     def description(self) -> Optional[List[ColumnDescription]]:
@@ -199,14 +256,39 @@ class Cursor:
     @property
     def rowcount(self) -> int:
         """
-        This read-only attribute specifies the number of rows that the last .execute*() produced
-        (for DQL statements like SELECT) or affected (for DML statements like UPDATE or INSERT).
+        This read-only attribute specifies the number of rows that the last .execute*() produced (for DQL statements
+        like SELECT) or affected (for DML statements like UPDATE or INSERT).
         The attribute is -1 in case no .execute*() has been performed on the cursor or the rowcount of the last
         operation is cannot be determined by the interface.
         """
         if self._py_cursor is None:
             return -1
         return self._py_cursor.rowcount()
+
+    @property
+    def rownumber(self) -> Optional[int]:
+        """
+        This read-only attribute provides the current 0-based index of the cursor in the result set or None if the index
+        cannot be determined.
+        The index can be seen as index of the cursor in a sequence (the result set). The next fetch operation will fetch
+        the row indexed by .rownumber in that sequence.
+        """
+        return self._rownumber
+
+    @property
+    def connection(self):
+        """
+        This read-only attribute return a reference to the Connection object on which the cursor was created.
+        """
+        return self._conn
+
+    @property
+    def lastrowid(self):
+        """
+        This read-only attribute provides the rowid of the last modified row (most databases return a rowid only when a
+        single INSERT operation is performed). As Ignite does not support rowids, this attribute is always set to None.
+        """
+        return None
 
     def callproc(self, *_args):
         if self._py_cursor is None:
@@ -222,6 +304,7 @@ class Cursor:
         if self._py_cursor is not None:
             self._py_cursor.close()
             self._py_cursor = None
+            self._rownumber = None
 
     def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
@@ -238,6 +321,7 @@ class Cursor:
 
         self._py_cursor.execute(query, params)
         self._update_description()
+        self._rownumber = 0
 
     def _update_description(self):
         """
@@ -272,7 +356,13 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        return self._py_cursor.fetchone()
+        res = self._py_cursor.fetchone()
+        if res is None:
+            self._rownumber = None
+        else:
+            self._rownumber += 1
+
+        return res
 
     def fetchmany(self, size: Optional[int] = None) -> Optional[Sequence[Sequence[Optional[Any]]]]:
         """
@@ -349,6 +439,7 @@ class Connection:
     """
 
     def __init__(self):
+        self._autocommit = True
         self._py_connection = None
 
     def __enter__(self):
@@ -360,6 +451,7 @@ class Connection:
     def close(self):
         """
         Close active connection.
+        Closing a connection without committing the changes first will cause an implicit rollback to be performed.
         Completes without errors on successfully closed connections.
         """
         if self._py_connection is not None:
@@ -367,23 +459,77 @@ class Connection:
             self._py_connection = None
 
     def commit(self):
+        """
+        Commit any pending transaction to the database.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22740 Implement transaction support
-        raise NotSupportedError('Transactions are not supported')
+        self._py_connection.commit()
 
     def rollback(self):
+        """
+        Roll back to the start of any pending transaction.
+        Closing a connection without committing the changes first will cause an implicit rollback to be performed.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22740 Implement transaction support
-        raise NotSupportedError('Transactions are not supported')
+        self._py_connection.rollback()
+
+    @property
+    def autocommit(self) -> bool:
+        """
+        Attribute to query and set the autocommit mode of the connection.
+        Return True if the connection is operating in autocommit (non-transactional) mode. Return False if
+        the connection is operating in manual commit (transactional) mode.
+
+        Setting the attribute to True or False adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        if self._py_connection is None:
+            return True
+        return self._py_connection.autocommit()
+
+    @autocommit.setter
+    def autocommit(self, value):
+        """
+        Attribute to query and set the autocommit mode of the connection.
+        Setting the attribute to True or False adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        self.setautocommit(value)
+
+    def setautocommit(self, value: bool):
+        """
+        Set the autocommit mode of the connection. Adjusts the connection’s mode accordingly.
+
+        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
+        and start a new transaction.
+
+        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
+        transactions are handled.
+        """
+        if self._py_connection is not None:
+            self._py_connection.set_autocommit(value)
 
     def cursor(self) -> Cursor:
+        """
+        Return a new Cursor Object using the connection.
+        """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
-        return Cursor(self._py_connection.cursor())
+        return Cursor(py_cursor=self._py_connection.cursor(), conn=self)
 
 
 def connect(address: [str], **kwargs) -> Connection:
@@ -410,46 +556,83 @@ def connect(address: [str], **kwargs) -> Connection:
         A maximum number of rows, which are received or sent in a single request. Default value: 1024.
     timeout: int, optional
         A timeout in seconds to use for any network operation. Default value: 30.
+    autocommit: bool, optional
+        The autocommit mode of the connection. Default value: True.
     """
     return _pyignite3_extension.connect(address=address, **kwargs)
 
 
 class Error(Exception):
+    """
+    Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
+    except statement. Warnings are not considered errors and thus should not use this class as base.
+    """
     pass
 
 
 # noinspection PyShadowingBuiltins
 class Warning(Exception):
+    """
+    Exception raised for important warnings like data truncations while inserting, etc.
+    """
     pass
 
 
 class InterfaceError(Error):
+    """
+    Exception raised for errors that are related to the database interface rather than the database itself.
+    """
     pass
 
 
 class DatabaseError(Error):
-    pass
-
-
-class InternalError(DatabaseError):
-    pass
-
-
-class OperationalError(DatabaseError):
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    pass
-
-
-class IntegrityError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database.
+    """
     pass
 
 
 class DataError(DatabaseError):
+    """
+    Exception raised for errors that are due to problems with the processed data like division by zero, numeric value
+    out of range, etc..
+    """
+    pass
+
+
+class InternalError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
+    pass
+
+
+class OperationalError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database’s operation and not necessarily under the control of
+    the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction could not be
+    processed, a memory allocation error occurred during processing, etc.
+    """
+    pass
+
+
+class ProgrammingError(DatabaseError):
+    """
+    Exception raised for programming errors, e.g. table not found or already exists, syntax error in the SQL statement,
+    wrong number of parameters specified, etc.
+    """
+    pass
+
+
+class IntegrityError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
     pass
 
 
 class NotSupportedError(DatabaseError):
+    """
+    Exception raised in case a method or database API was used which is not supported by the database.
+    """
     pass
