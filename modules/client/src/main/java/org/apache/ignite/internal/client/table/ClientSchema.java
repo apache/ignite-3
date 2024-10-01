@@ -220,7 +220,7 @@ public class ClientSchema {
         return map.get(name);
     }
 
-    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
