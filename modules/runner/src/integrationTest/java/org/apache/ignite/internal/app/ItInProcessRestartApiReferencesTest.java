@@ -47,7 +47,7 @@ class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest
     }
 
     @BeforeAll
-    void init() throws Exception {
+    static void init() throws Exception {
         server = (IgniteServerImpl) CLUSTER.server(0);
 
         server.api().sql().executeScript("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR)");
