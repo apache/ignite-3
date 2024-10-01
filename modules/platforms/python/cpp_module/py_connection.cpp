@@ -124,7 +124,7 @@ static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* val
         return nullptr;
     }
 
-    void* ptr_autocommit = (void*)(ptrdiff_t(Py_IsTrue(value) ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
+    void* ptr_autocommit = (void*)(ptrdiff_t((value == Py_True) ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
     self->m_connection->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
     if (!check_errors(*self->m_connection))
         return nullptr;
