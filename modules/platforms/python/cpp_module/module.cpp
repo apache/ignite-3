@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
 #include "utils.h"
@@ -89,13 +88,15 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         for (Py_ssize_t idx = 0; idx < size; ++idx) {
             auto item = PyList_GetItem(address, idx);
             if (!PyUnicode_Check(item)) {
-                PyErr_SetString(PyExc_RuntimeError, "Only list of string values is allowed in 'address' parameter");
+                PyErr_SetString(py_get_module_interface_error_class(),
+                    "Only list of string values is allowed in 'address' parameter");
+
                 return nullptr;
             }
 
             auto str_array = PyUnicode_AsUTF8String(item);
             if (!str_array) {
-                PyErr_SetString(PyExc_RuntimeError, "Can not convert address string to UTF-8");
+                PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
                 return nullptr;
             }
             // To be called when the scope is left.
