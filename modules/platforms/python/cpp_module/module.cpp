@@ -151,15 +151,17 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
             return nullptr;
     }
 
+    sql_conn->establish(cfg);
+    if (!check_errors(*sql_conn))
+        return nullptr;
+
     if (!autocommit)
     {
         void* ptr_autocommit = (void*)(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
         sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
     }
-
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
 
     return make_connection(std::move(sql_env), std::move(sql_conn));
 }

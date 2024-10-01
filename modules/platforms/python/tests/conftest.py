@@ -43,8 +43,9 @@ def cursor(connection):
 
 
 @pytest.fixture()
-def drop_table_cleanup(cursor, table_name):
+def drop_table_cleanup(connection, cursor, table_name):
     yield None
+    connection.setautocommit(True)
     cursor.execute(f'drop table if exists {table_name}')
 
 

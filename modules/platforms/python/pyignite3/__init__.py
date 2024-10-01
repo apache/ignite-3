@@ -465,7 +465,7 @@ class Connection:
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        raise self._py_connection.commit()
+        self._py_connection.commit()
 
     def rollback(self):
         """
@@ -475,7 +475,7 @@ class Connection:
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
 
-        raise self._py_connection.rollback()
+        self._py_connection.rollback()
 
     @property
     def autocommit(self) -> bool:

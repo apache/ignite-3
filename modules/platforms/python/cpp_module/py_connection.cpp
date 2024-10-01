@@ -165,7 +165,7 @@ static struct PyMethodDef py_connection_methods[] = {
     {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
     {"cursor", (PyCFunction)py_connection_cursor, METH_NOARGS, nullptr},
     {"autocommit", (PyCFunction)py_connection_autocommit, METH_NOARGS, nullptr},
-    {"set_autocommit", (PyCFunction)py_connection_autocommit, METH_O, nullptr},
+    {"set_autocommit", (PyCFunction)py_connection_set_autocommit, METH_O, nullptr},
     {"commit", (PyCFunction)py_connection_commit, METH_NOARGS, nullptr},
     {"rollback", (PyCFunction)py_connection_rollback, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
