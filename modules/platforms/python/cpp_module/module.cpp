@@ -76,7 +76,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     const char *timezone = nullptr;
     int timeout = 0;
     int page_size = 0;
-    int autocommit = TRUE;
+    int autocommit = 1;
 
     int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiip", kwlist,
         &address, &identity, &secret, &schema, &timezone, &timeout, &page_size, &autocommit);

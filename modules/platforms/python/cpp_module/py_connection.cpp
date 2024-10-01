@@ -102,7 +102,7 @@ static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
     if (!py_connection_expect_open(self))
         return nullptr;
 
-    SQLUINTEGER res = FALSE;
+    SQLUINTEGER res = 0;
     self->m_connection->get_attribute(SQL_ATTR_AUTOCOMMIT, &res, 0, nullptr);
     if (!check_errors(*self->m_connection))
         return nullptr;
