@@ -40,6 +40,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
+import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -152,12 +154,12 @@ public class ClientTable implements Table {
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         Objects.requireNonNull(recMapper);
 
-        return new ClientRecordView<>(this, sql, recMapper);
+        return new PublicApiClientRecordView<>(new ClientRecordView<>(this, sql, recMapper));
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new ClientRecordBinaryView(this, sql);
+        return new PublicApiClientRecordView<>(new ClientRecordBinaryView(this, sql));
     }
 
     /** {@inheritDoc} */
@@ -166,13 +168,13 @@ public class ClientTable implements Table {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(valMapper);
 
-        return new ClientKeyValueView<>(this, sql, keyMapper, valMapper);
+        return new PublicApiClientKeyValueView<>(new ClientKeyValueView<>(this, sql, keyMapper, valMapper));
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new ClientKeyValueBinaryView(this, sql);
+        return new PublicApiClientKeyValueView<>(new ClientKeyValueBinaryView(this, sql));
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {
