@@ -104,17 +104,18 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
                             cx.getTypeFactory().createSqlType(sqlTypeName),
                             SqlTypeUtil.containsNullable(rexCall.getType()));
 
-            RexNode e;
+            // Return type can be expanded here, thus calculations need to be made before casting.
+            RexNode e = rexBuilder.multiplyDivide(rexCall, multiplier, divider);
 
             // Since Calcite converts internal time representation to seconds during cast we need our own cast
             // method to keep fraction of seconds.
             if (unit == TimeUnit.MILLISECOND) {
-                e = makeCastMilliseconds(rexBuilder, intType, rexCall);
+                e = makeCastMilliseconds(rexBuilder, intType, e);
             } else {
-                e = rexBuilder.makeCast(intType, rexCall);
+                e = rexBuilder.makeCast(intType, e);
             }
 
-            return rexBuilder.multiplyDivide(e, multiplier, divider);
+            return e;
         }
 
         /**

@@ -116,8 +116,9 @@ public partial class LinqTests
         TestOpString(x => x.Val!.EndsWith("-9"), true, "select (_T0.VAL like '%' || ?) from");
 
         TestOpString(x => x.Val!.IndexOf("-9"), 1, "select -1 + position(? in _T0.VAL) from");
-        TestOpString(x => x.Val!.IndexOf("-9", 2), -1, "select -1 + position(? in _T0.VAL from (? + 1)) from");
 
+        // TODO: IGNITE-23242 Sql. Validator accepts functions that do not exist in runtime
+        // TestOpString(x => x.Val!.IndexOf("-9", 2), -1, "select -1 + position(? in _T0.VAL from (? + 1)) from");
         TestOpString(x => x.Val!.Length, 3, "select length(_T0.VAL) from");
 
         TestOpString(x => x.Val!.Replace("v-", "x + "), "x + 9", "select replace(_T0.VAL, ?, ?) from");

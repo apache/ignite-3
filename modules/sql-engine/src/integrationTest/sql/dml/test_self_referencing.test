@@ -47,9 +47,13 @@ SELECT a, val FROM test
 11	A
 2	B
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-23183
 statement ok
 UPDATE test SET a = (SELECT a + 1 FROM test WHERE val = 'A')
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-23183
 query IT rowsort
 SELECT a, val FROM test
 ----

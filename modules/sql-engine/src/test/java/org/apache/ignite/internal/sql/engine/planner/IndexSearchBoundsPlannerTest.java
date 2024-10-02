@@ -420,7 +420,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @Test
     public void testBoundsComplex() throws Exception {
         assertBounds("SELECT * FROM TEST WHERE C1 = ? + 10", List.of(1), publicSchema,
-                exact("+(?0, 10)")
+                exact("CAST(+(?0, 10)):INTEGER")
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,
@@ -434,7 +434,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         assertBounds("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1 + t1.C3 * ?) FROM TEST t1", List.of(1), publicSchema,
-                exact("+($cor0.C1, *($cor0.C3, ?0))")
+                exact("CAST(+($cor0.C1, *($cor0.C3, ?0))):INTEGER")
         );
 
         assertPlan("SELECT * FROM TEST WHERE C1 = ? + C3", publicSchema, isTableScan("TEST"), List.of(1));
@@ -449,7 +449,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 in (?, ? + 1, ? * 2)",
-                multi(exact("?0"), exact("+(?1, 1)"), exact("*(?2, 2)"))
+                multi(exact("CAST(?0):INTEGER"), exact("CAST(+(?1, 1)):INTEGER"), exact("CAST(*(?2, 2)):INTEGER"))
         );
 
         // Don't support expanding OR with correlate to bounds.

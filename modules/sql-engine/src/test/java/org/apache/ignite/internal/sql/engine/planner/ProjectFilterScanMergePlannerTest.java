@@ -213,7 +213,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                         .and(scan -> scan.projects() != null)
                         .and(scan -> "[+($t0, 1)]".equals(scan.projects().toString()))
                         .and(scan -> scan.condition() != null)
-                        .and(scan -> "=(+($t0, 1), $cor0.A)".equals(scan.condition().toString()))
+                        .and(scan -> "=(+($t0, 1), CAST($cor0.A):BIGINT)".equals(scan.condition().toString()))
                         .and(scan -> ImmutableBitSet.of(0).equals(scan.requiredColumns()))
                 ))), "ProjectFilterTransposeRule");
     }

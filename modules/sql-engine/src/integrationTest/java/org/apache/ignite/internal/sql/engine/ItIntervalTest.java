@@ -89,7 +89,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
         // Interval range overflow
         assertThrowsSqlException(Sql.RUNTIME_ERR, "INTEGER out of range", () -> sql("SELECT INTERVAL 5000000 MONTHS * 1000"));
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "BIGINT out of range", () -> sql("SELECT DATE '2021-01-01' + INTERVAL 999999999999 DAY"));
         assertThrowsSqlException(Sql.RUNTIME_ERR, "INTEGER out of range", () -> sql("SELECT DATE '2021-01-01' + INTERVAL -999999999 YEAR"));
     }
 

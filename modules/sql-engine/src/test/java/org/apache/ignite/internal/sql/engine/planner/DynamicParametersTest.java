@@ -60,7 +60,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 sql("SELECT 1 + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
-                sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
+                // types derivation depends on InferTypes.FIRST_KNOWN logic, thus for NULL will be derived INTEGER
+                sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BIGINT"),
 
                 sql("SELECT 1 + ?", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(1, CAST(?0):INTEGER)"),
                 sql("SELECT ? + 1", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(CAST(?0):INTEGER, 1)"),

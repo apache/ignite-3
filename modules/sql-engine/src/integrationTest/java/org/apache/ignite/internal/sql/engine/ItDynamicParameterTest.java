@@ -100,8 +100,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
         assertQuery("SELECT ? % ?").withParams(11, 10).returns(1).check();
-        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
-        assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
+        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4L, "test").check();
+        assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4L).check();
         assertQuery("SELECT (? + 1)::INTEGER").withParams(1).returns(2).check();
 
         createAndPopulateTable();
@@ -160,7 +160,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     /** Need to test the same query with different type of parameters to cover case with check right plans cache work. **/
     @Test
     public void testWithDifferentParametersTypes() {
-        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
+        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4L, "test").check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2.2, 2.2, "TeSt").returns(4.4, "test").check();
 
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();

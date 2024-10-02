@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.sql.type.SqlTypeUtil.isIntType;
+
 import java.math.BigDecimal;
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
@@ -80,6 +84,84 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
             default:
                 return super.getDefaultPrecision(typeName);
         }
+    }
+
+    /**
+     * Extend passed type to the nearest bigger.
+     * TINYINT -> SMALLINT
+     * SMALLINT -> INTEGER
+     * INTEGER -> BIGINT
+     * BIGINT -> DECIMAL
+     *
+     * @param typeFactory Type factory.
+     * @param type Type need to be extended.
+     * @param nullable Nullability flag.
+     * @return Extended type.
+     */
+    private static RelDataType extendType(RelDataTypeFactory typeFactory, RelDataType type, boolean nullable) {
+        switch (type.getSqlTypeName()) {
+            case TINYINT:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.SMALLINT),
+                        nullable);
+            case SMALLINT:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER),
+                        nullable);
+            case INTEGER:
+                return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
+                        nullable);
+            case BIGINT:
+                return typeFactory.createTypeWithNullability(
+                        typeFactory.createSqlType(
+                                SqlTypeName.DECIMAL,
+                                typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
+                                0
+                        ), nullable);
+            default:
+                throw new AssertionError("Unexpected type: " + type);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType deriveDecimalDivideType(RelDataTypeFactory typeFactory,
+            RelDataType type1, RelDataType type2) {
+        // the only case in enlarging such a type in Number#MIN_VALUE / -1 operation
+        if (isIntType(type1) && isIntType(type2)) {
+            boolean typesNullability = type1.isNullable() || type2.isNullable();
+
+            return extendType(typeFactory, type1, typesNullability);
+        }
+
+        return super.deriveDecimalDivideType(typeFactory, type1, type2);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType deriveDecimalMultiplyType(RelDataTypeFactory typeFactory,
+            RelDataType type1, RelDataType type2) {
+        if (isIntType(type1) && isIntType(type2)) {
+            boolean typesNullability = type1.isNullable() || type2.isNullable();
+
+            RelDataType derivedType = typeFactory.leastRestrictive(List.of(type1, type2));
+
+            return extendType(typeFactory, requireNonNull(derivedType), typesNullability);
+        }
+
+        return super.deriveDecimalMultiplyType(typeFactory, type1, type2);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType deriveDecimalPlusType(RelDataTypeFactory typeFactory,
+            RelDataType type1, RelDataType type2) {
+        // When the declared type of both operands of the addition, subtraction, multiplication, or
+        // division operator is exact numeric, the precision of the result is implementation-defined.
+        // SQL standard, Subclause 6.26, <numeric value expression>.
+        if (isIntType(type1) && isIntType(type2)) {
+            return deriveDecimalMultiplyType(typeFactory, type1, type2);
+        }
+
+        return super.deriveDecimalPlusType(typeFactory, type1, type2);
     }
 
     /** {@inheritDoc} */

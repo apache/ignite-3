@@ -107,7 +107,7 @@ public class ItSqlUsesKeyValueGetTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id, val * 10 FROM simple_key WHERE id = ?")
                 .matches(containsSubPlan("KeyValueGet"))
                 .withParams(key)
-                .returns(key, key * 10)
+                .returns(key, key * 10L)
                 .check();
     }
 
