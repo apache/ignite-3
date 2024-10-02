@@ -122,6 +122,24 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void whenNodeIsLocalAndIdIsChangedThenExecutesLocally() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
+
+        // Imitate node restart by changing the id.
+        ClusterNode newNode = new ClusterNodeImpl(randomUUID(), localNode.name(), localNode.address());
+
+        assertThat(
+                compute.executeAsync(
+                        JobTarget.node(newNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        "a"),
+                willBe("jobResponse")
+        );
+
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a");
+    }
+
+    @Test
     void whenNodeIsRemoteThenExecutesRemotely() {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
