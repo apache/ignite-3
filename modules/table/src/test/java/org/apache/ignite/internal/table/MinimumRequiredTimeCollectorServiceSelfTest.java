@@ -35,7 +35,7 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
         MinimumRequiredTimeCollectorServiceImpl collectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         // No partitions
-        assertEquals(Map.of(), collectorService.minTimestampPerPartition());
+        assertEquals(0, collectorService.minTimestampPerPartition().size());
 
         TablePartitionId p1 = new TablePartitionId(1, 2);
         TablePartitionId p2 = new TablePartitionId(3, 4);
@@ -44,36 +44,74 @@ public class MinimumRequiredTimeCollectorServiceSelfTest extends BaseIgniteAbstr
         collectorService.addPartition(p2);
 
         // Initially: empty
-        assertEquals(Map.of(p1, UNDEFINED_MIN_TIME, p2, UNDEFINED_MIN_TIME), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(UNDEFINED_MIN_TIME, rs.get(p1));
+            assertEquals(UNDEFINED_MIN_TIME, rs.get(p2));
+        }
 
         // Update p1
         collectorService.recordMinActiveTxTimestamp(p1, 1L);
-        assertEquals(Map.of(p1, 1L, p2, UNDEFINED_MIN_TIME), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(1L, rs.get(p1));
+            assertEquals(UNDEFINED_MIN_TIME, rs.get(p2));
+        }
 
         // Update p2
         collectorService.recordMinActiveTxTimestamp(p2, 2L);
-        assertEquals(Map.of(p1, 1L, p2, 2L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(1L, rs.get(p1));
+            assertEquals(2L, rs.get(p2));
+        }
 
         // Update both
         collectorService.recordMinActiveTxTimestamp(p1, 2);
         collectorService.recordMinActiveTxTimestamp(p2, 4);
-        assertEquals(Map.of(p1, 2L, p2, 4L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(2L, rs.get(p1));
+            assertEquals(4L, rs.get(p2));
+        }
 
         // Update p1 one more time
         collectorService.recordMinActiveTxTimestamp(p1, 3);
-        assertEquals(Map.of(p1, 3L, p2, 4L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(3L, rs.get(p1));
+            assertEquals(4L, rs.get(p2));
+        }
 
         // Ignore update, timestamps are always increasing.
         collectorService.recordMinActiveTxTimestamp(p1, 1L);
-        assertEquals(Map.of(p1, 3L, p2, 4L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(2, rs.size());
+            assertEquals(3L, rs.get(p1));
+            assertEquals(4L, rs.get(p2));
+        }
 
         // Remove p2
         collectorService.removePartition(p2);
-        assertEquals(Map.of(p1, 3L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(1, rs.size());
+            assertEquals(3L, rs.get(p1));
+        }
 
         // Ignore records from p2, because it was removed.
         collectorService.recordMinActiveTxTimestamp(p2, 1000L);
-        assertEquals(Map.of(p1, 3L), collectorService.minTimestampPerPartition());
+        {
+            Map<TablePartitionId, Long> rs = collectorService.minTimestampPerPartition();
+            assertEquals(1, rs.size());
+            assertEquals(3L, rs.get(p1));
+        }
 
         // Remove p1
         collectorService.removePartition(p1);
