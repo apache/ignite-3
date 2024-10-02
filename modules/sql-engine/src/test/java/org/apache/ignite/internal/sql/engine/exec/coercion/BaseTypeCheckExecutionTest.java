@@ -41,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Base class for check execution results of numeric operations. */
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
+    /** Generate different in string representation objects. */
     private static Pair<Object, Object> generateDifferentValues(TypePair typePair) {
         Object objFirst = SqlTestUtils.generateValueByType(typePair.first());
         assert objFirst != null;
@@ -54,6 +55,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return new Pair<>(objFirst, objSecond);
     }
 
+    /** Data provider for different objects. */
     static DataProvider<Object[]> nonEqDataProvider(TypePair typePair) {
         Pair<Object, Object> objPair = generateDifferentValues(typePair);
         Object val1 = objPair.getFirst();
@@ -62,6 +64,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Data provider with reduced objets, helpful to avoid overflow on arithmetic operations. */
     static DataProvider<Object[]> dataProviderReduced(TypePair typePair) {
         Object val1;
         Object val2;
@@ -72,6 +75,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Data provider for multiplication operations. */
     static DataProvider<Object[]> multDivDataProvider(TypePair typePair) {
         Object val1;
         Object val2;
@@ -82,6 +86,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Date provider for equal in terms of string representation objects. */
     static DataProvider<Object[]> eqDataProvider(TypePair typePair) {
         Object val1;
         Object val2;
@@ -97,6 +102,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Data provider with constant second object. */
     static DataProvider<Object[]> dataProviderStrict(TypePair typePair) {
         Object val1;
         Object val2;
@@ -107,6 +113,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Data provider without any restrictions, call directly {@link SqlTestUtils#generateValueByType}. */
     static DataProvider<Object[]> dataProvider(TypePair typePair) {
         Object val1 = SqlTestUtils.generateValueByType(typePair.first());
         Object val2 = SqlTestUtils.generateValueByType(typePair.second());
