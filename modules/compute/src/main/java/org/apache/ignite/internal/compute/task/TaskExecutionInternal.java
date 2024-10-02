@@ -26,7 +26,7 @@ import static org.apache.ignite.compute.TaskStatus.EXECUTING;
 import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
-import static org.apache.ignite.internal.compute.ComputeUtils.unmarshallOrNotIfNull;
+import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -114,7 +114,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                     reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
                     Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
-                    return task.splitAsync(context, unmarshallOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
+                    return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 

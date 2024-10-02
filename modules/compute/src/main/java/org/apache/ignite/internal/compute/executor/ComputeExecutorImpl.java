@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
-import static org.apache.ignite.internal.compute.ComputeUtils.unmarshallOrNotIfNull;
+import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
@@ -109,7 +109,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobExecutionContext context,
             @Nullable Marshaller<T, byte[]> inputMarshaller
     ) {
-        return () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
+        return () -> jobInstance.executeAsync(context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
     }
 
     @Override
