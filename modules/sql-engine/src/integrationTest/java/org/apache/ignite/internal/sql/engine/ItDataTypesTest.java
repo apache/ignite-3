@@ -78,6 +78,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     /** Tests correctness with unicode. */
     @Test
     public void testUnicodeStrings() {
+        List<List<Object>> res = sql("SELECT 127 % 70");
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
         String[] values = {"Кирилл", "Müller", "我是谁", "ASCII"};

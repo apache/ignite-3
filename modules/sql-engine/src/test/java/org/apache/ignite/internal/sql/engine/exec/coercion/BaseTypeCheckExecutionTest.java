@@ -22,15 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -38,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -72,12 +62,22 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
-    static DataProvider<Object[]> dataProvider(TypePair typePair) {
+    static DataProvider<Object[]> dataProviderReduced(TypePair typePair) {
         Object val1;
         Object val2;
 
         val1 = generateReducedValueByType(typePair.first());
         val2 = generateReducedValueByType(typePair.second());
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
+    static DataProvider<Object[]> multDivDataProvider(TypePair typePair) {
+        Object val1;
+        Object val2;
+
+        val1 = generateReducedValueByType(typePair.first());
+        val2 = generateConstantValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
@@ -93,6 +93,23 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
             val1 = generateConstantValueByType(typePair.first());
             val2 = generateConstantValueByType(typePair.second());
         }
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
+    static DataProvider<Object[]> dataProviderStrict(TypePair typePair) {
+        Object val1;
+        Object val2;
+
+        val1 = SqlTestUtils.generateValueByType(typePair.first());
+        val2 = generateConstantValueByType(typePair.second(), "1");
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
+    static DataProvider<Object[]> dataProvider(TypePair typePair) {
+        Object val1 = SqlTestUtils.generateValueByType(typePair.first());
+        Object val2 = SqlTestUtils.generateValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
@@ -122,8 +139,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Object generateConstantValueByType(NativeType type) {
-        String numericBase = "7";
+    private static Object generateConstantValueByType(NativeType type, String numericBase) {
         ColumnType type0 = type.spec().asColumnType();
         switch (type0) {
             case INT8:
@@ -148,6 +164,10 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
             default:
                 throw new AssertionError("Unexpected type: " + type0);
         }
+    }
+
+    private static Object generateConstantValueByType(NativeType type) {
+        return generateConstantValueByType(type, "2");
     }
 
     static ClusterWrapper testCluster(TypePair typePair, DataProvider<Object[]> dataProvider) {

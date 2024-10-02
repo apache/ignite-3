@@ -205,7 +205,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
     private static Matcher<Object> ofType(NativeType type) {
         return new BaseMatcher<>() {
-            Object actual;
+            Object result;
             NativeType referenceType;
             int precision = 0;
             int scale = 0;
@@ -215,39 +215,39 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             public boolean matches(Object actual) {
                 assert actual != null;
                 Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-                this.actual = pair.getFirst();
+                result = pair.getFirst();
                 colMeta = pair.getSecond();
 
-                NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromClass(this.actual.getClass());
+                NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromClass(result.getClass());
 
                 boolean checkPrecisionScale = false;
 
-                int typePrecision = 0;
-                int typeScale = 0;
+                int derivedTypePrecision = 0;
+                int derivedTypeScale = 0;
 
-                if (this.actual instanceof BigDecimal) {
+                if (result instanceof BigDecimal) {
                     assert type instanceof DecimalNativeType;
-                    typePrecision = ((DecimalNativeType) type).precision();
-                    typeScale = ((DecimalNativeType) type).scale();
+                    derivedTypePrecision = ((DecimalNativeType) type).precision();
+                    derivedTypeScale = ((DecimalNativeType) type).scale();
 
-                    precision = ((BigDecimal) this.actual).precision();
-                    scale = ((BigDecimal) this.actual).scale();
+                    precision = ((BigDecimal) result).precision();
+                    scale = ((BigDecimal) result).scale();
                     checkPrecisionScale = true;
                 }
 
                 referenceType = type;
 
-                boolean precCheck = checkPrecisionScale ? colMeta.precision() >= precision && colMeta.scale() >= scale : true;
+                boolean metaCheck = checkPrecisionScale ? colMeta.precision() >= precision && colMeta.scale() >= scale : true;
 
-                return precCheck && nativeTypeSpec == type.spec()
-                        && typePrecision == precision
-                        && typeScale == scale;
+                return metaCheck && nativeTypeSpec == type.spec()
+                        && derivedTypePrecision == precision
+                        && derivedTypeScale == scale;
             }
 
             @Override
             public void describeTo(Description description) {
                 description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}', column meta: {}",
-                        referenceType, actual.getClass(), precision, scale, colMeta));
+                        referenceType, result.getClass(), precision, scale, colMeta));
             }
         };
     }
