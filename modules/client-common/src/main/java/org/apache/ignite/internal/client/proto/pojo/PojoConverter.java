@@ -59,6 +59,7 @@ public class PojoConverter {
                 // Name needs to be quoted to keep the case
                 String columnName = "\"" + fieldName + "\"";
                 Field field = clazz.getDeclaredField(fieldName);
+                // TODO https://issues.apache.org/jira/browse/IGNITE-23261
                 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
                 VarHandle varHandle = lookup.unreflectVarHandle(field);
                 tuple.set(columnName, varHandle.get(obj));
@@ -90,6 +91,7 @@ public class PojoConverter {
             Field field = getField(clazz, fieldName);
             Object value = tuple.value(i);
             try {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-23261
                 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
                 VarHandle varHandle = lookup.unreflectVarHandle(field);
                 varHandle.set(obj, value);
