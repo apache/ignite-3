@@ -53,7 +53,6 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeNotStartedException;
 import org.apache.ignite.lang.NodeStartException;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -446,7 +445,7 @@ public class IgniteServerImpl implements IgniteServer {
         Throwable copy = copyExceptionWithCause(exception);
 
         if (copy == null) {
-            return new TransactionException(INTERNAL_ERR, "Cannot make a proper copy of " + exception.getCause().getClass(), exception);
+            return new IgniteException(INTERNAL_ERR, "Cannot make a proper copy of " + exception.getCause().getClass(), exception);
         }
 
         return copy;
