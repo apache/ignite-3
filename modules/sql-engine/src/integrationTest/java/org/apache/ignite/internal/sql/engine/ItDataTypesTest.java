@@ -99,11 +99,10 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     })
     public void divide(int p1, int s1, int p2, int s2) {
         IgniteTypeFactory tf = Commons.typeFactory();
-        IgniteTypeSystem ts = IgniteTypeSystem.INSTANCE;
 
         RelDataType t1 = tf.createSqlType(SqlTypeName.DECIMAL, p1, s1);
         RelDataType t2 = tf.createSqlType(SqlTypeName.DECIMAL, p2, s2);
-        RelDataType rt = ts.deriveDecimalDivideType(tf, t1, t2);
+        RelDataType rt = IgniteTypeSystem.INSTANCE.deriveDecimalDivideType(Commons.typeFactory(), t1, t2);
 
         long seed = System.nanoTime();
         log.info("Seed: {}", seed);
