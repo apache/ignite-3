@@ -176,6 +176,22 @@ public class ZoneDefinition {
         return new Builder(this);
     }
 
+    @Override
+    public String toString() {
+        return "ZoneDefinition{"
+                + "zoneName='" + zoneName + '\''
+                + ", ifNotExists=" + ifNotExists
+                + ", partitions=" + partitions
+                + ", replicas=" + replicas
+                + ", distributionAlgorithm='" + distributionAlgorithm + '\''
+                + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
+                + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
+                + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown
+                + ", filter='" + filter + '\''
+                + ", storageProfiles='" + storageProfiles + '\''
+                + '}';
+    }
+
     /**
      * Builder for the zone definition.
      */

@@ -209,7 +209,7 @@ public class TcpIgniteClient implements IgniteClient {
 
     @Override
     public IgniteCatalog catalog() {
-        return new IgniteCatalogSqlImpl(sql(), tables);
+        return new IgniteCatalogSqlImpl(sql, tables);
     }
 
     /** {@inheritDoc} */

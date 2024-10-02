@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsImpl.processColumns;
+import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanOrEqualToZero;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanZero;
 
 import java.util.ArrayList;
@@ -70,20 +71,19 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.distributionAlgorithm(def.distributionAlgorithm());
         }
 
-        if (isGreaterThanZero(def.dataNodesAutoAdjust())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjust())) {
             createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
         }
-        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleUp())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleUp())) {
             createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
         }
-        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleDown())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleDown())) {
             createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
         }
 
         if (!StringUtils.nullOrBlank(def.filter())) {
             createZone.filter(def.filter());
         }
-
         return this;
     }
 
