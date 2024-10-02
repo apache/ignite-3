@@ -62,7 +62,6 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -137,8 +136,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Last send operation timestamp. */
     private volatile long lastSendMillis;
-
-    private boolean useSyncOptimization = IgniteSystemProperties.getBoolean("IGNITE_USE_SYNC_OPTIMIZATION");
 
     /**
      * Constructor.
@@ -386,7 +383,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             });
 
-            if (useSyncOptimization && PublicApiThreading.executingSyncPublicApi()) {
+            if (PublicApiThreading.executingSyncPublicApi()) {
                 try {
                     ClientMessageUnpacker unpacker = fut.get();
 
