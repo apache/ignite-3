@@ -6,7 +6,7 @@ statement ok
 CREATE TABLE dates(d DATE, s VARCHAR);
 
 statement ok
-INSERT INTO dates VALUES ('1992-01-01', 'year'), ('1992-03-03', 'month'), ('1992-05-05', 'day');
+INSERT INTO dates VALUES (date '1992-01-01', 'year'), (date '1992-03-03', 'month'), (date '1992-05-05', 'day');
 
 
 #  last_day

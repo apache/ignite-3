@@ -148,6 +148,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
+
             case DEFAULT_COMPUTED: {
                 if (descriptor.virtual()) {
                     return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);

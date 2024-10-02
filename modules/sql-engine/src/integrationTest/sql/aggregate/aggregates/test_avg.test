@@ -39,9 +39,7 @@ SELECT AVG(1, 2, 3)
 statement error: Aggregate expressions cannot be nested
 SELECT AVG(AVG(1))
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-22447
-# Update error message the issue is fixed
-statement error: Character c is neither a decimal digit number, decimal point, nor "e" notation exponential mark
+statement error: Cannot apply 'AVG' to arguments of type 'AVG(<CHAR(5)>)'
 SELECT AVG('cbcde')
 
 statement error: Cannot apply 'AVG' to arguments of type 'AVG(<BINARY(1)>)'. Supported form(s): 'AVG(<NUMERIC>)
@@ -52,12 +50,8 @@ SELECT * FROM integers GROUP BY i HAVING AVG(i) = 1
 ----
 1
 
-# AVG function uses FamilyOperandTypeChecker that coerces its arguments if possible.
-# Here it transforms AVG('100') into AVG(CAST('100' AS DECIMAL(32767, 16383)))
-query I
+statement error: Cannot apply 'AVG' to arguments of type 'AVG(<CHAR(3)>)'
 SELECT AVG('100')
-----
-100
 
 statement error: Cannot apply 'AVG' to arguments of type 'AVG(<DATE>)'. Supported form(s): 'AVG(<NUMERIC>)'
 SELECT AVG('2011-01-01'::DATE)

@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 
 import java.util.stream.Stream;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -87,19 +85,6 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT test_key FROM t WHERE id=1")
                 .returns(max)
                 .check();
-    }
-
-    /**
-     * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
-     */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testDisallowMismatchTypesOnInsertDynamicParam2(TestTypeArguments<T> arguments) {
-        Object value1 = arguments.argValue(0);
-
-        var query = "INSERT INTO t (id, test_key) VALUES (1, 'str'), (2, ?)";
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
-                () -> runSql(query, value1));
     }
 
     private Stream<TestTypeArguments<T>> dml() {

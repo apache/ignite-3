@@ -566,7 +566,6 @@ public class TypeUtils {
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */
     public static boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType toType, RelDataType fromType) {
-
         // Same types are always compatible.
         if (SqlTypeUtil.equalSansNullability(typeFactory, toType, fromType)) {
             return true;
@@ -575,7 +574,26 @@ public class TypeUtils {
         // NULL is compatible with all types.
         if (fromType.getSqlTypeName() == SqlTypeName.NULL || toType.getSqlTypeName() == SqlTypeName.NULL) {
             return true;
-        } else if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
+        }
+
+        if (toType.isStruct() && fromType.isStruct()) {
+            if (toType.getFieldCount() != fromType.getFieldCount()) {
+                return false;
+            }
+
+            for (int i = 0; i < toType.getFieldCount(); i++) {
+                RelDataType type1 = toType.getFieldList().get(i).getType();
+                RelDataType type2 = fromType.getFieldList().get(i).getType();
+
+                if (!typeFamiliesAreCompatible(typeFactory, type1, type2)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
             IgniteCustomType fromCustom = (IgniteCustomType) fromType;
             IgniteCustomType toCustom = (IgniteCustomType) toType;
 
@@ -589,6 +607,41 @@ public class TypeUtils {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Checks that given types have compatible type families taking into account custom data types. Types {@code T1}
+     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     *
+     * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public static boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType... types) {
+        return typeFamiliesAreCompatible(typeFactory, List.of(types));
+    }
+
+    /**
+     * Checks that given types have compatible type families taking into account custom data types. Types {@code T1}
+     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     *
+     * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public static boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, List<RelDataType> types) {
+        if (types.size() < 2) {
+            return true;
+        }
+
+        RelDataType firstType = null;
+        for (RelDataType type : types) {
+            if (firstType == null) {
+                firstType = type;
+            } else if (!typeFamiliesAreCompatible(typeFactory, firstType, type)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Creates an instance of {@link RowSchema} from a list of the given {@link RelDataType}s. */

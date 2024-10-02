@@ -103,6 +103,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
         assertQuery("SELECT (? + 1)::INTEGER").withParams(1).returns(2).check();
+        assertQuery("SELECT ?::VARCHAR = '8'").withParams(8).returns(true).check();
 
         createAndPopulateTable();
         assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go").returns(true).returns(false)
@@ -170,8 +171,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
-
-        assertQuery("SELECT ?::INTEGER = '8'").withParams(8).returns(true).check();
     }
 
     /**
