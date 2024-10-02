@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.IgniteClient;
@@ -293,7 +292,7 @@ public class TcpIgniteClient implements IgniteClient {
         assert fieldCnt == 4;
 
         return new ClientClusterNode(
-                UUID.fromString(in.unpackString()),
+                in.unpackUuid(),
                 in.unpackString(),
                 new NetworkAddress(in.unpackString(), in.unpackInt()));
     }

@@ -658,7 +658,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
-            UUID clusterNodeId = UUID.fromString(unpacker.unpackString());
+            UUID clusterNodeId = unpacker.unpackUuid();
             var clusterNodeName = unpacker.unpackString();
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));

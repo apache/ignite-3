@@ -434,7 +434,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndRemove(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return sync(doGetAndRemove(tx, key, "getNullableAndRemove"));
     }
@@ -442,7 +442,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return doGetAndRemove(tx, key, "getNullableAndRemoveAsync");
     }
@@ -559,7 +559,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
-        validateNullableOperation(valueMapper.targetType(), "getNullableAndReplaceAsync");
+        validateNullableOperation(valueMapper.targetType(), "getNullableAndReplace");
 
         return sync(doGetNullableAndReplace(tx, key, val));
     }

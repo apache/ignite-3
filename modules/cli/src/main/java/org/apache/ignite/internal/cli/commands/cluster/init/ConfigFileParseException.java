@@ -15,29 +15,11 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
-{
-    using System;
-    using System.Net;
+package org.apache.ignite.internal.cli.commands.cluster.init;
 
-    /// <summary>
-    /// Ignite cluster node.
-    /// </summary>
-    public interface IClusterNode
-    {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        Guid Id { get; }
-
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
-
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        EndPoint Address { get; }
+/** Exception thrown when config file parse failed. */
+public class ConfigFileParseException extends RuntimeException {
+    public ConfigFileParseException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

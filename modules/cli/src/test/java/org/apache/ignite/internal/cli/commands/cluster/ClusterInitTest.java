@@ -31,15 +31,20 @@ import com.typesafe.config.ConfigRenderOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockserver.model.MediaType;
 
 /** Tests "cluster init" command. */
 @DisplayName("cluster init")
+@ExtendWith(WorkDirectoryExtension.class)
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
     private static final Pattern PATTERN = Pattern.compile("\"");
 
@@ -71,7 +76,26 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--config-files", "wrong-path"
         );
 
-        assertErrOutputIs("Couldn't read cluster configuration file: [wrong-path]");
+        assertErrOutputIs("Couldn't read cluster configuration file wrong-path");
+    }
+
+    @Test
+    void wrongConfigFile(@WorkDirectory Path workDir) throws IOException {
+        Path configFile = Files.createTempFile(workDir, "config", "");
+        Files.write(configFile, List.of("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+
+        execute(
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--name", "cluster",
+                "--config-files", configFile.toString()
+        );
+
+        assertErrOutputIs("Couldn't parse cluster configuration file " + configFile + "\n"
+                + "String: 1: Key '<' may not be followed by token: '?' (Reserved character '?' is not allowed outside quotes)"
+                + " (if you intended '?' (Reserved character '?' is not allowed outside quotes)"
+                + " to be part of a key or string value, try enclosing the key or value in double quotes)"
+        );
     }
 
     @Test

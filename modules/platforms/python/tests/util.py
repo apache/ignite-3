@@ -93,7 +93,7 @@ def kill_process_tree(pid):
 def check_server_started(addr: str) -> bool:
     try:
         conn = pyignite3.connect(address=[addr], timeout=1)
-    except RuntimeError as e:
+    except pyignite3.Error:
         return False
 
     conn.close()
