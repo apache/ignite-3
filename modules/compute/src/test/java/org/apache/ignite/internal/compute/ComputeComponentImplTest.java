@@ -44,6 +44,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -227,7 +228,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private void assertThatNoRequestsWereSent() {
-        verify(messagingService, never()).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(messagingService, never()).invoke(anyString(), any(), anyLong());
     }
 
     @Test
@@ -304,7 +305,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteResponse executeResponse = new ComputeMessagesFactory().executeResponse()
                 .jobId(jobId)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), any(ExecuteRequest.class), anyLong()))
+        when(messagingService.invoke(anyString(), any(ExecuteRequest.class), anyLong()))
                 .thenReturn(completedFuture(executeResponse));
     }
 
@@ -312,7 +313,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobResultResponse jobResultResponse = new ComputeMessagesFactory().jobResultResponse()
                 .result("remoteResponse")
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobResultResponse));
     }
 
@@ -320,7 +321,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobStateResponse jobStateResponse = new ComputeMessagesFactory().jobStateResponse()
                 .state(JobStateImpl.builder().id(jobId).status(status).createTime(Instant.now()).build())
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobStateRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobStateRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobStateResponse));
     }
 
@@ -328,7 +329,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobCancelResponse jobCancelResponse = new ComputeMessagesFactory().jobCancelResponse()
                 .result(result)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobCancelResponse));
     }
 
@@ -336,7 +337,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobChangePriorityResponse jobChangePriorityResponse = new ComputeMessagesFactory().jobChangePriorityResponse()
                 .result(true)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobChangePriorityResponse));
     }
 
@@ -410,7 +411,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobResultResponse jobResultResponse = new ComputeMessagesFactory().jobResultResponse()
                 .throwable(new JobException("Oops", new Exception()))
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobResultResponse));
 
         ExecutionException ex = assertThrows(
@@ -599,7 +600,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWithIncompleteFutureWhenJobResultRequestIsSent() {
-        when(messagingService.invoke(any(ClusterNode.class), any(JobResultRequest.class), anyLong()))
+        when(messagingService.invoke(anyString(), any(JobResultRequest.class), anyLong()))
                 .thenReturn(new CompletableFuture<>());
     }
 
@@ -651,14 +652,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private <T extends NetworkMessage> T invokeAndCaptureRequest(Class<T> clazz) {
         ArgumentCaptor<T> requestCaptor = ArgumentCaptor.forClass(clazz);
-        verify(messagingService).invoke(eq(remoteNode), requestCaptor.capture(), anyLong());
+        verify(messagingService).invoke(eq(remoteNode.name()), requestCaptor.capture(), anyLong());
         return requestCaptor.getValue();
     }
 
     private <T extends NetworkMessage> T sendRequestAndCaptureResponse(NetworkMessage request, ClusterNode sender, long correlationId) {
         AtomicBoolean responseSent = new AtomicBoolean(false);
 
-        when(messagingService.respond(eq(sender), any(), eq(correlationId)))
+        when(messagingService.respond(eq(sender.name()), any(), eq(correlationId)))
                 .thenAnswer(invocation -> {
                     responseSent.set(true);
                     return nullCompletedFuture();
@@ -669,7 +670,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         await().until(responseSent::get, is(true));
 
         ArgumentCaptor<T> responseCaptor = ArgumentCaptor.captor();
-        verify(messagingService).respond(eq(sender), responseCaptor.capture(), eq(correlationId));
+        verify(messagingService).respond(eq(sender.name()), responseCaptor.capture(), eq(correlationId));
         return responseCaptor.getValue();
     }
 
