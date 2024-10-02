@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
@@ -324,7 +325,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return fut;
 
         } catch (Throwable t) {
-            return CompletableFuture.failedFuture(t);
+            return failedFuture(t);
         }
     }
 
@@ -388,14 +389,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 try {
                     ClientMessageUnpacker unpacker = fut.get();
 
-                    return completedFuture(handleRequest(id, unpacker, null, payloadReader, notificationFut));
+                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
                 } catch (Exception e) {
-                    return CompletableFuture.failedFuture(e);
+                    return failedFuture(e);
                 }
             }
 
-            return fut.handleAsync(
-                    (unpacker, err) -> handleRequest(id, unpacker, err, payloadReader, notificationFut),
+            return fut.thenApplyAsync(
+                    unpacker -> complete(payloadReader, notificationFut, unpacker),
                     asyncContinuationExecutor
             );
         } catch (Throwable t) {
@@ -472,28 +473,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         metrics.requestsActiveDecrement();
 
         if (err == null) {
-            pendingReq.future().complete(unpacker);
-        } else {
-            unpacker.close();
-
-            pendingReq.future().completeExceptionally(err);
-        }
-    }
-
-    private <T> T handleRequest(
-            Long resId,
-            ClientMessageUnpacker unpacker,
-            Throwable err,
-            PayloadReader<T> payloadReader,
-            CompletableFuture<PayloadInputChannel> notificationFut
-    ) {
-        if (err == null) {
             metrics.requestsCompletedIncrement();
-            return complete(payloadReader, notificationFut, unpacker);
+
+            pendingReq.future().complete(unpacker);
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
-            throw new IgniteException(PROTOCOL_ERR, "Server error response: " + err.getMessage(), err);
+
+            unpacker.close();
+
+            pendingReq.future().completeExceptionally(err);
         }
     }
 
