@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -111,12 +110,6 @@ class TupleWithSchemaMarshallingTest {
 
         byte[] marshalled = TupleWithSchemaMarshalling.marshal(tuple);
         assertEquals(tuple, TupleWithSchemaMarshalling.unmarshal(marshalled));
-    }
-
-    @Test
-    void nullTuple() {
-        byte[] marshalled = TupleWithSchemaMarshalling.marshal(null);
-        assertNull(TupleWithSchemaMarshalling.unmarshal(marshalled));
     }
 
     @MethodSource("unsupportedTypes")

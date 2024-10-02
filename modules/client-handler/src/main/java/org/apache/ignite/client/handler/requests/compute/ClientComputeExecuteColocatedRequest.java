@@ -18,9 +18,9 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackPayload;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -59,7 +59,7 @@ public class ClientComputeExecuteColocatedRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            Object args = unpackPayload(in);
+            Object args = unpackJobArgumentWithoutMarshaller(in);
 
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 

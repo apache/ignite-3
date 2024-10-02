@@ -15,17 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.client.proto.pojo;
 
-import org.apache.ignite.sql.ColumnType;
-
-/**
- * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
- * {@link ColumnType} or a marshalled object/tuple.
- */
-class ComputeJobType {
-    static final int NATIVE = 0;
-    static final int MARSHALLED_TUPLE = 1;
-    static final int MARSHALLED_CUSTOM = 2;
-    static final int MARSHALLED_POJO = 3;
+/** Parent POJO. */
+public class ParentPojo {
+    public int parentField;
 }

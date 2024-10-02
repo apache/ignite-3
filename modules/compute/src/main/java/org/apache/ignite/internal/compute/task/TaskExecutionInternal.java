@@ -24,17 +24,18 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.TaskStatus.CANCELED;
 import static org.apache.ignite.compute.TaskStatus.EXECUTING;
 import static org.apache.ignite.compute.TaskStatus.FAILED;
+import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
+import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,7 +99,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
      */
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,
-            JobSubmitter jobSubmitter,
+            JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
@@ -112,7 +113,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
                     reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
-                    return task.splitAsync(context, tryUnmarshalOrCast(task.splitJobInputMarshaller(), arg))
+                    Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
+                    return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 
@@ -289,7 +291,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 .toArray(CompletableFuture[]::new);
 
         return allOf(concat(resultFutures, idFutures)).thenApply(unused -> {
-            Map<UUID, T> results = new HashMap<>();
+            Map<UUID, T> results = new LinkedHashMap<>();
 
             for (int i = 0; i < resultFutures.length; i++) {
                 results.put(idFutures[i].join(), resultFutures[i].join());

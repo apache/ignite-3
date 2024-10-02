@@ -176,7 +176,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Object args
+            @Nullable Object arg
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -201,7 +201,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         units,
                         jobClassName,
                         options,
-                        args
+                        arg
                 ));
     }
 
@@ -222,15 +222,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            @Nullable T payload
+            @Nullable T arg
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, payload);
+            return computeComponent.executeLocally(options, units, jobClassName, arg);
         } else {
             return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, payload
+                    targetNode, nextWorkerSelector, units, jobClassName, options, arg
             );
         }
     }
