@@ -77,7 +77,7 @@ public final class TupleWithSchemaMarshalling {
             var value = tuple.value(i);
             values[i] = value;
             columns[i] = tuple.columnName(i);
-            colTypeIds[i] = getCallTypeId(value);
+            colTypeIds[i] = getColumnTypeId(value);
         }
 
         ByteBuffer schemaBuff = schemaBuilder(columns, colTypeIds).build();
