@@ -178,11 +178,11 @@ public class IgniteServerImpl implements IgniteServer {
         if (joinFuture == null || !joinFuture.isDone()) {
             throw new ClusterNotInitializedException();
         }
-        if (joinFuture.isCompletedExceptionally()) {
-            throw new ClusterInitFailureException("Cluster initialization failed.");
-        }
         if (joinFuture.isCancelled()) {
             throw new ClusterInitFailureException("Cluster initialization cancelled.");
+        }
+        if (joinFuture.isCompletedExceptionally()) {
+            throw new ClusterInitFailureException("Cluster initialization failed.", joinFuture.handle((res, ex) -> ex).join());
         }
     }
 
