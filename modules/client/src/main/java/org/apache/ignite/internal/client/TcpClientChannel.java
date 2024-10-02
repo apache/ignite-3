@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -395,8 +396,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             }
 
-            return fut.thenApplyAsync(
-                    unpacker -> complete(payloadReader, notificationFut, unpacker),
+            return fut.handleAsync(
+                    (unpacker, err) -> {
+                        if (err != null) {
+                            throw sneakyThrow(err);
+                        }
+
+                        return complete(payloadReader, notificationFut, unpacker);
+                    },
                     asyncContinuationExecutor
             );
         } catch (Throwable t) {
@@ -620,12 +627,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .thenApplyAsync(unpacker -> complete(r -> handshakeRes(r.in()), null, unpacker), asyncContinuationExecutor)
-                .handle((res, err) -> {
+                .handleAsync((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
-                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
                         } else {
                             metrics.handshakesFailedIncrement();
                         }
@@ -633,8 +638,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
                     }
 
-                    return res;
-                });
+                    return complete(r -> handshakeRes(r.in()), null, unpacker);
+                }, asyncContinuationExecutor);
     }
 
     /**
@@ -808,11 +813,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         /**
          * Constructor.
          *
-         * @param endTime End timestamp in milliseconds.
+         * @param timeout Timeout in milliseconds.
          * @param fut Target future.
          */
-        public TimeoutObjectImpl(long endTime, CompletableFuture<ClientMessageUnpacker> fut) {
-            this.endTime = endTime;
+        public TimeoutObjectImpl(long timeout, CompletableFuture<ClientMessageUnpacker> fut) {
+            this.endTime = timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0;
             this.fut = fut;
         }
 
