@@ -49,4 +49,19 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
      * @param newLowWatermark Candidate for update.
      */
     void updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /**
+     * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).
+     *
+     * @param ts Timestamp to lock.
+     * @return Lock id.
+     */
+    long lock(HybridTimestamp ts);
+
+    /**
+     * Releases the lock created by {@link #lock(HybridTimestamp)}.
+     *
+     * @param lockId Lock id.
+     */
+    void release(long lockId);
 }
