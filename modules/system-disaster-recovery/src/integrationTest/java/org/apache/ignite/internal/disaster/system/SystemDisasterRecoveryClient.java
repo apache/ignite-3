@@ -86,9 +86,9 @@ class SystemDisasterRecoveryClient {
         return stdoutString(process, true);
     }
 
-    private static String stdoutString(Process process, boolean block) {
+    private static String stdoutString(Process process, boolean readFully) {
         try (InputStream stdout = process.getInputStream()) {
-            return new String(streamContent(stdout, block), UTF_8);
+            return new String(streamContent(stdout, readFully), UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -98,16 +98,16 @@ class SystemDisasterRecoveryClient {
         return stderrString(process, true);
     }
 
-    private static String stderrString(Process process, boolean block) {
+    private static String stderrString(Process process, boolean readFully) {
         try (InputStream stderr = process.getErrorStream()) {
-            return new String(streamContent(stderr, block), UTF_8);
+            return new String(streamContent(stderr, readFully), UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static byte[] streamContent(InputStream is, boolean block) throws IOException {
-        if (block) {
+    private static byte[] streamContent(InputStream is, boolean readFully) throws IOException {
+        if (readFully) {
             return is.readAllBytes();
         } else {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
