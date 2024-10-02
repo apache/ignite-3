@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -108,6 +109,36 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         );
     }
 
+    /**
+     * Tests that the nested tuples are correctly serialized and deserialized.
+     */
+    @Test
+    void nestedTuplesArgumentSerialization() {
+        var argument = Tuple.create(
+                Map.of("level1_key1", Tuple.create(
+                                Map.of("level2_key1", Tuple.create(
+                                        Map.of("level3_key1", "level3_value1"))
+                                )
+                        ),
+                        "level1_key2", Tuple.create(
+                                Map.of("level2_key1", Tuple.create(
+                                        Map.of("level3_key1", "level3_value1"))
+                                )
+                        ),
+                        "level1_key3", "Non-tuple-string-value",
+                        "level1_key4", 42
+                )
+        );
+
+        Tuple resultTuple = client().compute().execute(
+                JobTarget.node(node(1)),
+                JobDescriptor.builder(TupleComputeJob.class).build(),
+                argument
+        );
+
+        assertThat(resultTuple, equalTo(argument));
+    }
+
     static class TupleResultJob implements ComputeJob<Integer, Tuple> {
         @Override
         public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Integer key) {
@@ -124,6 +155,14 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
             }
 
             return completedFuture(arg.stringValue("value_col"));
+        }
+    }
+
+    /** Returns the argument as a result. */
+    private static class TupleComputeJob implements ComputeJob<Tuple, Tuple> {
+        @Override
+        public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Tuple arg) {
+            return completedFuture(arg);
         }
     }
 }
