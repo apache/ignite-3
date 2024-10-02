@@ -138,7 +138,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.ARG0_NULLABLE_VARYING,
                     null,
-                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+                    OperandTypes.STRING_INTEGER.or(OperandTypes.STRING_INTEGER_INTEGER),
                     SqlFunctionCategory.STRING);
 
     /**
@@ -167,13 +167,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     /** The {@code ROUND(numeric [, numeric])} function. */
     public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
             new SetScaleToZeroIfSingleArgument(),
-            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            OperandTypes.NUMERIC.or(OperandTypes.NUMERIC_INTEGER),
             SqlFunctionCategory.NUMERIC);
 
     /** The {@code TRUNCATE(numeric [, numeric])} function. */
     public static final SqlFunction TRUNCATE = SqlBasicFunction.create("TRUNCATE",
             new SetScaleToZeroIfSingleArgument(),
-            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            OperandTypes.NUMERIC.or(OperandTypes.NUMERIC_INTEGER),
             SqlFunctionCategory.NUMERIC);
 
     /** The {@code OCTET_LENGTH(string|binary)} function. */

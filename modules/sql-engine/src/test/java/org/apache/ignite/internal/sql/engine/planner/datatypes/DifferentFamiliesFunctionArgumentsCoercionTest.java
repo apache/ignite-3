@@ -42,14 +42,15 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for function arguments, when values belongs to the different type families.
+ * A set of tests to verify behavior of type coercion for function arguments, when values belongs to the different type families.
  */
 @SuppressWarnings({"ThrowableNotThrown", "DataFlowIssue"})
 public class DifferentFamiliesFunctionArgumentsCoercionTest extends BaseTypeCoercionTest {
     private static final IgniteSchema SCHEMA = createSchema();
 
     private static final List<String> FUNCTIONS_WITH_NUMERIC_PARAM = List.of(
-            "SUBSTRING('abc', {})", "POSITION('a' IN 'abc' FROM {})", "EXP({})", "POWER({}, 1)"
+            "SUBSTRING('abc', {})", "POSITION('a' IN 'abc' FROM {})", "EXP({})", "POWER({}, 1)",
+            "TRUNCATE({})", "SUBSTR('abc', {})", "ROUND({})"
     );
 
     private static final List<String> FUNCTIONS_WITH_CHARACTER_PARAM = List.of(

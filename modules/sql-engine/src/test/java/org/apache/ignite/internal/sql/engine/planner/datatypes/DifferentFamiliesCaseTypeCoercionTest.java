@@ -32,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * A set of test to verify behavior of type coercion for CASE operator, when operands belongs to the different type families.
+ * A set of tests to verify behavior of type coercion for CASE operator, when operands belongs to the different type families.
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DifferentFamiliesCaseTypeCoercionTest extends BaseTypeCoercionTest {
