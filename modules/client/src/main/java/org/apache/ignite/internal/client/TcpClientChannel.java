@@ -65,7 +65,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tracing.Instrumentation;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
@@ -368,7 +367,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 payloadWriter.accept(payloadCh);
             }
 
-            Instrumentation.measure(() -> write(req), "writeMessage").addListener(f -> {
+            write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, endpoint(), f.cause());
@@ -425,14 +424,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker
     ) {
-        if (payloadReader != null) {
-            try (unpacker) {
+        try (unpacker) {
+            if (payloadReader != null) {
                 return payloadReader.apply(new PayloadInputChannel(this, unpacker, notificationFut));
-            } catch (Throwable e) {
-                log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-
-                throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
+        } catch (Throwable e) {
+            log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
         }
 
         return null;
@@ -621,10 +620,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Client handshake. */
     private CompletableFuture<Object> handshakeAsync(ProtocolVersion ver) throws IgniteClientConnectionException {
-        var msgFut = new CompletableFuture<ClientMessageUnpacker>();
-        pendingReqs.put(-1L, new TimeoutObjectImpl(connectTimeout, msgFut));
-
-        var fut = msgFut.thenApplyAsync(unpacker -> complete(r -> handshakeRes(r.in()), null, unpacker), asyncContinuationExecutor);
+        var fut = new CompletableFuture<ClientMessageUnpacker>();
+        pendingReqs.put(-1L, new TimeoutObjectImpl(connectTimeout, fut));
 
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
@@ -634,6 +631,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
+                .thenApplyAsync(unpacker -> complete(r -> handshakeRes(r.in()), null, unpacker), asyncContinuationExecutor)
                 .handle((res, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
