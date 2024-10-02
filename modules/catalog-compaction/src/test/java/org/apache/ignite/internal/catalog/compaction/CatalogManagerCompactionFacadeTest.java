@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.List;
@@ -104,10 +105,18 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
     }
 
     @Test
-    void testCatalogByTsNullable() {
+    void testCatalogPriorToVersionAtTsNullable() {
         Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
         assertNotNull(earliestCatalog);
 
-        assertNull(catalogManagerFacade.catalogByTsNullable(earliestCatalog.time() - 1));
+        assertNull(catalogManagerFacade.catalogPriorToVersionAtTsNullable(earliestCatalog.time()));
+    }
+
+    @Test
+    void testCatalogAtTsNullable() {
+        Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
+        assertNotNull(earliestCatalog);
+
+        assertSame(earliestCatalog, catalogManagerFacade.catalogAtTsNullable(earliestCatalog.time()));
     }
 }

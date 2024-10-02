@@ -99,13 +99,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Undefined value for {@link #minActiveTxBeginTime}. */
-    private static final long UNDEFINED_MIN_TX_TIME = 0L;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Transaction manager. */
     private final TxManager txManager;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -140,11 +137,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private Set<String> currentGroupTopology;
 
-    /**
-     * Timestamp with minimum starting time among all active RW transactions in the cluster.
-     * This timestamp is used to prevent the catalog from being dropped, which may be used when applying raft commands.
-     */
-    private volatile long minActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
+    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
     /** Constructor. */
     public PartitionListener(
@@ -158,7 +151,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             SchemaRegistry schemaRegistry,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
-            UUID localNodeId
+            UUID localNodeId,
+            MinimumRequiredTimeCollectorService minTimeCollectorService
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -171,6 +165,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
+        this.minTimeCollectorService = minTimeCollectorService;
     }
 
     @Override
@@ -618,21 +613,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Returns minimum starting time among all active RW transactions in the cluster,
-     * or {@code null} if the value has not yet been set.
-     */
-    @TestOnly
-    public @Nullable Long minimumActiveTxBeginTime() {
-        long minActiveTxBeginTime0 = minActiveTxBeginTime;
-
-        if (minActiveTxBeginTime0 == UNDEFINED_MIN_TX_TIME) {
-            return null;
-        }
-
-        return minActiveTxBeginTime0;
-    }
-
-    /**
      * Handler for the {@link BuildIndexCommand}.
      *
      * @param cmd Command.
@@ -730,11 +710,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        long minActiveTxBeginTime0 = minActiveTxBeginTime;
+        long timestamp = cmd.timestamp();
 
-        assert minActiveTxBeginTime0 <= cmd.timestamp() : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + cmd.timestamp();
-
-        minActiveTxBeginTime = cmd.timestamp();
+        storage.flush(false).whenComplete((r, t) -> {
+            if (t == null) {
+                TablePartitionId partitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
+                minTimeCollectorService.recordMinActiveTxTimestamp(partitionId, timestamp);
+            }
+        });
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

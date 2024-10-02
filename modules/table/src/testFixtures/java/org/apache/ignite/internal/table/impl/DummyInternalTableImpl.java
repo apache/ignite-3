@@ -97,6 +97,7 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -426,7 +427,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager,
                 CLOCK_SERVICE,
                 mock(IndexMetaStorage.class),
-                LOCAL_NODE.id()
+                LOCAL_NODE.id(),
+                mock(MinimumRequiredTimeCollectorService.class)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
