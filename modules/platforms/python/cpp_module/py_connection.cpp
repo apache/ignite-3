@@ -25,6 +25,20 @@
 
 #include <Python.h>
 
+/**
+ * Check if the connection is open. Set error if not.
+ *
+ * @param self Connection.
+ * @return @c true if open and @c false otherwise.
+ */
+static bool py_connection_expect_open(py_connection* self) {
+    if (!self->m_connection) {
+        PyErr_SetString(py_get_module_interface_error_class(), "Connection is in invalid state (Already closed?)");
+        return false;
+    }
+    return true;
+}
+
 int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
 {
     UNUSED_VALUE args;
@@ -61,8 +75,7 @@ static PyObject* py_connection_close(py_connection* self, PyObject*)
         self->m_environment = nullptr;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_connection_cursor(py_connection* self, PyObject*)
@@ -81,8 +94,66 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
         return py_cursor_obj;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
+{
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    SQLUINTEGER res = 0;
+    self->m_connection->get_attribute(SQL_ATTR_AUTOCOMMIT, &res, 0, nullptr);
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    if (!res) {
+        Py_RETURN_FALSE;
+    }
+
+    Py_RETURN_TRUE;
+}
+
+static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* value)
+{
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    if (!PyBool_Check(value)) {
+        PyErr_SetString(py_get_module_interface_error_class(), "Autocommit attribute should be of a type bool");
+        return nullptr;
+    }
+
+    void* ptr_autocommit = (void*)(ptrdiff_t((value == Py_True) ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
+    self->m_connection->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_connection_commit(py_connection* self, PyObject*)
+{
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    self->m_connection->transaction_commit();
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_connection_rollback(py_connection* self, PyObject*)
+{
+    if (!py_connection_expect_open(self))
+        return nullptr;
+
+    self->m_connection->transaction_rollback();
+    if (!check_errors(*self->m_connection))
+        return nullptr;
+
+    Py_RETURN_NONE;
 }
 
 static PyTypeObject py_connection_type = {
@@ -93,6 +164,10 @@ static PyTypeObject py_connection_type = {
 static struct PyMethodDef py_connection_methods[] = {
     {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
     {"cursor", (PyCFunction)py_connection_cursor, METH_NOARGS, nullptr},
+    {"autocommit", (PyCFunction)py_connection_autocommit, METH_NOARGS, nullptr},
+    {"set_autocommit", (PyCFunction)py_connection_set_autocommit, METH_O, nullptr},
+    {"commit", (PyCFunction)py_connection_commit, METH_NOARGS, nullptr},
+    {"rollback", (PyCFunction)py_connection_rollback, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 

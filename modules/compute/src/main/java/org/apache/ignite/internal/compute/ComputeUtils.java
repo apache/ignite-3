@@ -36,6 +36,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -90,11 +91,15 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <T, R> Class<ComputeJob<T, R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
         try {
             return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
-            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load job class by name '" + jobClassName + "'", e);
+            String message = "Cannot load job class by name '" + jobClassName + "'";
+            if (jobClassLoader.units().isEmpty()) {
+                throw new ComputeException(CLASS_INITIALIZATION_ERR, message + ". Deployment units list is empty.", e);
+            }
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, message, e);
         }
     }
 

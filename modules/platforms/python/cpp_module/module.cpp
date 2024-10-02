@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
 #include "utils.h"
@@ -66,6 +65,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         "timezone",
         "page_size",
         "timeout",
+        "autocommit",
         nullptr
     };
 
@@ -76,9 +76,10 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     const char *timezone = nullptr;
     int timeout = 0;
     int page_size = 0;
+    int autocommit = 1;
 
-    int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "O|$ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiip", kwlist,
+        &address, &identity, &secret, &schema, &timezone, &timeout, &page_size, &autocommit);
 
     if (!parsed)
         return nullptr;
@@ -89,13 +90,15 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         for (Py_ssize_t idx = 0; idx < size; ++idx) {
             auto item = PyList_GetItem(address, idx);
             if (!PyUnicode_Check(item)) {
-                PyErr_SetString(PyExc_RuntimeError, "Only list of string values is allowed in 'address' parameter");
+                PyErr_SetString(py_get_module_interface_error_class(),
+                    "Only list of string values is allowed in 'address' parameter");
+
                 return nullptr;
             }
 
             auto str_array = PyUnicode_AsUTF8String(item);
             if (!str_array) {
-                PyErr_SetString(PyExc_RuntimeError, "Can not convert address string to UTF-8");
+                PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
                 return nullptr;
             }
             // To be called when the scope is left.
@@ -151,6 +154,14 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     sql_conn->establish(cfg);
     if (!check_errors(*sql_conn))
         return nullptr;
+
+    if (!autocommit)
+    {
+        void* ptr_autocommit = (void*)(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
+        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
 
     return make_connection(std::move(sql_env), std::move(sql_conn));
 }

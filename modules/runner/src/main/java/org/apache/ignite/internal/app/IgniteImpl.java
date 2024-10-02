@@ -238,6 +238,7 @@ import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTabl
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -887,6 +888,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,
                 catalogManager,
@@ -898,7 +901,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
-                indexNodeFinishedRwTransactionsChecker
+                indexNodeFinishedRwTransactionsChecker,
+                minTimeCollectorService
         );
 
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
@@ -976,7 +980,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                minTimeCollectorService
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(

@@ -117,6 +117,19 @@ private:
     SQLULEN m_processed{0};
 };
 
+/**
+ * Check if the cursor is open. Set error if not.
+ * @param self Cursor.
+ * @return @c true if open and @c false otherwise.
+ */
+static bool py_cursor_expect_open(py_cursor* self) {
+    if (!self->m_statement) {
+        PyErr_SetString(py_get_module_interface_error_class(), "Cursor is in invalid state (Already closed?)");
+        return false;
+    }
+    return true;
+}
+
 
 int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds)
 {
@@ -146,16 +159,13 @@ static PyObject* py_cursor_close(py_cursor* self, PyObject*)
         self->m_statement = nullptr;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kwargs)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     static char *kwlist[] = {
         "query",
@@ -175,14 +185,16 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
         if (PySequence_Check(params)) {
             size = PySequence_Size(params);
             if (size < 0) {
-                PyErr_SetString(PyExc_RuntimeError, "Internal error while getting size of the parameters sequence");
+                PyErr_SetString(py_get_module_interface_error_class(),
+                    "Internal error while getting size of the parameters sequence");
+
                 return nullptr;
             }
         } else {
             auto msg_str = std::string("The object does not provide the sequence protocol: ")
                 + py_object_get_typename(params);
 
-            PyErr_SetString(PyExc_RuntimeError, msg_str.c_str());
+            PyErr_SetString(py_get_module_interface_error_class(), msg_str.c_str());
             return nullptr;
         }
     }
@@ -192,16 +204,13 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     if (!check_errors(*self->m_statement))
         return nullptr;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     auto query = self->m_statement->get_query();
 
@@ -213,33 +222,29 @@ static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
 
 static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     auto query = self->m_statement->get_query();
     if (!query) {
-        PyErr_SetString(PyExc_RuntimeError, "Query was not executed");
+        PyErr_SetString(py_get_module_interface_error_class(), "Query was not executed");
         return nullptr;
     }
 
     if (query->get_type() != ignite::query_type::DATA) {
         auto err_msg = "Unexpected query type: " + std::to_string(int(query->get_type()));
-        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        PyErr_SetString(py_get_module_interface_error_class(), err_msg.c_str());
         return nullptr;
     }
 
     if (!query->is_data_available()) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     auto& query0 = static_cast<ignite::data_query&>(*query);
     auto res = query0.fetch_next_row();
     if (res == ignite::sql_result::AI_NO_DATA) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     if (!check_errors(*self->m_statement)) {
@@ -249,7 +254,7 @@ static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
     auto row = query0.get_current_row();
     auto res_list = PyTuple_New(row.size());
     if (!res_list) {
-        PyErr_SetString(PyExc_RuntimeError, "Can not allocate a new list for the result set");
+        PyErr_SetString(py_get_module_operational_error_class(), "Can not allocate a new list for the result set");
         return nullptr;
     }
 
@@ -267,10 +272,8 @@ static PyObject* py_cursor_fetchone(py_cursor* self, PyObject*)
 
 static PyObject* py_cursor_column_count(py_cursor* self, PyObject*)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     auto query = self->m_statement->get_query();
 
@@ -297,7 +300,7 @@ const ignite::column_meta *get_meta_column(py_cursor* self, long idx, PyObject *
     }
 
     if (idx < 0 || idx >= long(meta->size())) {
-        PyErr_SetString(PyExc_RuntimeError, "Column metadata index is out of bound");
+        PyErr_SetString(py_get_module_interface_error_class(), "Column metadata index is out of bound");
         return nullptr;
     }
 
@@ -306,10 +309,8 @@ const ignite::column_meta *get_meta_column(py_cursor* self, long idx, PyObject *
 
 static PyObject* py_cursor_column_name(py_cursor* self, PyObject* args)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     long idx{0};
 
@@ -327,10 +328,8 @@ static PyObject* py_cursor_column_name(py_cursor* self, PyObject* args)
 
 static PyObject* py_cursor_column_type_code(py_cursor* self, PyObject* args)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     long idx{0};
 
@@ -348,32 +347,24 @@ static PyObject* py_cursor_column_type_code(py_cursor* self, PyObject* args)
 
 static PyObject* py_cursor_column_display_size(py_cursor* self, PyObject*)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_cursor_column_internal_size(py_cursor* self, PyObject*)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_cursor_column_precision(py_cursor* self, PyObject* args)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     long idx{0};
 
@@ -391,10 +382,8 @@ static PyObject* py_cursor_column_precision(py_cursor* self, PyObject* args)
 
 static PyObject* py_cursor_column_scale(py_cursor* self, PyObject* args)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     long idx{0};
 
@@ -412,10 +401,8 @@ static PyObject* py_cursor_column_scale(py_cursor* self, PyObject* args)
 
 static PyObject* py_cursor_null_ok(py_cursor* self, PyObject* args)
 {
-    if (!self->m_statement) {
-        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+    if (!py_cursor_expect_open(self))
         return nullptr;
-    }
 
     long idx{0};
 

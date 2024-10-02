@@ -23,6 +23,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster nodes request.
@@ -35,7 +36,7 @@ public class ClientClusterGetNodesRequest {
      * @param clusterService Cluster.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessagePacker out,
             ClusterService clusterService) {
         Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
@@ -59,7 +60,7 @@ public class ClientClusterGetNodesRequest {
     public static void packClusterNode(ClusterNode clusterNode, ClientMessagePacker out) {
         out.packInt(4);
 
-        out.packString(clusterNode.id().toString());
+        out.packUuid(clusterNode.id());
         out.packString(clusterNode.name());
 
         NetworkAddress address = clusterNode.address();
