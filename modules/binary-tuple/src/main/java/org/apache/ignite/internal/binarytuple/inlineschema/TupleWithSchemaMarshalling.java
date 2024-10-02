@@ -255,7 +255,7 @@ public final class TupleWithSchemaMarshalling {
         }
     }
 
-    private static int getCallTypeId(@Nullable Object value) {
+    private static int getColumnTypeId(@Nullable Object value) {
         if (value instanceof Tuple) {
             return NESTED_TUPLE_FLAG;
         } else {
