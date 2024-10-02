@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -65,8 +66,9 @@ class SystemDisasterRecoveryClient {
         try {
             Process process = processBuilder.start();
 
-            if (!process.waitFor(10, SECONDS)) {
-                throw new RuntimeException("Process did not finish in 10 seconds");
+            if (!process.waitFor(30, SECONDS)) {
+                throw new RuntimeException("Process did not finish in time, stdout so far '" + stdoutString(process, false)
+                        + "', stderr so far '" + stderrString(process, false) + "'");
             }
             if (process.exitValue() != 0) {
                 throw new RuntimeException("Return code " + process.exitValue()
@@ -81,18 +83,40 @@ class SystemDisasterRecoveryClient {
     }
 
     private static String stdoutString(Process process) {
+        return stdoutString(process, true);
+    }
+
+    private static String stdoutString(Process process, boolean readFully) {
         try (InputStream stdout = process.getInputStream()) {
-            return new String(stdout.readAllBytes(), UTF_8);
+            return new String(streamContent(stdout, readFully), UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     private static String stderrString(Process process) {
+        return stderrString(process, true);
+    }
+
+    private static String stderrString(Process process, boolean readFully) {
         try (InputStream stderr = process.getErrorStream()) {
-            return new String(stderr.readAllBytes(), UTF_8);
+            return new String(streamContent(stderr, readFully), UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static byte[] streamContent(InputStream is, boolean readFully) throws IOException {
+        if (readFully) {
+            return is.readAllBytes();
+        } else {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+            while (is.available() > 0) {
+                baos.write(is.read());
+            }
+
+            return baos.toByteArray();
         }
     }
 
