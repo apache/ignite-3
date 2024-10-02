@@ -48,9 +48,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -489,6 +491,41 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     }
 
+    /**
+     * Tests that the nested tuples are correctly serialized and deserialized.
+     */
+    @Test
+    void nestedTuplesArgumentSerialization() {
+        Ignite entryNode = node(0);
+        String address = "127.0.0.1:" + unwrapIgniteImpl(entryNode).clientAddress().port();
+        try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
+            var argument = Tuple.create(
+                    Map.of("level1_key1", Tuple.create(
+                                    Map.of("level2_key1", Tuple.create(
+                                            Map.of("level3_key1", "level3_value1"))
+                                    )
+                            ),
+                            "level1_key2", Tuple.create(
+                                    Map.of("level2_key1", Tuple.create(
+                                            Map.of("level3_key1", "level3_value1"))
+                                    )
+                            ),
+                            "level1_key3", "Non-tuple-string-value",
+                            "level1_key4", 42
+                    )
+            );
+
+            Tuple resultTuple = client.compute().execute(
+                    JobTarget.node(clusterNode(node(1))),
+                    JobDescriptor.builder(TupleComputeJob.class)
+                            .build(),
+                    argument
+            );
+
+            assertThat(resultTuple, equalTo(argument));
+        }
+    }
+
     static Ignite node(int i) {
         return CLUSTER.node(i);
     }
@@ -509,6 +546,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         return PojoJob.class.getName();
     }
 
+    private static class TupleComputeJob implements ComputeJob<Tuple, Tuple> {
+
+        @Override
+        public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Tuple arg) {
+            return CompletableFuture.completedFuture(arg);
+        }
+    }
 
     static Class<PojoJob> pojoJobClass() {
         return PojoJob.class;
