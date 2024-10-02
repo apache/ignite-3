@@ -43,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
 public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
+    private static final int NESTED_TUPLE_FLAG = -1;
+
     /**
      * Marshal tuple in the following format (LITTLE_ENDIAN).
      *
@@ -68,18 +70,18 @@ public final class TupleWithSchemaMarshalling {
         int size = tuple.columnCount();
         Object[] values = new Object[size];
         String[] columns = new String[size];
-        ColumnType[] types = new ColumnType[size];
+        int[] colTypeIds = new int[size];
 
         // Fill in the values, column names, and types.
         for (int i = 0; i < size; i++) {
             var value = tuple.value(i);
             values[i] = value;
             columns[i] = tuple.columnName(i);
-            types[i] = inferType(value);
+            colTypeIds[i] = getColumnTypeId(value);
         }
 
-        ByteBuffer schemaBuff = schemaBuilder(columns, types).build();
-        ByteBuffer valueBuff = valueBuilder(columns, types, values).build();
+        ByteBuffer schemaBuff = schemaBuilder(columns, colTypeIds).build();
+        ByteBuffer valueBuff = valueBuilder(columns, values).build();
 
         int schemaBuffLen = schemaBuff.remaining();
         int valueBuffLen = valueBuff.remaining();
@@ -150,37 +152,40 @@ public final class TupleWithSchemaMarshalling {
             String colName = schemaReader.stringValue(i * 2);
             int colTypeId = schemaReader.intValue(i * 2 + 1);
 
-            setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i);
+            setColumnValue(valueReader, tup, colName, colTypeId, i);
         }
 
         return tup;
     }
 
-    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
+    private static BinaryTupleBuilder schemaBuilder(String[] columns, int[] colTypeIds) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
-            builder.appendInt(types[i].id());
+            builder.appendInt(colTypeIds[i]);
         }
 
         return builder;
     }
 
-    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values) {
+    private static BinaryTupleBuilder valueBuilder(String[] columnNames, Object[] values) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
 
         for (int i = 0; i < values.length; i++) {
-            ColumnType type = types[i];
-            Object v = values[i];
-
-            append(type, columnNames[i], builder, v);
+            append(columnNames[i], builder, values[i]);
         }
 
         return builder;
     }
 
-    private static void append(ColumnType type, String name, BinaryTupleBuilder builder, Object value) {
+    private static void append(String name, BinaryTupleBuilder builder, Object value) {
+        if (value instanceof Tuple) {
+            builder.appendBytes(marshal((Tuple) value));
+            return;
+        }
+
+        ColumnType type = inferType(value);
         try {
             switch (type) {
                 case NULL:
@@ -250,6 +255,14 @@ public final class TupleWithSchemaMarshalling {
         }
     }
 
+    private static int getColumnTypeId(@Nullable Object value) {
+        if (value instanceof Tuple) {
+            return NESTED_TUPLE_FLAG;
+        } else {
+            return inferType(value).id();
+        }
+    }
+
     private static ColumnType inferType(@Nullable Object value) {
         if (value == null) {
             return ColumnType.NULL;
@@ -309,7 +322,15 @@ public final class TupleWithSchemaMarshalling {
     }
 
 
-    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, ColumnType colType, int i) {
+    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
+        if (colTypeId == NESTED_TUPLE_FLAG) {
+            byte[] nestedTupleBytes = reader.bytesValue(i);
+            Tuple nestedTuple = unmarshal(nestedTupleBytes);
+            tuple.set(colName, nestedTuple);
+            return;
+        }
+
+        ColumnType colType = ColumnType.getById(colTypeId);
         switch (colType) {
             case NULL:
                 tuple.set(colName, null);

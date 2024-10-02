@@ -99,7 +99,7 @@ def zipStartScriptTokensWin = tokensWin + [
 ]
 
 def replaceZipScriptVarsCommon = tasks.register('replaceZipScriptVarsCommon', Copy) {
-    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
+    from 'zip/ignite.java.util.logging.properties'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensCommon)
 
