@@ -59,11 +59,22 @@ class PojoConverterTest {
     }
 
     @Test
-    void unmarshallablePojo() {
+    void staticField() {
         assertThrows(
                 PojoConversionException.class,
                 () -> toTuple(new StaticFieldPojo()),
                 "Class " + StaticFieldPojo.class.getName() + " doesn't contain any marshallable fields"
+        );
+    }
+
+    @Test
+    void finalFieldPojo() {
+        Tuple tuple = toTuple(new FinalFieldPojo());
+
+        assertThrows(
+                PojoConversionException.class,
+                () -> fromTuple(new FinalFieldPojo(), tuple),
+                "Field for the column `longField` is final"
         );
     }
 

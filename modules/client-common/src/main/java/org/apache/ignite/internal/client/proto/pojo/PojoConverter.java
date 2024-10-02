@@ -29,8 +29,7 @@ import org.apache.ignite.table.mapper.PojoMapper;
 public class PojoConverter {
 
     /**
-     * Converts POJO to Tuple. Supports public non-static fields, public non-static getter methods starting with "get" (or "is" for boolean
-     * type) followed by the capital letter.
+     * Converts POJO to Tuple. Supports public and private non-static fields.
      *
      * @param obj POJO to convert.
      * @return Tuple with columns corresponding to supported fields of the POJO.
@@ -75,8 +74,7 @@ public class PojoConverter {
     }
 
     /**
-     * Sets POJO fields from the Tuple. Supports public non-final non-static fields, public non-static setter methods starting with "set"
-     * followed by the capital letter.
+     * Sets POJO fields from the Tuple. Supports public and private non-final non-static fields.
      *
      * @param obj POJO to fill.
      * @param tuple Tuple to get the values from.
@@ -95,11 +93,13 @@ public class PojoConverter {
                 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
                 VarHandle varHandle = lookup.unreflectVarHandle(field);
                 varHandle.set(obj, value);
+            } catch (UnsupportedOperationException e) {
+                throw new PojoConversionException("Field for the column `" + fieldName + "` is final", e);
             } catch (ClassCastException e) {
                 throw new PojoConversionException("Incompatible types: Field `" + fieldName + "` has a type " + field.getType()
                         + " while deserializing type " + value.getClass(), e);
             } catch (IllegalAccessException e) {
-                throw new PojoConversionException("Setter for the column `" + fieldName + "` is not accessible", e);
+                throw new PojoConversionException("Field for the column `" + fieldName + "` is not accessible", e);
             }
         }
     }
