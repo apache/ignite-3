@@ -48,6 +48,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTestBase {
     /**

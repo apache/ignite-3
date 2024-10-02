@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
@@ -122,6 +123,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
     private static final List<TablePartitionId> TABLE_PARTITION_IDS = IntStream.range(0, PARTITIONS_NUM)
             .mapToObj(i -> new TablePartitionId(TABLE_ID, i))
             .collect(toList());
+
+    private static final UUID DEAD_NODE_ID = new UUID(-1, -1);
 
     private ClusterNode node;
 
@@ -388,7 +391,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
             // Emulate Primary Replica death by issuing a lease for a non-existent node. We then expect that a retry to the correct node
             // will be issued.
             if (i == 0) {
-                var fakeReplicaMeta = new Lease("Dead node name", "Dead node id", HybridTimestamp.MIN_VALUE, expireTime, groupId);
+                var fakeReplicaMeta = new Lease("Dead node name", DEAD_NODE_ID, HybridTimestamp.MIN_VALUE, expireTime, groupId);
 
                 var newReplicaMeta = new Lease(node.name(), node.id(), expireTime, HybridTimestamp.MAX_VALUE, groupId);
 
@@ -429,7 +432,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
             // Emulate a network timeout, we use a fake lease to not override an existing mocking on the messagingService.
             if (i == 0) {
-                var fakeReplicaMeta = new Lease("Dead node name", "Dead node id", HybridTimestamp.MIN_VALUE, expireTime, groupId);
+                var fakeReplicaMeta = new Lease("Dead node name", DEAD_NODE_ID, HybridTimestamp.MIN_VALUE, expireTime, groupId);
 
                 var newReplicaMeta = new Lease(node.name(), node.id(), expireTime, HybridTimestamp.MAX_VALUE, groupId);
 

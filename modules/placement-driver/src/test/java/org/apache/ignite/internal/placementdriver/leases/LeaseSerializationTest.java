@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
@@ -88,7 +89,7 @@ public class LeaseSerializationTest {
     ) {
         return new Lease(
                 leaseholder,
-                leaseholder == null ? null : leaseholder + "_id",
+                leaseholder == null ? null : randomUUID(),
                 startTime,
                 expirationTime,
                 prolong,

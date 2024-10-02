@@ -198,7 +198,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         cmgMessageHandler = createMessageHandler();
 
-        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, cmgMessageHandler);
+        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
     }
 
     private CmgMessageHandler createMessageHandler() {
@@ -264,11 +264,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
      */
-    public void initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) throws NodeStoppingException {
+    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName)
+            throws NodeStoppingException {
         sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
@@ -377,10 +374,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         return nullCompletedFuture();
                     }
                 })
-                .thenRun(clusterResetStorage::removeResetClusterMessage);
+                .thenRun(clusterResetStorage::removeResetClusterMessage)
+                .thenRun(() -> clusterResetStorage.saveVolatileResetClusterMessage(resetClusterMessage));
     }
 
-    private CompletableFuture<Void> doReinit(ResetClusterMessage resetClusterMessage) {
+    private CompletableFuture<CmgRaftService> doReinit(ResetClusterMessage resetClusterMessage) {
         CompletableFuture<CmgRaftService> serviceFuture;
 
         synchronized (raftServiceLock) {
@@ -399,8 +397,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 cmgInitMessageFromResetClusterMessage(resetClusterMessage),
                                 resetClusterMessage.formerClusterIds()
                         )
-                )
-                .thenApply(unused -> null);
+                );
     }
 
     private CmgInitMessage cmgInitMessageFromResetClusterMessage(ResetClusterMessage resetClusterMessage) {
@@ -609,7 +606,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
                 .thenCompose(logicalTopology -> inBusyLock(busyLock, () -> {
-                    Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
+                    Set<UUID> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
                             .map(ClusterNode::id)
                             .collect(toSet());

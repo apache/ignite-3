@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -123,6 +124,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.disaster.system.MetastorageRepairImpl;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
@@ -207,6 +209,7 @@ import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
+import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -683,6 +686,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
+                systemDisasterRecoveryStorage,
+                new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer
         );
 
@@ -1159,6 +1164,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
+        Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1171,7 +1177,8 @@ public class IgniteImpl implements Ignite {
                         authProviderFactory,
                         restManagerFactory,
                         computeRestFactory,
-                        disasterRecoveryFactory
+                        disasterRecoveryFactory,
+                        systemDisasterRecoveryFactory
                 ),
                 restManager,
                 restConfiguration
@@ -1582,7 +1589,7 @@ public class IgniteImpl implements Ignite {
      * Returns the id of the current node.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public String id() {
+    public UUID id() {
         return clusterSvc.topologyService().localMember().id();
     }
 

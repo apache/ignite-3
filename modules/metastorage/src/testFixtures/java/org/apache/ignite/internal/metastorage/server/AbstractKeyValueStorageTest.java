@@ -30,7 +30,7 @@ public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest
     protected KeyValueStorage storage;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         storage = createStorage();
 
         storage.start();

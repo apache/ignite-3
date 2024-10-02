@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.disaster.system;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
 
 /**
- * Thrown when a cluster reset cannot be initiated.
+ * Tests for the {@link RandomLruPageReplacementPolicy}.
  */
-public class ClusterResetException extends IgniteInternalException {
-    public ClusterResetException(String msg) {
-        super(Common.INTERNAL_ERR, msg);
+public class RandomLruPageReplacementTest extends AbstractPageReplacementTest {
+    @Override
+    protected String replacementMode() {
+        return RANDOM_LRU_REPLACEMENT_MODE;
     }
 }

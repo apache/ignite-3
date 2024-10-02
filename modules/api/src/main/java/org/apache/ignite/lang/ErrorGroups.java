@@ -302,6 +302,9 @@ public class ErrorGroups {
 
         /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
         public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Failed to perform a read operation on the underlying key value storage because the revision has already been compacted. */
+        public static final int COMPACTED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Index error group. */

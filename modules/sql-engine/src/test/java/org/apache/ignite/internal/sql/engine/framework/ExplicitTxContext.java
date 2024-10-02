@@ -37,7 +37,7 @@ public class ExplicitTxContext implements QueryTransactionContext {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TransactionInflights TX_INFLIGHTS = new TransactionInflights(
-            new TestPlacementDriver("dummy", UUID.randomUUID().toString()),
+            new TestPlacementDriver("dummy", UUID.randomUUID()),
             new ClockServiceImpl(CLOCK, new ClockWaiter("dummy", CLOCK), () -> 1L)
     );
 

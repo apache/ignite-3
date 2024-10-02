@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 
 import static java.util.Collections.emptySet;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -104,21 +105,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 = new LogicalNode(
-            new ClusterNodeImpl("node_id_0", "node_name_0", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_1 = new LogicalNode(
-            new ClusterNodeImpl("node_id_1", "node_name_1", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_2 = new LogicalNode(
-            new ClusterNodeImpl("node_id_2", "node_name_2", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)

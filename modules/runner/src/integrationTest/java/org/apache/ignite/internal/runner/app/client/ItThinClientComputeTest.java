@@ -113,11 +113,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals("itcct_n_3344", nodes.get(0).name());
         assertEquals(3344, nodes.get(0).address().port());
-        assertTrue(nodes.get(0).id().length() > 10);
+        assertNotNull(nodes.get(0).id());
 
         assertEquals("itcct_n_3345", nodes.get(1).name());
         assertEquals(3345, nodes.get(1).address().port());
-        assertTrue(nodes.get(1).id().length() > 10);
+        assertNotNull(nodes.get(1).id());
     }
 
     @Test

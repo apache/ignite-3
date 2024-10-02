@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -145,7 +146,7 @@ public class ReplicaImpl implements Replica {
     }
 
     @Override
-    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId) {
         assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
@@ -252,7 +253,7 @@ public class ReplicaImpl implements Replica {
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     ) {
         PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()

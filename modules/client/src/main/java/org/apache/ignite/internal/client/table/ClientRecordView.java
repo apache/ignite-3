@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkCollectionForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
@@ -96,7 +97,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     @Override
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+        checkCollectionForNulls(keyRecs, "keyRecs", "key");
 
         if (keyRecs.isEmpty()) {
             return emptyListCompletedFuture();
@@ -182,7 +183,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         if (recs.isEmpty()) {
             return nullCompletedFuture();
@@ -244,7 +245,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         if (recs.isEmpty()) {
             return emptyListCompletedFuture();

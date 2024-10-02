@@ -181,6 +181,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::RESTORING_STORAGE:
         case error::code::COMPACTION:
             return sql_state::SHY000_GENERAL_ERROR;
+        case error::code::COMPACTED:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Index group. Group code: 6
         case error::code::INDEX_NOT_FOUND:

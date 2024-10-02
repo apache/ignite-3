@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -454,4 +455,23 @@ public class LogManagerTest extends BaseStorageTest {
         assertEquals("localhost:8081,localhost:8082", lastEntry.getOldConf().toString());
     }
 
+    @Test
+    public void testLastLogIdWhenShutdown() throws Exception {
+        mockAddEntries();
+        assertEquals(1, this.logManager.getFirstLogIndex());
+        assertEquals(10, this.logManager.getLastLogIndex());
+        this.logManager.shutdown();
+        Exception e = assertThrows(IllegalStateException.class, () -> this.logManager.getLastLogId(true));
+        assertEquals("Node is shutting down", e.getMessage());
+    }
+
+    @Test
+    public void testLastLogIndexWhenShutdown() throws Exception {
+        mockAddEntries();
+        assertEquals(1, this.logManager.getFirstLogIndex());
+        assertEquals(10, this.logManager.getLastLogIndex());
+        this.logManager.shutdown();
+        Exception e = assertThrows(IllegalStateException.class, () -> this.logManager.getLastLogIndex(true));
+        assertEquals("Node is shutting down", e.getMessage());
+    }
 }

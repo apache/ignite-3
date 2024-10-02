@@ -1459,7 +1459,7 @@ public class InternalTableImpl implements InternalTable {
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude, txCoordinatorId);
     }
@@ -1469,7 +1469,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -1501,7 +1501,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return readOnlyScan(
                 partId,
@@ -1536,7 +1536,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1570,7 +1570,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         validatePartitionIndex(partId);
 
@@ -1683,7 +1683,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
@@ -1972,7 +1972,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
-        String leaseHolderId = replicaMeta.getLeaseholderId();
+        UUID leaseHolderId = replicaMeta.getLeaseholderId();
 
         ClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
 

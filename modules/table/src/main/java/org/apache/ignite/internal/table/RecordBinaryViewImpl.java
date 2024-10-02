@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkCollectionForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
@@ -117,7 +118,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     @Override
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+        checkCollectionForNulls(keyRecs, "keyRecs", "key");
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
@@ -200,7 +201,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.upsertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx);
@@ -252,7 +253,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+        checkCollectionForNulls(recs, "recs", "rec");
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.insertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx)

@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -100,11 +101,11 @@ import org.junit.jupiter.api.Test;
  * Tests for class {@link CatalogCompactionRunner}.
  */
 public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTest {
-    private static final LogicalNode NODE1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE1 = new LogicalNode(nodeId(1), "node1", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE3 = new LogicalNode("3", "node3", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE3 = new LogicalNode(nodeId(3), "node3", new NetworkAddress("localhost", 123));
 
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
 
@@ -119,6 +120,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private PlacementDriver placementDriver;
 
     private ReplicaService replicaService;
+
+    private static UUID nodeId(int id) {
+        return new UUID(0, id);
+    }
 
     @Test
     public void routineSucceedOnCoordinator() throws InterruptedException {
@@ -612,9 +617,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     @SuppressWarnings("serial")
     private static class TestReplicaMeta implements ReplicaMeta {
-        private final String leaseHolder;
+        private final UUID leaseHolder;
 
-        TestReplicaMeta(String leaseHolder) {
+        TestReplicaMeta(UUID leaseHolder) {
             this.leaseHolder = leaseHolder;
         }
 
@@ -624,7 +629,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
 
         @Override
-        public String getLeaseholderId() {
+        public UUID getLeaseholderId() {
             return leaseHolder;
         }
 

@@ -22,7 +22,12 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST representation of internal ClusterState.
@@ -30,9 +35,11 @@ import java.util.Objects;
 @Schema(description = "Information about current cluster state.")
 public class ClusterState {
     @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.")
+    @IgniteToStringInclude
     private final Collection<String> cmgNodes;
 
     @Schema(description = "List of metastorage nodes. These nodes are responsible for storing RAFT cluster metadata.")
+    @IgniteToStringInclude
     private final Collection<String> msNodes;
 
     @Schema(description = "Version of Apache Ignite that the cluster was created on.")
@@ -41,6 +48,10 @@ public class ClusterState {
     @Schema(description = "Unique tag that identifies the cluster.")
     private final ClusterTag clusterTag;
 
+    @Schema(description = "IDs the cluster had before.")
+    @IgniteToStringInclude
+    private final @Nullable List<UUID> formerClusterIds;
+
     /**
      * Creates a new cluster state.
      *
@@ -48,18 +59,21 @@ public class ClusterState {
      * @param msNodes Node names that host the Meta Storage.
      * @param igniteVersion Version of Ignite nodes that comprise this cluster.
      * @param clusterTag Cluster tag.
+     * @param formerClusterIds Former cluster IDs.
      */
     @JsonCreator
     public ClusterState(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
             @JsonProperty("msNodes") Collection<String> msNodes,
             @JsonProperty("igniteVersion") String igniteVersion,
-            @JsonProperty("clusterTag") ClusterTag clusterTag
+            @JsonProperty("clusterTag") ClusterTag clusterTag,
+            @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds
     ) {
-        this.cmgNodes = cmgNodes;
-        this.msNodes = msNodes;
+        this.cmgNodes = List.copyOf(cmgNodes);
+        this.msNodes = List.copyOf(msNodes);
         this.igniteVersion = igniteVersion;
         this.clusterTag = clusterTag;
+        this.formerClusterIds = formerClusterIds == null ? null : List.copyOf(formerClusterIds);
     }
 
     @JsonGetter("cmgNodes")
@@ -82,6 +96,11 @@ public class ClusterState {
         return clusterTag;
     }
 
+    @JsonGetter("formerClusterIds")
+    public @Nullable List<UUID> formerClusterIds() {
+        return formerClusterIds;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -102,11 +121,6 @@ public class ClusterState {
 
     @Override
     public String toString() {
-        return "ClusterState{"
-                + "cmgNodes=" + cmgNodes
-                + ", msNodes=" + msNodes
-                + ", igniteVersion=" + igniteVersion
-                + ", clusterTag=" + clusterTag
-                + '}';
+        return S.toString(this);
     }
 }

@@ -125,9 +125,6 @@ TEST_F(compute_test, get_cluster_nodes) {
 
     ASSERT_EQ(4, cluster_nodes.size());
 
-    EXPECT_FALSE(cluster_nodes[0].get_id().empty());
-    EXPECT_FALSE(cluster_nodes[1].get_id().empty());
-
     EXPECT_EQ(3344, cluster_nodes[0].get_address().port);
     EXPECT_EQ(3345, cluster_nodes[1].get_address().port);
 
@@ -204,7 +201,7 @@ TEST_F(compute_test, job_error_propagates_to_client) {
 }
 
 TEST_F(compute_test, unknown_node_execute_throws) {
-    auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
+    auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
     EXPECT_THROW(
         {
@@ -221,7 +218,7 @@ TEST_F(compute_test, unknown_node_execute_throws) {
 
 // TODO https://issues.apache.org/jira/browse/IGNITE-21553
 TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
-    auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
+    auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
     EXPECT_THROW(
         {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
@@ -34,28 +35,28 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -88,7 +89,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.removeNodes(Set.of(B));
 
         LogicalNode newB = new LogicalNode(
-                new ClusterNodeImpl("2", "newB", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "newB", new NetworkAddress("localhost", 123)),
                 Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30"),
                 Map.of(),
                 List.of(DEFAULT_STORAGE_PROFILE)

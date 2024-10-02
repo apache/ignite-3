@@ -292,7 +292,7 @@ public class TcpIgniteClient implements IgniteClient {
         assert fieldCnt == 4;
 
         return new ClientClusterNode(
-                in.unpackString(),
+                in.unpackUuid(),
                 in.unpackString(),
                 new NetworkAddress(in.unpackString(), in.unpackInt()));
     }

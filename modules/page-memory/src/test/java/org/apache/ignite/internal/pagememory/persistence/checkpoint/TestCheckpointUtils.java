@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -36,5 +38,15 @@ class TestCheckpointUtils {
                 dirtyPages,
                 Arrays.stream(dirtyPages).map(GroupPartitionId::convert).collect(toSet())
         );
+    }
+
+    /**
+     * Creates new full page ID.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    static FullPageId fullPageId(int groupId, int partitionId) {
+        return new FullPageId(pageId(partitionId, FLAG_DATA, 0), groupId);
     }
 }

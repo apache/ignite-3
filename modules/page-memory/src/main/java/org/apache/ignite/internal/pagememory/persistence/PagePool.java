@@ -71,7 +71,7 @@ public class PagePool {
     private final int sysPageSize;
 
     /** Instance of RW Lock Updater. */
-    private OffheapReadWriteLock rwLock;
+    private final OffheapReadWriteLock rwLock;
 
     /**
      * Constructor.
@@ -81,7 +81,7 @@ public class PagePool {
      * @param sysPageSize System page size.
      * @param rwLock Instance of RW Lock Updater.
      */
-    protected PagePool(
+    public PagePool(
             int idx,
             DirectMemoryRegion region,
             int sysPageSize,
@@ -231,7 +231,7 @@ public class PagePool {
      *
      * @param relativePtr Relative pointer.
      */
-    long absolute(long relativePtr) {
+    public long absolute(long relativePtr) {
         int segIdx = (int) ((relativePtr >> 40) & 0xFFFF);
 
         assert segIdx == idx : "expected=" + idx + ", actual=" + segIdx + ", relativePtr=" + hexLong(relativePtr);
