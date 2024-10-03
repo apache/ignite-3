@@ -3081,9 +3081,11 @@ public class RexImpTable {
         int precision = call.getType().getPrecision();
         int scale = call.getType().getScale();
 
-        assert scale != RelDataType.SCALE_NOT_SPECIFIED : "No scale for decimal division. Return type: "
-                        + call.getType()
-                        + " operands: " + call.getOperands().stream().map(RexNode::getType).collect(Collectors.toList());
+        assert precision != RelDataType.PRECISION_NOT_SPECIFIED || scale != RelDataType.SCALE_NOT_SPECIFIED
+                : "No precision/scale for decimal division. Return type: "
+                + call.getType()
+                + " operands: "
+                + call.getOperands().stream().map(RexNode::getType).collect(Collectors.toList());
 
         return IgniteExpressions.makeDecimalDivision(argValueList.get(0), argValueList.get(1), precision, scale);
       }
