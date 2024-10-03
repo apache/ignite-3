@@ -349,7 +349,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         String thisNodeName = clusterService.nodeName();
         var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
-        CompletableFuture<TopologyAwareRaftGroupService> localRaftServiceFuture;
+        CompletableFuture<? extends RaftGroupService> localRaftServiceFuture;
         try {
             localRaftServiceFuture = metaStorageInfo.metaStorageNodes().contains(thisNodeName)
                     ? startVotingNode(metaStorageInfo, disruptorConfig)
@@ -402,7 +402,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         metastorageRepairStorage.saveWitnessedMetastorageRepairClusterId(repairClusterId);
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startVotingNode(
+    private CompletableFuture<? extends RaftGroupService> startVotingNode(
             MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
@@ -413,7 +413,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startLearnerNode(
+    private CompletableFuture<? extends RaftGroupService> startLearnerNode(
             MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
@@ -425,7 +425,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startRaftNode(
+    private CompletableFuture<? extends RaftGroupService> startRaftNode(
             PeersAndLearners configuration,
             Peer localPeer,
             MetaStorageInfo metaStorageInfo,
