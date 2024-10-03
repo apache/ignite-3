@@ -26,9 +26,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.SortedMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -125,7 +125,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final AtomicLong lockIdGenerator = new AtomicLong();
 
-    private final SortedMap<Long, LowWatermarkLock> locks = new ConcurrentSkipListMap<>(); // TODO: Do we need concurrent?
+    private final Map<Long, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
