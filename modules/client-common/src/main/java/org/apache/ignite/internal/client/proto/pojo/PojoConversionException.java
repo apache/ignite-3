@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.exception;
+package org.apache.ignite.internal.client.proto.pojo;
 
-import static org.apache.ignite.lang.ErrorGroups.Network.NETWORK_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
 
-class ErrorCodes {
-    /** File transfer error. */
-    static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+import org.apache.ignite.lang.IgniteException;
 
-    /** File validation error. */
-    static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
+/** POJO conversion exception. */
+public class PojoConversionException extends IgniteException {
+    PojoConversionException(String message) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message);
+    }
+
+    PojoConversionException(String message, Throwable cause) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message, cause);
+    }
 }

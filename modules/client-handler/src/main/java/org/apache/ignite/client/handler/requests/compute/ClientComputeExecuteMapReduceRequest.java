@@ -17,9 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackPayload;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packTaskState;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
 import java.util.Collections;
@@ -58,10 +58,10 @@ public class ClientComputeExecuteMapReduceRequest {
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object args = unpackPayload(in);
+        Object arg = unpackJobArgumentWithoutMarshaller(in);
 
         TaskExecution<Object> execution = compute.submitMapReduce(
-                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), args);
+                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), arg);
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
@@ -77,16 +77,16 @@ public class ClientComputeExecuteMapReduceRequest {
                 });
     }
 
-    static void packJobIds(ClientMessagePacker out, List<UUID> ids) {
+    private static void packJobIds(ClientMessagePacker out, List<UUID> ids) {
         out.packInt(ids.size());
         for (var uuid : ids) {
             out.packUuid(uuid);
         }
     }
 
-    static CompletableFuture<Object> sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
+    private static void sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
         TaskExecution<Object> t = execution;
-        return execution.resultAsync().whenComplete((val, err) ->
+        execution.resultAsync().whenComplete((val, err) ->
                 t.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
@@ -98,7 +98,7 @@ public class ClientComputeExecuteMapReduceRequest {
                 ));
     }
 
-    static void packJobStates(ClientMessagePacker w, List<JobState> states) {
+    private static void packJobStates(ClientMessagePacker w, List<JobState> states) {
         w.packInt(states.size());
         for (JobState state : states) {
             packJobState(w, state);

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 
-import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
-
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -32,7 +30,6 @@ import java.time.Period;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.sql.ColumnType;
@@ -61,11 +58,7 @@ public final class TupleWithSchemaMarshalling {
      * valueBinaryTuple := | value1 | ... | valueN |.
      * </pre>
      */
-    public static byte @Nullable [] marshal(@Nullable Tuple tuple) {
-        if (tuple == null) {
-            return null;
-        }
-
+    public static byte [] marshal(Tuple tuple) {
         // Allocate all the memory we need upfront.
         int size = tuple.columnCount();
         Object[] values = new Object[size];
@@ -109,10 +102,7 @@ public final class TupleWithSchemaMarshalling {
      *
      * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
      */
-    public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
-        if (raw == null) {
-            return null;
-        }
+    public static Tuple unmarshal(byte[] raw) {
         if (raw.length < 8) {
             throw new UnmarshallingException("byte[] length can not be less than 8");
         }
@@ -247,10 +237,8 @@ public final class TupleWithSchemaMarshalling {
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
-            throw new IgniteException(UNSUPPORTED_OBJECT_TYPE_ERR, "Column's type mismatch ["
-                    + "column=" + name
-                    + ", expectedType=" + type.javaClass(),
-                    e
+            throw new UnsupportedObjectTypeMarshallingException(
+                    "Column's type mismatch [column=" + name + ", expectedType=" + type.javaClass() + "]", e
             );
         }
     }

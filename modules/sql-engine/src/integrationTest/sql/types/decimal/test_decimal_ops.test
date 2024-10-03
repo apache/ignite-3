@@ -10,7 +10,7 @@ statement ok
 CREATE TABLE decimals_without_params(d DECIMAL);
 
 statement ok
-INSERT INTO decimals_without_params values ('1234567890.12345'), ('12345678901234567890123456789.12345');
+INSERT INTO decimals_without_params values (decimal '1234567890.12345'), (decimal '12345678901234567890123456789.12345');
 
 query I
 SELECT * FROM decimals_without_params ORDER BY d
@@ -22,11 +22,11 @@ SELECT * FROM decimals_without_params ORDER BY d
 statement ok
 CREATE TABLE decimals_without_precision(d DECIMAL(9));
 
-statement error
-INSERT INTO decimals_without_precision values ('1234567890.12345');
+statement error: Numeric field overflow. A field with precision 9, scale 0 must round to an absolute value less than 10^9
+INSERT INTO decimals_without_precision values (decimal '1234567890.12345');
 
 statement ok
-INSERT INTO decimals_without_precision values ('123456789.12'), ('123456788');
+INSERT INTO decimals_without_precision values (decimal '123456789.12'), (decimal '123456788');
 
 query I
 SELECT * FROM decimals_without_precision ORDER BY d
@@ -39,7 +39,7 @@ statement ok
 CREATE TABLE decimals(d DECIMAL(3, 2));
 
 statement ok
-INSERT INTO decimals VALUES ('0.1'), ('0.2');
+INSERT INTO decimals VALUES (decimal '0.1'), (decimal '0.2');
 
 # basic projection
 query I
@@ -82,7 +82,7 @@ SELECT * FROM decimals WHERE d >= '0.1'::DECIMAL(9,5) ORDER BY 1
 
 # what if we compare decimals with different scales and width (3,2) vs (9,1)
 statement ok
-INSERT INTO decimals VALUES ('0.11'), ('0.21');
+INSERT INTO decimals VALUES (decimal '0.11'), (decimal '0.21');
 
 query I
 SELECT * FROM decimals WHERE d = '0.1'::DECIMAL(9,1)

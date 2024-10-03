@@ -313,13 +313,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with wrong literal types. */
     @Test
     public void testBoundsTypeConversion() throws Exception {
-        // Implicit cast of all filter values to INTEGER.
-        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1', '2', '3')",
-                multi(exact(1), exact(2), exact(3))
-        );
-
-        // Implicit cast of '1' to INTEGER.
-        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1', 2, 3)",
+        // Explicit cast of '1' to INTEGER.
+        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1'::INTEGER, 2, 3)",
                 multi(exact(1), exact(2), exact(3))
         );
 
@@ -330,19 +325,19 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, 3)",
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2::INTEGER IN (2, 3)",
                 exact(1),
                 empty()
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE CAST(CAST(C1 AS VARCHAR) AS INTEGER) = 1 AND C2 IN (2, 3)",
+        assertBounds("SELECT * FROM TEST WHERE CAST(CAST(C1 AS VARCHAR) AS INTEGER) = 1 AND C2::INTEGER IN (2, 3)",
                 exact(1),
                 empty()
         );
 
         // Implicit cast of 2 to VARCHAR.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, '3')",
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2::VARCHAR, '3')",
                 exact(1),
                 multi(exact("2"), exact("3"))
         );

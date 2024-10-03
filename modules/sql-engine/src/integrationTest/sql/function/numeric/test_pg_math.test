@@ -77,7 +77,7 @@ select log10(cast(10e-3 as real))
 ----
 -2.000000009707238
 
-statement error: Character N is neither a decimal digit number
+statement error: Cannot apply 'LOG10' to arguments of type 'LOG10(<CHAR(3)>)'
 select log10('NaN')
 
 query R

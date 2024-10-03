@@ -401,6 +401,12 @@ namespace Apache.Ignite
             /// <summary> PortInUse error. </summary>
             public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
 
+            /// <summary> FileTransfer error. </summary>
+            public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> FileValidation error. </summary>
+            public const int FileValidation = (GroupCode << 16) | (4 & 0xFFFF);
+
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
 

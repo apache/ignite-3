@@ -6,7 +6,7 @@ statement ok
 create table t(a int, b int, c int, d int, e int);
 
 statement ok
-insert into t select x a, length(x) b, mod(x,10000) c, 5 d, 10000 e from table(system_range(0,999));
+insert into t select x a, length(x::varchar) b, mod(x,10000) c, 5 d, 10000 e from table(system_range(0,999));
 
 query I
 select count(*) from t where a > 500 or a <= 700
