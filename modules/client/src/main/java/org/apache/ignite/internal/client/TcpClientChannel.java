@@ -637,7 +637,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
                     }
 
-                    return complete(r -> handshakeRes(r.in()), null, unpacker);
+                    try {
+                        return complete(r -> handshakeRes(r.in()), null, unpacker);
+                    } catch (Throwable th) {
+                        metrics.handshakesFailedIncrement();
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), th);
+                    }
                 }, asyncContinuationExecutor);
     }
 
