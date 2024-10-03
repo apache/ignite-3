@@ -21,10 +21,14 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
@@ -49,6 +53,10 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
+    private final AtomicLong lockIdGenerator = new AtomicLong();
+
+    private final Map<Long, LowWatermarkLock> locks = new ConcurrentHashMap<>();
+
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
         return ts;
@@ -67,7 +75,9 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
-        if (ts == null || newLowWatermark.compareTo(ts) > 0) {
+        var currentTs = ts;
+
+        if (currentTs == null || newLowWatermark.compareTo(currentTs) > 0) {
             supplyAsync(() -> updateAndNotifyInternal(newLowWatermark))
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
@@ -79,13 +89,34 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public long lock(HybridTimestamp ts) {
-        throw new UnsupportedOperationException();
+    public long lock(HybridTimestamp lockTs) {
+        updateLowWatermarkLock.readLock().lock();
+
+        try {
+            HybridTimestamp lwm = ts;
+            if (lwm != null && lockTs.compareTo(lwm) < 0) {
+                throw new IllegalArgumentException("Can't lock with timestamp less than low watermark: " + lockTs + " < " + lwm);
+            }
+
+            long lockId = lockIdGenerator.incrementAndGet();
+            locks.put(lockId, new LowWatermarkLock(lockTs));
+
+            return lockId;
+        } finally {
+            updateLowWatermarkLock.readLock().unlock();
+        }
     }
 
     @Override
     public void unlock(long lockId) {
-        throw new UnsupportedOperationException();
+        LowWatermarkLock lock = locks.remove(lockId);
+
+        if (lock == null) {
+            // Already released.
+            return;
+        }
+
+        lock.future().complete(null);
     }
 
     /**
@@ -98,7 +129,9 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
         try {
             assertNotNull(newTs);
 
-            assertTrue(ts == null || ts.longValue() < newTs.longValue(), "ts=" + ts + ", newTs=" + newTs);
+            HybridTimestamp currentTs = ts;
+
+            assertTrue(currentTs == null || currentTs.longValue() < newTs.longValue(), "ts=" + currentTs + ", newTs=" + newTs);
 
             return updateAndNotifyInternal(newTs);
         } catch (Throwable t) {
@@ -125,10 +158,26 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
         var parameters = new ChangeLowWatermarkEventParameters(newLowWatermark);
 
         return fireEvent(LOW_WATERMARK_BEFORE_CHANGE, parameters)
-                .thenCompose(unused -> {
-                    setLowWatermark(newLowWatermark);
+                .thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark))
+                .thenCompose(unused -> fireEvent(LOW_WATERMARK_CHANGED, parameters));
+    }
 
-                    return fireEvent(LOW_WATERMARK_CHANGED, parameters);
-                });
+    private CompletableFuture<Void> waitForLocksAndSetLowWatermark(HybridTimestamp newLowWatermark) {
+        // Write lock so no new LWM locks can be added.
+        updateLowWatermarkLock.writeLock().lock();
+
+        try {
+            for (LowWatermarkLock lock : locks.values()) {
+                if (lock.timestamp().compareTo(newLowWatermark) < 0) {
+                    return lock.future().thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark));
+                }
+            }
+
+            setLowWatermark(newLowWatermark);
+
+            return nullCompletedFuture();
+        } finally {
+            updateLowWatermarkLock.writeLock().unlock();
+        }
     }
 }
