@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -112,7 +111,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         BigDecimal a1 = IgniteTestUtils.randomBigDecimal(rnd, t1.getPrecision(), t1.getScale());
         BigDecimal a2 = IgniteTestUtils.randomBigDecimal(rnd, t2.getPrecision(), t2.getScale());
-        BigDecimal rs = a1.divide(a2, new MathContext(rt.getScale(), RoundingMode.HALF_EVEN));
+        BigDecimal rs = a1.divide(a2, rt.getScale(), RoundingMode.HALF_EVEN);
 
         String type1 = format("DECIMAL({}, {})", p1, s1);
         String type2 = format("DECIMAL({}, {})", p2, s2);

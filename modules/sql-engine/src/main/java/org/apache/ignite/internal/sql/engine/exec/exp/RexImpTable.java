@@ -3078,13 +3078,14 @@ public class RexImpTable {
       }
 
       if (type0 == BigDecimal.class && type1 == BigDecimal.class && op == DIVIDE) {
+        int precision = call.getType().getPrecision();;
         int scale = call.getType().getScale();
 
         assert scale != RelDataType.SCALE_NOT_SPECIFIED : "No scale for decimal division. Return type: "
                         + call.getType()
                         + " operands: " + call.getOperands().stream().map(RexNode::getType).collect(Collectors.toList());
 
-        return IgniteExpressions.makeDecimalDivision(argValueList.get(0), argValueList.get(1), scale);
+        return IgniteExpressions.makeDecimalDivision(argValueList.get(0), argValueList.get(1), precision, scale);
       }
 
       final Primitive primitive = Primitive.ofBoxOr(type0);

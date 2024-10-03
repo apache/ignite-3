@@ -45,8 +45,9 @@ public class IgniteExpressions {
     }
 
     /** Make decimal division expression. */
-    public static Expression makeDecimalDivision(Expression left, Expression right, int scale) {
-        return Expressions.call(IgniteMath.class, "divideDecimal", left, right, Expressions.constant(scale, int.class));
+    public static Expression makeDecimalDivision(Expression left, Expression right, int precision, int scale) {
+        return Expressions.call(IgniteSqlFunctions.class, "decimalDivide", left, right,
+                Expressions.constant(precision, int.class), Expressions.constant(scale, int.class));
     }
 
     /** Make unary expression with arithmetic operations override. */
