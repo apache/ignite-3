@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -92,9 +93,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TableViewInternal table;
 
-    private final ClusterNode localNode = new ClusterNodeImpl("local", "local", new NetworkAddress("local-host", 1));
+    private final ClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
 
-    private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
+    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
 
     private final List<DeploymentUnit> testDeploymentUnits = List.of(new DeploymentUnit("test", "1.0.0"));
 
@@ -112,6 +113,24 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         assertThat(
                 compute.executeAsync(
                         JobTarget.node(localNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        "a"),
+                willBe("jobResponse")
+        );
+
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a");
+    }
+
+    @Test
+    void whenNodeIsLocalAndIdIsChangedThenExecutesLocally() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
+
+        // Imitate node restart by changing the id.
+        ClusterNode newNode = new ClusterNodeImpl(randomUUID(), localNode.name(), localNode.address());
+
+        assertThat(
+                compute.executeAsync(
+                        JobTarget.node(newNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         "a"),
                 willBe("jobResponse")
@@ -217,7 +236,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private void respondWhenAskForPrimaryReplica() {
         when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
         ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
-        doReturn("").when(replicaMeta).getLeaseholderId();
+        doReturn(randomUUID()).when(replicaMeta).getLeaseholderId();
         CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
         doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
         doReturn(remoteNode).when(topologyService).getById(any());

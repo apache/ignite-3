@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.exception.handler;
 
+import org.apache.ignite.internal.cli.commands.cluster.init.ConfigParseExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 
 /**
@@ -39,5 +40,6 @@ public final class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new UnitNotFoundExceptionHandler());
         addExceptionHandler(new UnitAlreadyExistsExceptionHandler());
         addExceptionHandler(new FileNotFoundExceptionHandler());
+        addExceptionHandler(new ConfigParseExceptionHandler());
     }
 }

@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_Q
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.tableDefinition;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.zoneDefinition;
 
 import java.util.List;
 import java.util.Map;
@@ -149,7 +151,19 @@ enum SyncApiOperation {
     COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduce(
             TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
             null
-    ));
+    )),
+
+    CATALOG_CREATE_TABLE_BY_RECORD_CLASS(refs -> refs.catalog.createTable(Pojo.class)),
+    CATALOG_CREATE_TABLE_BY_KEY_VALUE_CLASSES(refs -> refs.catalog.createTable(PojoKey.class, PojoValue.class)),
+    CATALOG_CREATE_TABLE_BY_DEFINITION(refs -> refs.catalog.createTable(tableDefinition())),
+
+    CATALOG_CREATE_ZONE(refs -> refs.catalog.createZone(zoneDefinition())),
+
+    CATALOG_DROP_TABLE_BY_NAME(refs -> refs.catalog.dropTable(tableDefinition().tableName())),
+    CATALOG_DROP_TABLE_BY_DEFINITION(refs -> refs.catalog.dropTable(tableDefinition())),
+
+    CATALOG_DROP_ZONE_BY_NAME(refs -> refs.catalog.dropZone(zoneDefinition().zoneName())),
+    CATALOG_DROP_ZONE_BY_DEFINITION(refs -> refs.catalog.dropZone(zoneDefinition()));
 
     private final Consumer<References> action;
 
@@ -165,6 +179,7 @@ enum SyncApiOperation {
         return this == IGNITE_TABLES
                 || this == IGNITE_TRANSACTIONS
                 || this == IGNITE_SQL
-                || this == IGNITE_COMPUTE;
+                || this == IGNITE_COMPUTE
+                || this == IGNITE_CATALOG;
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import java.nio.channels.ClosedChannelException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -44,7 +45,7 @@ public class NettySender {
     private final Channel channel;
 
     /** Launch id of the remote node. */
-    private final String launchId;
+    private final UUID launchId;
 
     /** Consistent id of the remote node. */
     private final String consistentId;
@@ -63,7 +64,7 @@ public class NettySender {
      * @param channelId channel identifier.
      * @param recoveryDescriptor Descriptor corresponding to the current logical connection.
      */
-    public NettySender(Channel channel, String launchId, String consistentId, short channelId, RecoveryDescriptor recoveryDescriptor) {
+    public NettySender(Channel channel, UUID launchId, String consistentId, short channelId, RecoveryDescriptor recoveryDescriptor) {
         this.channel = channel;
         this.launchId = launchId;
         this.consistentId = consistentId;
@@ -180,7 +181,7 @@ public class NettySender {
      *
      * @return Launch id of the remote node.
      */
-    public String launchId() {
+    public UUID launchId() {
         return launchId;
     }
 

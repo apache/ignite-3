@@ -70,7 +70,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         super(txManager, id, txCoordinatorId);
 

@@ -302,6 +302,9 @@ public class ErrorGroups {
 
         /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
         public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Failed to perform a read operation on the underlying key value storage because the revision has already been compacted. */
+        public static final int COMPACTED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Index error group. */
@@ -672,7 +675,7 @@ public class ErrorGroups {
         /** Unsupported object type error. */
         public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** There format of bytes is wrong. */
+        /** Unmarshalling error. */
         public static final int UNMARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

@@ -56,8 +56,8 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
     public PrimaryReplicaMissException(
             String expectedLeaseholderName,
             @Nullable String currentLeaseholderName,
-            String expectedLeaseholderId,
-            @Nullable String currentLeaseholderId,
+            UUID expectedLeaseholderId,
+            @Nullable UUID currentLeaseholderId,
             @Nullable Long expectedEnlistmentConsistencyToken,
             @Nullable Long currentEnlistmentConsistencyToken,
             @Nullable Throwable cause

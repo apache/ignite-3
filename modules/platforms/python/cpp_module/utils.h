@@ -164,6 +164,78 @@ PyObject* py_get_module_number_class();
 PyObject* py_get_module_duration_class();
 
 /**
+ * Get module's Warning class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return Warning class.
+ */
+PyObject* py_get_module_warning_class();
+
+/**
+ * Get module's InterfaceError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return InterfaceError class.
+ */
+PyObject* py_get_module_interface_error_class();
+
+/**
+ * Get module's DatabaseError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return DatabaseError class.
+ */
+PyObject* py_get_module_database_error_class();
+
+/**
+ * Get module's DataError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return DataError class.
+ */
+PyObject* py_get_module_data_error_class();
+
+/**
+ * Get module's OperationalError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return OperationalError class.
+ */
+PyObject* py_get_module_operational_error_class();
+
+/**
+ * Get module's IntegrityError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return IntegrityError class.
+ */
+PyObject* py_get_module_integrity_error_class();
+
+/**
+ * Get module's InternalError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return InternalError class.
+ */
+PyObject* py_get_module_internal_error_class();
+
+/**
+ * Get module's ProgrammingError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return ProgrammingError class.
+ */
+PyObject* py_get_module_programming_error_class();
+
+/**
+ * Get module's NotSupportedError class instance.
+ * Faster then loading the class the ordinary way as the class is cached.
+ *
+ * @return NotSupportedError class.
+ */
+PyObject* py_get_module_not_supported_error_class();
+
+/**
  * Create a new instance of pyignite3.UUID from an array of bytes.
  *
  * @param value Uuid.

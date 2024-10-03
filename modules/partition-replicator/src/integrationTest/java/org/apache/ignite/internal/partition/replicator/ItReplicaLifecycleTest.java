@@ -174,6 +174,8 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -1231,6 +1233,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             HybridClockImpl clock = new HybridClockImpl();
 
+            MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -1265,7 +1269,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     indexMetaStorage,
                     logSyncer,
-                    partitionReplicaLifecycleManager
+                    partitionReplicaLifecycleManager,
+                    minTimeCollectorService
             );
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));

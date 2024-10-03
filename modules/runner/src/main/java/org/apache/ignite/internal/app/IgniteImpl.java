@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -237,6 +238,7 @@ import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTabl
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -886,6 +888,8 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,
                 catalogManager,
@@ -897,7 +901,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
-                indexNodeFinishedRwTransactionsChecker
+                indexNodeFinishedRwTransactionsChecker,
+                minTimeCollectorService
         );
 
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
@@ -975,7 +980,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                minTimeCollectorService
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1588,7 +1594,7 @@ public class IgniteImpl implements Ignite {
      * Returns the id of the current node.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public String id() {
+    public UUID id() {
         return clusterSvc.topologyService().localMember().id();
     }
 

@@ -288,116 +288,12 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         return Stream.concat(s1, s2);
     }
 
-    /** Type coercion in INSERT statement. */
-    @TestFactory
-    public Stream<DynamicTest> testInsert() {
-        return Stream.of(
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT64)
-                        .sql("UPDATE t1 SET c1 = '10'")
-                        .project("$t0", "10:BIGINT"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT64, "c2", NativeTypes.INT64)
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
-                        .sql("INSERT INTO t1 (c1, c2) SELECT c1, c2 FROM t2")
-                        .project("CAST($t0):BIGINT", "CAST($t1):BIGINT"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.stringOf(4), "c2", NativeTypes.stringOf(4))
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
-                        .sql("INSERT INTO t1 (c1, c2) SELECT c1, 10 FROM t2")
-                        .project("CAST($t0):VARCHAR(4) CHARACTER SET \"UTF-8\"", "_UTF-8'10':VARCHAR(4) CHARACTER SET \"UTF-8\""),
-
-                checkStatement()
-                        .table("t1", "int_col", NativeTypes.INT64,
-                                "bigint_col", NativeTypes.STRING, "smallint_col", NativeTypes.stringOf(4))
-                        .table("t2", "int_col", NativeTypes.INT32,
-                                "smallint_col", NativeTypes.INT16, "str_col", NativeTypes.stringOf(4))
-                        .sql("INSERT INTO t1 (int_col, bigint_col, smallint_col) SELECT int_col, smallint_col, str_col FROM t2")
-                        .project("CAST($t0):BIGINT", "CAST($t1):VARCHAR(65536) CHARACTER SET \"UTF-8\"", "$t2"),
-
-                // DEFAULT is not coerced
-                checkStatement()
-                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
-                        .table("t1", (table) -> {
-                            return table.name("T1")
-                                    .addColumn("INT_COL", NativeTypes.INT32)
-                                    .addColumn("STR_COL", NativeTypes.stringOf(4), "0000")
-                                    .distribution(IgniteDistributions.single())
-                                    .build();
-                        })
-                        .sql("INSERT INTO t1 VALUES(1, DEFAULT)")
-                        .project("1", "_UTF-8'0000'")
-        );
-    }
-
-    /** Type coercion in UPDATE statement. */
-    @TestFactory
-    public Stream<DynamicTest> testUpdate() {
-        return Stream.of(
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = '1'::INTEGER + 1")
-                        .project("$t0", "+(1, 1)"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.stringOf(4))
-                        .sql("UPDATE t1 SET c1 = 1")
-                        .project("$t0", "_UTF-8'1':VARCHAR(4) CHARACTER SET \"UTF-8\""),
-
-                checkStatement()
-                        .table("t1", "id", NativeTypes.INT32, "int_col", NativeTypes.INT32, "str_col", NativeTypes.STRING)
-                        .sql("UPDATE t1 SET str_col = 1, int_col = id + 1")
-                        .project("$t0", "$t1", "$t2", "_UTF-8'1':VARCHAR(65536) CHARACTER SET \"UTF-8\"", "+($t0, 1)")
-        );
-    }
-
-    /** Type coercion in MERGE statement. */
-    @TestFactory
-    public Stream<DynamicTest> testMergeMatchProjection() {
-        return Stream.of(
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT16, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.stringOf(4), "c3", NativeTypes.INT64)
-                        .sql(() -> {
-                            String sql = "MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
-                                    + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, src.c3)";
-                            return sql;
-                        })
-                        .project("CAST($0):INTEGER", "CAST($1):VARCHAR(4) CHARACTER SET \"UTF-8\"", "CAST($2):BIGINT"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.stringOf(4), "c3", NativeTypes.INT64)
-                        .sql(() -> {
-                            String sql = "MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
-                                    + "WHEN MATCHED THEN UPDATE SET c2 = src.c2, c3 = src.c3";
-                            return sql;
-                        })
-                        .project("$0", "$1", "$2", "CAST($4):VARCHAR(4) CHARACTER SET \"UTF-8\"", "CAST($5):BIGINT"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.stringOf(4), "c3", NativeTypes.INT32)
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.stringOf(3))
-                        .sql(() -> {
-                            String sql = "MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
-                                    + "WHEN MATCHED THEN UPDATE SET c2 = src.c3 "
-                                    + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, src.c3)";
-                            return sql;
-                        })
-                        .project("$3", "CAST($4):INTEGER", "CAST($5):VARCHAR(3) CHARACTER SET \"UTF-8\"", "$0", "$1", "$2", "$5")
-        );
-    }
-
     /** IN expression. */
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
         return Stream.of(
                 // literals
                 sql("SELECT '1'::int IN ('1'::INTEGER)").project("true"),
-                sql("SELECT 1 IN ('1', 2)").project("true"),
-                sql("SELECT '1' IN (1, 2)").project("true"),
                 sql("SELECT 2 IN ('2'::REAL, 1)").project("true"),
 
                 checkStatement()
@@ -408,11 +304,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
                         .sql("SELECT int_col IN (1, bigint_col) FROM t")
-                        .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))"),
-
-                checkStatement()
-                        .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
-                        .sql("SELECT str_col IN (1, bigint_col) FROM t")
                         .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))")
         );
     }
@@ -481,13 +372,12 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("INSERT INTO t3 VALUES('1111'::UUID)")
-                        .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR CHARACTER SET \"UTF-8\" NOT NULL"),
+                        .fails("Cannot assign to target field 'STR_COL' of type VARCHAR(36) from source field 'EXPR$0' of type UUID"),
 
                 checkStatement(setup)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("UPDATE t1 SET str_col='1111'::UUID")
-                        .project("$t0", "$t1", "$t2",
-                                "CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR(65536) CHARACTER SET \"UTF-8\" NOT NULL"),
+                        .fails("Cannot assign to target field 'STR_COL' of type VARCHAR(65536) from source field 'EXPR$0' of type UUID"),
 
                 checkStatement(setup)
                         .sql("SELECT uuid_col FROM t1 UNION SELECT uuid_col FROM t2")

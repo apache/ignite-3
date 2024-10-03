@@ -87,7 +87,9 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             // Set server timezone.
             TimeZone.setDefault(TimeZone.getTimeZone(serverTimezone));
 
-            stmt.executeUpdate(format("INSERT INTO test VALUES(0, '{}', '{}')", TIMESTAMP_STR, TIMESTAMP_STR));
+            stmt.executeUpdate(format(
+                    "INSERT INTO test VALUES(0, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')", TIMESTAMP_STR, TIMESTAMP_STR
+            ));
 
             validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
                     "1970-01-01 00:00:00", "1970-01-01 00:00:00 GMT+02:00");
@@ -116,7 +118,9 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             String timeZone = "GMT+02:00";
 
             withNewConnection(URL + "?connectionTimeZone=" + timeZone, stmt -> {
-                stmt.executeUpdate(format("INSERT INTO test VALUES(0, '{}', '{}')", TIMESTAMP_STR, TIMESTAMP_STR));
+                stmt.executeUpdate(format(
+                        "INSERT INTO test VALUES(0, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')", TIMESTAMP_STR, TIMESTAMP_STR
+                ));
 
                 validateSingleRow("SELECT ts::VARCHAR, ts_tz::VARCHAR FROM test", stmt,
                         "1970-01-01 00:00:00", "1970-01-01 00:00:00 " + timeZone);

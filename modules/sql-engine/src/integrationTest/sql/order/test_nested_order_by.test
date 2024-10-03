@@ -6,7 +6,7 @@ statement ok
 CREATE TABLE t(c varchar, i int);
 
 statement ok
-INSERT INTO t SELECT x, 0 - x FROM table(system_range(0, 3));
+INSERT INTO t SELECT x::VARCHAR, 0 - x FROM table(system_range(0, 3));
 
 statement ok
 INSERT INTO t VALUES(NULL, NULL);

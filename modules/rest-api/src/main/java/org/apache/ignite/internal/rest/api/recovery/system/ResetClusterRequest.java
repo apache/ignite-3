@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tostring.S;
 /** Request to reset cluster. */
 @Schema(description = "Reset cluster.")
 public class ResetClusterRequest {
-    @Schema(description = "Names of the proposed CMG node names.")
+    @Schema(description = "Names of the proposed CMG nodes.")
     @IgniteToStringInclude
     private final List<String> cmgNodeNames;
 
@@ -41,7 +41,7 @@ public class ResetClusterRequest {
         this.cmgNodeNames = List.copyOf(cmgNodeNames);
     }
 
-    /** Returns names of the proposed CMG node names. */
+    /** Returns names of the proposed CMG nodes. */
     @JsonGetter("cmgNodeNames")
     public List<String> cmgNodeNames() {
         return cmgNodeNames;

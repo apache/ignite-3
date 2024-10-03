@@ -42,7 +42,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 public interface SystemDisasterRecoveryApi {
     @Post("reset")
     @Operation(
-            operationId = "reset",
+            operationId = "resetCluster",
             description = "Initiates cluster reset to repair CMG/Metastorage group/both."
     )
     @ApiResponse(responseCode = "200", description = "Cluster reset initiated.")

@@ -119,19 +119,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            if (nodes.size() == 1) {
-                ClusterNode node = nodes.iterator().next();
-                if (node.id().equals(topologyService.localMember().id())) {
-                    return new ResultUnmarshallingJobExecution<>(
-                            executeAsyncWithFailover(
-                                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                                    tryMarshalOrCast(argumentMarshaller, args)
-                            ),
-                            resultMarshaller
-                    );
-                }
-            }
-
             return new ResultUnmarshallingJobExecution<>(
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
@@ -189,7 +176,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Object args
+            @Nullable Object arg
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -214,7 +201,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         units,
                         jobClassName,
                         options,
-                        args
+                        arg
                 ));
     }
 
@@ -235,15 +222,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            @Nullable T payload
+            @Nullable T arg
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, payload);
+            return computeComponent.executeLocally(options, units, jobClassName, arg);
         } else {
             return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, payload
+                    targetNode, nextWorkerSelector, units, jobClassName, options, arg
             );
         }
     }
@@ -266,7 +253,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private boolean isLocal(ClusterNode targetNode) {
-        return targetNode.id().equals(topologyService.localMember().id());
+        return targetNode.name().equals(topologyService.localMember().name());
     }
 
     @Override

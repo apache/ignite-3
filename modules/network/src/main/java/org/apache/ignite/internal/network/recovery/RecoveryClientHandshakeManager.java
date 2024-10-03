@@ -266,16 +266,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
 
-        ChannelKey channelKey = new ChannelKey(remoteNode.name(), UUID.fromString(remoteNode.id()), connectionId);
+        ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
         switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
     private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {
-        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                remoteNode.name(),
-                UUID.fromString(remoteNode.id()),
-                connectionId
-        );
+        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteNode.name(), remoteNode.id(), connectionId);
 
         while (!descriptor.tryAcquire(ctx, localHandshakeCompleteFuture)) {
             // Don't use the tie-breaking logic as this handshake attempt is late: the competitor has already acquired
@@ -401,11 +397,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void giveUpClinch() {
-        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                remoteNode.name(),
-                UUID.fromString(remoteNode.id()),
-                connectionId
-        );
+        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteNode.name(), remoteNode.id(), connectionId);
 
         DescriptorAcquiry myAcquiry = descriptor.holder();
         assert myAcquiry != null;

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.index.IndexManagementUtils.enterBusy;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractPartitionIdFromPartitionBuildIndexKey;
@@ -30,7 +31,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBui
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
 import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionBuildIndexMetastoreKeyString;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -116,7 +116,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
     void testIsPrimaryReplicaFalse() {
         TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
 
-        ClusterNode otherNode = new ClusterNodeImpl(NODE_ID + "-other", NODE_NAME + "-other", mock(NetworkAddress.class));
+        ClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
 
         HybridTimestamp now = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -144,8 +144,8 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsLocalNode() {
-        ClusterNode localNode = new ClusterNodeImpl("local-id", "local", new NetworkAddress("127.0.0.1", 8888));
-        ClusterNode notLocalNode = new ClusterNodeImpl("not-local-id", "not-local", new NetworkAddress("127.0.0.1", 7777));
+        ClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
+        ClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
 
         ClusterService clusterService = clusterService(localNode);
 

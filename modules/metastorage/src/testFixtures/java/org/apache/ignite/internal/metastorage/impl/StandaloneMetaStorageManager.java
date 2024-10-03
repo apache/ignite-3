@@ -70,7 +70,7 @@ import org.mockito.quality.Strictness;
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
 
-    private static final String TEST_NODE_ID = UUID.randomUUID().toString();
+    private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 

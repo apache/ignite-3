@@ -30,6 +30,8 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -233,13 +235,48 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void removeWatch(WatchListener listener);
 
     /**
-     * Compacts storage (removes tombstones).
+     * Compacts outdated key versions and removes tombstones of metastorage locally.
      *
-     * @param lowWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
-     *     watermark can be removed.
+     * <p>We do not compact the only and last version of the key unless it is a tombstone.</p>
+     *
+     * <p>Let's look at some examples, let's say we have the following keys with their versions:</p>
+     * <ul>
+     *     <li>Key "foo" with versions that have revisions (1, 3, 5) - "foo" [1, 3, 5].</li>
+     *     <li>Key "bar" with versions that have revisions (1, 2, 5) the last revision is a tombstone - "bar" [1, 2, 5 tomb].</li>
+     * </ul>
+     *
+     * <p>Let's look at examples of invoking the current method and what will be in the storage after:</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}: "foo" [3, 5], "bar" [2, 5 tomb].</li>
+     *     <li>Compaction revision is {@code 2}: "foo" [3, 5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 3}: "foo" [5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 4}: "foo" [5], "bar" [5 tomb].</li>
+     *     <li>Compaction revision is {@code 5}: "foo" [5].</li>
+     *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
+     * </ul>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * <p>Since the node may stop or crash, after restoring the node on its startup we need to run the compaction for the latest known
+     * compaction revision.</p>
+     *
+     * <p>Compaction revision is not updated or saved.</p>
+     *
+     * @param revision Revision up to which (including) the metastorage keys will be compacted.
+     * @throws MetaStorageException If there is an error during the metastorage compaction process.
+     * @see #stopCompaction()
+     * @see #setCompactionRevision(long)
+     * @see #saveCompactionRevision(long)
      */
-    // TODO: IGNITE-19417 Provide low-watermark for compaction.
-    void compact(HybridTimestamp lowWatermark);
+    void compact(long revision);
+
+    /**
+     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     *
+     * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
+     * recommended to invoke this method before stopping the external component.</p>
+     */
+    void stopCompaction();
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.
@@ -268,6 +305,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     HybridTimestamp timestampByRevision(long revision);
 
     /**
@@ -276,6 +314,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param timestamp Timestamp by which to do a lookup.
      * @return Revision lesser or equal to the timestamp or -1 if there is no such revision.
      */
+    // TODO: IGNITE-23307 Figure out what to do after compaction
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**
@@ -301,4 +340,41 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param newSafeTime New Safe Time value.
      */
     void advanceSafeTime(HybridTimestamp newSafeTime);
+
+    /**
+     * Saves the compaction revision to the storage meta.
+     *
+     * <p>Method only saves the new compaction revision to the meta of storage. After invoking this method the metastorage read methods
+     * will <b>not</b> immediately start throwing a {@link CompactedException} if they request a revision less than or equal to the new
+     * saved one.</p>
+     *
+     * <p>Last saved compaction revision will be in the {@link #snapshot snapshot}. When {@link #restoreSnapshot restoring} from a snapshot,
+     * compaction revision will be restored after which the metastorage read methods will throw exception {@link CompactedException}.</p>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Compaction revision to save.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
+     * @see #setCompactionRevision(long)
+     */
+    void saveCompactionRevision(long revision);
+
+    /**
+     * Sets the compaction revision, but does not save it, after invoking this method the metastorage read methods will throw a
+     * {@link CompactedException} if they request a revision less than or equal to the new one.
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Compaction revision.
+     * @see #saveCompactionRevision(long)
+     */
+    void setCompactionRevision(long revision);
+
+    /**
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     *
+     * @see #setCompactionRevision(long)
+     * @see #saveCompactionRevision(long)
+     */
+    long getCompactionRevision();
 }
