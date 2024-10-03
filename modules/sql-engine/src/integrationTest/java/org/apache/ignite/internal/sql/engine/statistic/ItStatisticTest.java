@@ -19,9 +19,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsRowCount;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,13 +48,13 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             insertAndUpdateRunQuery(500);
             // Minimum row count is 1000, even we have less rows.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount(1000))
+                    .matches(containsRowCount("PUBLIC", "T", 1000))
                     .check();
 
             insertAndUpdateRunQuery(600);
             // Should return actual number of rows in the table.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount(1100))
+                    .matches(containsRowCount("PUBLIC", "T", 1100))
                     .check();
 
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
@@ -64,7 +62,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
             // Statistics shouldn't be updated despite we inserted new rows.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount(1100))
+                    .matches(containsRowCount("PUBLIC", "T", 1100))
                     .check();
         } finally {
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
@@ -74,11 +72,9 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     private static AtomicInteger counter = new AtomicInteger(0);
 
     private static void insertAndUpdateRunQuery(int numberOfRecords) {
-        List<String> columns = List.of("ID", "VAL");
-        Object[][] values = IntStream.range(counter.get(), counter.addAndGet(numberOfRecords))
-                .mapToObj(i -> new Object[]{i, i})
-                .toArray(Object[][]::new);
-        insertData("t", columns, values);
+        int start = counter.get();
+        int end = counter.addAndGet(numberOfRecords) - 1;
+        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", start, end);
 
         // run unique sql to update statistics
         sql(getUniqueQuery());

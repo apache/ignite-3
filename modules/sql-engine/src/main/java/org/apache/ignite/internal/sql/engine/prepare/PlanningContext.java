@@ -344,11 +344,10 @@ public final class PlanningContext implements Context {
                 Double rowCount = null;
                 if (table instanceof IgniteDataSource) {
                     IgniteDataSource ds = (IgniteDataSource) table;
-                    rowCount = cacheSizeOfTables.get(ds.name());
-                    if (rowCount == null) {
-                        rowCount = ds.getStatistic().getRowCount();
-                        cacheSizeOfTables.put(ds.name(), rowCount);
-                    }
+                    rowCount = cacheSizeOfTables.computeIfAbsent(
+                            ds.name(),
+                            k -> ds.getStatistic().getRowCount()
+                    );
                 }
 
                 return RelOptTableImpl.create(this,

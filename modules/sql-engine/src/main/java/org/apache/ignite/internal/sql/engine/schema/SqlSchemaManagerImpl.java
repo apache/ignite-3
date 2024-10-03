@@ -511,8 +511,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int tableId = catalogTableDescriptor.id();
         String tableName = catalogTableDescriptor.name();
 
-        // TODO IGNITE-19558: The table is not available at planning stage.
-        // Let's fix table statistics keeping in mind IGNITE-19558 issue.
         IgniteStatistic statistic = new IgniteStatistic(() -> sqlStatisticManager.tableSize(tableId), tableDescriptor.distribution());
 
         return new IgniteTableImpl(

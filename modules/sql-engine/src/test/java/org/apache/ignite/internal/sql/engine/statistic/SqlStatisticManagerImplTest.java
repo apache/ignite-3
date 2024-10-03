@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -51,12 +52,15 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private InternalTable internalTable;
 
+    @Mock
+    private LowWatermark lowWatermark;
+
     @Test
     public void checkDefaultTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         when(tableManager.cachedTable(tableId)).thenReturn(null);
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
 
         assertEquals(1_000_000L, sqlStatisticManager.tableSize(tableId));
     }
@@ -68,7 +72,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(10L));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
 
         assertEquals(1_000L, sqlStatisticManager.tableSize(tableId));
     }
@@ -81,13 +85,13 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         when(tableViewInternal.internalTable()).thenReturn(internalTable);
         when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(tableSize));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
 
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
         // The second time we should obtain the same value from a cache.
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
         assertEquals(tableSize, sqlStatisticManager.tableSize(tableId));
-        verify(tableManager, times(1)).cachedTable(tableId);
+        verify(internalTable, times(1)).estimatedSize();
     }
 
     @Test
@@ -101,7 +105,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
                 CompletableFuture.completedFuture(tableSize1),
                 CompletableFuture.completedFuture(tableSize2));
 
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
+        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
 
         assertEquals(tableSize1, sqlStatisticManager.tableSize(tableId));
         // The second time we should obtain the same value from a cache.
@@ -111,6 +115,6 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
         // Now we need obtain a fresh value of table size.
         assertEquals(tableSize2, sqlStatisticManager.tableSize(tableId));
-        verify(tableManager, times(2)).cachedTable(tableId);
+        verify(internalTable, times(2)).estimatedSize();
     }
 }

@@ -56,6 +56,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -240,6 +241,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
             TxManager txManager,
+            LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler
     ) {
         this.clusterSrvc = clusterSrvc;
@@ -261,8 +263,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.transactionInflights = transactionInflights;
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
-
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager);
+        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
@@ -360,6 +361,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
+
+        registerService(sqlStatisticManager);
 
         this.executionSrvc = executionSrvc;
 

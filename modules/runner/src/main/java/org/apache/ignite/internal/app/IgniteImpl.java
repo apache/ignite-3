@@ -1023,6 +1023,7 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
 

@@ -52,6 +52,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-partition-distribution')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine

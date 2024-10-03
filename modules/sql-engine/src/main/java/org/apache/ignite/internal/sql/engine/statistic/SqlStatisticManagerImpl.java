@@ -19,18 +19,23 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.FastTimestamps;
-import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -40,73 +45,140 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     private static final long DEFAULT_TABLE_SIZE = 1_000_000;
     private static final long MINIMUM_TABLE_SIZE = 1_000L;
-    private static final Pair<Long, Long> DEFAULT_VALUE = new Pair<>(DEFAULT_TABLE_SIZE, 0L);
+    private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
+
+    private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
+    private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
+
+    /** A queue for deferred table destruction events. */
+    private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue = new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     private final TableManager tableManager;
+    private final CatalogService catalogService;
+    private final LowWatermark lowWatermark;
 
-    private final ConcurrentMap<Integer, Pair<Long, Long>> tableSizeMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
     private volatile long thresholdTimeToPostponeUpdateMs = TimeUnit.MINUTES.toMillis(1);
 
     /** Constructor. */
-    public SqlStatisticManagerImpl(TableManager tableManager, CatalogManager catalogManager) {
+    public SqlStatisticManagerImpl(TableManager tableManager, CatalogService catalogService, LowWatermark lowWatermark) {
         this.tableManager = tableManager;
-
-        catalogManager.listen(CatalogEvent.TABLE_DROP, fromConsumer(event -> {
-            int tableId = ((DropTableEventParameters) event).tableId();
-            onTableDrop(tableId);
-        }));
+        this.catalogService = catalogService;
+        this.lowWatermark = lowWatermark;
     }
 
+
     /**
-     * Returns approximate number of rows in table by their id. Returns the previous known value or
-     * {@value SqlStatisticManagerImpl#DEFAULT_TABLE_SIZE} as default value. Can start process to update asked statistics in background to
-     * have updated values for future requests.
+     * Returns approximate number of rows in table by their id.
+     *
+     * <p>Returns the previous known value or {@value SqlStatisticManagerImpl#DEFAULT_TABLE_SIZE} as default value. Can start process to
+     * update asked statistics in background to have updated values for future requests.
+     *
+     * @return An approximate number of rows in a given table.
      */
     @Override
     public long tableSize(int tableId) {
         updateTableSizeStatistics(tableId);
-        long ts = tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getFirst();
+        long tableSize = tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getSize();
 
-        return Math.max(ts, MINIMUM_TABLE_SIZE);
+        return Math.max(tableSize, MINIMUM_TABLE_SIZE);
     }
 
     /** Update table size statistic in the background if it required. */
     private void updateTableSizeStatistics(int tableId) {
+        TableViewInternal tableView = tableManager.cachedTable(tableId);
+        if (tableView == null) {
+            LOG.debug("There is no table to update statistics [id={}].", tableId);
+            return;
+        }
+
         tableSizeMap.putIfAbsent(tableId, DEFAULT_VALUE);
-        Pair<Long, Long> pair = tableSizeMap.get(tableId);
+        ActualSize tblSize = tableSizeMap.get(tableId);
         long currTs = FastTimestamps.coarseCurrentTimeMillis();
-        long lastUpdateTime = pair.getSecond();
+        long lastUpdateTime = tblSize.getTimestamp();
 
         if (lastUpdateTime <= currTs - thresholdTimeToPostponeUpdateMs) {
             // Prevent to run update for the same table twice concurrently.
-            if (!tableSizeMap.replace(tableId, pair, new Pair<>(pair.getFirst(), currTs))) {
-                return;
-            }
-
-            TableViewInternal tableView = tableManager.cachedTable(tableId);
-            if (tableView == null) {
-                LOG.debug("There is no table to update statistics [id={}]", tableId);
+            if (!tableSizeMap.replace(tableId, tblSize, new ActualSize(tblSize.getSize(), currTs))) {
                 return;
             }
 
             // just request new table size in background.
             tableView.internalTable().estimatedSize()
-                    .thenApply(size -> {
+                    .thenAccept(size -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
-                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new Pair<>(size, currTs));
-                        return size;
+                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new ActualSize(size, currTs));
                     }).exceptionally(e -> {
-                        LOG.info("Can't calculate size for table [id={}]", e, tableId);
-                        return DEFAULT_TABLE_SIZE;
+                        LOG.info("Can't calculate size for table [id={}].", e, tableId);
+                        return null;
                     });
         }
     }
 
-    /** Cleans up resources after a table is dropped. */
-    private void onTableDrop(int tableId) {
-        // There is no any guarantee that after delete statistics will be not asked again and cache will not contains obsolete data.
-        tableSizeMap.remove(tableId);
+    @Override
+    public void start() {
+        catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
+    }
+
+    @Override
+    public void stop() {
+        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
+        catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
+    }
+
+    private void onTableDrop(DropTableEventParameters parameters) {
+        int tableId = parameters.tableId();
+        int catalogVersion = parameters.catalogVersion();
+
+        destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId));
+    }
+
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
+        List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
+
+        events.forEach(event -> tableSizeMap.remove(event.tableId()));
+    }
+
+    /** Timestamped size. */
+    private static class ActualSize {
+        long timestamp;
+        long size;
+
+        public ActualSize(long size, long timestamp) {
+            this.timestamp = timestamp;
+            this.size = size;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public long getSize() {
+            return size;
+        }
+    }
+
+
+    /** Internal event. */
+    private static class DestroyTableEvent {
+        final int catalogVersion;
+        final int tableId;
+
+        DestroyTableEvent(int catalogVersion, int tableId) {
+            this.catalogVersion = catalogVersion;
+            this.tableId = tableId;
+        }
+
+        public int catalogVersion() {
+            return catalogVersion;
+        }
+
+        public int tableId() {
+            return tableId;
+        }
     }
 
     /**

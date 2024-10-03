@@ -62,11 +62,14 @@ public interface QueryChecker {
     /**
      * Ignite Row count matcher.
      *
+     * @param schema Schema name.
+     * @param sourceName Table or index name.
      * @param rowCount expected row count.
      * @return Matcher.
      */
-    static Matcher<String> containsRowCount(long rowCount) {
-        return CoreMatchers.containsString("IgniteCost [rowCount=" + rowCount + ".0");
+    static Matcher<String> containsRowCount(String schema, String sourceName, long rowCount) {
+        return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + sourceName
+                + "\\]\\].*\\]\\)\\:.*cumulative cost = IgniteCost \\[rowCount=" + rowCount + ".0");
     }
 
     /**
