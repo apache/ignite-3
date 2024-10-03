@@ -174,7 +174,7 @@ public class ErrorGroups {
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Table is stopping. */
-        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) (5));
+        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Table definition is incorrect. */
         public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
@@ -455,6 +455,12 @@ public class ErrorGroups {
 
         /** Port is in use. */
         public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** File transfer error. */
+        public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** File validation error. */
+        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
