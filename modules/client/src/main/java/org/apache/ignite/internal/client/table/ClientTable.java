@@ -259,7 +259,6 @@ public class ClientTable implements Table {
         }
 
         var schema = new ClientSchema(schemaVer, columns, marshallers);
-        schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {

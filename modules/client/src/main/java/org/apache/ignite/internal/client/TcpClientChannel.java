@@ -469,6 +469,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         TimeoutObjectImpl pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
+            unpacker.close();
+
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
 
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId), endpoint());
