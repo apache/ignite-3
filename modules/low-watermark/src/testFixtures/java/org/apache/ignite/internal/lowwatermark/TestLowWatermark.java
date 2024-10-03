@@ -168,7 +168,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
 
         try {
             for (LowWatermarkLock lock : locks.values()) {
-                if (lock.timestamp().compareTo(newLowWatermark) < 0) {
+                if (lock.timestamp().compareTo(newLowWatermark) <= 0) {
                     return lock.future().thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark));
                 }
             }
