@@ -308,63 +308,18 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    private static Matcher<Object> ofTypeOfEqOrLessPrecision(NativeType type) {
-        return new BaseMatcher<>() {
-            Object result;
-            DecimalNativeType referenceType;
-            int precision = 0;
-            int scale = 0;
-            ColumnMetadata colMeta;
-
-            @Override
-            public boolean matches(Object actual) {
-                assert actual != null;
-                assert type instanceof DecimalNativeType;
-
-                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-                result = pair.getFirst();
-                colMeta = pair.getSecond();
-
-                assert result instanceof BigDecimal;
-
-                NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromClass(result.getClass());
-
-                int derivedTypePrecision = ((DecimalNativeType) type).precision();
-                int derivedTypeScale = ((DecimalNativeType) type).scale();
-
-                precision = ((BigDecimal) result).precision();
-                scale = ((BigDecimal) result).scale();
-
-                referenceType = (DecimalNativeType) type;
-
-                boolean metaCheck = colMeta.precision() <= referenceType.precision()
-                        && referenceType.scale() == colMeta.scale();
-
-                return metaCheck && nativeTypeSpec == type.spec()
-                        && precision <= derivedTypePrecision
-                        && scale == derivedTypeScale;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}', column meta: {}",
-                        referenceType, result.getClass(), precision, scale, colMeta));
-            }
-        };
-    }
-
-    public static TestCaseBuilder forTypePair(TypePair typePair) {
+    static TestCaseBuilder forTypePair(TypePair typePair) {
         return new TestCaseBuilder(typePair);
     }
 
-    public static TestCaseBuilderEx forTypePairEx(TypePair typePair) {
+    static TestCaseBuilderEx forTypePairEx(TypePair typePair) {
         return new TestCaseBuilderEx(typePair);
     }
 
     /**
      * Not really a builder, but provides DSL-like API to describe test case.
      */
-    public static class TestCaseBuilderEx {
+    static class TestCaseBuilderEx {
         private final TypePair pair;
         private Matcher<?> firstOpMatcher;
         private Matcher<?> secondOpMatcher;
@@ -431,14 +386,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             firstOpMatcher = ofTypeWithoutCast(pair.first());
 
             return this;
-        }
-
-        public Arguments checkResult() {
-            return Arguments.of(pair, checkReturnResult());
-        }
-
-        public Arguments resultWillBeEqOrLessPrecision(NativeType type) {
-            return Arguments.of(pair, ofTypeOfEqOrLessPrecision(type));
         }
 
         Arguments secondOpMatches(Matcher<?> operandMatcher) {
