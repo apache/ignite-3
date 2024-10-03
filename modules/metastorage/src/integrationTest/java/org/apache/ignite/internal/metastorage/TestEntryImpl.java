@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.internal.metastorage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.jetbrains.annotations.Nullable;
 
-/** Implementation of the {@link Entry}. */
-public final class EntryImpl implements Entry {
-    private static final long serialVersionUID = 3636551347117181271L;
+/** Implementation for equality checking only. */
+public class TestEntryImpl implements Entry {
+    private static final long serialVersionUID = 4106515935101768387L;
+
+    /** Special value that means to ignore the {@link #timestamp()} check when checking for equality. */
+    public static final HybridTimestamp ANY_TIMESTAMP = new HybridTimestamp(1L, 1);
 
     private final byte[] key;
 
@@ -37,9 +39,10 @@ public final class EntryImpl implements Entry {
 
     private final long updateCounter;
 
-    private final HybridTimestamp timestamp;
+    private final @Nullable HybridTimestamp timestamp;
 
-    public EntryImpl(byte[] key, byte @Nullable [] value, long revision, long updateCounter, @Nullable HybridTimestamp timestamp) {
+    /** Constructor. */
+    public TestEntryImpl(byte[] key, byte @Nullable [] value, long revision, long updateCounter, @Nullable HybridTimestamp timestamp) {
         this.key = key;
         this.value = value;
         this.revision = revision;
@@ -68,18 +71,18 @@ public final class EntryImpl implements Entry {
     }
 
     @Override
-    public HybridTimestamp timestamp() {
-        return timestamp;
+    public boolean empty() {
+        throw new UnsupportedOperationException("Implementation for equality checking only");
     }
 
     @Override
     public boolean tombstone() {
-        return value == null && revision > 0 && updateCounter > 0;
+        throw new UnsupportedOperationException("Implementation for equality checking only");
     }
 
     @Override
-    public boolean empty() {
-        return value == null && revision == 0 && updateCounter == 0;
+    public @Nullable HybridTimestamp timestamp() {
+        return timestamp;
     }
 
     @Override
@@ -88,64 +91,46 @@ public final class EntryImpl implements Entry {
             return true;
         }
 
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof Entry)) {
             return false;
         }
 
-        EntryImpl entry = (EntryImpl) o;
+        Entry entry = (Entry) o;
 
-        if (revision != entry.revision) {
+        if (revision != entry.revision()) {
             return false;
         }
 
-        if (updateCounter != entry.updateCounter) {
+        if (updateCounter != entry.updateCounter()) {
             return false;
         }
 
-        if (!Objects.equals(timestamp, entry.timestamp)) {
+        if (timestamp != ANY_TIMESTAMP && entry.timestamp() != ANY_TIMESTAMP) {
+            if (!Objects.equals(timestamp, entry.timestamp())) {
+                return false;
+            }
+        }
+
+        if (!Arrays.equals(key, entry.key())) {
             return false;
         }
 
-        if (!Arrays.equals(key, entry.key)) {
-            return false;
-        }
-
-        return Arrays.equals(value, entry.value);
+        return Arrays.equals(value, entry.value());
     }
 
     @Override
     public int hashCode() {
-        int res = Arrays.hashCode(key);
-
-        res = 31 * res + Arrays.hashCode(value);
-
-        res = 31 * res + (int) (revision ^ (revision >>> 32));
-
-        res = 31 * res + (int) (updateCounter ^ (updateCounter >>> 32));
-
-        res = 31 * res + Objects.hashCode(timestamp);
-
-        return res;
+        throw new UnsupportedOperationException("Implementation for equality checking only");
     }
 
     @Override
     public String toString() {
-        return "EntryImpl{"
+        return "TestEntryImpl{"
                 + "key=" + new String(key, UTF_8)
                 + ", value=" + Arrays.toString(value)
                 + ", revision=" + revision
                 + ", updateCounter=" + updateCounter
                 + ", timestamp=" + timestamp
                 + '}';
-    }
-
-    /** Creates an instance of tombstone entry. */
-    public static Entry tombstone(byte[] key, long rev, long updCntr, HybridTimestamp timestamp) {
-        return new EntryImpl(key, null, rev, updCntr, timestamp);
-    }
-
-    /** Creates an instance of empty entry for a given key. */
-    public static Entry empty(byte[] key) {
-        return new EntryImpl(key, null, 0, 0, null);
     }
 }

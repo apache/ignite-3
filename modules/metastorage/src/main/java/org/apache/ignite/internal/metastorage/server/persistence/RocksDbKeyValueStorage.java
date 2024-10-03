@@ -570,8 +570,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     private static Entry entry(byte[] key, long revision, Value value) {
         return value.tombstone()
-                ? EntryImpl.tombstone(key, revision, value.updateCounter())
-                : new EntryImpl(key, value.bytes(), revision, value.updateCounter());
+                ? EntryImpl.tombstone(key, revision, value.updateCounter(), null)
+                : new EntryImpl(key, value.bytes(), revision, value.updateCounter(), null);
     }
 
     @Override
@@ -1312,10 +1312,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Value lastVal = bytesToValue(valueBytes);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, revision, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, revision, lastVal.updateCounter(), null);
         }
 
-        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter(), null);
     }
 
     /**

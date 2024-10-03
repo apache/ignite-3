@@ -508,7 +508,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
-                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter());
+                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter(), null);
 
                         updatedEntries.add(entry);
                     });
@@ -766,10 +766,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter(), null);
         }
 
-        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter(), null);
     }
 
     private long doPut(byte[] key, byte[] bytes, long curRev) {
@@ -798,7 +798,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
         );
 
-        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr);
+        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr, null);
 
         updatedEntries.add(updatedEntry);
 
@@ -826,7 +826,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                 entries.put(key, val);
 
-                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr));
+                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr, null));
 
                 revsIdx.put(curRev, entries);
             }

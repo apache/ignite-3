@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.TestEntryImpl.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.TestEntryImpl;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -122,8 +124,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         assertThat(invokeFuture, willBe(true));
 
         var expectedEntryEvent = new EntryEvent(
-                new EntryImpl(key.bytes(), value, 1, 1),
-                new EntryImpl(key.bytes(), newValue, 2, 3)
+                new TestEntryImpl(key.bytes(), value, 1, 1, ANY_TIMESTAMP),
+                new TestEntryImpl(key.bytes(), newValue, 2, 3, ANY_TIMESTAMP)
         );
 
         assertThat(awaitFuture, willBe(expectedEntryEvent));
