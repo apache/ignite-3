@@ -63,5 +63,5 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
      *
      * @param lockId Lock id.
      */
-    void release(long lockId);
+    void unlock(long lockId);
 }

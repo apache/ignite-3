@@ -84,7 +84,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void release(long lockId) {
+    public void unlock(long lockId) {
         throw new UnsupportedOperationException();
     }
 

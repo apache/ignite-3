@@ -40,7 +40,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_O
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -201,7 +200,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
 
-    private final EventListener<ChangeLowWatermarkEventParameters> lowWatermarkChangedListener = this::onLwnChanged;
+    private final EventListener<ChangeLowWatermarkEventParameters> lowWatermarkBeforeChangeListener = this::onLwmBeforeChange;
 
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
@@ -415,6 +414,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
         CompletableFuture<Void> txFuture = new CompletableFuture<>();
+
+        long lwmLockId = lowWatermark.lock(readTimestamp);
+        txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(lwmLockId));
 
         CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
         assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
@@ -786,7 +788,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkChangedListener);
+            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkBeforeChangeListener);
 
             lowWatermarkValueReference.set(lowWatermark.getLowWatermark());
 
@@ -815,7 +817,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkChangedListener);
+        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkBeforeChangeListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
 
@@ -887,17 +889,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return readOnlyTxFuture;
     }
 
-    private CompletableFuture<Boolean> onLwnChanged(ChangeLowWatermarkEventParameters parameters) {
+    private CompletableFuture<Boolean> onLwmBeforeChange(ChangeLowWatermarkEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp newLowWatermark = parameters.newLowWatermark();
 
             increaseLowWatermarkValueReferenceBusy(newLowWatermark);
 
-            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
+            return nullCompletedFuture();
         });
     }
 

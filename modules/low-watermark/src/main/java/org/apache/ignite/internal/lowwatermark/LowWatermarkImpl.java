@@ -240,8 +240,10 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         updateLowWatermarkLock.writeLock().lock();
 
         try {
-            assert lowWatermark == null || newLowWatermark.compareTo(lowWatermark) > 0 :
-                    "Low watermark should only grow: [cur=" + lowWatermark + ", new=" + newLowWatermark + "]";
+            HybridTimestamp lwm = lowWatermark;
+
+            assert lwm == null || newLowWatermark.compareTo(lwm) > 0 :
+                    "Low watermark should only grow: [cur=" + lwm + ", new=" + newLowWatermark + "]";
 
             lowWatermark = newLowWatermark;
         } finally {
@@ -325,7 +327,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void release(long lockId) {
+    public void unlock(long lockId) {
         LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {
@@ -342,9 +344,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                         .thenComposeAsync(unused -> {
                             vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
 
-                            setLowWatermark(newLowWatermark);
-
-                            return fireEvent(LOW_WATERMARK_CHANGED, new ChangeLowWatermarkEventParameters(newLowWatermark));
+                            return waitForLocksAndSetLowWatermark(newLowWatermark).thenCompose(unused2 ->
+                                            fireEvent(LOW_WATERMARK_CHANGED, new ChangeLowWatermarkEventParameters(newLowWatermark)));
                         }, scheduledThreadPool)
                         .whenCompleteAsync((unused, throwable) -> {
                             if (throwable != null) {
