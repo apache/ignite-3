@@ -21,15 +21,19 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 final class LowWatermarkLock {
-    private final HybridTimestamp ts;
+    private final HybridTimestamp timestamp;
 
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
-    LowWatermarkLock(HybridTimestamp ts) {
-        this.ts = ts;
+    LowWatermarkLock(HybridTimestamp timestamp) {
+        this.timestamp = timestamp;
     }
 
-    public CompletableFuture<Void> future() {
+    public HybridTimestamp timestamp() {
+        return timestamp;
+    }
+
+    CompletableFuture<Void> future() {
         return future;
     }
 }

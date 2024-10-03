@@ -363,4 +363,25 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                         }, scheduledThreadPool)
         );
     }
+
+    private CompletableFuture<Void> waitForLocksAndSetLowWatermark(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
+            // Write lock so no new LWM locks can be added.
+            updateLowWatermarkLock.writeLock().lock();
+
+            try {
+                for (LowWatermarkLock lock : locks.values()) {
+                    if (lock.timestamp().compareTo(newLowWatermark) < 0) {
+                        return lock.future().thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark));
+                    }
+                }
+
+                setLowWatermark(newLowWatermark);
+
+                return nullCompletedFuture();
+            } finally {
+                updateLowWatermarkLock.writeLock().unlock();
+            }
+        });
+    }
 }
