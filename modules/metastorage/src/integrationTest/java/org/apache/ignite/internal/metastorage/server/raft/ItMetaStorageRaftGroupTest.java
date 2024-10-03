@@ -19,7 +19,7 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.metastorage.TestEntryImpl.ANY_TIMESTAMP;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
@@ -53,9 +53,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
-import org.apache.ignite.internal.metastorage.TestEntryImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -110,8 +110,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Expected server result entry. */
-    private static final Entry EXPECTED_RESULT_ENTRY1 =
-            new TestEntryImpl(
+    private static final EntryImpl EXPECTED_RESULT_ENTRY1 =
+            new EntryImpl(
                     new byte[]{1},
                     new byte[]{2},
                     10,
@@ -120,8 +120,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             );
 
     /** Expected server result entry. */
-    private static final Entry EXPECTED_RESULT_ENTRY2 =
-            new TestEntryImpl(
+    private static final EntryImpl EXPECTED_RESULT_ENTRY2 =
+            new EntryImpl(
                     new byte[]{3},
                     new byte[]{4},
                     11,

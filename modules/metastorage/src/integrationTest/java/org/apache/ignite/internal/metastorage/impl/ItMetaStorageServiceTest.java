@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -28,7 +29,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
-import static org.apache.ignite.internal.metastorage.TestEntryImpl.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
@@ -81,7 +81,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.TestEntryImpl;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -142,7 +141,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     private static final int NODE_PORT_BASE = 20_000;
 
     /** Expected result entry. */
-    private static final Entry EXPECTED_RESULT_ENTRY = new TestEntryImpl(
+    private static final Entry EXPECTED_RESULT_ENTRY = new EntryImpl(
             new byte[]{1},
             new byte[]{2},
             10,
@@ -161,7 +160,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
 
-        Entry entry1 = new TestEntryImpl(
+        Entry entry1 = new EntryImpl(
                 new byte[]{1},
                 new byte[]{2},
                 10,
@@ -171,7 +170,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry1.key()), entry1);
 
-        Entry entry2 = new TestEntryImpl(
+        Entry entry2 = new EntryImpl(
                 new byte[]{3},
                 new byte[]{4},
                 10,

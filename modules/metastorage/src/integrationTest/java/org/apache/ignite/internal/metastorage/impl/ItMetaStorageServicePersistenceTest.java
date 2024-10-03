@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static org.apache.ignite.internal.metastorage.TestEntryImpl.ANY_TIMESTAMP;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -26,12 +25,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.TestEntryImpl;
+import org.apache.ignite.internal.metastorage.TestMetasStorageUtils;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 
 /**
@@ -92,7 +93,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         assertThat(metaStorage.put(FIRST_KEY, FIRST_VALUE), willCompleteSuccessfully());
 
         // Check that data has been written successfully
-        check(metaStorage, new TestEntryImpl(FIRST_KEY.bytes(), FIRST_VALUE, 1, 1, ANY_TIMESTAMP));
+        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 1, 1);
     }
 
     @Override
@@ -109,13 +110,13 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         assertThat(metaStorage.remove(FIRST_KEY), willCompleteSuccessfully());
 
         // Check that data has been removed
-        check(metaStorage, new TestEntryImpl(FIRST_KEY.bytes(), null, 2, 2, ANY_TIMESTAMP));
+        checkEntry(FIRST_KEY.bytes(), null, 2, 2);
 
         // Put same data again
         assertThat(metaStorage.put(FIRST_KEY, FIRST_VALUE), willCompleteSuccessfully());
 
         // Check that it has been written
-        check(metaStorage, new TestEntryImpl(FIRST_KEY.bytes(), FIRST_VALUE, 3, 3, ANY_TIMESTAMP));
+        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 3, 3);
     }
 
     @Override
@@ -135,9 +136,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = interactedAfterSnapshot ? 4 : 3;
 
-        Entry expectedLastEntry = new TestEntryImpl(lastKey, lastValue, expectedRevision, expectedUpdateCounter, ANY_TIMESTAMP);
+        Entry expectedLastEntry = new EntryImpl(lastKey, lastValue, expectedRevision, expectedUpdateCounter, ANY_TIMESTAMP);
 
-        return () -> storage.get(lastKey).equals(expectedLastEntry);
+        return () -> TestMetasStorageUtils.equals(storage.get(lastKey), expectedLastEntry);
     }
 
     @Override
@@ -170,14 +171,12 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }
 
-    /**
-     * Check meta storage entry.
-     *
-     * @param metaStorage Meta storage service.
-     * @param expected Expected entry.
-     */
-    private static void check(MetaStorageServiceImpl metaStorage, Entry expected) {
-        assertThat(metaStorage.get(new ByteArray(expected.key())), willBe(expected));
+    private void checkEntry(byte[] expKey, byte @Nullable [] expValue, long expRevision, long expUpdateCounter) {
+        CompletableFuture<Entry> future = metaStorage.get(new ByteArray(expKey));
+
+        assertThat(future, willCompleteSuccessfully());
+
+        TestMetasStorageUtils.checkEntry(future.join(), expKey, expValue, expRevision, expUpdateCounter);
     }
 
     private static ClusterNode getNode(RaftServer server) {
