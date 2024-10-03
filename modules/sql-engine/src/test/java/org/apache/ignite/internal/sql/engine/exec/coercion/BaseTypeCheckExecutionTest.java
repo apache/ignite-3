@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -167,7 +168,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
             ResultSetMetadata resultMeta = plan.metadata();
             ColumnMetadata colMeta = resultMeta.columns().get(0);
 
-            for (var row : CursorUtils.getAllFromCursor(gatewayNode.executePlan(plan))) {
+            for (InternalSqlRow row : CursorUtils.getAllFromCursor(gatewayNode.executePlan(plan))) {
                 assertNotNull(row);
                 assertNotNull(row.get(0), "Await not null object");
                 assertThat(new Pair<>(row.get(0), colMeta), resultMatcher);

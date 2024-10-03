@@ -173,7 +173,7 @@ public final class Types {
     public static final NativeType DECIMAL_30_15 = NativeTypes.decimalOf(30, 15);
 
     public static final NativeType DECIMAL_31_9 = NativeTypes.decimalOf(31, 9);
-    
+
     public static final NativeType DECIMAL_35_16 = NativeTypes.decimalOf(35, 16);
 
     public static final NativeType DECIMAL_MAX_18 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 18);
