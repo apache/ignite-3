@@ -165,7 +165,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            doPut(key, value, curRev);
+            doPut(key, value, curRev, opTs);
 
             updateRevision(curRev, opTs);
         }
@@ -243,7 +243,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            if (doRemove(key, curRev)) {
+            if (doRemove(key, curRev, opTs)) {
                 updateRevision(curRev, opTs);
             }
         }
@@ -303,14 +303,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             for (Operation op : ops) {
                 switch (op.type()) {
                     case PUT:
-                        doPut(toByteArray(op.key()), toByteArray(op.value()), curRev);
+                        doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
                         modified = true;
 
                         break;
 
                     case REMOVE:
-                        modified |= doRemove(toByteArray(op.key()), curRev);
+                        modified |= doRemove(toByteArray(op.key()), curRev, opTs);
 
                         break;
 
@@ -356,14 +356,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     for (Operation op : ops) {
                         switch (op.type()) {
                             case PUT:
-                                doPut(toByteArray(op.key()), toByteArray(op.value()), curRev);
+                                doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
                                 modified = true;
 
                                 break;
 
                             case REMOVE:
-                                modified |= doRemove(toByteArray(op.key()), curRev);
+                                modified |= doRemove(toByteArray(op.key()), curRev, opTs);
 
                                 break;
 
@@ -508,7 +508,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
-                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter(), null);
+                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter(), value.operationTimestamp());
 
                         updatedEntries.add(entry);
                     });
@@ -576,14 +576,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         throw new UnsupportedOperationException();
     }
 
-    private boolean doRemove(byte[] key, long curRev) {
+    private boolean doRemove(byte[] key, long curRev, HybridTimestamp opTs) {
         Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
             return false;
         }
 
-        doPut(key, TOMBSTONE, curRev);
+        doPut(key, TOMBSTONE, curRev, opTs);
 
         return true;
     }
@@ -766,13 +766,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter(), null);
+            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter(), lastVal.operationTimestamp());
         }
 
-        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter(), null);
+        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter(), lastVal.operationTimestamp());
     }
 
-    private long doPut(byte[] key, byte[] bytes, long curRev) {
+    private long doPut(byte[] key, byte[] bytes, long curRev, HybridTimestamp opTs) {
         long curUpdCntr = ++updCntr;
 
         // Update keysIdx.
@@ -783,7 +783,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revs.add(curRev);
 
         // Update revsIdx.
-        Value val = new Value(bytes, curUpdCntr);
+        Value val = new Value(bytes, curUpdCntr, opTs);
 
         revsIdx.compute(
                 curRev,
@@ -798,7 +798,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
         );
 
-        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr, null);
+        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr, val.operationTimestamp());
 
         updatedEntries.add(updatedEntry);
 
@@ -822,11 +822,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                 revs.add(curRev);
 
-                Value val = new Value(bytes, curUpdCntr);
+                Value val = new Value(bytes, curUpdCntr, opTs);
 
                 entries.put(key, val);
 
-                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr, null));
+                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr, opTs));
 
                 revsIdx.put(curRev, entries);
             }

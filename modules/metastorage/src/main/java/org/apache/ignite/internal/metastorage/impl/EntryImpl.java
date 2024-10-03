@@ -140,8 +140,8 @@ public final class EntryImpl implements Entry {
     }
 
     /** Creates an instance of tombstone entry. */
-    public static Entry tombstone(byte[] key, long rev, long updCntr, HybridTimestamp timestamp) {
-        return new EntryImpl(key, null, rev, updCntr, timestamp);
+    public static Entry tombstone(byte[] key, long revision, long updateCounter, HybridTimestamp timestamp) {
+        return new EntryImpl(key, null, revision, updateCounter, timestamp);
     }
 
     /** Creates an instance of empty entry for a given key. */
