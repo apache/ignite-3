@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
@@ -126,7 +125,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final AtomicLong lockIdGenerator = new AtomicLong();
 
-    private final SortedMap<Long, HybridTimestamp> locks = new ConcurrentSkipListMap<>(); // TODO: Do we need concurrent?
+    private final SortedMap<Long, LowWatermarkLock> locks = new ConcurrentSkipListMap<>(); // TODO: Do we need concurrent?
 
     /**
      * Constructor.
@@ -310,21 +309,21 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         // TODO: Store a future for every lock?
         long lockId = lockIdGenerator.incrementAndGet();
 
-        locks.put(lockId, ts);
+        locks.put(lockId, new LowWatermarkLock(ts));
 
         return lockId;
     }
 
     @Override
     public void release(long lockId) {
-        HybridTimestamp ts = locks.remove(lockId);
+        LowWatermarkLock lock = locks.remove(lockId);
 
-        if (ts == null) {
+        if (lock == null) {
             // Already released.
             return;
         }
 
-        // TODO: Notify waiting futures.
+        lock.future().complete(null);
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
