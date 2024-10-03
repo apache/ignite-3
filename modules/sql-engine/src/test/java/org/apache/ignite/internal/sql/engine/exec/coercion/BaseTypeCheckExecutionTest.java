@@ -47,33 +47,24 @@ import org.junit.jupiter.params.provider.Arguments;
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     /** Data provider with reduced objets, helpful to avoid overflow on arithmetic operations. */
     static DataProvider<Object[]> dataProviderReduced(TypePair typePair) {
-        Object val1;
-        Object val2;
-
-        val1 = generateReducedValueByType(typePair.first());
-        val2 = generateReducedValueByType(typePair.second());
+        Object val1 = generateReducedValueByType(typePair.first());
+        Object val2 = generateReducedValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
     /** Data provider for multiplication operations. */
     static DataProvider<Object[]> multDivDataProvider(TypePair typePair) {
-        Object val1;
-        Object val2;
-
-        val1 = generateReducedValueByType(typePair.first());
-        val2 = generateConstantValueByType(typePair.second());
+        Object val1 = generateReducedValueByType(typePair.first());
+        Object val2 = generateConstantValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
     /** Data provider with constant second object. */
     static DataProvider<Object[]> dataProviderStrict(TypePair typePair) {
-        Object val1;
-        Object val2;
-
-        val1 = SqlTestUtils.generateValueByType(typePair.first());
-        val2 = generateConstantValueByType(typePair.second(), "1");
+        Object val1 = SqlTestUtils.generateValueByType(typePair.first());
+        Object val2 = generateConstantValueByType(typePair.second(), "1");
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }

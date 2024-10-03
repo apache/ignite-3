@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,15 +57,10 @@ import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for testing types coercion. */
 public class BaseTypeCoercionTest extends AbstractPlannerTest {
-
-    static Stream<Arguments> allNumericPairs() {
-        return Arrays.stream(NumericPair.values()).map(Arguments::of);
-    }
-
     /**
      * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
      */
-    public static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
+    static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
         List<NumericPair> usedPairs = args.map(Arguments::get)
