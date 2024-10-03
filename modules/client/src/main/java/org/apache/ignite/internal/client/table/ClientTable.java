@@ -219,7 +219,7 @@ public class ClientTable implements Table {
             ClientSchema last = null;
 
             for (var i = 0; i < schemaCnt; i++) {
-                last = readSchema(r.in());
+                last = readSchema(r.in(), ver);
 
                 if (log.isDebugEnabled()) {
                     log.debug("Schema loaded [tableId=" + id + ", schemaVersion=" + last.version() + "]");
@@ -230,7 +230,7 @@ public class ClientTable implements Table {
         });
     }
 
-    private ClientSchema readSchema(ClientMessageUnpacker in) {
+    private ClientSchema readSchema(ClientMessageUnpacker in, int targetVer) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
@@ -259,6 +259,10 @@ public class ClientTable implements Table {
         }
 
         var schema = new ClientSchema(schemaVer, columns, marshallers);
+
+        if (schemaVer != targetVer) {
+            schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
+        }
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {
