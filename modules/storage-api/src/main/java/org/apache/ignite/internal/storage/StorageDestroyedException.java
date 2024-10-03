@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Exception that is be thrown when trying to access a storage that is being destroyed or is already destroyed.
@@ -38,14 +38,6 @@ public class StorageDestroyedException extends StorageException {
      * @param message Error message.
      */
     public StorageDestroyedException(String message) {
-        super(Storage.ALREADY_DESTROYED_ERR, message);
-    }
-
-    protected StorageDestroyedException(int code) {
-        this(code, "Storage is already destroyed");
-    }
-
-    protected StorageDestroyedException(int code, String message) {
-        super(code, message);
+        super(Common.INTERNAL_ERR, message);
     }
 }
