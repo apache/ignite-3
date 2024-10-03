@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.coercion;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Arrays;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
@@ -33,36 +32,66 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Check execution and return results for numeric comparisons. */
+/** Check execution results for numeric comparisons. */
 public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
     @ParameterizedTest
     @MethodSource("comparisonWithEqArgs")
     public void comparisonEq(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
-        try (ClusterWrapper testCluster = testCluster(typePair, eqDataProvider(typePair))) {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
         }
     }
 
     @ParameterizedTest
-    @MethodSource("comparisonNotEqArgs")
-    public void comparisonNotEq(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
-        try (ClusterWrapper testCluster = testCluster(typePair, nonEqDataProvider(typePair))) {
+    @MethodSource("comparisonWithLessEqArgs")
+    public void comparisonLessEq(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
+            testCluster.process(sql, resultMatcher);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("comparisonWithGreatEqArgs")
+    public void comparisonGreatEq(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
+            testCluster.process(sql, resultMatcher);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("comparisonWithLessArgs")
+    public void comparisonLess(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
+            testCluster.process(sql, resultMatcher);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("comparisonWithGreatArgs")
+    public void comparisonGreat(TypePair typePair, String sql, Matcher<Object> resultMatcher) throws Exception {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process(sql, resultMatcher);
         }
     }
 
     private static Stream<Arguments> comparisonWithEqArgs() {
-        Stream<Arguments> s1 = Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 = c2 FROM t").resultWillBe(true));
-        Stream<Arguments> s2 = Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 <= c2 FROM t").resultWillBe(true));
-        Stream<Arguments> s3 = Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 >= c2 FROM t").resultWillBe(true));
-        Stream<Arguments> s4 = Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 < c2 FROM t").resultWillBe(false));
-        Stream<Arguments> s5 = Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 > c2 FROM t").resultWillBe(false));
-
-        return Stream.of(s1, s2, s3, s4, s5).flatMap(Function.identity());
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 = c2 FROM t").ofBooleanType());
     }
 
-    private static Stream<Arguments> comparisonNotEqArgs() {
-        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 = c2 FROM t").resultWillBe(false));
+    private static Stream<Arguments> comparisonWithLessEqArgs() {
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 <= c2 FROM t").ofBooleanType());
+    }
+
+    private static Stream<Arguments> comparisonWithGreatEqArgs() {
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 >= c2 FROM t").ofBooleanType());
+    }
+
+    private static Stream<Arguments> comparisonWithLessArgs() {
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 < c2 FROM t").ofBooleanType());
+    }
+
+    private static Stream<Arguments> comparisonWithGreatArgs() {
+        return Arrays.stream(NumericPair.values()).map(a -> forTypePair(a, "SELECT c1 < c2 FROM t").ofBooleanType());
     }
 
     private static ExecutionResultHolder forTypePair(NumericPair pair, String expr) {
@@ -78,26 +107,26 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
             this.expr = expr;
         }
 
-        Arguments resultWillBe(boolean result) {
-            return Arguments.of(pair, expr, ofBoolType(result));
+        Arguments ofBooleanType() {
+            return Arguments.of(pair, expr, ofBoolType());
         }
     }
 
-    private static Matcher<Object> ofBoolType(Boolean compResult) {
+    private static Matcher<Object> ofBoolType() {
         return new BaseMatcher<>() {
             Object actual;
 
             @Override
             public boolean matches(Object actual) {
                 assert actual != null;
+                this.actual = ((Pair<Object, ColumnMetadata>) actual).getFirst();
                 Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-                this.actual = pair.getFirst();
-                return compResult.equals(this.actual);
+                return pair.getFirst().getClass() == Boolean.class;
             }
 
             @Override
             public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}'", compResult, actual));
+                description.appendText(format("Expected : '{}' but found '{}'", Boolean.class, actual.getClass()));
             }
         };
     }

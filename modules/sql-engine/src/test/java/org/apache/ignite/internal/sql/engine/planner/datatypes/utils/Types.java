@@ -62,6 +62,7 @@ public final class Types {
     public static final NativeType DECIMAL_7_1 = NativeTypes.decimalOf(7, 1);
     public static final NativeType DECIMAL_7_3 = NativeTypes.decimalOf(7, 3);
     public static final NativeType DECIMAL_7_4 = NativeTypes.decimalOf(7, 4);
+    public static final NativeType DECIMAL_7_6 = NativeTypes.decimalOf(7, 6);
 
     public static final NativeType DECIMAL_8_0 = NativeTypes.decimalOf(8, 0);
     public static final NativeType DECIMAL_8_1 = NativeTypes.decimalOf(8, 1);
@@ -69,11 +70,17 @@ public final class Types {
     public static final NativeType DECIMAL_8_3 = NativeTypes.decimalOf(8, 3);
     public static final NativeType DECIMAL_8_4 = NativeTypes.decimalOf(8, 4);
     public static final NativeType DECIMAL_8_6 = NativeTypes.decimalOf(8, 6);
+    public static final NativeType DECIMAL_8_7 = NativeTypes.decimalOf(8, 7);
 
     public static final NativeType DECIMAL_9_1 = NativeTypes.decimalOf(9, 1);
     public static final NativeType DECIMAL_9_2 = NativeTypes.decimalOf(9, 2);
     public static final NativeType DECIMAL_9_3 = NativeTypes.decimalOf(9, 3);
     public static final NativeType DECIMAL_9_6 = NativeTypes.decimalOf(9, 6);
+    public static final NativeType DECIMAL_9_7 = NativeTypes.decimalOf(9, 7);
+
+    public static final NativeType DECIMAL_11_7 = NativeTypes.decimalOf(11, 7);
+
+    public static final NativeType DECIMAL_12_7 = NativeTypes.decimalOf(12, 7);
 
     public static final NativeType DECIMAL_14_7 = NativeTypes.decimalOf(14, 7);
 
@@ -81,35 +88,78 @@ public final class Types {
     public static final NativeType DECIMAL_10_3 = NativeTypes.decimalOf(10, 3);
     public static final NativeType DECIMAL_10_4 = NativeTypes.decimalOf(10, 4);
     public static final NativeType DECIMAL_10_6 = NativeTypes.decimalOf(10, 6);
+    public static final NativeType DECIMAL_10_7 = NativeTypes.decimalOf(10, 7);
+    public static final NativeType DECIMAL_10_8 = NativeTypes.decimalOf(10, 8);
+    public static final NativeType DECIMAL_10_9 = NativeTypes.decimalOf(10, 9);
 
     public static final NativeType DECIMAL_11_0 = NativeTypes.decimalOf(11, 0);
     public static final NativeType DECIMAL_11_1 = NativeTypes.decimalOf(11, 1);
     public static final NativeType DECIMAL_11_3 = NativeTypes.decimalOf(11, 3);
     public static final NativeType DECIMAL_11_4 = NativeTypes.decimalOf(11, 4);
+    public static final NativeType DECIMAL_11_6 = NativeTypes.decimalOf(11, 6);
+    public static final NativeType DECIMAL_11_8 = NativeTypes.decimalOf(11, 8);
+    public static final NativeType DECIMAL_11_9 = NativeTypes.decimalOf(11, 9);
 
     public static final NativeType DECIMAL_12_0 = NativeTypes.decimalOf(12, 0);
     public static final NativeType DECIMAL_12_1 = NativeTypes.decimalOf(12, 1);
     public static final NativeType DECIMAL_12_2 = NativeTypes.decimalOf(12, 2);
     public static final NativeType DECIMAL_12_6 = NativeTypes.decimalOf(12, 6);
+    public static final NativeType DECIMAL_12_8 = NativeTypes.decimalOf(12, 8);
+    public static final NativeType DECIMAL_12_10 = NativeTypes.decimalOf(12, 10);
 
     public static final NativeType DECIMAL_13_1 = NativeTypes.decimalOf(13, 1);
     public static final NativeType DECIMAL_13_3 = NativeTypes.decimalOf(13, 3);
     public static final NativeType DECIMAL_13_6 = NativeTypes.decimalOf(13, 6);
+    public static final NativeType DECIMAL_13_7 = NativeTypes.decimalOf(13, 7);
+    public static final NativeType DECIMAL_13_9 = NativeTypes.decimalOf(13, 9);
+    public static final NativeType DECIMAL_13_10 = NativeTypes.decimalOf(13, 10);
 
     public static final NativeType DECIMAL_14_3 = NativeTypes.decimalOf(14, 3);
     public static final NativeType DECIMAL_14_4 = NativeTypes.decimalOf(14, 4);
+    public static final NativeType DECIMAL_14_6 = NativeTypes.decimalOf(14, 6);
+    public static final NativeType DECIMAL_14_8 = NativeTypes.decimalOf(14, 8);
+    public static final NativeType DECIMAL_14_9 = NativeTypes.decimalOf(14, 9);
+    public static final NativeType DECIMAL_14_10 = NativeTypes.decimalOf(14, 10);
 
     public static final NativeType DECIMAL_15_0 = NativeTypes.decimalOf(15, 0);
     public static final NativeType DECIMAL_15_3 = NativeTypes.decimalOf(15, 3);
+    public static final NativeType DECIMAL_15_9 = NativeTypes.decimalOf(15, 9);
+    public static final NativeType DECIMAL_15_10 = NativeTypes.decimalOf(15, 10);
 
     public static final NativeType DECIMAL_16_1 = NativeTypes.decimalOf(16, 1);
     public static final NativeType DECIMAL_16_6 = NativeTypes.decimalOf(16, 6);
+    public static final NativeType DECIMAL_16_12 = NativeTypes.decimalOf(16, 12);
+    public static final NativeType DECIMAL_16_15 = NativeTypes.decimalOf(16, 15);
+
+    public static final NativeType DECIMAL_17_6 = NativeTypes.decimalOf(17, 6);
+    public static final NativeType DECIMAL_17_9 = NativeTypes.decimalOf(17, 9);
+    public static final NativeType DECIMAL_17_12 = NativeTypes.decimalOf(17, 12);
+    public static final NativeType DECIMAL_17_15 = NativeTypes.decimalOf(17, 15);
 
     public static final NativeType DECIMAL_18_3 = NativeTypes.decimalOf(18, 3);
+    public static final NativeType DECIMAL_18_7 = NativeTypes.decimalOf(18, 7);
+    public static final NativeType DECIMAL_18_10 = NativeTypes.decimalOf(18, 10);
+    public static final NativeType DECIMAL_18_15 = NativeTypes.decimalOf(18, 15);
 
+    public static final NativeType DECIMAL_19_6 = NativeTypes.decimalOf(19, 6);
+
+    public static final NativeType DECIMAL_20_12 = NativeTypes.decimalOf(20, 12);
+    public static final NativeType DECIMAL_20_15 = NativeTypes.decimalOf(20, 15);
+
+    public static final NativeType DECIMAL_22_9 = NativeTypes.decimalOf(22, 9);
+
+    public static final NativeType DECIMAL_25_6 = NativeTypes.decimalOf(25, 6);
+    public static final NativeType DECIMAL_25_15 = NativeTypes.decimalOf(25, 15);
+
+    public static final NativeType DECIMAL_26_6 = NativeTypes.decimalOf(26, 6);
     public static final NativeType DECIMAL_26_16 = NativeTypes.decimalOf(26, 16);
 
+    public static final NativeType DECIMAL_27_7 = NativeTypes.decimalOf(27, 7);
+
+    public static final NativeType DECIMAL_28_6 = NativeTypes.decimalOf(28, 6);
+
     public static final NativeType DECIMAL_30_15 = NativeTypes.decimalOf(30, 15);
+    public static final NativeType DECIMAL_31_9 = NativeTypes.decimalOf(31, 9);
 
     public static final NativeType DECIMAL_19_0 = NativeTypes.decimalOf(19, 0);
     public static final NativeType DECIMAL_20_0 = NativeTypes.decimalOf(20, 0);
@@ -121,6 +171,7 @@ public final class Types {
 
     public static final NativeType DECIMAL_22_1 = NativeTypes.decimalOf(22, 1);
     public static final NativeType DECIMAL_22_3 = NativeTypes.decimalOf(22, 3);
+    public static final NativeType DECIMAL_22_15 = NativeTypes.decimalOf(22, 15);
 
     public static final NativeType DECIMAL_23_3 = NativeTypes.decimalOf(23, 3);
 

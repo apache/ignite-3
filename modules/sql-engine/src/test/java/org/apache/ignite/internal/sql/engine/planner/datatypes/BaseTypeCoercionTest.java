@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
@@ -31,6 +32,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
@@ -43,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -144,6 +145,33 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
+    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<Object> result) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
+
+                assertThat(comparison, instanceOf(RexCall.class));
+
+                RexCall comparisonCall = (RexCall) comparison;
+
+                RexNode leftOperand = comparisonCall.getOperands().get(0);
+                RexNode rightOperand = comparisonCall.getOperands().get(1);
+
+                assertThat(leftOperand, first);
+                assertThat(rightOperand, second);
+                assertThat(actual, result);
+
+                return true;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
+        };
+    }
+
     /**
      * Creates a matcher to verify that given expression has expected return type, but it is not CAST operator.
      *
@@ -152,7 +180,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static Matcher<RexNode> ofTypeWithoutCast(NativeType type) {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
+        RelDataType sqlType = native2relationalType(typeFactory, type);
 
         return new BaseMatcher<>() {
             @Override
@@ -181,7 +209,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static Matcher<RexNode> castTo(NativeType type) {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
+        RelDataType sqlType = native2relationalType(typeFactory, type);
 
         return new BaseMatcher<>() {
             @Override
@@ -205,49 +233,77 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
     private static Matcher<Object> ofType(NativeType type) {
         return new BaseMatcher<>() {
-            Object result;
-            NativeType referenceType;
-            int precision = 0;
-            int scale = 0;
-            ColumnMetadata colMeta;
+            BasicSqlType expectedType;
+            BasicSqlType relRowType;
 
             @Override
             public boolean matches(Object actual) {
                 assert actual != null;
-                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-                result = pair.getFirst();
-                colMeta = pair.getSecond();
 
-                NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromClass(result.getClass());
+                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) actual;
 
-                boolean checkPrecisionScale = false;
+                RelDataType rowType = scan.getRowType();
 
-                int derivedTypePrecision = 0;
-                int derivedTypeScale = 0;
+                assert rowType.getFieldList().size() == 1;
 
-                if (result instanceof BigDecimal) {
-                    assert type instanceof DecimalNativeType;
-                    derivedTypePrecision = ((DecimalNativeType) type).precision();
-                    derivedTypeScale = ((DecimalNativeType) type).scale();
+                relRowType = (BasicSqlType) rowType.getFieldList().get(0).getType();
 
-                    precision = ((BigDecimal) result).precision();
-                    scale = ((BigDecimal) result).scale();
-                    checkPrecisionScale = true;
-                }
+                expectedType = (BasicSqlType) native2relationalType(Commons.typeFactory(), type);
 
-                referenceType = type;
-
-                boolean metaCheck = checkPrecisionScale ? colMeta.precision() >= precision && colMeta.scale() >= scale : true;
-
-                return metaCheck && nativeTypeSpec == type.spec()
-                        && derivedTypePrecision == precision
-                        && derivedTypeScale == scale;
+                return SqlTypeUtil.equalSansNullability(relRowType, expectedType);
             }
 
             @Override
             public void describeTo(Description description) {
-                description.appendText(format("Expected : '{}' but found '{}, precision: {}, scale: {}', column meta: {}",
-                        referenceType, result.getClass(), precision, scale, colMeta));
+                if (expectedType != null && relRowType != null) {
+                    description.appendText("Expected type: " + expectedType + ", but found: " + relRowType);
+                }
+            }
+        };
+    }
+
+    /** Return results matcher, compare return type, precision and scale with analyzed object. */
+    public static Matcher<Object> checkReturnResult() {
+        return new BaseMatcher<>() {
+            Object result;
+            ColumnMetadata meta;
+
+            @Override
+            public boolean matches(Object actual) {
+                assert actual != null;
+
+                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
+
+                result = pair.getFirst();
+                meta = pair.getSecond();
+
+                int precision = 0;
+                int scale = 0;
+
+                if (result instanceof BigDecimal) {
+                    precision = ((BigDecimal) result).precision();
+                    scale = ((BigDecimal) result).scale();
+                }
+
+                boolean checkPrecisionScale = (result.getClass() != Float.class) && (result.getClass() != Double.class);
+
+                boolean precisionScale = true;
+
+                if (checkPrecisionScale) {
+                    precisionScale = precision <= meta.precision() && scale <= meta.scale();
+                }
+
+                return meta.type().javaClass() == result.getClass() && precisionScale;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("Column metadata: " + meta);
+            }
+
+            @Override
+            public void describeMismatch(Object item, Description description) {
+                description.appendText("Type: " + result.getClass());
             }
         };
     }
@@ -301,6 +357,53 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         return new TestCaseBuilder(typePair);
     }
 
+    public static TestCaseBuilderEx forTypePairEx(TypePair typePair) {
+        return new TestCaseBuilderEx(typePair);
+    }
+
+    /**
+     * Not really a builder, but provides DSL-like API to describe test case.
+     */
+    public static class TestCaseBuilderEx {
+        private final TypePair pair;
+        private Matcher<?> firstOpMatcher;
+        private Matcher<?> secondOpMatcher;
+
+        private TestCaseBuilderEx(TypePair pair) {
+            this.pair = pair;
+        }
+
+        TestCaseBuilderEx firstOpMatches(Matcher<?> operandMatcher) {
+            firstOpMatcher = operandMatcher;
+
+            return this;
+        }
+
+        TestCaseBuilderEx firstOpBeSame() {
+            firstOpMatcher = ofTypeWithoutCast(pair.first());
+
+            return this;
+        }
+
+        TestCaseBuilderEx secondOpMatches(Matcher<?> operandMatcher) {
+            secondOpMatcher = operandMatcher;
+            return this;
+        }
+
+        TestCaseBuilderEx secondOpBeSame() {
+            secondOpMatcher = ofTypeWithoutCast(pair.second());
+            return this;
+        }
+
+        Arguments resultWillBe(NativeType type) {
+            return Arguments.of(pair, firstOpMatcher, secondOpMatcher, ofType(type));
+        }
+
+        Arguments checkResult(NativeType type) {
+            return Arguments.of(pair, ofTypeWithoutCast(pair.first()), ofTypeWithoutCast(pair.second()), ofType(type));
+        }
+    }
+
     /**
      * Not really a builder, but provides DSL-like API to describe test case.
      */
@@ -330,8 +433,8 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             return this;
         }
 
-        public Arguments resultWillBe(NativeType type) {
-            return Arguments.of(pair, ofType(type));
+        public Arguments checkResult() {
+            return Arguments.of(pair, checkReturnResult());
         }
 
         public Arguments resultWillBeEqOrLessPrecision(NativeType type) {

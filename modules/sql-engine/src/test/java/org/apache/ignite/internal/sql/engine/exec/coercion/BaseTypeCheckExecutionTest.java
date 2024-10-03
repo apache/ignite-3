@@ -22,9 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
+import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -38,32 +41,10 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for check execution results of numeric operations. */
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
-    /** Generate different in string representation objects. */
-    private static Pair<Object, Object> generateDifferentValues(TypePair typePair) {
-        Object objFirst = SqlTestUtils.generateValueByType(typePair.first());
-        assert objFirst != null;
-        Object objSecond;
-        do {
-            objSecond = SqlTestUtils.generateValueByType(typePair.second());
-
-            assert objSecond != null;
-        } while (objFirst.toString().equals(objSecond.toString()));
-
-        return new Pair<>(objFirst, objSecond);
-    }
-
-    /** Data provider for different objects. */
-    static DataProvider<Object[]> nonEqDataProvider(TypePair typePair) {
-        Pair<Object, Object> objPair = generateDifferentValues(typePair);
-        Object val1 = objPair.getFirst();
-        Object val2 = objPair.getSecond();
-
-        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
-    }
-
     /** Data provider with reduced objets, helpful to avoid overflow on arithmetic operations. */
     static DataProvider<Object[]> dataProviderReduced(TypePair typePair) {
         Object val1;
@@ -86,22 +67,6 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
-    /** Date provider for equal in terms of string representation objects. */
-    static DataProvider<Object[]> eqDataProvider(TypePair typePair) {
-        Object val1;
-        Object val2;
-
-        if (typePair.first().equals(typePair.second())) {
-            val1 = generateConstantValueByType(typePair.first());
-            val2 = val1;
-        } else {
-            val1 = generateConstantValueByType(typePair.first());
-            val2 = generateConstantValueByType(typePair.second());
-        }
-
-        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
-    }
-
     /** Data provider with constant second object. */
     static DataProvider<Object[]> dataProviderStrict(TypePair typePair) {
         Object val1;
@@ -119,6 +84,10 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         Object val2 = SqlTestUtils.generateValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
+    static Stream<Arguments> allNumericPairs() {
+        return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 
     private static @Nullable Object generateReducedValueByType(NativeType nativeType) {
