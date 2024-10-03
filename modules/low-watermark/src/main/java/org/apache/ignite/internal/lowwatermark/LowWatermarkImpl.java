@@ -306,6 +306,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public long lock(HybridTimestamp ts) {
+        // TODO: Throw exception if ts is less than the current low watermark.
+        // TODO: Store a future for every lock?
         long lockId = lockIdGenerator.incrementAndGet();
 
         locks.put(lockId, ts);
