@@ -26,12 +26,16 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -119,6 +123,10 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     private final AtomicReference<LowWatermarkCandidate> lowWatermarkCandidate = new AtomicReference<>(
             new LowWatermarkCandidate(MIN_VALUE, nullCompletedFuture())
     );
+
+    private final AtomicLong lockIdGenerator = new AtomicLong();
+
+    private final SortedMap<Long, HybridTimestamp> locks = new ConcurrentSkipListMap<>(); // TODO: Do we need concurrent?
 
     /**
      * Constructor.
@@ -298,12 +306,23 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public long lock(HybridTimestamp ts) {
-        return 0;
+        long lockId = lockIdGenerator.incrementAndGet();
+
+        locks.put(lockId, ts);
+
+        return lockId;
     }
 
     @Override
     public void release(long lockId) {
+        HybridTimestamp ts = locks.remove(lockId);
 
+        if (ts == null) {
+            // Already released.
+            return;
+        }
+
+        // TODO: Notify waiting futures.
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
