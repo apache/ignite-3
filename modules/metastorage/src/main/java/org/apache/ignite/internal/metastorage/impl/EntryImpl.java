@@ -39,6 +39,7 @@ public final class EntryImpl implements Entry {
 
     private final HybridTimestamp timestamp;
 
+    /** Constructor. */
     public EntryImpl(byte[] key, byte @Nullable [] value, long revision, long updateCounter, @Nullable HybridTimestamp timestamp) {
         this.key = key;
         this.value = value;
@@ -77,9 +78,19 @@ public final class EntryImpl implements Entry {
         return value == null && revision > 0 && updateCounter > 0;
     }
 
+    /** Creates an instance of tombstone entry. */
+    public static Entry tombstone(byte[] key, long revision, long updateCounter, HybridTimestamp timestamp) {
+        return new EntryImpl(key, null, revision, updateCounter, timestamp);
+    }
+
     @Override
     public boolean empty() {
         return value == null && revision == 0 && updateCounter == 0;
+    }
+
+    /** Creates an instance of empty entry for a given key. */
+    public static Entry empty(byte[] key) {
+        return new EntryImpl(key, null, 0, 0, null);
     }
 
     @Override
@@ -137,15 +148,5 @@ public final class EntryImpl implements Entry {
                 + ", updateCounter=" + updateCounter
                 + ", timestamp=" + timestamp
                 + '}';
-    }
-
-    /** Creates an instance of tombstone entry. */
-    public static Entry tombstone(byte[] key, long revision, long updateCounter, HybridTimestamp timestamp) {
-        return new EntryImpl(key, null, revision, updateCounter, timestamp);
-    }
-
-    /** Creates an instance of empty entry for a given key. */
-    public static Entry empty(byte[] key) {
-        return new EntryImpl(key, null, 0, 0, null);
     }
 }

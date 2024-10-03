@@ -66,7 +66,6 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
@@ -1334,8 +1333,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // No-op.
         boolean branch = invokeOnMs(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
-                List.of(Operations.noop()),
-                List.of(Operations.noop())
+                List.of(noop()),
+                List.of(noop())
         );
 
         assertTrue(branch);
@@ -1351,7 +1350,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         put(new ByteArray(key2), val2),
                         put(new ByteArray(key3), val3)
                 ),
-                List.of(Operations.noop())
+                List.of(noop())
         );
 
         assertTrue(branch);
@@ -1384,7 +1383,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         remove(new ByteArray(key2)),
                         remove(new ByteArray(key3))
                 ),
-                List.of(Operations.noop())
+                List.of(noop())
         );
 
         assertTrue(branch);
