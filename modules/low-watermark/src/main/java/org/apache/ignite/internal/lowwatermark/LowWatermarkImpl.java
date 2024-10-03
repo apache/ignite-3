@@ -306,14 +306,14 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public long lock(HybridTimestamp ts) {
+    public @Nullable Long lock(HybridTimestamp ts) {
         return inBusyLock(busyLock, () -> {
             updateLowWatermarkLock.readLock().lock();
 
             try {
                 HybridTimestamp lwm = lowWatermark;
                 if (lwm != null && ts.compareTo(lwm) < 0) {
-                    throw new IllegalArgumentException("Can't lock with timestamp less than low watermark: " + ts + " < " + lwm);
+                    return null;
                 }
 
                 long lockId = lockIdGenerator.incrementAndGet();
