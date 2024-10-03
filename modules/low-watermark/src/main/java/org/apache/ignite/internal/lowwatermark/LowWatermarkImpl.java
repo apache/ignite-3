@@ -296,6 +296,16 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         });
     }
 
+    @Override
+    public long lock(HybridTimestamp ts) {
+        return 0;
+    }
+
+    @Override
+    public void release(long lockId) {
+
+    }
+
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
         return inBusyLockAsync(busyLock, () ->
                 fireEvent(LOW_WATERMARK_BEFORE_CHANGE, new ChangeLowWatermarkEventParameters(newLowWatermark))

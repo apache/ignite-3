@@ -78,6 +78,16 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
         }
     }
 
+    @Override
+    public long lock(HybridTimestamp ts) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void release(long lockId) {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Update low watermark and notify listeners.
      *
