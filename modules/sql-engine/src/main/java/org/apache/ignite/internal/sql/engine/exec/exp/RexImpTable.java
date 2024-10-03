@@ -3078,7 +3078,7 @@ public class RexImpTable {
       }
 
       if (type0 == BigDecimal.class && type1 == BigDecimal.class && op == DIVIDE) {
-        int precision = call.getType().getPrecision();;
+        int precision = call.getType().getPrecision();
         int scale = call.getType().getScale();
 
         assert scale != RelDataType.SCALE_NOT_SPECIFIED : "No scale for decimal division. Return type: "
