@@ -895,7 +895,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             increaseLowWatermarkValueReferenceBusy(newLowWatermark);
 
-            return nullCompletedFuture();
+            return falseCompletedFuture();
         });
     }
 
