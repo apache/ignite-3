@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
-import static org.apache.ignite.internal.sql.engine.planner.datatypes.BaseTypeCoercionTest.checkReturnResult;
-
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.type.DecimalNativeType;

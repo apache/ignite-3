@@ -47,8 +47,6 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -252,52 +250,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
                 if (expectedType != null && relRowType != null) {
                     description.appendText("Expected type: " + expectedType + ", but found: " + relRowType);
                 }
-            }
-        };
-    }
-
-    /** Return results matcher, compare return type, precision and scale with analyzed object. */
-    public static Matcher<Object> checkReturnResult() {
-        return new BaseMatcher<>() {
-            Object result;
-            ColumnMetadata meta;
-
-            @Override
-            public boolean matches(Object actual) {
-                assert actual != null;
-
-                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
-
-                result = pair.getFirst();
-                meta = pair.getSecond();
-
-                int precision = 0;
-                int scale = 0;
-
-                if (result instanceof BigDecimal) {
-                    precision = ((BigDecimal) result).precision();
-                    scale = ((BigDecimal) result).scale();
-                }
-
-                boolean checkPrecisionScale = (result.getClass() != Float.class) && (result.getClass() != Double.class);
-
-                boolean precisionScale = true;
-
-                if (checkPrecisionScale) {
-                    precisionScale = precision <= meta.precision() && scale <= meta.scale();
-                }
-
-                return meta.type().javaClass() == result.getClass() && precisionScale;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("Column metadata: " + meta);
-            }
-
-            @Override
-            public void describeMismatch(Object item, Description description) {
-                description.appendText("Type: " + result.getClass());
             }
         };
     }

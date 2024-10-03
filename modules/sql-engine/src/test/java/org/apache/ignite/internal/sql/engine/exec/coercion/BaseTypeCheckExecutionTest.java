@@ -39,6 +39,8 @@ import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.provider.Arguments;
@@ -176,5 +178,53 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         public void close() throws Exception {
             cluster.stop();
         }
+    }
+
+    /** Return results matcher, compare return type, precision and scale with analyzed object. */
+    static Matcher<Object> checkReturnResult() {
+        return new BaseMatcher<>() {
+            Object result;
+            ColumnMetadata meta;
+
+            @Override
+            public boolean matches(Object actual) {
+                assert actual != null;
+
+                Pair<Object, ColumnMetadata> pair = (Pair<Object, ColumnMetadata>) actual;
+
+                result = pair.getFirst();
+                meta = pair.getSecond();
+
+                int precision = 0;
+                int scale = 0;
+
+                if (result instanceof BigDecimal) {
+                    precision = ((BigDecimal) result).precision();
+                    scale = ((BigDecimal) result).scale();
+                }
+
+                boolean checkPrecisionScale = (result.getClass() != Float.class)
+                        && (result.getClass() != Double.class)
+                        && (result.getClass() != Boolean.class);
+
+                boolean precisionScale = true;
+
+                if (checkPrecisionScale) {
+                    precisionScale = precision <= meta.precision() && scale <= meta.scale();
+                }
+
+                return meta.type().javaClass() == result.getClass() && precisionScale;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("Column metadata: " + meta);
+            }
+
+            @Override
+            public void describeMismatch(Object item, Description description) {
+                description.appendText("Type: " + result.getClass());
+            }
+        };
     }
 }
