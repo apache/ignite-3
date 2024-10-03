@@ -635,6 +635,12 @@ public class TypeUtils {
         RelDataType firstType = null;
         for (RelDataType type : types) {
             if (firstType == null) {
+                if (SqlTypeUtil.isNull(type)) {
+                    // null is compatible with any other type, therefore we need to find
+                    // first type that is not NULL to make check valid
+                    continue;
+                }
+
                 firstType = type;
             } else if (!typeFamiliesAreCompatible(typeFactory, firstType, type)) {
                 return false;
