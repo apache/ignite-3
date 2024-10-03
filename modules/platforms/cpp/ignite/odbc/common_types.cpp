@@ -225,11 +225,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
-        case error::code::GENERIC:
-        case error::code::DIRECTORY_CREATION:
-        case error::code::ALREADY_CLOSED:
-        case error::code::STORAGE_REBALANCE:
-        case error::code::ALREADY_DESTROYED:
         case error::code::INDEX_NOT_BUILT:
             return sql_state::SHY000_GENERAL_ERROR;
 
