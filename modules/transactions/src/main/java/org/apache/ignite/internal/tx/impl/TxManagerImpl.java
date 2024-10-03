@@ -413,35 +413,27 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
-        CompletableFuture<Void> txFuture = new CompletableFuture<>();
-
-        long lwmLockId = lowWatermark.lock(readTimestamp);
-        txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(lwmLockId));
-
-        CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
-        assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
-
-        HybridTimestamp lowWatermark = this.lowWatermarkValueReference.get();
-
-        if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
-            // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
-            // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
-            // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
-            // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
-            readOnlyTxFutureById.remove(txIdAndTimestamp);
-
-            // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
-            txFuture.complete(null);
-
+        Long lwmLockId = lowWatermark.lock(readTimestamp);
+        if (lwmLockId == null) {
             throw new IgniteInternalException(
                     TX_READ_ONLY_TOO_OLD_ERR,
                     "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
                     readTimestamp,
-                    lowWatermark
-            );
+                    lowWatermark.getLowWatermark());
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
+        try {
+            CompletableFuture<Void> txFuture = new CompletableFuture<>();
+            txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(lwmLockId));
+
+            CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
+            assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
+
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
+        } catch (Throwable t) {
+            lowWatermark.unlock(lwmLockId);
+            throw t;
+        }
     }
 
     /**
