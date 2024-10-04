@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
@@ -36,7 +37,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -728,9 +728,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     @Nullable
     private static IgniteClientConnectionException unwrapConnectionException(Throwable err) {
-        while (err instanceof CompletionException) {
-            err = err.getCause();
-        }
+        err = unwrapCause(err);
 
         if (!(err instanceof IgniteClientConnectionException)) {
             return null;

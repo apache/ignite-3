@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -137,47 +139,57 @@ class RocksStorageUtils {
         return (long) LONG_ARRAY_HANDLE.get(rocksValue, Long.BYTES);
     }
 
-    /**
-     * Builds a value from a byte array.
-     *
-     * @param valueBytes Value byte array.
-     * @return Value.
-     */
+    /** Converts from a byte array to a {@link Value}. */
     static Value bytesToValue(byte[] valueBytes) {
-        // At least an 8-byte update counter and a 1-byte boolean
-        assert valueBytes.length > Long.BYTES;
+        // At least an 8-byte update counter, 8-bytes operation timestamp and a 1-byte boolean.
+        assert valueBytes.length > 2 * Long.BYTES;
+
+        var pos = 0;
 
         // Read an update counter (8-byte long) from the entry.
-        long updateCounter = (long) LONG_ARRAY_HANDLE.get(valueBytes, 0);
+        long updateCounter = (long) LONG_ARRAY_HANDLE.get(valueBytes, pos);
+        pos += Long.BYTES;
+
+        // Read an operation timestamp (8-byte long) from the entry.
+        long operationTimestamp = (long) LONG_ARRAY_HANDLE.get(valueBytes, pos);
+        pos += Long.BYTES;
 
         // Read a has-value flag (1 byte) from the entry.
-        boolean hasValue = valueBytes[Long.BYTES] != 0;
+        boolean hasValue = valueBytes[pos] != 0;
+        pos += Byte.BYTES;
 
         byte[] val;
         if (hasValue) { // Copy the value.
-            val = Arrays.copyOfRange(valueBytes, Long.BYTES + 1, valueBytes.length);
+            val = Arrays.copyOfRange(valueBytes, pos, valueBytes.length);
         } else { // There is no value, mark it as a tombstone.
             val = TOMBSTONE;
         }
 
-        return new Value(val, updateCounter);
+        return new Value(val, updateCounter, hybridTimestamp(operationTimestamp));
     }
 
     /**
-     * Adds an update counter and a tombstone flag to a value.
+     * Converts the contents of a {@link Value} to a byte array.
      *
-     * @param value         Value byte array.
+     * @param value Value byte array.
      * @param updateCounter Update counter.
+     * @param operationTimestamp Operation timestamp.
      * @return Value with an update counter and a tombstone.
      */
-    static byte[] valueToBytes(byte[] value, long updateCounter) {
-        var bytes = new byte[Long.BYTES + Byte.BYTES + value.length];
+    static byte[] valueToBytes(byte[] value, long updateCounter, HybridTimestamp operationTimestamp) {
+        var bytes = new byte[Long.BYTES + Long.BYTES + Byte.BYTES + value.length];
+        var pos = 0;
 
-        LONG_ARRAY_HANDLE.set(bytes, 0, updateCounter);
+        LONG_ARRAY_HANDLE.set(bytes, pos, updateCounter);
+        pos += Long.BYTES;
 
-        bytes[Long.BYTES] = (byte) (value == TOMBSTONE ? 0 : 1);
+        LONG_ARRAY_HANDLE.set(bytes, pos, operationTimestamp.longValue());
+        pos += Long.BYTES;
 
-        System.arraycopy(value, 0, bytes, Long.BYTES + Byte.BYTES, value.length);
+        bytes[pos] = (byte) (value == TOMBSTONE ? 0 : 1);
+        pos += Byte.BYTES;
+
+        System.arraycopy(value, 0, bytes, pos, value.length);
 
         return bytes;
     }

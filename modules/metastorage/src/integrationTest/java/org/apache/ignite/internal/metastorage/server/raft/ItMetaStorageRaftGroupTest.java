@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
@@ -114,7 +115,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     new byte[]{1},
                     new byte[]{2},
                     10,
-                    2
+                    2,
+                    ANY_TIMESTAMP
             );
 
     /** Expected server result entry. */
@@ -123,7 +125,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     new byte[]{3},
                     new byte[]{4},
                     11,
-                    3
+                    3,
+                    ANY_TIMESTAMP
             );
 
     /** Cluster. */
