@@ -302,8 +302,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Looks up a timestamp by a revision.
      *
+     * <p>Requested revision is expected to be less than or equal to the current storage revision.</p>
+     *
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
+     * @throws CompactedException If the requested revision has been compacted.
      */
     // TODO: IGNITE-23307 Figure out what to do after compaction
     HybridTimestamp timestampByRevision(long revision);

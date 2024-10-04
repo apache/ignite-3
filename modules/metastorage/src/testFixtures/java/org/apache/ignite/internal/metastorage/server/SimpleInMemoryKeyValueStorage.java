@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -37,10 +38,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -85,7 +86,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Timestamp to revision mapping. */
     private final NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
 
-    /** Revision to timestamp mapping. */
+    /**
+     * Revision to timestamp mapping.
+     *
+     * <p>Guarded by {@link #mux}.</p>
+     */
     private final Map<Long, HybridTimestamp> revToTsMap = new HashMap<>();
 
     /**
@@ -423,8 +428,18 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
+        assert revision >= 0;
+
         synchronized (mux) {
-            return Objects.requireNonNull(revToTsMap.get(revision), "Revision " + revision + " not found");
+            assertRequestedRevisionLessThanOrEqualCurrent(revision, rev);
+
+            HybridTimestamp timestamp = revToTsMap.get(revision);
+
+            if (timestamp == null) {
+                throw new CompactedException("Requested revision has already been compacted: " + revision);
+            }
+
+            return timestamp;
         }
     }
 
@@ -550,6 +565,16 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
 
                 compactForKey(entry.getKey(), toLongArray(entry.getValue()), revision);
+            }
+        }
+
+        synchronized (mux) {
+            for (Iterator<Long> it = revToTsMap.keySet().iterator(); it.hasNext(); ) {
+                if (it.next() <= revision) {
+                    it.remove();
+                } else {
+                    break;
+                }
             }
         }
     }

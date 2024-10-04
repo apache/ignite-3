@@ -264,7 +264,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             long revision = entry.revision();
 
-            handler.handle(update, metastore.timestampByRevision(revision), revision);
+            handler.handle(update, metastore.timestampByRevisionLocally(revision), revision);
         }
     }
 

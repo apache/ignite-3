@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.util.Cursor;
@@ -124,10 +126,14 @@ public interface MetaStorageManager extends IgniteComponent {
      * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
      * revision is available in the local storage. This method always operates locally.
      *
+     * <p>Requested revision is expected to be less than or equal to the current metastorage revision.</p>
+     *
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the requested revision has been compacted.
      */
-    HybridTimestamp timestampByRevision(long revision);
+    HybridTimestamp timestampByRevisionLocally(long revision);
 
     /**
      * Retrieves entries for given keys.

@@ -289,6 +289,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(-1, storage.getCompactionRevision());
     }
 
+    @Test
+    void testTimestampByRevision() {
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 

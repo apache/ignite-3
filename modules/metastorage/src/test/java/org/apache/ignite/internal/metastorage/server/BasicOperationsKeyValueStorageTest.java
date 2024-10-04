@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -2151,6 +2152,22 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
             assertEquals(3, storage.revisionByTimestamp(MAX_VALUE));
         }
+    }
+
+    @Test
+    void testTimestampByRevision() {
+        byte[] key = key(0);
+        byte[] value = keyValue(0, 0);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+
+        storage.put(key, value, timestamp0);
+        assertEquals(timestamp0, storage.timestampByRevision(1));
+
+        storage.put(key, value, timestamp1);
+        assertEquals(timestamp0, storage.timestampByRevision(1));
+        assertEquals(timestamp1, storage.timestampByRevision(2));
     }
 
     private CompletableFuture<Void> watchExact(
