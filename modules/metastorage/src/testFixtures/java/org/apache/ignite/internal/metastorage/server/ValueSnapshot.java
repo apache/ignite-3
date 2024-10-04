@@ -17,12 +17,29 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-/**
- * Tests for in-memory key-value storage implementation.
- */
-class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
-    @Override
-    public KeyValueStorage createStorage() {
-        return new SimpleInMemoryKeyValueStorage("test");
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+
+/** {@link Value} container for creating and restoring from a snapshot. */
+class ValueSnapshot implements Serializable {
+    private static final long serialVersionUID = -435898107081479568L;
+
+    private final byte[] bytes;
+
+    private final long updCntr;
+
+    private final boolean tombstone;
+
+    private final HybridTimestamp operationTimestamp;
+
+    ValueSnapshot(Value value) {
+        bytes = value.bytes();
+        updCntr = value.updateCounter();
+        tombstone = value.tombstone();
+        operationTimestamp = value.operationTimestamp();
+    }
+
+    Value toValue() {
+        return tombstone ? new Value(Value.TOMBSTONE, updCntr, operationTimestamp) : new Value(bytes, updCntr, operationTimestamp);
     }
 }
