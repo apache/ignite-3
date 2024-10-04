@@ -325,6 +325,13 @@ public class Cluster {
     }
 
     /**
+     * Returns all Ignite servers.
+     */
+    public List<IgniteServer> servers() {
+        return igniteServers;
+    }
+
+    /**
      * Returns an Ignite server by its index.
      */
     public IgniteServer server(int index) {
