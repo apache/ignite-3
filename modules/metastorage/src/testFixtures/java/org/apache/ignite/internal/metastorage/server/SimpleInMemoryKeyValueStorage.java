@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
@@ -28,8 +30,12 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,7 +69,9 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,13 +120,22 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private long updCntr;
 
     /**
-     * Last revision of a compact that was set or restored from a snapshot.
+     * Last compaction revision that was set or restored from a snapshot.
      *
      * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
      *
      * <p>Multi-threaded access is guarded by {@link #mux}.</p>
      */
     private long compactionRevision = -1;
+
+    /**
+     * Last {@link #saveCompactionRevision saved} compaction revision.
+     *
+     * <p>This field is <b>not</b> used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     */
+    private long savedCompactionRevision = -1;
 
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
@@ -568,12 +585,80 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        throw new UnsupportedOperationException();
+        synchronized (mux) {
+            try {
+                Files.createDirectories(snapshotPath);
+
+                Path snapshotFile = snapshotPath.resolve(SimpleInMemoryKeyValueStorageSnapshot.FILE_NAME);
+
+                assertTrue(IgniteUtils.deleteIfExists(snapshotFile), snapshotFile.toString());
+
+                Files.createFile(snapshotFile);
+
+                var revsIdxCopy = new HashMap<Long, Map<byte[], ValueSnapshot>>();
+                revsIdx.forEach((revision, entries) -> {
+                    Map<byte[], ValueSnapshot> entries0 = new HashMap<>();
+                    entries.forEach((keyBytes, value) -> entries0.put(keyBytes, new ValueSnapshot(value)));
+
+                    revsIdxCopy.put(revision, entries0);
+                });
+
+                var snapshot = new SimpleInMemoryKeyValueStorageSnapshot(
+                        Map.copyOf(keysIdx),
+                        Map.copyOf(tsToRevMap),
+                        Map.copyOf(revToTsMap),
+                        revsIdxCopy,
+                        rev,
+                        updCntr,
+                        savedCompactionRevision
+                );
+
+                byte[] snapshotBytes = ByteUtils.toBytes(snapshot);
+
+                Files.write(snapshotFile, snapshotBytes, WRITE);
+
+                return nullCompletedFuture();
+            } catch (Throwable t) {
+                return failedFuture(t);
+            }
+        }
     }
 
     @Override
     public void restoreSnapshot(Path snapshotPath) {
-        throw new UnsupportedOperationException();
+        synchronized (mux) {
+            try {
+                keysIdx.clear();
+                tsToRevMap.clear();
+                revToTsMap.clear();
+                revsIdx.clear();
+
+                Path snapshotFile = snapshotPath.resolve(SimpleInMemoryKeyValueStorageSnapshot.FILE_NAME);
+
+                assertTrue(Files.exists(snapshotPath), snapshotFile.toString());
+
+                byte[] snapshotBytes = Files.readAllBytes(snapshotFile);
+
+                var snapshot = (SimpleInMemoryKeyValueStorageSnapshot) ByteUtils.fromBytes(snapshotBytes);
+
+                keysIdx.putAll(snapshot.keysIdx);
+                tsToRevMap.putAll(snapshot.tsToRevMap);
+                revToTsMap.putAll(snapshot.revToTsMap);
+                snapshot.revsIdx.forEach((revision, entries) -> {
+                    TreeMap<byte[], Value> entries0 = new TreeMap<>(CMP);
+                    entries.forEach((keyBytes, valueSnapshot) -> entries0.put(keyBytes, valueSnapshot.toValue()));
+
+                    revsIdx.put(revision, entries0);
+                });
+
+                rev = snapshot.rev;
+                updCntr = snapshot.updCntr;
+                compactionRevision = snapshot.savedCompactionRevision;
+                savedCompactionRevision = snapshot.savedCompactionRevision;
+            } catch (Throwable t) {
+                throw new MetaStorageException(RESTORING_STORAGE_ERR, t);
+            }
+        }
     }
 
     private boolean doRemove(byte[] key, long curRev) {
@@ -869,7 +954,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        throw new UnsupportedOperationException();
+        assert revision >= 0;
+
+        synchronized (mux) {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            savedCompactionRevision = revision;
+        }
     }
 
     @Override

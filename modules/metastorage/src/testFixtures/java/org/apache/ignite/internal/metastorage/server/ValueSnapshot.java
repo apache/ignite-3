@@ -17,27 +17,25 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import java.io.Serializable;
 
-/** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
-public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
-    @Override
-    public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", storageDir(), new NoOpFailureManager());
+/** {@link Value} container for creating and restoring from a snapshot. */
+class ValueSnapshot implements Serializable {
+    private static final long serialVersionUID = -435898107081479568L;
+
+    private final byte[] bytes;
+
+    private final long updCntr;
+
+    private final boolean tombstone;
+
+    ValueSnapshot(Value value) {
+        bytes = value.bytes();
+        updCntr = value.updateCounter();
+        tombstone = value.tombstone();
     }
 
-    @Override
-    void restartStorage() throws Exception {
-        storage.close();
-
-        storage = createStorage();
-
-        storage.start();
-    }
-
-    private Path storageDir() {
-        return workDir.resolve("storage");
+    Value toValue() {
+        return tombstone ? new Value(Value.TOMBSTONE, updCntr) : new Value(bytes, updCntr);
     }
 }

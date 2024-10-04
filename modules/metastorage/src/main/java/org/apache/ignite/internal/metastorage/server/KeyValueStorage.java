@@ -290,6 +290,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Restores a state of the storage which was previously captured with a {@link #snapshot(Path)}.
      *
      * @param snapshotPath Path to the snapshot's directory.
+     * @throws MetaStorageException If there was an error while restoring from a snapshot.
      */
     void restoreSnapshot(Path snapshotPath);
 

@@ -46,6 +46,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -67,14 +68,21 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for key-value storage implementations.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
+    @WorkDirectory
+    Path workDir;
+
     @Test
     public void testPut() {
         byte[] key = key(1);
@@ -2151,6 +2159,31 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
             assertEquals(3, storage.revisionByTimestamp(MAX_VALUE));
         }
+    }
+
+    @Test
+    void testSnapshot() throws Exception {
+        byte[] key = key(0);
+        byte[] value = keyValue(0, 0);
+
+        storage.put(key, value, hybridTimestamp(10));
+
+        Path snapshotDir = workDir.resolve("snapshotDir");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        storage.close();
+        storage = createStorage();
+        storage.start();
+
+        assertEquals(0L, storage.revision());
+        assertEquals(0L, storage.updateCounter());
+        assertTrue(storage.get(key).empty());
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(1L, storage.revision());
+        assertEquals(1L, storage.updateCounter());
+        assertFalse(storage.get(key).empty());
     }
 
     private CompletableFuture<Void> watchExact(
