@@ -2303,6 +2303,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.put(key, value, hybridTimestamp(10));
 
         Path snapshotDir = workDir.resolve("snapshotDir");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         restartStorage();
 
