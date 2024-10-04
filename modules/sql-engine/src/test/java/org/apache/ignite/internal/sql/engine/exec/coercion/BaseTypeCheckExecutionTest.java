@@ -22,13 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
-import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -44,7 +41,6 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for check execution results of numeric operations. */
 class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
@@ -78,10 +74,6 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         Object val2 = SqlTestUtils.generateValueByType(typePair.second());
 
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
-    }
-
-    static Stream<Arguments> allNumericPairs() {
-        return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 
     private static @Nullable Object generateReducedValueByType(NativeType nativeType) {

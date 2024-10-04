@@ -24,14 +24,14 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** Check execution and return results for numeric arithmetics. */
-public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest {
+public class NumericBinaryOperationsTypeCoercionExecutionTest extends BaseTypeCheckExecutionTest {
     private static final Set<NativeType> APPROXIMATE_NUMERIC_TYPES = Set.of(NativeTypes.DOUBLE, NativeTypes.FLOAT);
 
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
+    @EnumSource
     public void sumOp(NumericPair typePair) throws Exception {
         String sql = "SELECT c1 + c2 FROM t";
         try (ClusterWrapper testCluster = testCluster(typePair, dataProviderReduced(typePair))) {
@@ -40,7 +40,7 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
     }
 
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
+    @EnumSource
     public void subtractOp(NumericPair typePair) throws Exception {
         String sql = "SELECT c1 - c2 FROM t";
         try (ClusterWrapper testCluster = testCluster(typePair, dataProviderReduced(typePair))) {
@@ -49,7 +49,7 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
     }
 
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
+    @EnumSource
     public void multOp(NumericPair typePair) throws Exception {
         String sql = "SELECT c1 * c2 FROM t";
         try (ClusterWrapper testCluster = testCluster(typePair, multDivDataProvider(typePair))) {
@@ -58,7 +58,7 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
     }
 
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
+    @EnumSource
     public void divOp(NumericPair typePair) throws Exception {
         String sql = "SELECT c1 / c2 FROM t";
         Assumptions.assumeFalse(typePair.first() instanceof DecimalNativeType || typePair.second() instanceof DecimalNativeType,
@@ -70,7 +70,7 @@ public class NumericArithmeticsExecutionTest extends BaseTypeCheckExecutionTest 
     }
 
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
+    @EnumSource
     public void moduloOp(NumericPair typePair) throws Exception {
         // Need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-23349
         if (APPROXIMATE_NUMERIC_TYPES.contains(typePair.first()) || APPROXIMATE_NUMERIC_TYPES.contains(typePair.second())) {
