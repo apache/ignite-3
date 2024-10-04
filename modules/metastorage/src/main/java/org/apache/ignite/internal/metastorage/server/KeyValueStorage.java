@@ -311,7 +311,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param timestamp Timestamp by which to do a lookup.
      * @return Revision lesser or equal to the timestamp.
-     * @throws CompactedException If you couldn't find a revision by timestamp because it was already compacted.
+     * @throws CompactedException If a revision could not be found by timestamp because it was already compacted.
      */
     long revisionByTimestamp(HybridTimestamp timestamp);
 

@@ -21,7 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -1421,7 +1421,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            assertRequestedRevisionLessThanOrEqualCurrent(revision, rev);
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
             byte[] tsBytes = revisionToTs.get(longToBytes(revision));
 
@@ -1634,7 +1634,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @FunctionalInterface
-    private interface CompactionFunction {
+    private interface CompactionAction {
         /**
          * Performs compaction on the storage at the current iterator pointer. Returns {@code true} if it is necessary to continue
          * iterating, {@link false} if it is necessary to finish with writing the last batch.
@@ -1642,7 +1642,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         boolean compact(RocksIterator it, WriteBatch batch) throws RocksDBException;
     }
 
-    private void compactInBatches(ColumnFamily columnFamily, CompactionFunction compactionFunction) throws RocksDBException {
+    private void compactInBatches(ColumnFamily columnFamily, CompactionAction compactionAction) throws RocksDBException {
         try (RocksIterator iterator = columnFamily.newIterator()) {
             iterator.seekToFirst();
 
@@ -1659,7 +1659,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                             return;
                         }
 
-                        if (!compactionFunction.compact(iterator, batch)) {
+                        if (!compactionAction.compact(iterator, batch)) {
                             continueIterating = false;
 
                             break;

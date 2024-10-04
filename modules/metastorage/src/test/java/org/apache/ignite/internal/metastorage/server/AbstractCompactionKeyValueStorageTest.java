@@ -297,33 +297,33 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testRevisionByTimestampAfterCompaction() {
-        HybridTimestamp timestamp0 = storage.timestampByRevision(1);
-        HybridTimestamp timestamp1 = storage.timestampByRevision(2);
-        HybridTimestamp timestamp2 = storage.timestampByRevision(3);
+        HybridTimestamp timestamp1 = storage.timestampByRevision(1);
+        HybridTimestamp timestamp2 = storage.timestampByRevision(2);
+        HybridTimestamp timestamp3 = storage.timestampByRevision(3);
 
         storage.compact(1);
 
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
-        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp1));
-        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp2));
-
-        storage.compact(2);
-
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
         assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp2));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp3));
 
-        storage.compact(3);
+        storage.compact(2);
 
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
-        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2));
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2.subtractPhysicalTime(1)));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp3));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3.subtractPhysicalTime(1)));
     }
 
     private List<Integer> collectRevisions(byte[] key) {

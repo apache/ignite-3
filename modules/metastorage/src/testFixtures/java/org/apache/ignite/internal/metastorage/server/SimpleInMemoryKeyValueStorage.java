@@ -24,7 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -433,7 +433,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revision >= 0;
 
         synchronized (mux) {
-            assertRequestedRevisionLessThanOrEqualCurrent(revision, rev);
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
             HybridTimestamp timestamp = revToTsMap.get(revision);
 

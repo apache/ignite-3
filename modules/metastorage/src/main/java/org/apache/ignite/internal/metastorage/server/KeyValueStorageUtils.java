@@ -73,10 +73,10 @@ public class KeyValueStorageUtils {
         );
     }
 
-    /** Asserts that the compaction revision is less than or equal the current storage revision. */
-    public static void assertRequestedRevisionLessThanOrEqualCurrent(long requestedRevision, long revision) {
+    /** Asserts that the requested revision is less than or equal to the current storage revision. */
+    public static void assertRequestedRevisionLessThanOrEqualToCurrent(long requestedRevision, long revision) {
         assert requestedRevision <= revision : String.format(
-                "Requested revision should be less than or equal the current: [requested=%s, current=%s]",
+                "Requested revision should be less than or equal to the current: [requested=%s, current=%s]",
                 requestedRevision, revision
         );
     }
