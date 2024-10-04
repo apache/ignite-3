@@ -114,13 +114,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private long rev;
 
     /**
-     * Update counter. Will be incremented for each update of any particular entry.
-     *
-     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
-     */
-    private long updCntr;
-
-    /**
      * Last compaction revision that was set or restored from a snapshot.
      *
      * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
@@ -166,13 +159,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public long revision() {
         synchronized (mux) {
             return rev;
-        }
-    }
-
-    @Override
-    public long updateCounter() {
-        synchronized (mux) {
-            return updCntr;
         }
     }
 
@@ -524,7 +510,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
-                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter(), value.operationTimestamp());
+                        var entry = new EntryImpl(key, value.bytes(), revision, value.operationTimestamp());
 
                         updatedEntries.add(entry);
                     });
@@ -609,7 +595,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         Map.copyOf(revToTsMap),
                         revsIdxCopy,
                         rev,
-                        updCntr,
                         savedCompactionRevision
                 );
 
@@ -652,7 +637,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 });
 
                 rev = snapshot.rev;
-                updCntr = snapshot.updCntr;
                 compactionRevision = snapshot.savedCompactionRevision;
                 savedCompactionRevision = snapshot.savedCompactionRevision;
             } catch (Throwable t) {
@@ -851,24 +835,20 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter(), lastVal.operationTimestamp());
+            return EntryImpl.tombstone(key, lastRev, lastVal.operationTimestamp());
         }
 
-        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter(), lastVal.operationTimestamp());
+        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.operationTimestamp());
     }
 
-    private long doPut(byte[] key, byte[] bytes, long curRev, HybridTimestamp opTs) {
-        long curUpdCntr = ++updCntr;
-
+    private void doPut(byte[] key, byte[] bytes, long curRev, HybridTimestamp opTs) {
         // Update keysIdx.
         List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
-
-        long lastRev = revs.isEmpty() ? 0 : lastRevision(revs);
 
         revs.add(curRev);
 
         // Update revsIdx.
-        Value val = new Value(bytes, curUpdCntr, opTs);
+        Value val = new Value(bytes, opTs);
 
         revsIdx.compute(
                 curRev,
@@ -883,14 +863,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
         );
 
-        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr, val.operationTimestamp());
+        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, val.operationTimestamp());
 
         updatedEntries.add(updatedEntry);
 
-        return lastRev;
     }
 
-    private long doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, HybridTimestamp opTs) {
+    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, HybridTimestamp opTs) {
         synchronized (mux) {
             // Update revsIdx.
             NavigableMap<byte[], Value> entries = new TreeMap<>(CMP);
@@ -900,25 +879,22 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                 byte[] bytes = bytesList.get(i);
 
-                long curUpdCntr = ++updCntr;
-
                 // Update keysIdx.
                 List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
 
                 revs.add(curRev);
 
-                Value val = new Value(bytes, curUpdCntr, opTs);
+                Value val = new Value(bytes, opTs);
 
                 entries.put(key, val);
 
-                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr, opTs));
+                updatedEntries.add(new EntryImpl(key, bytes, curRev, opTs));
 
                 revsIdx.put(curRev, entries);
             }
 
             updateRevision(curRev, opTs);
 
-            return curRev;
         }
     }
 

@@ -133,14 +133,10 @@ class RocksStorageUtils {
 
     /** Converts from a byte array to a {@link Value}. */
     static Value bytesToValue(byte[] valueBytes) {
-        // At least an 8-byte update counter, 8-bytes operation timestamp and a 1-byte boolean.
-        assert valueBytes.length > 2 * Long.BYTES;
+        // At least an 8-bytes operation timestamp and a 1-byte boolean.
+        assert valueBytes.length > Long.BYTES;
 
         var pos = 0;
-
-        // Read an update counter (8-byte long) from the entry.
-        long updateCounter = (long) LONG_ARRAY_HANDLE.get(valueBytes, pos);
-        pos += Long.BYTES;
 
         // Read an operation timestamp (8-byte long) from the entry.
         long operationTimestamp = (long) LONG_ARRAY_HANDLE.get(valueBytes, pos);
@@ -157,23 +153,19 @@ class RocksStorageUtils {
             val = TOMBSTONE;
         }
 
-        return new Value(val, updateCounter, hybridTimestamp(operationTimestamp));
+        return new Value(val, hybridTimestamp(operationTimestamp));
     }
 
     /**
      * Converts the contents of a {@link Value} to a byte array.
      *
      * @param value Value byte array.
-     * @param updateCounter Update counter.
      * @param operationTimestamp Operation timestamp.
-     * @return Value with an update counter and a tombstone.
+     * @return Value bytes.
      */
-    static byte[] valueToBytes(byte[] value, long updateCounter, HybridTimestamp operationTimestamp) {
-        var bytes = new byte[Long.BYTES + Long.BYTES + Byte.BYTES + value.length];
+    static byte[] valueToBytes(byte[] value, HybridTimestamp operationTimestamp) {
+        var bytes = new byte[Long.BYTES + Byte.BYTES + value.length];
         var pos = 0;
-
-        LONG_ARRAY_HANDLE.set(bytes, pos, updateCounter);
-        pos += Long.BYTES;
 
         LONG_ARRAY_HANDLE.set(bytes, pos, operationTimestamp.longValue());
         pos += Long.BYTES;

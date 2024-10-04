@@ -39,7 +39,6 @@ public class EntryImplTest {
         assertFalse(entry.tombstone());
 
         assertEquals(0, entry.revision());
-        assertEquals(0, entry.updateCounter());
 
         assertArrayEquals(KEY, entry.key());
 
@@ -49,13 +48,12 @@ public class EntryImplTest {
 
     @Test
     void testTombstone() {
-        Entry entry = EntryImpl.tombstone(KEY, 1, 2, hybridTimestamp(10L));
+        Entry entry = EntryImpl.tombstone(KEY, 1, hybridTimestamp(10L));
 
         assertFalse(entry.empty());
         assertTrue(entry.tombstone());
 
         assertEquals(1, entry.revision());
-        assertEquals(2, entry.updateCounter());
         assertEquals(hybridTimestamp(10L), entry.timestamp());
 
         assertArrayEquals(KEY, entry.key());
