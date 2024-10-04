@@ -93,7 +93,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         assertThat(metaStorage.put(FIRST_KEY, FIRST_VALUE), willCompleteSuccessfully());
 
         // Check that data has been written successfully
-        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 1, 1);
+        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 1);
     }
 
     @Override
@@ -110,13 +110,13 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         assertThat(metaStorage.remove(FIRST_KEY), willCompleteSuccessfully());
 
         // Check that data has been removed
-        checkEntry(FIRST_KEY.bytes(), null, 2, 2);
+        checkEntry(FIRST_KEY.bytes(), null, 2);
 
         // Put same data again
         assertThat(metaStorage.put(FIRST_KEY, FIRST_VALUE), willCompleteSuccessfully());
 
         // Check that it has been written
-        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 3, 3);
+        checkEntry(FIRST_KEY.bytes(), FIRST_VALUE, 3);
     }
 
     @Override
@@ -134,9 +134,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         byte[] lastValue = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
-        int expectedUpdateCounter = interactedAfterSnapshot ? 4 : 3;
 
-        Entry expectedLastEntry = new EntryImpl(lastKey, lastValue, expectedRevision, expectedUpdateCounter, ANY_TIMESTAMP);
+        Entry expectedLastEntry = new EntryImpl(lastKey, lastValue, expectedRevision, ANY_TIMESTAMP);
 
         return () -> TestMetasStorageUtils.equals(storage.get(lastKey), expectedLastEntry);
     }
@@ -171,12 +170,12 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }
 
-    private void checkEntry(byte[] expKey, byte @Nullable [] expValue, long expRevision, long expUpdateCounter) {
+    private void checkEntry(byte[] expKey, byte @Nullable [] expValue, long expRevision) {
         CompletableFuture<Entry> future = metaStorage.get(new ByteArray(expKey));
 
         assertThat(future, willCompleteSuccessfully());
 
-        TestMetasStorageUtils.checkEntry(future.join(), expKey, expValue, expRevision, expUpdateCounter);
+        TestMetasStorageUtils.checkEntry(future.join(), expKey, expValue, expRevision);
     }
 
     private static ClusterNode getNode(RaftServer server) {

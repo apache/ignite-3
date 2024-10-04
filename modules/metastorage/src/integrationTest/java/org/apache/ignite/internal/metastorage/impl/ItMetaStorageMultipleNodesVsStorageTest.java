@@ -124,8 +124,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(awaitFuture, willCompleteSuccessfully());
 
-        checkEntry(awaitFuture.join().oldEntry(), key.bytes(), value, 1, 1);
-        checkEntry(awaitFuture.join().newEntry(), key.bytes(), newValue, 2, 3);
+        checkEntry(awaitFuture.join().oldEntry(), key.bytes(), value, 1);
+        checkEntry(awaitFuture.join().newEntry(), key.bytes(), newValue, 2);
 
         // Check that the second node has been registered as a learner.
         assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));

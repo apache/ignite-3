@@ -750,16 +750,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public HybridTimestamp timestampByRevision(long revision) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.timestampByRevision(revision);
-        } finally {
-            busyLock.leaveBusy();
-        }
+    public HybridTimestamp timestampByRevisionLocally(long revision) {
+        return inBusyLock(busyLock, () -> storage.timestampByRevision(revision));
     }
 
     @Override

@@ -59,8 +59,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /** Creates tables. */
     @BeforeAll
     public static void createTables() throws SQLException {
-        assert !clusterNodes.isEmpty();
-
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY)");
             stmt.executeUpdate("INSERT INTO person (orgid, name, age) VALUES (1, '111', 111)");

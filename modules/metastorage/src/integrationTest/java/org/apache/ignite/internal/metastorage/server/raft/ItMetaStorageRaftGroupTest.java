@@ -115,7 +115,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     new byte[]{1},
                     new byte[]{2},
                     10,
-                    2,
                     ANY_TIMESTAMP
             );
 
@@ -125,7 +124,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     new byte[]{3},
                     new byte[]{4},
                     11,
-                    3,
                     ANY_TIMESTAMP
             );
 

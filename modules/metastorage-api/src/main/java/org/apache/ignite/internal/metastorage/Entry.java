@@ -29,8 +29,6 @@ import org.jetbrains.annotations.Nullable;
  *     <li>key - an unique entry's key. Keys are comparable in lexicographic manner.</li>
  *     <li>value - a data which is associated with a key and represented as an array of bytes.</li>
  *     <li>revision - a number which denotes a version of whole meta storage. Each change increments the revision.</li>
- *     <li>updateCounter - a number which denotes a number of times entries in the meta storage have been updated. Each change increments
- *     the updateCounter.</li>
  *     <li>timestamp - a timestamp of execution of the operation that changed the entry in the meta storage. ach change increments the
  *     timestamp.</li>
  * </ul>
@@ -48,13 +46,6 @@ public interface Entry extends Serializable {
      * <p>Revision is increased either by changing one key or the entire batch.</p>
      */
     long revision();
-
-    /**
-     * Returns the metastorage update counter in which the entry was created, {@code 0} for an {@link #empty empty entry}.
-     *
-     * <p>Update counter increases both when one key and each key in the batch are changed under one revision.</p>
-     */
-    long updateCounter();
 
     /** Returns {@code true} if entry is empty (never existed or was destroyed by the compaction), otherwise - {@code false}. */
     boolean empty();

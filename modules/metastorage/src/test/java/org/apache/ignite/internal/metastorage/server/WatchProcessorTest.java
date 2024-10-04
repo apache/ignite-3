@@ -81,8 +81,8 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
@@ -108,8 +108,8 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0, TIMESTAMP);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
 
         HybridTimestamp ts = new HybridTimestamp(1, 2);
 
@@ -150,8 +150,8 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
@@ -184,16 +184,16 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
         watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
 
-        var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, 0, TIMESTAMP);
-        var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0, TIMESTAMP);
+        var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, TIMESTAMP);
+        var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
 
@@ -218,7 +218,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
 
-        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0, TIMESTAMP);
+        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry), HybridTimestamp.MAX_VALUE);
 
@@ -236,10 +236,10 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
     }
 
     private static Entry oldEntry(byte[] key, long revision) {
-        return new EntryImpl(key, null, revision, 0, TIMESTAMP);
+        return new EntryImpl(key, null, revision, TIMESTAMP);
     }
 
     private static Entry oldEntry(Entry entry) {
-        return new EntryImpl(entry.key(), null, entry.revision() - 1, 0, TIMESTAMP);
+        return new EntryImpl(entry.key(), null, entry.revision() - 1, TIMESTAMP);
     }
 }
