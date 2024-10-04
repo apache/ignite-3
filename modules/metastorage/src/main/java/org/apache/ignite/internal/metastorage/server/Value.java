@@ -26,31 +26,22 @@ public class Value {
 
     private final byte[] bytes;
 
-    private final long updateCounter;
-
     private final HybridTimestamp operationTimestamp;
 
     /**
      * Constructs value.
      *
      * @param bytes Value bytes or {@code #TOMBSTONE}.
-     * @param updateCounter Storage update counter when value changes.
      * @param operationTimestamp Timestamp of the value change operation.
      */
-    public Value(byte[] bytes, long updateCounter, HybridTimestamp operationTimestamp) {
+    public Value(byte[] bytes, HybridTimestamp operationTimestamp) {
         this.bytes = bytes;
-        this.updateCounter = updateCounter;
         this.operationTimestamp = operationTimestamp;
     }
 
     /** Returns value bytes. */
     public byte[] bytes() {
         return bytes;
-    }
-
-    /** Returns Storage update counter when value changes. */
-    public long updateCounter() {
-        return updateCounter;
     }
 
     /** Returns the timestamp of the value change operation. */

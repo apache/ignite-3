@@ -56,13 +56,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long revision();
 
     /**
-     * Returns update counter.
-     *
-     * @return Update counter.
-     */
-    long updateCounter();
-
-    /**
      * Returns an entry by the given key.
      *
      * @param key The key.

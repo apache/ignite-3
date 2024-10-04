@@ -31,9 +31,8 @@ public class TestMetasStorageUtils {
     public static final HybridTimestamp ANY_TIMESTAMP = new HybridTimestamp(1L, 0);
 
     /** Checks the metastore entry. */
-    public static void checkEntry(Entry actEntry, byte[] expKey, byte @Nullable [] expValue, long expRevision, long expUpdateCounter) {
+    public static void checkEntry(Entry actEntry, byte[] expKey, byte @Nullable [] expValue, long expRevision) {
         assertEquals(expRevision, actEntry.revision(), () -> "entry=" + actEntry);
-        assertEquals(expUpdateCounter, actEntry.updateCounter(), () -> "entry=" + actEntry);
         assertArrayEquals(expKey, actEntry.key(), () -> "entry=" + actEntry);
         assertArrayEquals(expValue, actEntry.value(), () -> "entry=" + actEntry);
     }
@@ -41,10 +40,6 @@ public class TestMetasStorageUtils {
     /** Returns {@code true} if entries are equal. */
     public static boolean equals(Entry act, Entry exp) {
         if (act.revision() != exp.revision()) {
-            return false;
-        }
-
-        if (act.updateCounter() != exp.updateCounter()) {
             return false;
         }
 

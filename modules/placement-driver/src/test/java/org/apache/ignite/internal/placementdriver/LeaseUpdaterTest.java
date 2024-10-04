@@ -120,7 +120,6 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
                 Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(node.name())).toBytes(),
                 1,
-                0,
                 clock.now()
         );
 

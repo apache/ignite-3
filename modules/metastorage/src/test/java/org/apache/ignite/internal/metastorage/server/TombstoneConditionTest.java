@@ -41,13 +41,13 @@ public class TombstoneConditionTest {
     private static final byte[] VAL = {1};
 
     /** Regular entry. */
-    private static final Entry ENTRY = new EntryImpl(KEY, VAL, 1, 1, CLOCK.now());
+    private static final Entry ENTRY = new EntryImpl(KEY, VAL, 1, CLOCK.now());
 
     /** Empty entry. */
     private static final Entry EMPTY = EntryImpl.empty(KEY);
 
     /** Tombstone entry. */
-    private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, 1, CLOCK.now());
+    private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, CLOCK.now());
 
     /**
      * Tests {@link TombstoneCondition.Type#TOMBSTONE} condition for regular, empty and tombstone entries.
