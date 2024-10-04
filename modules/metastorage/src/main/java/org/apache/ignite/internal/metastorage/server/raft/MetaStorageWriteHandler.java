@@ -452,10 +452,6 @@ public class MetaStorageWriteHandler {
         try {
             long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
 
-            if (obsoleteRevision == -1) {
-                return List.of();
-            }
-
             entryStream = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
                     // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
                     .filter(entry -> !entry.tombstone() && !entry.empty());
