@@ -21,6 +21,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
@@ -131,9 +132,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /**
      * Last {@link #saveCompactionRevision saved} compaction revision.
      *
-     * <p>This field is <b>not</b> used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
-     *
-     * <p>Multi-threaded access is guarded by {@link #mux}.</p>
+     * <p>Used only when working with snapshots.</p>
      */
     private long savedCompactionRevision = -1;
 
@@ -595,13 +594,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                 Files.createFile(snapshotFile);
 
-                var revsIdxCopy = new HashMap<Long, Map<byte[], ValueSnapshot>>();
-                revsIdx.forEach((revision, entries) -> {
-                    Map<byte[], ValueSnapshot> entries0 = new HashMap<>();
-                    entries.forEach((keyBytes, value) -> entries0.put(keyBytes, new ValueSnapshot(value)));
-
-                    revsIdxCopy.put(revision, entries0);
-                });
+                Map<Long, Map<byte[], ValueSnapshot>> revsIdxCopy = revsIdx.entrySet().stream()
+                        .collect(toMap(
+                                Map.Entry::getKey,
+                                revIdxEntry -> revIdxEntry.getValue()
+                                        .entrySet()
+                                        .stream()
+                                        .collect(toMap(Map.Entry::getKey, e -> new ValueSnapshot(e.getValue())))
+                        ));
 
                 var snapshot = new SimpleInMemoryKeyValueStorageSnapshot(
                         Map.copyOf(keysIdx),

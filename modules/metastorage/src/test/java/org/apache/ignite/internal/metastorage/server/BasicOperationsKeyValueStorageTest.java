@@ -2169,11 +2169,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.put(key, value, hybridTimestamp(10));
 
         Path snapshotDir = workDir.resolve("snapshotDir");
-        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        storage.close();
-        storage = createStorage();
-        storage.start();
+        restartStorage();
 
         assertEquals(0L, storage.revision());
         assertEquals(0L, storage.updateCounter());
@@ -2184,6 +2181,27 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1L, storage.revision());
         assertEquals(1L, storage.updateCounter());
         assertFalse(storage.get(key).empty());
+    }
+
+    @Test
+    void testCleatDataBeforeRestoreFromSnapshot() {
+        byte[] key0 = key(0);
+        byte[] key1 = key(1);
+        byte[] value = keyValue(0, 0);
+
+        storage.put(key0, value, hybridTimestamp(10));
+
+        Path snapshotDir = workDir.resolve("snapshotDir");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        storage.put(key1, value, hybridTimestamp(10));
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(1L, storage.revision());
+        assertEquals(1L, storage.updateCounter());
+        assertFalse(storage.get(key0).empty());
+        assertTrue(storage.get(key1).empty());
     }
 
     private CompletableFuture<Void> watchExact(

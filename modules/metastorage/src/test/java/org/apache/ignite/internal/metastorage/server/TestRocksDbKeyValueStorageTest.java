@@ -71,6 +71,6 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
 
     @Override
     void testSnapshot() {
-        // Does not support storage cleanup.
+        // TestRocksDbKeyValueStorage does not clean up the storage on startup.
     }
 }

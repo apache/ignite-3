@@ -23,13 +23,4 @@ public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompact
     public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
     }
-
-    @Override
-    void restartStorage() throws Exception {
-        storage.close();
-
-        storage = createStorage();
-
-        storage.start();
-    }
 }

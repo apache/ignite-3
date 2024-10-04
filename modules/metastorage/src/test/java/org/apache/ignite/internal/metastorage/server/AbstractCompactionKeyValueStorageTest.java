@@ -89,8 +89,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
-    abstract void restartStorage() throws Exception;
-
     @Test
     void testCompactRevision1() {
         storage.compact(1);
