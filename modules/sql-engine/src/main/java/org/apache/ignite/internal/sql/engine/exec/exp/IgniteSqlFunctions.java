@@ -357,8 +357,8 @@ public class IgniteSqlFunctions {
     }
 
     /**
-     * Division function for REDUCE phase of AVG aggregate. Precision and scale is only used by type inference
-     * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
+     * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
+     * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
      */
     public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
         return sum.divide(cnt, s, roundingMode);
