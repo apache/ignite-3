@@ -1463,7 +1463,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
         private final List<Matcher<RexNode>> args;
 
-        // Most of the functions propagate nullability from their arguments,
+        // Most of SQL functions propagate nullability from their arguments,
         // since most of the tests use nullable columns as their arguments,
         // it is better use use the same default.
         private boolean returnTypeNullability = true;
