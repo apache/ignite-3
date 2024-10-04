@@ -29,15 +29,20 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
@@ -1075,6 +1080,335 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         );
     }
 
+    private static Stream<Arguments> integer() {
+        return Stream.of(
+                Arguments.of(NativeTypes.INT8),
+                Arguments.of(NativeTypes.INT16),
+                Arguments.of(NativeTypes.INT32),
+                Arguments.of(NativeTypes.INT64)
+        );
+    }
+
+    // FUNCTIONS WITH NUMERIC ARGUMENTS
+
+    @ParameterizedTest
+    @MethodSource("integerInteger")
+    public void substring(NumericPair pair, Matcher<RexNode> arg1, Matcher<RexNode> arg2) throws Exception {
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", NativeTypes.STRING)
+                        .addColumn("C2", pair.first())
+                        .addColumn("C3", pair.second())
+                        .build()
+        );
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1
+            );
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+            assertPlan("SELECT SUBSTRING(C1 FROM C2) FROM T", schema, matcher::matches, List.of());
+        }
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1
+            );
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+            assertPlan("SELECT SUBSTRING(C1 FROM C2) FROM T", schema, matcher::matches, List.of());
+        }
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1,
+                    arg2
+            );
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+            assertPlan("SELECT SUBSTRING(C1 FROM C2 FOR C3) FROM T", schema, matcher::matches, List.of());
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void left(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(NativeTypes.STRING, type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(NativeTypes.STRING), ofTypeWithoutCast(type));
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+
+        assertPlan("SELECT LEFT(C1, C2) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void right(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(NativeTypes.STRING, type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(NativeTypes.STRING), ofTypeWithoutCast(type));
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+
+        assertPlan("SELECT RIGHT(C1, C2) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void chr(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithSingleColumnTable(type);
+        RelDataType char1 = Commons.typeFactory().createSqlType(SqlTypeName.CHAR, 1);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
+        // CHR(n) returns non-nullable char.
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).returnTypeNullability(false).resultWillBe(char1);
+
+        assertPlan("SELECT CHR(C1) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("integerInteger")
+    public void overlay(NumericPair pair, Matcher<RexNode> arg1, Matcher<RexNode> arg2) throws Exception {
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", NativeTypes.STRING)
+                        .addColumn("C2", pair.first())
+                        .addColumn("C3", pair.second())
+                        .build()
+        );
+
+        RelDataType varchar = Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR);
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1
+            );
+
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+            assertPlan("SELECT OVERLAY(C1 PLACING C1 FROM C2) FROM T", schema, matcher::matches, List.of());
+        }
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1,
+                    arg2
+            );
+
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+            assertPlan("SELECT OVERLAY(C1 PLACING C1 FROM C2 FOR C3) FROM T", schema, matcher::matches, List.of());
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void position(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(NativeTypes.STRING, type);
+
+        List<Matcher<RexNode>> args = List.of(
+                ofTypeWithoutCast(NativeTypes.STRING),
+                ofTypeWithoutCast(NativeTypes.STRING),
+                ofTypeWithoutCast(type)
+        );
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.INT32);
+
+        assertPlan("SELECT POSITION(C1 IN C1 FROM C2) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void repeat(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(NativeTypes.STRING, type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(NativeTypes.STRING), ofTypeWithoutCast(type));
+        RelDataType varchar = Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR);
+
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+
+        assertPlan("SELECT REPEAT(C1, C2) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("integerInteger")
+    public void substr(NumericPair pair, Matcher<RexNode> arg1, Matcher<RexNode> arg2) throws Exception {
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", NativeTypes.STRING)
+                        .addColumn("C2", pair.first())
+                        .addColumn("C3", pair.second())
+                        .build()
+        );
+
+        List<Matcher<RexNode>> args = List.of(
+                ofTypeWithoutCast(NativeTypes.STRING),
+                arg1,
+                arg2
+        );
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.STRING);
+
+        assertPlan("SELECT SUBSTR(C1, C2, C3) FROM T", schema, matcher::matches, List.of());
+    }
+
+    // DATE
+
+    @ParameterizedTest
+    @MethodSource("integer")
+    public void dateFromUnixDate(NativeType type) throws Exception {
+        IgniteSchema schema = createSchemaWithSingleColumnTable(type);
+
+        List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(NativeTypes.DATE);
+
+        assertPlan("SELECT DATE_FROM_UNIX_DATE(C1) FROM T", schema, matcher::matches, List.of());
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateYearMonthDayArgs")
+    public void dateYearMonthDay(NativeType type, NativeType returnType) throws Exception {
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", type)
+                        .addColumn("C2", type)
+                        .addColumn("C3", type)
+                        .build()
+        );
+
+        List<Matcher<RexNode>> args = List.of(
+                ofTypeWithoutCast(type),
+                ofTypeWithoutCast(type),
+                ofTypeWithoutCast(type)
+        );
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(returnType);
+
+        assertPlan("SELECT DATE(C1, C2, C3) FROM T", schema, matcher::matches, List.of());
+    }
+
+    // REGEXP
+
+    @ParameterizedTest
+    @MethodSource("integerInteger")
+    public void regexReplace(NumericPair pair, Matcher<RexNode> arg1, Matcher<RexNode> arg2) throws Exception {
+        RelDataType varchar = Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR);
+
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", NativeTypes.STRING)
+                        .addColumn("C2", pair.first())
+                        .addColumn("C3", pair.second())
+                        .build()
+        );
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1
+            );
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+            assertPlan("SELECT REGEXP_REPLACE(C1, C1, C1, C2) FROM T", schema, matcher::matches, List.of());
+        }
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1,
+                    arg2
+            );
+            // REGEXP_REPLACE(<character>, <character>, <character>, <integer>, <integer>) ***
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+            assertPlan("SELECT REGEXP_REPLACE(C1, C1, C1, C2, C3) FROM T", schema, matcher::matches, List.of());
+        }
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    ofTypeWithoutCast(NativeTypes.STRING),
+                    arg1,
+                    arg2,
+                    ofTypeWithoutCast(NativeTypes.STRING)
+            );
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(varchar);
+            assertPlan("SELECT REGEXP_REPLACE(C1, C1, C1, C2, C3, C1) FROM T", schema, matcher::matches, List.of());
+        }
+    }
+
+    private static Stream<Arguments> integerInteger() {
+        return Stream.of(
+                forTypePair(NumericPair.TINYINT_TINYINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.TINYINT_SMALLINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.TINYINT_INT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.TINYINT_BIGINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.SMALLINT_SMALLINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.SMALLINT_INT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.SMALLINT_BIGINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.INT_INT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.INT_BIGINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
+
+                forTypePair(NumericPair.BIGINT_BIGINT)
+                        .firstOpBeSame()
+                        .secondOpBeSame()
+        );
+    }
+
+    private static Stream<Arguments> dateYearMonthDayArgs() {
+        return Stream.of(
+                forArgumentOfType(NativeTypes.INT8)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT16)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT32)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT64)
+                        .resultWillBe(NativeTypes.DATE)
+        );
+    }
+
     private static class FunctionCallMatcher {
 
         private final List<Matcher<RexNode>> args;
@@ -1094,44 +1428,67 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         }
 
         Matcher<RelNode> resultWillBe(NativeType returnType) {
-            return new TypeSafeDiagnosingMatcher<>() {
-                @Override
-                protected boolean matchesSafely(RelNode relNode, Description description) {
-                    IgniteTableScan tableScan = (IgniteTableScan) relNode;
-                    List<RexNode> projects = tableScan.projects();
-                    RexCall call = (RexCall) projects.get(0);
+            return new ProjectionRexNodeMatcher(returnType);
+        }
 
-                    if (call.getOperands().size() != args.size()) {
-                        return false;
-                    }
-                    assertEquals(args.size(), call.getOperands().size(), "Number of arguments do not match");
-
-                    for (int i = 0; i < args.size(); i++) {
-                        Matcher<RexNode> arg = args.get(i);
-                        assertThat("Operand#" + i + ". Expected arguments: " + expectedArguments(), call.getOperands().get(i), arg);
-                    }
-
-                    RelDataType actualRelType = call.getType();
-                    RelDataType expectedRelType = native2relationalType(Commons.typeFactory(), returnType, returnTypeNullability);
-
-                    String message = "Expected return type "
-                            + expectedRelType + " but got " + actualRelType
-                            + ". Expected arguments: " + expectedArguments();
-
-                    assertEquals(actualRelType, expectedRelType, message);
-
-                    return true;
-                }
-
-                @Override
-                public void describeTo(Description description) {
-
-                }
-            };
+        Matcher<RelNode> resultWillBe(RelDataType returnType) {
+            return new ProjectionRexNodeMatcher(returnType);
         }
 
         private String expectedArguments() {
             return args.stream().map(Object::toString).collect(Collectors.joining(", "));
+        }
+
+        private class ProjectionRexNodeMatcher extends TypeSafeDiagnosingMatcher<RelNode> {
+
+            private final Pair<NativeType, RelDataType> returnType;
+
+            private ProjectionRexNodeMatcher(NativeType returnType) {
+                this.returnType = new Pair<>(returnType, null);
+            }
+
+            private ProjectionRexNodeMatcher(RelDataType returnType) {
+                this.returnType = new Pair<>(null, returnType);
+            }
+
+            @Override
+            protected boolean matchesSafely(RelNode relNode, Description description) {
+                IgniteTableScan tableScan = (IgniteTableScan) relNode;
+                List<RexNode> projects = tableScan.projects();
+                RexCall call = (RexCall) projects.get(0);
+
+                if (call.getOperands().size() != args.size()) {
+                    return false;
+                }
+                assertEquals(args.size(), call.getOperands().size(), "Number of arguments do not match");
+
+                for (int i = 0; i < args.size(); i++) {
+                    Matcher<RexNode> arg = args.get(i);
+                    assertThat("Operand#" + i + ". Expected arguments: " + expectedArguments(), call.getOperands().get(i), arg);
+                }
+
+                IgniteTypeFactory tf = Commons.typeFactory();
+                RelDataType actualRelType = call.getType();
+                RelDataType expectedRelType;
+
+                if (returnType.getFirst() != null) {
+                    expectedRelType = native2relationalType(tf, returnType.getFirst(), returnTypeNullability);
+                } else {
+                    expectedRelType = tf.createTypeWithNullability(returnType.getSecond(), returnTypeNullability);
+                }
+
+                String message = "Expected return type "
+                        + expectedRelType + " but got " + actualRelType
+                        + ". Expected arguments: " + expectedArguments();
+
+                assertEquals(actualRelType, expectedRelType, message);
+                return true;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
         }
     }
 }
