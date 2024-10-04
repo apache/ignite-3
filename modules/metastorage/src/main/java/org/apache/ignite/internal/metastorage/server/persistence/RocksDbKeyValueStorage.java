@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
@@ -32,6 +33,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longsToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.revisionFromRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.timestampFromRocksValue;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
@@ -1443,15 +1445,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (revision != lastSeenRevision) {
                     if (!updatedEntries.isEmpty()) {
-                        var updatedEntriesCopy = List.copyOf(updatedEntries);
+                        var updatedEntriesCopy = (List<Entry>) List.copyOf(updatedEntries);
 
-                        assert ts != null;
+                        assert ts != null : revision;
 
                         watchProcessor.notifyWatches(updatedEntriesCopy, ts);
 
                         updatedEntries.clear();
 
-                        ts = timestampByRevision(revision);
+                        ts = hybridTimestamp(timestampFromRocksValue(rocksValue));
                     }
 
                     lastSeenRevision = revision;
@@ -1459,7 +1461,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (ts == null) {
                     // This will only execute on first iteration.
-                    ts = timestampByRevision(revision);
+                    ts = hybridTimestamp(timestampFromRocksValue(rocksValue));
                 }
 
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
@@ -1485,7 +1487,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             assert tsBytes != null;
 
-            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
+            return hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }

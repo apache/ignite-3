@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,4 +73,8 @@ public interface Entry extends Serializable {
      * @return {@code True} if entry is tombstone, otherwise - {@code false}.
      */
     boolean tombstone();
+
+    default @Nullable HybridTimestamp timestamp() {
+        return null;
+    }
 }

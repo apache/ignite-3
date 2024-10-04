@@ -262,9 +262,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             UpdateLogEvent update = marshaller.unmarshall(Objects.requireNonNull(entry.value()));
 
-            long revision = entry.revision();
-
-            handler.handle(update, metastore.timestampByRevision(revision), revision);
+            handler.handle(update, entry.timestamp(), entry.revision());
         }
     }
 
