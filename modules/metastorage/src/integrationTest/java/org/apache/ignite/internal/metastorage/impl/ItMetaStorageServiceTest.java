@@ -145,7 +145,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             new byte[]{1},
             new byte[]{2},
             10,
-            2,
             ANY_TIMESTAMP
     );
 
@@ -164,7 +163,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{1},
                 new byte[]{2},
                 10,
-                2,
                 ANY_TIMESTAMP
         );
 
@@ -174,7 +172,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{3},
                 new byte[]{4},
                 10,
-                3,
                 ANY_TIMESTAMP
         );
 

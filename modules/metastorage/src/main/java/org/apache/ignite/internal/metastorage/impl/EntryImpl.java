@@ -35,16 +35,13 @@ public final class EntryImpl implements Entry {
 
     private final long revision;
 
-    private final long updateCounter;
-
     private final @Nullable HybridTimestamp timestamp;
 
     /** Constructor. */
-    public EntryImpl(byte[] key, byte @Nullable [] value, long revision, long updateCounter, @Nullable HybridTimestamp timestamp) {
+    public EntryImpl(byte[] key, byte @Nullable [] value, long revision, @Nullable HybridTimestamp timestamp) {
         this.key = key;
         this.value = value;
         this.revision = revision;
-        this.updateCounter = updateCounter;
         this.timestamp = timestamp;
     }
 
@@ -64,33 +61,28 @@ public final class EntryImpl implements Entry {
     }
 
     @Override
-    public long updateCounter() {
-        return updateCounter;
-    }
-
-    @Override
     public @Nullable HybridTimestamp timestamp() {
         return timestamp;
     }
 
     @Override
     public boolean tombstone() {
-        return value == null && revision > 0 && updateCounter > 0;
+        return value == null && timestamp != null;
     }
 
     /** Creates an instance of tombstone entry. */
-    public static Entry tombstone(byte[] key, long revision, long updateCounter, HybridTimestamp timestamp) {
-        return new EntryImpl(key, null, revision, updateCounter, timestamp);
+    public static Entry tombstone(byte[] key, long revision, HybridTimestamp timestamp) {
+        return new EntryImpl(key, null, revision, timestamp);
     }
 
     @Override
     public boolean empty() {
-        return value == null && revision == 0 && updateCounter == 0;
+        return timestamp == null;
     }
 
     /** Creates an instance of empty entry for a given key. */
     public static Entry empty(byte[] key) {
-        return new EntryImpl(key, null, 0, 0, null);
+        return new EntryImpl(key, null, 0, null);
     }
 
     @Override
@@ -106,10 +98,6 @@ public final class EntryImpl implements Entry {
         EntryImpl entry = (EntryImpl) o;
 
         if (revision != entry.revision) {
-            return false;
-        }
-
-        if (updateCounter != entry.updateCounter) {
             return false;
         }
 
@@ -132,8 +120,6 @@ public final class EntryImpl implements Entry {
 
         res = 31 * res + (int) (revision ^ (revision >>> 32));
 
-        res = 31 * res + (int) (updateCounter ^ (updateCounter >>> 32));
-
         res = 31 * res + Objects.hashCode(timestamp);
 
         return res;
@@ -145,7 +131,6 @@ public final class EntryImpl implements Entry {
                 + "key=" + new String(key, UTF_8)
                 + ", value=" + Arrays.toString(value)
                 + ", revision=" + revision
-                + ", updateCounter=" + updateCounter
                 + ", timestamp=" + timestamp
                 + '}';
     }

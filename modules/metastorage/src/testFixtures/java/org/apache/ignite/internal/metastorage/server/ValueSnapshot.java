@@ -26,20 +26,17 @@ class ValueSnapshot implements Serializable {
 
     private final byte[] bytes;
 
-    private final long updCntr;
-
     private final boolean tombstone;
 
     private final HybridTimestamp operationTimestamp;
 
     ValueSnapshot(Value value) {
         bytes = value.bytes();
-        updCntr = value.updateCounter();
         tombstone = value.tombstone();
         operationTimestamp = value.operationTimestamp();
     }
 
     Value toValue() {
-        return tombstone ? new Value(Value.TOMBSTONE, updCntr, operationTimestamp) : new Value(bytes, updCntr, operationTimestamp);
+        return tombstone ? new Value(Value.TOMBSTONE, operationTimestamp) : new Value(bytes, operationTimestamp);
     }
 }

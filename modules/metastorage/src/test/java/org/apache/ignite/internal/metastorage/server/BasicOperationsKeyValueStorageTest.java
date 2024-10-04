@@ -91,32 +91,27 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
         assertTrue(storage.get(key).empty());
 
         putToMs(key, val);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         Entry e = storage.get(key);
 
         assertFalse(e.empty());
         assertFalse(e.tombstone());
         assertEquals(1, e.revision());
-        assertEquals(1, e.updateCounter());
 
         putToMs(key, val);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         e = storage.get(key);
 
         assertFalse(e.empty());
         assertFalse(e.tombstone());
         assertEquals(2, e.revision());
-        assertEquals(2, e.updateCounter());
     }
 
     @Test
@@ -134,7 +129,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Regular put.
         putToMs(key1, val1);
@@ -148,14 +142,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key3);
 
         assertEquals(5, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         // Bounded by revision 2.
         Entry key1EntryBounded2 = storage.get(key1, 2);
 
         assertNotNull(key1EntryBounded2);
         assertEquals(1, key1EntryBounded2.revision());
-        assertEquals(1, key1EntryBounded2.updateCounter());
         assertArrayEquals(val1, key1EntryBounded2.value());
         assertFalse(key1EntryBounded2.tombstone());
         assertFalse(key1EntryBounded2.empty());
@@ -164,7 +156,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(key2EntryBounded2);
         assertEquals(2, key2EntryBounded2.revision());
-        assertEquals(2, key2EntryBounded2.updateCounter());
         assertArrayEquals(val21, key2EntryBounded2.value());
         assertFalse(key2EntryBounded2.tombstone());
         assertFalse(key2EntryBounded2.empty());
@@ -173,7 +164,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(key3EntryBounded2);
         assertEquals(0, key3EntryBounded2.revision());
-        assertEquals(0, key3EntryBounded2.updateCounter());
         assertNull(key3EntryBounded2.value());
         assertFalse(key3EntryBounded2.tombstone());
         assertTrue(key3EntryBounded2.empty());
@@ -183,7 +173,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(key1EntryBounded5);
         assertEquals(1, key1EntryBounded5.revision());
-        assertEquals(1, key1EntryBounded5.updateCounter());
         assertArrayEquals(val1, key1EntryBounded5.value());
         assertFalse(key1EntryBounded5.tombstone());
         assertFalse(key1EntryBounded5.empty());
@@ -192,7 +181,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(key2EntryBounded5);
         assertEquals(3, key2EntryBounded5.revision());
-        assertEquals(3, key2EntryBounded5.updateCounter());
         assertArrayEquals(val22, key2EntryBounded5.value());
         assertFalse(key2EntryBounded5.tombstone());
         assertFalse(key2EntryBounded5.empty());
@@ -201,7 +189,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(key3EntryBounded5);
         assertEquals(5, key3EntryBounded5.revision());
-        assertEquals(5, key3EntryBounded5.updateCounter());
         assertTrue(key3EntryBounded5.tombstone());
         assertNull(key3EntryBounded5.value());
         assertFalse(key3EntryBounded5.empty());
@@ -223,7 +210,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val9 = keyValue(1, 9);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val1);
         putToMs(key1, val2);
@@ -238,7 +224,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key1);
 
         assertEquals(10, storage.revision());
-        assertEquals(10, storage.updateCounter());
 
         // Check that a lower revision and an upper revision are inclusive.
         // Check that entry with another key is not included in a result list.
@@ -303,7 +288,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Regular put.
         putToMs(key1, val1);
@@ -317,7 +301,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key3);
 
         assertEquals(5, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4));
 
@@ -330,7 +313,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e1);
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
         assertFalse(e1.tombstone());
         assertFalse(e1.empty());
         assertArrayEquals(val1, e1.value());
@@ -340,7 +322,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e2);
         assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
         assertArrayEquals(val22, e2.value());
@@ -350,7 +331,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e3);
         assertEquals(5, e3.revision());
-        assertEquals(5, e3.updateCounter());
         assertTrue(e3.tombstone());
         assertFalse(e3.empty());
 
@@ -377,7 +357,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Regular put.
         putToMs(key1, val1);
@@ -391,7 +370,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key3);
 
         assertEquals(5, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         // Bounded by revision 2.
         Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4), 2);
@@ -405,7 +383,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e1);
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
         assertFalse(e1.tombstone());
         assertFalse(e1.empty());
         assertArrayEquals(val1, e1.value());
@@ -415,7 +392,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e2);
         assertEquals(2, e2.revision());
-        assertEquals(2, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
         assertArrayEquals(val21, e2.value());
@@ -443,7 +419,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e1);
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
         assertFalse(e1.tombstone());
         assertFalse(e1.empty());
         assertArrayEquals(val1, e1.value());
@@ -453,7 +428,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e2);
         assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
         assertArrayEquals(val22, e2.value());
@@ -463,7 +437,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e3);
         assertEquals(4, e3.revision());
-        assertEquals(4, e3.updateCounter());
         assertFalse(e3.tombstone());
         assertFalse(e3.empty());
         assertArrayEquals(val3, e3.value());
@@ -491,7 +464,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Must be rewritten.
         putToMs(key2, val21);
@@ -501,12 +473,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key3);
 
         assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         putAllToMs(List.of(key1, key2, key3), List.of(val1, val22, val32));
 
         assertEquals(4, storage.revision());
-        assertEquals(6, storage.updateCounter());
 
         Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4));
 
@@ -519,7 +489,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e1);
         assertEquals(4, e1.revision());
-        assertEquals(4, e1.updateCounter());
         assertFalse(e1.tombstone());
         assertFalse(e1.empty());
         assertArrayEquals(val1, e1.value());
@@ -529,7 +498,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e2);
         assertEquals(4, e2.revision());
-        assertEquals(5, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
         assertArrayEquals(val22, e2.value());
@@ -539,7 +507,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e3);
         assertEquals(4, e3.revision());
-        assertEquals(6, e3.updateCounter());
         assertFalse(e3.tombstone());
         assertFalse(e3.empty());
 
@@ -557,46 +524,39 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
         assertTrue(storage.get(key).empty());
 
         // Remove non-existent entry.
         removeFromMs(key);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
         assertTrue(storage.get(key).empty());
 
         putToMs(key, val);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         // Remove existent entry.
         removeFromMs(key);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         Entry e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
         assertEquals(2, e.revision());
-        assertEquals(2, e.updateCounter());
 
         // Remove already removed entry (tombstone can't be removed).
         removeFromMs(key);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
         assertEquals(2, e.revision());
-        assertEquals(2, e.updateCounter());
     }
 
     @Test
@@ -614,7 +574,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Regular put.
         putToMs(key1, val1);
@@ -628,12 +587,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         removeFromMs(key3);
 
         assertEquals(5, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         removeAllFromMs(List.of(key1, key2, key3, key4));
 
         assertEquals(6, storage.revision());
-        assertEquals(7, storage.updateCounter()); // Only two keys are updated.
 
         Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4));
 
@@ -646,7 +603,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e1);
         assertEquals(6, e1.revision());
-        assertEquals(6, e1.updateCounter());
         assertTrue(e1.tombstone());
         assertFalse(e1.empty());
 
@@ -655,7 +611,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e2);
         assertEquals(6, e2.revision());
-        assertEquals(7, e2.updateCounter());
         assertTrue(e2.tombstone());
         assertFalse(e2.empty());
 
@@ -664,7 +619,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertNotNull(e3);
         assertEquals(5, e3.revision());
-        assertEquals(5, e3.updateCounter());
         assertTrue(e3.tombstone());
         assertFalse(e3.empty());
 
@@ -689,12 +643,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 1),
@@ -705,14 +657,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -720,7 +670,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -742,12 +691,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 2),
@@ -758,14 +705,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -773,7 +718,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Success" branch isn't applied.
@@ -795,12 +739,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key1),
@@ -811,14 +753,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -826,7 +766,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -848,12 +787,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key3),
@@ -864,14 +801,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -879,7 +814,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Success" branch isn't applied.
@@ -901,12 +835,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key2),
@@ -917,14 +849,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -932,7 +862,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -954,12 +883,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key1),
@@ -973,14 +900,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -988,7 +913,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Success" branch isn't applied.
@@ -1009,13 +933,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
         removeFromMs(key1); // Should be tombstone after remove.
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
@@ -1026,14 +948,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(3, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertTrue(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertNull(e1.value());
 
         Entry e2 = storage.get(key2);
@@ -1041,7 +961,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -1062,12 +981,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
@@ -1078,14 +995,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(2, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
         assertArrayEquals(val11, e1.value());
 
         Entry e3 = storage.get(key3);
@@ -1093,7 +1008,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.empty());
         assertFalse(e3.tombstone());
         assertEquals(2, e3.revision());
-        assertEquals(2, e3.updateCounter());
         assertArrayEquals(val3, e3.value());
 
         // "Success" branch isn't applied.
@@ -1114,12 +1028,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
@@ -1130,14 +1042,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(2, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
         assertArrayEquals(val11, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -1145,7 +1055,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(2, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -1166,13 +1075,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
         removeFromMs(key1); // Should be tombstone after remove.
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
@@ -1183,14 +1090,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(3, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertTrue(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertNull(e1.value());
 
         Entry e3 = storage.get(key3);
@@ -1198,7 +1103,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.empty());
         assertFalse(e3.tombstone());
         assertEquals(3, e3.revision());
-        assertEquals(3, e3.updateCounter());
         assertArrayEquals(val3, e3.value());
 
         // "Success" branch isn't applied.
@@ -1220,12 +1124,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val11),
@@ -1239,14 +1141,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Success" branch is applied.
         assertTrue(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -1254,7 +1154,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Failure" branch isn't applied.
@@ -1276,12 +1175,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val11);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val12),
@@ -1295,14 +1192,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // "Failure" branch is applied.
         assertFalse(branch);
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
 
         assertFalse(e1.empty());
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
-        assertEquals(2, e1.updateCounter());
         assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
@@ -1310,7 +1205,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(2, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(val2, e2.value());
 
         // "Success" branch isn't applied.
@@ -1331,12 +1225,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val1);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         // No-op.
         boolean branch = invokeOnMs(
@@ -1349,7 +1241,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         // No updates.
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         // Put.
         branch = invokeOnMs(
@@ -1364,14 +1255,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertTrue(branch);
 
         assertEquals(3, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         Entry e2 = storage.get(key2);
 
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
         assertArrayEquals(key2, e2.key());
         assertArrayEquals(val2, e2.value());
 
@@ -1380,7 +1269,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.empty());
         assertFalse(e3.tombstone());
         assertEquals(3, e3.revision());
-        assertEquals(4, e3.updateCounter());
         assertArrayEquals(key3, e3.key());
         assertArrayEquals(val3, e3.value());
 
@@ -1397,14 +1285,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertTrue(branch);
 
         assertEquals(4, storage.revision());
-        assertEquals(8, storage.updateCounter());
 
         e2 = storage.get(key2);
 
         assertFalse(e2.empty());
         assertTrue(e2.tombstone());
         assertEquals(4, e2.revision());
-        assertEquals(6, e2.updateCounter());
         assertArrayEquals(key2, e2.key());
 
         e3 = storage.get(key3);
@@ -1412,7 +1298,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.empty());
         assertTrue(e3.tombstone());
         assertEquals(4, e3.revision());
-        assertEquals(7, e3.updateCounter());
         assertArrayEquals(key3, e3.key());
     }
 
@@ -1445,22 +1330,18 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val1);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         putToMs(key2, val2);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         putToMs(key3, val3);
 
         assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
@@ -1476,7 +1357,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1, branch.getAsInt());
 
         assertEquals(4, storage.revision());
-        assertEquals(5, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
         assertEquals(4, e1.revision());
@@ -1519,27 +1399,22 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val1);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         putToMs(key2, val2);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         putToMs(key3, val3);
 
         assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         putToMs(key3, val3);
 
         assertEquals(4, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
@@ -1554,7 +1429,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(2, branch.getAsInt());
 
         assertEquals(5, storage.revision());
-        assertEquals(7, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
         assertEquals(5, e1.revision());
@@ -1598,17 +1472,14 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val2);
 
         assertEquals(1, storage.revision());
-        assertEquals(1, storage.updateCounter());
 
         putToMs(key3, val3);
 
         assertEquals(2, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
@@ -1623,7 +1494,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(3, branch.getAsInt());
 
         assertEquals(3, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         Entry e1 = storage.get(key1);
         assertEquals(1, e1.revision());
@@ -1649,12 +1519,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         putAllToMs(List.of(key1, key2, key3), List.of(val1, val2, val3));
 
         assertEquals(1, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         // Range for latest revision without max bound.
         try (Cursor<Entry> cur = storage.range(key1, null)) {
@@ -1667,7 +1535,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertArrayEquals(key1, e1.key());
             assertArrayEquals(val1, e1.value());
             assertEquals(1, e1.revision());
-            assertEquals(1, e1.updateCounter());
 
             assertTrue(cur.hasNext());
 
@@ -1678,7 +1545,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertArrayEquals(key2, e2.key());
             assertArrayEquals(val2, e2.value());
             assertEquals(1, e2.revision());
-            assertEquals(2, e2.updateCounter());
 
             // Deliberately don't call cur.hasNext()
 
@@ -1689,7 +1555,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertArrayEquals(key3, e3.key());
             assertArrayEquals(val3, e3.value());
             assertEquals(1, e3.revision());
-            assertEquals(3, e3.updateCounter());
 
             assertFalse(cur.hasNext());
 
@@ -1713,7 +1578,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertArrayEquals(key1, e1.key());
             assertArrayEquals(val1, e1.value());
             assertEquals(1, e1.revision());
-            assertEquals(1, e1.updateCounter());
 
             assertTrue(cur.hasNext());
 
@@ -1724,7 +1588,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertArrayEquals(key2, e2.key());
             assertArrayEquals(val2, e2.value());
             assertEquals(1, e2.revision());
-            assertEquals(2, e2.updateCounter());
 
             assertFalse(cur.hasNext());
 
@@ -1782,7 +1645,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     @Test
     public void watchLexicographicTest() {
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         byte[] key = key(0);
         byte[] val = keyValue(0, 0);
@@ -1806,7 +1668,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         }
 
         assertEquals(count, storage.revision());
-        assertEquals(count, storage.updateCounter());
 
         assertThat(awaitFuture, willCompleteSuccessfully());
     }
@@ -1824,7 +1685,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val31 = keyValue(3, 31);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         // Watch for all updates starting from revision 2.
         CompletableFuture<Void> awaitFuture = watchRange(key1, null, 2, 2, (event, state) -> {
@@ -1846,7 +1706,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(oldEntry2.empty());
                 assertFalse(oldEntry2.tombstone());
                 assertEquals(1, oldEntry2.revision());
-                assertEquals(2, oldEntry2.updateCounter());
                 assertArrayEquals(key2, oldEntry2.key());
                 assertArrayEquals(val21, oldEntry2.value());
 
@@ -1855,7 +1714,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(newEntry2.empty());
                 assertFalse(newEntry2.tombstone());
                 assertEquals(2, newEntry2.revision());
-                assertEquals(3, newEntry2.updateCounter());
                 assertArrayEquals(key2, newEntry2.key());
                 assertArrayEquals(val22, newEntry2.value());
 
@@ -1875,7 +1733,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(newEntry3.empty());
                 assertFalse(newEntry3.tombstone());
                 assertEquals(2, newEntry3.revision());
-                assertEquals(4, newEntry3.updateCounter());
                 assertArrayEquals(key3, newEntry3.key());
                 assertArrayEquals(val31, newEntry3.value());
             } else if (state == 2) {
@@ -1888,7 +1745,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(oldEntry1.empty());
                 assertFalse(oldEntry1.tombstone());
                 assertEquals(1, oldEntry1.revision());
-                assertEquals(1, oldEntry1.updateCounter());
                 assertArrayEquals(key1, oldEntry1.key());
                 assertArrayEquals(val11, oldEntry1.value());
 
@@ -1897,7 +1753,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(newEntry1.empty());
                 assertTrue(newEntry1.tombstone());
                 assertEquals(3, newEntry1.revision());
-                assertEquals(5, newEntry1.updateCounter());
                 assertArrayEquals(key1, newEntry1.key());
                 assertNull(newEntry1.value());
             }
@@ -1906,12 +1761,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putAllToMs(List.of(key1, key2), List.of(val11, val21));
 
         assertEquals(1, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         putAllToMs(List.of(key2, key3), List.of(val22, val31));
 
         assertEquals(2, storage.revision());
-        assertEquals(4, storage.updateCounter());
 
         removeFromMs(key1);
 
@@ -1929,7 +1782,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val22 = keyValue(2, 22);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         CompletableFuture<Void> awaitFuture = watchExact(key1, 1, 2, (event, state) -> {
             if (state == 1) {
@@ -1947,7 +1799,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(newEntry1.empty());
                 assertFalse(newEntry1.tombstone());
                 assertEquals(1, newEntry1.revision());
-                assertEquals(1, newEntry1.updateCounter());
                 assertArrayEquals(key1, newEntry1.key());
                 assertArrayEquals(val11, newEntry1.value());
             } else if (state == 2) {
@@ -1960,7 +1811,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(oldEntry1.empty());
                 assertFalse(oldEntry1.tombstone());
                 assertEquals(1, oldEntry1.revision());
-                assertEquals(1, oldEntry1.updateCounter());
                 assertArrayEquals(key1, oldEntry1.key());
                 assertArrayEquals(val11, oldEntry1.value());
 
@@ -1969,7 +1819,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 assertFalse(newEntry1.empty());
                 assertFalse(newEntry1.tombstone());
                 assertEquals(3, newEntry1.revision());
-                assertEquals(4, newEntry1.updateCounter());
                 assertArrayEquals(key1, newEntry1.key());
                 assertArrayEquals(val12, newEntry1.value());
             }
@@ -1978,7 +1827,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putAllToMs(List.of(key1, key2), List.of(val11, val21));
 
         assertEquals(1, storage.revision());
-        assertEquals(2, storage.updateCounter());
 
         putToMs(key2, val22);
         putToMs(key1, val12);
@@ -1996,7 +1844,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val2 = keyValue(2, 21);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         CompletableFuture<Void> awaitFuture = watchExact(key2, 1, 1, (event, state) -> {
             assertTrue(event.single());
@@ -2013,7 +1860,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             assertFalse(newEntry1.empty());
             assertFalse(newEntry1.tombstone());
             assertEquals(3, newEntry1.revision());
-            assertEquals(3, newEntry1.updateCounter());
             assertArrayEquals(key2, newEntry1.key());
             assertArrayEquals(val2, newEntry1.value());
         });
@@ -2023,7 +1869,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putToMs(key2, val2);
 
         assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         assertThat(awaitFuture, willCompleteSuccessfully());
     }
@@ -2042,7 +1887,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] val32 = keyValue(3, 32);
 
         assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
 
         CompletableFuture<Void> awaitFuture = watchExact(List.of(key1, key2), 1, 2, (event, state) -> {
             if (state == 1) {
@@ -2055,7 +1899,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putAllToMs(List.of(key1, key2, key3), List.of(val11, val21, val31));
 
         assertEquals(1, storage.revision());
-        assertEquals(3, storage.updateCounter());
 
         putToMs(key2, val22);
 
@@ -2304,13 +2147,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         restartStorage();
 
         assertEquals(0L, storage.revision());
-        assertEquals(0L, storage.updateCounter());
         assertTrue(storage.get(key).empty());
 
         storage.restoreSnapshot(snapshotDir);
 
         assertEquals(1L, storage.revision());
-        assertEquals(1L, storage.updateCounter());
         assertFalse(storage.get(key).empty());
     }
 
@@ -2330,7 +2171,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.restoreSnapshot(snapshotDir);
 
         assertEquals(1L, storage.revision());
-        assertEquals(1L, storage.updateCounter());
         assertFalse(storage.get(key0).empty());
         assertTrue(storage.get(key1).empty());
     }
