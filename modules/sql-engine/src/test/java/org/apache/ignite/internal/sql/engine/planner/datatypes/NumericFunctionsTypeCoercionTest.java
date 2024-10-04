@@ -23,10 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -34,7 +36,10 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -46,6 +51,7 @@ import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -1380,6 +1386,50 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         );
     }
 
+    @ParameterizedTest
+    @EnumSource(NumericPair.class)
+    public void systemRange(NumericPair pair) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
+
+        {
+            List<Matcher<RexNode>> args = List.of(
+                    ofTypeWithoutCast(pair.first()),
+                    ofTypeWithoutCast(pair.second())
+            );
+
+            IgniteTypeFactory tf = Commons.typeFactory();
+            RelDataType dataType = new RelDataTypeFactory.Builder(tf)
+                    .add("X", tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.BIGINT), false))
+                    .build();
+
+            Matcher<RelNode> matcher = new FunctionCallMatcher(args).returnTypeNullability(false).resultWillBe(dataType);
+            Predicate<RelNode> tableFunctionMatcher = singleTableFunctionScanAnywhere(matcher);
+            assertPlan("SELECT (SELECT x FROM SYSTEM_RANGE(T.C1, T.C2) LIMIT 1) FROM T", schema, tableFunctionMatcher, List.of());
+        }
+    }
+
+    private static Predicate<RelNode> singleTableFunctionScanAnywhere(Matcher<RelNode> matcher) {
+        return (node) -> {
+            IgniteRel igniteRel = (IgniteRel) node;
+            IgniteTableFunctionScan[] f = new IgniteTableFunctionScan[1];
+
+            IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+                @Override
+                public IgniteRel visit(IgniteTableFunctionScan rel) {
+                    if (f[0] != null) {
+                        throw new IllegalStateException("More than one function scan. New:\n" + rel  + "\nCurrent:\n" + f[0]);
+                    }
+
+                    f[0] = rel;
+                    return super.visit(rel);
+                }
+            };
+            igniteRel.accept(shuttle);
+
+            return f[0] != null && matcher.matches(f[0]);
+        };
+    }
+
     private static Stream<Arguments> numeric() {
         return Stream.of(
                 Arguments.of(NativeTypes.INT8),
@@ -1453,13 +1503,15 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
             @Override
             protected boolean matchesSafely(RelNode relNode, Description description) {
-                IgniteTableScan tableScan = (IgniteTableScan) relNode;
-                List<RexNode> projects = tableScan.projects();
-                RexCall call = (RexCall) projects.get(0);
+                RexCall call = getRexCall(relNode);
+                if (call == null) {
+                    return false;
+                }
 
                 if (call.getOperands().size() != args.size()) {
                     return false;
                 }
+
                 assertEquals(args.size(), call.getOperands().size(), "Number of arguments do not match");
 
                 for (int i = 0; i < args.size(); i++) {
@@ -1488,6 +1540,19 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
             @Override
             public void describeTo(Description description) {
 
+            }
+        }
+
+        private static @Nullable RexCall getRexCall(RelNode relNode) {
+            if (relNode instanceof ProjectableFilterableTableScan) {
+                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) relNode;
+                List<RexNode> projects = scan.projects();
+                return (RexCall) projects.get(0);
+            } else if (relNode instanceof IgniteTableFunctionScan) {
+                IgniteTableFunctionScan functionScan = (IgniteTableFunctionScan) relNode;
+                return (RexCall) functionScan.getCall();
+            } else {
+                return null;
             }
         }
     }
