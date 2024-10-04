@@ -172,14 +172,14 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
 
 
     @ParameterizedTest
-    @MethodSource("deriveDivideDecimalArguments")
+    @MethodSource("deriveDivideDecimalArgs")
     void deriveDivide(RelDataType a1, RelDataType a2, RelDataType rt) {
         RelDataType actual = typeSystem.deriveDecimalDivideType(Commons.typeFactory(), a1, a2);
 
         assertThat(actual, Matchers.equalTo(rt));
     }
 
-    private static Stream<Arguments> deriveDivideDecimalArguments() {
+    private static Stream<Arguments> deriveDivideDecimalArgs() {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         return Stream.of(
