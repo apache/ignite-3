@@ -27,6 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -45,10 +47,12 @@ public class AndConditionTest extends BaseIgniteAbstractTest {
     private Condition cond3;
     private Condition cond4;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     private final Entry[] entries = {
-            new EntryImpl(new byte[]{1}, new byte[]{10}, 1, 1),
-            new EntryImpl(new byte[]{2}, new byte[]{20}, 2, 3),
-            new EntryImpl(new byte[]{3}, new byte[]{30}, 3, 4),
+            new EntryImpl(new byte[]{1}, new byte[]{10}, 1, 1, clock.now()),
+            new EntryImpl(new byte[]{2}, new byte[]{20}, 2, 3, clock.now()),
+            new EntryImpl(new byte[]{3}, new byte[]{30}, 3, 4, clock.now()),
     };
 
     @BeforeEach

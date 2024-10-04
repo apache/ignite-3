@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -291,6 +292,13 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         storage.restoreSnapshot(snapshotDir);
         assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testEntryOperationTimestampAfterCompaction() {
+        storage.compact(6);
+
+        assertNull(storage.get(BAR_KEY).timestamp());
     }
 
     @Test

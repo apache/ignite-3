@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.checkEntry;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -121,12 +122,10 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(invokeFuture, willBe(true));
 
-        var expectedEntryEvent = new EntryEvent(
-                new EntryImpl(key.bytes(), value, 1, 1),
-                new EntryImpl(key.bytes(), newValue, 2, 3)
-        );
+        assertThat(awaitFuture, willCompleteSuccessfully());
 
-        assertThat(awaitFuture, willBe(expectedEntryEvent));
+        checkEntry(awaitFuture.join().oldEntry(), key.bytes(), value, 1, 1);
+        checkEntry(awaitFuture.join().newEntry(), key.bytes(), newValue, 2, 3);
 
         // Check that the second node has been registered as a learner.
         assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));
