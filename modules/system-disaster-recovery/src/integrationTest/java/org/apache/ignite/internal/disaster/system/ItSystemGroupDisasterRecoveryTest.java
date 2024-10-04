@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.disaster.system;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -35,8 +34,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,33 +109,19 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
 
     final void migrate(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
         // Starting the node that did not see the repair.
-        IgniteImpl nodeMissingRepair = ((IgniteServerImpl) cluster.startEmbeddedNode(oldClusterNodeIndex).server()).igniteImpl();
+        cluster.startEmbeddedNode(oldClusterNodeIndex);
 
-        initiateMigrationToNewCluster(nodeMissingRepair, igniteImpl(newClusterNodeIndex));
+        initiateMigrationToNewCluster(oldClusterNodeIndex, newClusterNodeIndex);
 
         waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
-    void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
-        NodeMetadata missingRepairMetadata = obtainNodeMetadata(nodeMissingRepair);
-        NodeMetadata repairedMetadata = obtainNodeMetadata(repairedNode);
-
+    void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
         recoveryClient.initiateMigration(
-                missingRepairMetadata.restHost(),
-                missingRepairMetadata.httpPort(),
-                repairedMetadata.restHost(),
-                repairedMetadata.httpPort()
+                "localhost",
+                cluster.httpPort(nodeMissingRepairIndex),
+                "localhost",
+                cluster.httpPort(repairedNodeIndex)
         );
-    }
-
-    static NodeMetadata obtainNodeMetadata(IgniteImpl ignite) throws InterruptedException {
-        ClusterNode clusterNode = ignite.node();
-
-        assertTrue(
-                waitForCondition(() -> clusterNode.nodeMetadata() != null, SECONDS.toMillis(10)),
-                "Did not see " + ignite.name() + " to get metadata in time"
-        );
-
-        return requireNonNull(clusterNode.nodeMetadata());
     }
 }
