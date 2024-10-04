@@ -134,10 +134,12 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame()
                         .resultWillBe(Types.DECIMAL_5_0),
+
                 forTypePairEx(NumericPair.TINYINT_DECIMAL_6_1)
                         .firstOpBeSame()
                         .secondOpBeSame()
                         .resultWillBe(Types.DECIMAL_4_1),
+
                 forTypePairEx(NumericPair.TINYINT_DECIMAL_8_3)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -1060,35 +1062,6 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Arrays.stream(NumericPair.values()).filter(p -> INT_TYPES.contains(p.second()));
     }
 
-    private static Stream<Arguments> numeric() {
-        return Stream.of(
-                Arguments.of(NativeTypes.INT8),
-                Arguments.of(NativeTypes.INT16),
-                Arguments.of(NativeTypes.INT32),
-                Arguments.of(NativeTypes.INT64),
-                Arguments.of(Types.DECIMAL_1_0),
-                Arguments.of(Types.DECIMAL_2_1),
-                Arguments.of(Types.DECIMAL_4_3),
-                Arguments.of(Types.DECIMAL_2_0),
-                Arguments.of(Types.DECIMAL_3_1),
-                Arguments.of(Types.DECIMAL_5_3),
-                Arguments.of(Types.DECIMAL_5_0),
-                Arguments.of(Types.DECIMAL_6_1),
-                Arguments.of(Types.DECIMAL_8_3),
-                Arguments.of(NativeTypes.FLOAT),
-                Arguments.of(NativeTypes.DOUBLE)
-        );
-    }
-
-    private static Stream<Arguments> integer() {
-        return Stream.of(
-                Arguments.of(NativeTypes.INT8),
-                Arguments.of(NativeTypes.INT16),
-                Arguments.of(NativeTypes.INT32),
-                Arguments.of(NativeTypes.INT64)
-        );
-    }
-
     // FUNCTIONS WITH NUMERIC ARGUMENTS
 
     @ParameterizedTest
@@ -1294,7 +1267,21 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         assertPlan("SELECT DATE(C1, C2, C3) FROM T", schema, matcher::matches, List.of());
     }
 
-    // REGEXP
+    private static Stream<Arguments> dateYearMonthDayArgs() {
+        return Stream.of(
+                forArgumentOfType(NativeTypes.INT8)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT16)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT32)
+                        .resultWillBe(NativeTypes.DATE),
+
+                forArgumentOfType(NativeTypes.INT64)
+                        .resultWillBe(NativeTypes.DATE)
+        );
+    }
 
     @ParameterizedTest
     @MethodSource("integerInteger")
@@ -1393,19 +1380,32 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         );
     }
 
-    private static Stream<Arguments> dateYearMonthDayArgs() {
+    private static Stream<Arguments> numeric() {
         return Stream.of(
-                forArgumentOfType(NativeTypes.INT8)
-                        .resultWillBe(NativeTypes.DATE),
+                Arguments.of(NativeTypes.INT8),
+                Arguments.of(NativeTypes.INT16),
+                Arguments.of(NativeTypes.INT32),
+                Arguments.of(NativeTypes.INT64),
+                Arguments.of(Types.DECIMAL_1_0),
+                Arguments.of(Types.DECIMAL_2_1),
+                Arguments.of(Types.DECIMAL_4_3),
+                Arguments.of(Types.DECIMAL_2_0),
+                Arguments.of(Types.DECIMAL_3_1),
+                Arguments.of(Types.DECIMAL_5_3),
+                Arguments.of(Types.DECIMAL_5_0),
+                Arguments.of(Types.DECIMAL_6_1),
+                Arguments.of(Types.DECIMAL_8_3),
+                Arguments.of(NativeTypes.FLOAT),
+                Arguments.of(NativeTypes.DOUBLE)
+        );
+    }
 
-                forArgumentOfType(NativeTypes.INT16)
-                        .resultWillBe(NativeTypes.DATE),
-
-                forArgumentOfType(NativeTypes.INT32)
-                        .resultWillBe(NativeTypes.DATE),
-
-                forArgumentOfType(NativeTypes.INT64)
-                        .resultWillBe(NativeTypes.DATE)
+    private static Stream<Arguments> integer() {
+        return Stream.of(
+                Arguments.of(NativeTypes.INT8),
+                Arguments.of(NativeTypes.INT16),
+                Arguments.of(NativeTypes.INT32),
+                Arguments.of(NativeTypes.INT64)
         );
     }
 
