@@ -19,9 +19,11 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
@@ -59,12 +61,12 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
@@ -241,7 +243,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // Check that a lower revision and an upper revision are inclusive.
         // Check that entry with another key is not included in a result list.
         List<Entry> entries1 = storage.get(key1, 2, 5);
-        List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(Collectors.toList());
+        List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(toList());
 
         assertEquals(3, entries1.size());
         assertArrayEquals(val2, values1.get(0));
@@ -250,7 +252,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         // Check that entries with another key and revision equals to lower revision and to the upper revision are not inclusive.
         List<Entry> entries2 = storage.get(key1, 3, 6);
-        List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(Collectors.toList());
+        List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(toList());
 
         assertEquals(2, entries2.size());
         assertArrayEquals(val4, values2.get(0));
@@ -258,7 +260,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         // Get one entry. The lower and the upper revision are equal.
         List<Entry> entries3 = storage.get(key1, 8, 8);
-        List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(Collectors.toList());
+        List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(toList());
 
         assertEquals(1, entries3.size());
         assertArrayEquals(val8, values3.get(0));
@@ -1339,8 +1341,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // No-op.
         boolean branch = invokeOnMs(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
-                List.of(Operations.noop()),
-                List.of(Operations.noop())
+                List.of(noop()),
+                List.of(noop())
         );
 
         assertTrue(branch);
@@ -1356,7 +1358,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         put(new ByteArray(key2), val2),
                         put(new ByteArray(key3), val3)
                 ),
-                List.of(Operations.noop())
+                List.of(noop())
         );
 
         assertTrue(branch);
@@ -1389,7 +1391,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         remove(new ByteArray(key2)),
                         remove(new ByteArray(key3))
                 ),
-                List.of(Operations.noop())
+                List.of(noop())
         );
 
         assertTrue(branch);
@@ -2162,6 +2164,138 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
+    void testPutAndOperationTimestamp() {
+        byte[] key = key(1);
+        byte[] val = keyValue(1, 1);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+
+        storage.put(key, val, timestamp0);
+        checkEntriesTimestamp(List.of(key), timestamp0);
+
+        storage.put(key, val, timestamp1);
+        checkEntriesTimestamp(List.of(key), timestamp1);
+
+        checkEntriesTimestamp(List.of(key), storage.revision() - 1, timestamp0);
+        checkEntriesTimestamp(List.of(key), storage.revision(), timestamp1);
+    }
+
+    @Test
+    void testPutAllAndOperationTimestamp() {
+        byte[] key0 = key(1);
+        byte[] key1 = key(2);
+        byte[] val = keyValue(1, 1);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+        HybridTimestamp timestamp2 = hybridTimestamp(30L);
+
+        List<byte[]> keys = List.of(key0, key1);
+
+        storage.putAll(keys, List.of(val, val), timestamp0);
+        checkEntriesTimestamp(keys, timestamp0, timestamp0);
+
+        storage.putAll(List.of(key0), List.of(val), timestamp1);
+        checkEntriesTimestamp(keys, timestamp1, timestamp0);
+
+        storage.putAll(List.of(key1), List.of(val), timestamp2);
+        checkEntriesTimestamp(keys, timestamp1, timestamp2);
+
+        checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0);
+        checkEntriesTimestamp(keys, storage.revision() - 1, timestamp1, timestamp0);
+        checkEntriesTimestamp(keys, storage.revision(), timestamp1, timestamp2);
+    }
+
+    @Test
+    void testRemoveAndOperationTimestamp() {
+        byte[] key = key(1);
+        byte[] val = keyValue(1, 1);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+
+        storage.put(key, val, timestamp0);
+
+        storage.remove(key, timestamp1);
+        checkEntriesTimestamp(List.of(key), timestamp1);
+
+        checkEntriesTimestamp(List.of(key), storage.revision() - 1, timestamp0);
+        checkEntriesTimestamp(List.of(key), storage.revision(), timestamp1);
+    }
+
+    @Test
+    void testRemoveAllAndOperationTimestamp() {
+        byte[] key0 = key(1);
+        byte[] key1 = key(2);
+        byte[] key2 = key(3);
+        byte[] val = keyValue(1, 1);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+        HybridTimestamp timestamp2 = hybridTimestamp(30L);
+
+        List<byte[]> keys = List.of(key0, key1, key2);
+
+        storage.putAll(keys, List.of(val, val, val), timestamp0);
+
+        storage.removeAll(List.of(key0, key2), timestamp1);
+        checkEntriesTimestamp(keys, timestamp1, timestamp0, timestamp1);
+
+        storage.removeAll(List.of(key1), timestamp2);
+        checkEntriesTimestamp(keys, timestamp1, timestamp2, timestamp1);
+
+        checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0, timestamp0);
+        checkEntriesTimestamp(keys, storage.revision() - 1, timestamp1, timestamp0, timestamp1);
+        checkEntriesTimestamp(keys, storage.revision(), timestamp1, timestamp2, timestamp1);
+    }
+
+    @Test
+    void testInvokeAndOperationTimestamp() {
+        byte[] key0 = key(1);
+        byte[] key1 = key(2);
+        byte[] key2 = key(3);
+        byte[] val = keyValue(1, 1);
+
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+        HybridTimestamp timestamp2 = hybridTimestamp(30L);
+
+        List<byte[]> keys = List.of(key0, key1, key2);
+
+        var if0 = new If(
+                new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key0),
+                new Statement(ops(put(new ByteArray(key0), val), put(new ByteArray(key1), val), put(new ByteArray(key2), val)).yield()),
+                new Statement(ops(noop()).yield())
+        );
+
+        storage.invoke(if0, timestamp0, createCommandId());
+        checkEntriesTimestamp(keys, timestamp0, timestamp0, timestamp0);
+
+        storage.invoke(
+                new ExistenceCondition(ExistenceCondition.Type.EXISTS, key0),
+                List.of(put(new ByteArray(key0), val), remove(new ByteArray(key2))),
+                List.of(),
+                timestamp1,
+                createCommandId()
+        );
+        checkEntriesTimestamp(keys, timestamp1, timestamp0, timestamp1);
+
+        var if1 = new If(
+                new ExistenceCondition(ExistenceCondition.Type.EXISTS, key0),
+                new Statement(ops(put(new ByteArray(key0), val)).yield()),
+                new Statement(ops(noop()).yield())
+        );
+
+        storage.invoke(if1, timestamp2, createCommandId());
+        checkEntriesTimestamp(keys, timestamp2, timestamp0, timestamp1);
+
+        checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0, timestamp0);
+        checkEntriesTimestamp(keys, storage.revision() - 1, timestamp1, timestamp0, timestamp1);
+        checkEntriesTimestamp(keys, storage.revision(), timestamp2, timestamp0, timestamp1);
+    }
+
+    @Test
     void testSnapshot() throws Exception {
         byte[] key = key(0);
         byte[] value = keyValue(0, 0);
@@ -2292,7 +2426,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 success,
                 failure,
                 MIN_VALUE,
-                new CommandIdGenerator(UUID::randomUUID).newId()
+                createCommandId()
         );
     }
 
@@ -2300,7 +2434,23 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         return storage.invoke(
                 iif,
                 MIN_VALUE,
-                new CommandIdGenerator(UUID::randomUUID).newId()
+                createCommandId()
         );
+    }
+
+    private static List<HybridTimestamp> collectTimestamps(Collection<Entry> entries) {
+        return entries.stream().map(Entry::timestamp).collect(toList());
+    }
+
+    private void checkEntriesTimestamp(List<byte[]> keys, HybridTimestamp... timestamps) {
+        assertEquals(List.of(timestamps), collectTimestamps(storage.getAll(keys)));
+    }
+
+    private void checkEntriesTimestamp(List<byte[]> keys, long revUpperBound, HybridTimestamp... timestamps) {
+        assertEquals(List.of(timestamps), collectTimestamps(storage.getAll(keys, revUpperBound)));
+    }
+
+    private static CommandId createCommandId() {
+        return new CommandIdGenerator(UUID::randomUUID).newId();
     }
 }

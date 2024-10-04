@@ -499,7 +499,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             long cntr = updCntr + 1;
 
-            addDataToBatch(batch, key, value, curRev, cntr);
+            addDataToBatch(batch, key, value, curRev, cntr, opTs);
 
             updateKeysIndex(batch, key, curRev);
 
@@ -570,8 +570,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     private static Entry entry(byte[] key, long revision, Value value) {
         return value.tombstone()
-                ? EntryImpl.tombstone(key, revision, value.updateCounter())
-                : new EntryImpl(key, value.bytes(), revision, value.updateCounter());
+                ? EntryImpl.tombstone(key, revision, value.updateCounter(), value.operationTimestamp())
+                : new EntryImpl(key, value.bytes(), revision, value.updateCounter(), value.operationTimestamp());
     }
 
     @Override
@@ -581,7 +581,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            long counter = addAllToBatch(batch, keys, values, curRev);
+            long counter = addAllToBatch(batch, keys, values, curRev, opTs);
 
             for (byte[] key : keys) {
                 updateKeysIndex(batch, key, curRev);
@@ -658,7 +658,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             long curRev = rev + 1;
             long counter = updCntr + 1;
 
-            if (addToBatchForRemoval(batch, key, curRev, counter)) {
+            if (addToBatchForRemoval(batch, key, curRev, counter, opTs)) {
                 updateKeysIndex(batch, key, curRev);
 
                 fillAndWriteBatch(batch, curRev, counter, opTs);
@@ -682,7 +682,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             long counter = updCntr;
 
             for (byte[] key : keys) {
-                if (addToBatchForRemoval(batch, key, curRev, counter + 1)) {
+                if (addToBatchForRemoval(batch, key, curRev, counter + 1, opTs)) {
                     existingKeys.add(key);
 
                     counter++;
@@ -794,7 +794,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     case PUT:
                         counter++;
 
-                        addDataToBatch(batch, key, toByteArray(op.value()), curRev, counter);
+                        addDataToBatch(batch, key, toByteArray(op.value()), curRev, counter, opTs);
 
                         updatedKeys.add(key);
 
@@ -805,7 +805,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     case REMOVE:
                         counter++;
 
-                        boolean removed = addToBatchForRemoval(batch, key, curRev, counter);
+                        boolean removed = addToBatchForRemoval(batch, key, curRev, counter, opTs);
 
                         if (!removed) {
                             counter--;
@@ -1053,21 +1053,28 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Adds a key to a batch marking the value as a tombstone.
      *
-     * @param batch   Write batch.
-     * @param key     Target key.
-     * @param curRev  Revision.
+     * @param batch Write batch.
+     * @param key Target key.
+     * @param curRev Revision.
      * @param counter Update counter.
+     * @param opTs Operation timestamp.
      * @return {@code true} if an entry can be deleted.
      * @throws RocksDBException If failed.
      */
-    private boolean addToBatchForRemoval(WriteBatch batch, byte[] key, long curRev, long counter) throws RocksDBException {
+    private boolean addToBatchForRemoval(
+            WriteBatch batch,
+            byte[] key,
+            long curRev,
+            long counter,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
             return false;
         }
 
-        addDataToBatch(batch, key, TOMBSTONE, curRev, counter);
+        addDataToBatch(batch, key, TOMBSTONE, curRev, counter, opTs);
 
         return true;
     }
@@ -1312,30 +1319,38 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Value lastVal = bytesToValue(valueBytes);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, revision, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, revision, lastVal.updateCounter(), lastVal.operationTimestamp());
         }
 
-        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter(), lastVal.operationTimestamp());
     }
 
     /**
      * Adds an entry to the batch.
      *
-     * @param batch  Write batch.
-     * @param key    Key.
-     * @param value  Value.
+     * @param batch Write batch.
+     * @param key Key.
+     * @param value Value.
      * @param curRev Revision.
-     * @param cntr   Update counter.
+     * @param cntr Update counter.
+     * @param opTs Operation timestamp.
      * @throws RocksDBException If failed.
      */
-    private void addDataToBatch(WriteBatch batch, byte[] key, byte[] value, long curRev, long cntr) throws RocksDBException {
+    private void addDataToBatch(
+            WriteBatch batch,
+            byte[] key,
+            byte[] value,
+            long curRev,
+            long cntr,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(curRev, key);
 
-        byte[] rocksValue = valueToBytes(value, cntr);
+        byte[] rocksValue = valueToBytes(value, cntr, opTs);
 
         data.put(batch, rocksKey, rocksValue);
 
-        updatedEntries.add(entry(key, curRev, new Value(value, cntr)));
+        updatedEntries.add(entry(key, curRev, new Value(value, cntr, opTs)));
     }
 
     /**
@@ -1345,10 +1360,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param keys   Keys.
      * @param values Values.
      * @param curRev Revision.
+     * @param opTs Operation timestamp.
      * @return New update counter value.
      * @throws RocksDBException If failed.
      */
-    private long addAllToBatch(WriteBatch batch, List<byte[]> keys, List<byte[]> values, long curRev) throws RocksDBException {
+    private long addAllToBatch(
+            WriteBatch batch,
+            List<byte[]> keys,
+            List<byte[]> values,
+            long curRev,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         long counter = this.updCntr;
 
         for (int i = 0; i < keys.size(); i++) {
@@ -1358,7 +1380,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             byte[] bytes = values.get(i);
 
-            addDataToBatch(batch, key, bytes, curRev, counter);
+            addDataToBatch(batch, key, bytes, curRev, counter, opTs);
         }
 
         return counter;
