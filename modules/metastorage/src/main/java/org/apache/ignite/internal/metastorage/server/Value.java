@@ -17,53 +17,48 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-/**
- * Meta storage value with update counter.
- */
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+
+/** Meta storage value. */
 public class Value {
     /** Tombstone constant. */
     public static final byte[] TOMBSTONE = new byte[0];
 
-    /** Value. */
     private final byte[] bytes;
 
-    /** Update counter. */
-    private final long updCntr;
+    private final long updateCounter;
+
+    private final HybridTimestamp operationTimestamp;
 
     /**
      * Constructs value.
      *
-     * @param bytes   Value bytes or {@code #TOMBSTONE}.
-     * @param updCntr Update counter.
+     * @param bytes Value bytes or {@code #TOMBSTONE}.
+     * @param updateCounter Storage update counter when value changes.
+     * @param operationTimestamp Timestamp of the value change operation.
      */
-    public Value(byte[] bytes, long updCntr) {
+    public Value(byte[] bytes, long updateCounter, HybridTimestamp operationTimestamp) {
         this.bytes = bytes;
-        this.updCntr = updCntr;
+        this.updateCounter = updateCounter;
+        this.operationTimestamp = operationTimestamp;
     }
 
-    /**
-     * Returns value bytes.
-     *
-     * @return Value bytes.
-     */
+    /** Returns value bytes. */
     public byte[] bytes() {
         return bytes;
     }
 
-    /**
-     * Returns update counter.
-     *
-     * @return Update counter.
-     */
+    /** Returns Storage update counter when value changes. */
     public long updateCounter() {
-        return updCntr;
+        return updateCounter;
     }
 
-    /**
-     * Returns {@code true} if value is tombstone.
-     *
-     * @return {@code True} if value is tombstone, otherwise - {@code false}.
-     */
+    /** Returns the timestamp of the value change operation. */
+    public HybridTimestamp operationTimestamp() {
+        return operationTimestamp;
+    }
+
+    /** Returns {@code true} if value is tombstone. */
     public boolean tombstone() {
         return bytes == TOMBSTONE;
     }

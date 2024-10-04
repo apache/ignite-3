@@ -542,7 +542,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             newLogicalTopology = null;
         }
 
-        Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, 1, clock.now());
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 
