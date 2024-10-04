@@ -765,7 +765,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     case REMOVE:
                         boolean removed = addToBatchForRemoval(batch, key, curRev, opTs);
 
-                        if (!removed) {
+                        if (removed) {
                             updatedKeys.add(key);
                         }
 
