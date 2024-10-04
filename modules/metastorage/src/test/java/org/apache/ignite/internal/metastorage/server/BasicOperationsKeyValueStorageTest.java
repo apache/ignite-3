@@ -48,6 +48,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -69,14 +70,21 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for key-value storage implementations.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
+    @WorkDirectory
+    Path workDir;
+
     @Test
     public void testPut() {
         byte[] key = key(1);
@@ -2281,6 +2289,50 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0, timestamp0);
         checkEntriesTimestamp(keys, storage.revision() - 1, timestamp1, timestamp0, timestamp1);
         checkEntriesTimestamp(keys, storage.revision(), timestamp2, timestamp0, timestamp1);
+    }
+
+    @Test
+    void testSnapshot() throws Exception {
+        byte[] key = key(0);
+        byte[] value = keyValue(0, 0);
+
+        storage.put(key, value, hybridTimestamp(10));
+
+        Path snapshotDir = workDir.resolve("snapshotDir");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage();
+
+        assertEquals(0L, storage.revision());
+        assertEquals(0L, storage.updateCounter());
+        assertTrue(storage.get(key).empty());
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(1L, storage.revision());
+        assertEquals(1L, storage.updateCounter());
+        assertFalse(storage.get(key).empty());
+    }
+
+    @Test
+    void testClearDataBeforeRestoreFromSnapshot() {
+        byte[] key0 = key(0);
+        byte[] key1 = key(1);
+        byte[] value = keyValue(0, 0);
+
+        storage.put(key0, value, hybridTimestamp(10));
+
+        Path snapshotDir = workDir.resolve("snapshotDir");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        storage.put(key1, value, hybridTimestamp(10));
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertEquals(1L, storage.revision());
+        assertEquals(1L, storage.updateCounter());
+        assertFalse(storage.get(key0).empty());
+        assertTrue(storage.get(key1).empty());
     }
 
     private CompletableFuture<Void> watchExact(

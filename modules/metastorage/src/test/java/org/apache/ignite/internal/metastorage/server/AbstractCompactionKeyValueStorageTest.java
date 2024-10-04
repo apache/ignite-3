@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -47,8 +46,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /** Compaction tests. */
 @ExtendWith(WorkDirectoryExtension.class)
@@ -96,10 +93,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
-
-    abstract boolean isPersistent();
-
-    abstract void restartStorage(boolean clear) throws Exception;
 
     @Test
     void testCompactRevision1() {
@@ -165,18 +158,13 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision6();
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testRevisionsAfterRestart(boolean clearStorage) throws Exception {
-        assumeTrue(isPersistent());
-
+    @Test
+    void testRevisionsAfterRestart() {
         storage.compact(6);
 
         Path snapshotDir = workDir.resolve("snapshot");
 
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
-
-        restartStorage(clearStorage);
 
         storage.restoreSnapshot(snapshotDir);
 
@@ -207,19 +195,16 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(1, storage.getCompactionRevision());
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testSetAndGetCompactionRevisionAndRestart(boolean clearStorage) throws Exception {
+    @Test
+    void testSetAndGetCompactionRevisionAndRestart() throws Exception {
         storage.setCompactionRevision(1);
 
-        restartStorage(clearStorage);
+        restartStorage();
         assertEquals(-1, storage.getCompactionRevision());
     }
 
     @Test
     void testSaveCompactionRevisionDoesNotChangeRevisionInMemory() {
-        assumeTrue(isPersistent());
-
         storage.saveCompactionRevision(0);
         assertEquals(-1, storage.getCompactionRevision());
 
@@ -227,22 +212,17 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(-1, storage.getCompactionRevision());
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testSaveCompactionRevisionAndRestart(boolean clearStorage) throws Exception {
-        assumeTrue(isPersistent());
-
+    @Test
+    void testSaveCompactionRevisionAndRestart() throws Exception {
         storage.saveCompactionRevision(1);
 
-        restartStorage(clearStorage);
+        restartStorage();
 
         assertEquals(-1, storage.getCompactionRevision());
     }
 
     @Test
     void testSaveCompactionRevisionInSnapshot() {
-        assumeTrue(isPersistent());
-
         storage.saveCompactionRevision(1);
 
         Path snapshotDir = workDir.resolve("snapshot");
@@ -254,41 +234,34 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(1, storage.getCompactionRevision());
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testSaveCompactionRevisionInSnapshotAndRestart(boolean clearStorage) throws Exception {
-        assumeTrue(isPersistent());
-
+    @Test
+    void testSaveCompactionRevisionInSnapshotAndRestart() throws Exception {
         storage.saveCompactionRevision(1);
 
         Path snapshotDir = workDir.resolve("snapshot");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        restartStorage(clearStorage);
+        restartStorage();
 
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testCompactDontSetAndSaveCompactionRevision(boolean clearStorage) throws Exception {
+    @Test
+    void testCompactDontSetAndSaveCompactionRevision() throws Exception {
         storage.compact(1);
         assertEquals(-1, storage.getCompactionRevision());
 
-        restartStorage(clearStorage);
+        restartStorage();
         assertEquals(-1, storage.getCompactionRevision());
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testRestoreFromSnapshotWithoutSaveCompactionRevision(boolean clearStorage) throws Exception {
-        assumeTrue(isPersistent());
-
+    @Test
+    void testRestoreFromSnapshotWithoutSaveCompactionRevision() throws Exception {
         Path snapshotDir = workDir.resolve("snapshot");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        restartStorage(clearStorage);
+        restartStorage();
 
         storage.restoreSnapshot(snapshotDir);
         assertEquals(-1, storage.getCompactionRevision());

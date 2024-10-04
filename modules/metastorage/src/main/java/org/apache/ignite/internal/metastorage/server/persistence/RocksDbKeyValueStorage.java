@@ -221,7 +221,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private long updCntr;
 
     /**
-     * Last revision of a compact that was set or restored from a snapshot.
+     * Last compaction revision that was set or restored from a snapshot.
      *
      * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
      *
