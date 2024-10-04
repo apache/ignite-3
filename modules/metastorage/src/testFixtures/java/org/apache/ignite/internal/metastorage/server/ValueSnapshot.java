@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /** {@link Value} container for creating and restoring from a snapshot. */
 class ValueSnapshot implements Serializable {
@@ -29,13 +30,16 @@ class ValueSnapshot implements Serializable {
 
     private final boolean tombstone;
 
+    private final HybridTimestamp operationTimestamp;
+
     ValueSnapshot(Value value) {
         bytes = value.bytes();
         updCntr = value.updateCounter();
         tombstone = value.tombstone();
+        operationTimestamp = value.operationTimestamp();
     }
 
     Value toValue() {
-        return tombstone ? new Value(Value.TOMBSTONE, updCntr) : new Value(bytes, updCntr);
+        return tombstone ? new Value(Value.TOMBSTONE, updCntr, operationTimestamp) : new Value(bytes, updCntr, operationTimestamp);
     }
 }
