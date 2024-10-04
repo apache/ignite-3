@@ -37,7 +37,7 @@ public final class EntryImpl implements Entry {
 
     private final long updateCounter;
 
-    private final HybridTimestamp timestamp;
+    private final @Nullable HybridTimestamp timestamp;
 
     /** Constructor. */
     public EntryImpl(byte[] key, byte @Nullable [] value, long revision, long updateCounter, @Nullable HybridTimestamp timestamp) {
@@ -69,7 +69,7 @@ public final class EntryImpl implements Entry {
     }
 
     @Override
-    public HybridTimestamp timestamp() {
+    public @Nullable HybridTimestamp timestamp() {
         return timestamp;
     }
 

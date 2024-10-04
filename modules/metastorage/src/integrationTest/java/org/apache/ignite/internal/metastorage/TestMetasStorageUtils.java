@@ -38,7 +38,7 @@ public class TestMetasStorageUtils {
         assertArrayEquals(expValue, actEntry.value(), () -> "entry=" + actEntry);
     }
 
-    /** Returns {@code true} entries are equal. */
+    /** Returns {@code true} if entries are equal. */
     public static boolean equals(Entry act, Entry exp) {
         if (act.revision() != exp.revision()) {
             return false;
