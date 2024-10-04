@@ -127,7 +127,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     @Override
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long msRevision) {
-        HybridTimestamp msSafeTime = disasterRecoveryManager.metaStorageManager.timestampByRevision(msRevision);
+        HybridTimestamp msSafeTime = disasterRecoveryManager.metaStorageManager.timestampByRevisionLocally(msRevision);
 
         int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msSafeTime.longValue());
 

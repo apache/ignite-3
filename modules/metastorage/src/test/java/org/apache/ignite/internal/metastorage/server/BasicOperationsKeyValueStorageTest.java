@@ -1951,59 +1951,55 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
     @Test
     public void testRevisionByTimestamp() {
-        // Verify that in case of empty storage -1 will be returned.
-        assertEquals(-1, storage.revisionByTimestamp(MIN_VALUE));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(2)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(5)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(7)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(10)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(12)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(15)));
-        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(17)));
-        assertEquals(-1, storage.revisionByTimestamp(MAX_VALUE));
-
         // Populate storage with some data in order to have following revision to timestamp mapping:
         // 1 -> 5
         // 2 -> 10
         // 3 -> 15
-        {
-            storage.put(key(1), keyValue(1, 1), hybridTimestamp(5));
-            assertEquals(1, storage.revision());
+        storage.put(key(1), keyValue(1, 1), hybridTimestamp(5));
+        assertEquals(1, storage.revision());
 
-            storage.put(key(1), keyValue(1, 1), hybridTimestamp(10));
-            assertEquals(2, storage.revision());
+        storage.put(key(1), keyValue(1, 1), hybridTimestamp(10));
+        assertEquals(2, storage.revision());
 
-            storage.put(key(2), keyValue(2, 2), hybridTimestamp(15));
-            assertEquals(3, storage.revision());
-        }
+        storage.put(key(2), keyValue(2, 2), hybridTimestamp(15));
+        assertEquals(3, storage.revision());
 
         // Check revisionByTimestamp()
-        {
-            assertEquals(-1, storage.revisionByTimestamp(MIN_VALUE));
+        // Exact matching 1 -> 5
+        assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(5)));
 
-            // There's no revision associated with 2, so closest left one is expected.
-            assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(2)));
+        // There's no revision associated with 7, so closest left one is expected.
+        assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(7)));
 
-            // Exact matching 1 -> 5
-            assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(5)));
+        // Exact matching 2 -> 10
+        assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(10)));
 
-            // There's no revision associated with 7, so closest left one is expected.
-            assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(7)));
+        // There's no revision associated with 12, so closest left one is expected.
+        assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(12)));
 
-            // Exact matching 2 -> 10
-            assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(10)));
+        // Exact matching 3 -> 15
+        assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(15)));
 
-            // There's no revision associated with 12, so closest left one is expected.
-            assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(12)));
+        // There's no revision associated with 17, so closest left one is expected.
+        assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(17)));
 
-            // Exact matching 3 -> 15
-            assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(15)));
+        assertEquals(3, storage.revisionByTimestamp(MAX_VALUE));
+    }
 
-            // There's no revision associated with 17, so closest left one is expected.
-            assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(17)));
+    @Test
+    void testTimestampByRevision() {
+        byte[] key = key(0);
+        byte[] value = keyValue(0, 0);
 
-            assertEquals(3, storage.revisionByTimestamp(MAX_VALUE));
-        }
+        HybridTimestamp timestamp0 = hybridTimestamp(10L);
+        HybridTimestamp timestamp1 = hybridTimestamp(20L);
+
+        storage.put(key, value, timestamp0);
+        assertEquals(timestamp0, storage.timestampByRevision(1));
+
+        storage.put(key, value, timestamp1);
+        assertEquals(timestamp0, storage.timestampByRevision(1));
+        assertEquals(timestamp1, storage.timestampByRevision(2));
     }
 
     @Test

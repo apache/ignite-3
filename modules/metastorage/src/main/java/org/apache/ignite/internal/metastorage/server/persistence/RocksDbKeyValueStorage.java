@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -967,30 +969,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0;
 
-        try (RocksIterator iterator = index.newIterator()) {
-            iterator.seekToFirst();
+        try {
+            compactKeys(revision);
 
-            while (iterator.isValid()) {
-                rwLock.writeLock().lock();
-
-                try (WriteBatch batch = new WriteBatch()) {
-                    assertCompactionRevisionLessThanCurrent(revision, rev);
-
-                    for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
-                        if (stopCompaction.get()) {
-                            return;
-                        }
-
-                        compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
-                    }
-
-                    db.write(defaultWriteOptions, batch);
-                } finally {
-                    rwLock.writeLock().unlock();
-                }
-            }
-
-            checkIterator(iterator);
+            compactRevisionToTimestampAndViceVersa(revision);
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1436,34 +1418,44 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
+        rwLock.readLock().lock();
+
         try {
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
+
             byte[] tsBytes = revisionToTs.get(longToBytes(revision));
 
-            assert tsBytes != null;
+            if (tsBytes == null) {
+                throw new CompactedException("Requested revision has already been compacted: " + revision);
+            }
 
-            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
+            return hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, "Error reading revision timestamp: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        byte[] tsBytes = hybridTsToArray(timestamp);
+        rwLock.readLock().lock();
 
-        // Find a revision with timestamp lesser or equal to the watermark.
+        // Find a revision with timestamp lesser or equal to the timestamp.
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
-            rocksIterator.seekForPrev(tsBytes);
+            rocksIterator.seekForPrev(hybridTsToArray(timestamp));
 
             checkIterator(rocksIterator);
 
             byte[] tsValue = rocksIterator.value();
 
             if (tsValue.length == 0) {
-                return -1;
+                throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
             return bytesToLong(tsValue);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -1618,6 +1610,71 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    private void compactKeys(long compactionRevision) throws RocksDBException {
+        compactInBatches(index, (it, batch) -> {
+            compactForKey(batch, it.key(), getAsLongs(it.value()), compactionRevision);
+
+            return true;
+        });
+    }
+
+    private void compactRevisionToTimestampAndViceVersa(long compactionRevision) throws RocksDBException {
+        compactInBatches(revisionToTs, (it, batch) -> {
+            long revision = bytesToLong(it.key());
+
+            if (revision > compactionRevision) {
+                return false;
+            }
+
+            revisionToTs.delete(batch, it.key());
+            tsToRevision.delete(batch, it.value());
+
+            return true;
+        });
+    }
+
+    @FunctionalInterface
+    private interface CompactionAction {
+        /**
+         * Performs compaction on the storage at the current iterator pointer. Returns {@code true} if it is necessary to continue
+         * iterating, {@link false} if it is necessary to finish with writing the last batch.
+         */
+        boolean compact(RocksIterator it, WriteBatch batch) throws RocksDBException;
+    }
+
+    private void compactInBatches(ColumnFamily columnFamily, CompactionAction compactionAction) throws RocksDBException {
+        try (RocksIterator iterator = columnFamily.newIterator()) {
+            iterator.seekToFirst();
+
+            boolean continueIterating = true;
+
+            while (continueIterating && iterator.isValid()) {
+                rwLock.writeLock().lock();
+
+                try (WriteBatch batch = new WriteBatch()) {
+                    assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
+
+                    for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
+                        if (stopCompaction.get()) {
+                            return;
+                        }
+
+                        if (!compactionAction.compact(iterator, batch)) {
+                            continueIterating = false;
+
+                            break;
+                        }
+                    }
+
+                    db.write(defaultWriteOptions, batch);
+                } finally {
+                    rwLock.writeLock().unlock();
+                }
+            }
+
+            checkIterator(iterator);
+        }
+    }
 
     private boolean isTombstone(byte[] key, long revision) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(revision, key);
