@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -57,6 +58,10 @@ import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for testing types coercion. */
 public class BaseTypeCoercionTest extends AbstractPlannerTest {
+    static Stream<Arguments> allNumericPairs() {
+        return Arrays.stream(NumericPair.values()).map(Arguments::of);
+    }
+
     /**
      * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
      */
@@ -128,33 +133,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
                 assertThat(leftOperand, first);
                 assertThat(rightOperand, second);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
-    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<Object> result) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
-
-                assertThat(comparison, instanceOf(RexCall.class));
-
-                RexCall comparisonCall = (RexCall) comparison;
-
-                RexNode leftOperand = comparisonCall.getOperands().get(0);
-                RexNode rightOperand = comparisonCall.getOperands().get(1);
-
-                assertThat(leftOperand, first);
-                assertThat(rightOperand, second);
-                assertThat(actual, result);
 
                 return true;
             }
@@ -271,7 +249,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         private final TypePair pair;
         private Matcher<RexNode> firstOpMatcher;
         private Matcher<RexNode> secondOpMatcher;
-        private NativeType resultType;
 
         private TestCaseBuilderEx(TypePair pair) {
             this.pair = pair;
@@ -299,7 +276,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         }
 
         Arguments resultWillBe(NativeType type) {
-            resultType = type;
             return Arguments.of(pair, firstOpMatcher, secondOpMatcher, Named.of(type.displayName(), type));
         }
 
