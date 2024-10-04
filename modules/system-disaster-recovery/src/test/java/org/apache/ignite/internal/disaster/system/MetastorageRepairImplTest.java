@@ -117,7 +117,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), contains(node1.name()));
-        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(10L));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(11L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
         assertThat(becomeLeaderMessageCaptor.getValue().termBeforeChange(), is(1L));
@@ -149,7 +149,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node1.name(), node2.name(), node3.name()));
-        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(12L));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(13L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
         assertThat(becomeLeaderMessageCaptor.getValue().termBeforeChange(), is(1L));
@@ -195,7 +195,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node2.name(), node3.name()));
-        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(12L));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(13L));
 
         verify(messagingService).invoke(eq(node2.name()), becomeLeaderMessageCaptor.capture(), anyLong());
     }
@@ -212,7 +212,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node1.name(), node3.name()));
-        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(10L));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(11L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
     }

@@ -163,7 +163,6 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static ClusterManagementGroupManager mockClusterGroupManager() {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(TEST_NODE_NAME)));
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(TEST_NODE_NAME)).build()
         ));
