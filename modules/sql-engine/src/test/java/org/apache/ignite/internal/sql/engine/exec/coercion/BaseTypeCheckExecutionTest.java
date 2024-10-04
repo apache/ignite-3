@@ -202,6 +202,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                 boolean precisionScaleMatched = true;
 
                 if (checkPrecisionScale) {
+                    // Expected that precision and scale of return result is satisfy the return metadata boundaries.
                     precisionScaleMatched = precision <= meta.precision() && scale <= meta.scale();
                 }
 
