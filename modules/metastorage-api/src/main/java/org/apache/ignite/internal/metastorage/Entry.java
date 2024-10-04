@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,4 +73,14 @@ public interface Entry extends Serializable {
      * @return {@code True} if entry is tombstone, otherwise - {@code false}.
      */
     boolean tombstone();
+
+    /**
+     * Returns the metastorage operation timestamp in which the entry was created, {@code null} for an {@link #empty empty entry}.
+     *
+     * <p>Operation timestamp is assigned for each change of the key or the entire batch under one revision.</p>
+     */
+    // TODO: IGNITE-23348 Needs to be added and implemented
+    default @Nullable HybridTimestamp timestamp() {
+        return null;
+    }
 }

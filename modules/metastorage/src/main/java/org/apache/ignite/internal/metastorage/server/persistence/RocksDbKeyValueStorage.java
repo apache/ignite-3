@@ -1483,21 +1483,23 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        byte[] tsBytes = hybridTsToArray(timestamp);
+        rwLock.readLock().lock();
 
-        // Find a revision with timestamp lesser or equal to the watermark.
+        // Find a revision with timestamp lesser or equal to the timestamp.
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
-            rocksIterator.seekForPrev(tsBytes);
+            rocksIterator.seekForPrev(hybridTsToArray(timestamp));
 
             checkIterator(rocksIterator);
 
             byte[] tsValue = rocksIterator.value();
 
             if (tsValue.length == 0) {
-                return -1;
+                throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
             return bytesToLong(tsValue);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 

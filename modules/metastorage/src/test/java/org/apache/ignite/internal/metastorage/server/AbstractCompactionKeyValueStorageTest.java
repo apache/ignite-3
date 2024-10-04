@@ -24,7 +24,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
@@ -33,8 +35,10 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -290,7 +294,55 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testTimestampByRevision() {
+    void testTimestampByRevisionAfterCompaction() {
+        storage.compact(1);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertDoesNotThrow(() -> storage.timestampByRevision(2));
+        assertDoesNotThrow(() -> storage.timestampByRevision(3));
+
+        storage.compact(2);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(2));
+        assertDoesNotThrow(() -> storage.timestampByRevision(3));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(2));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(3));
+    }
+
+    @Test
+    void testRevisionByTimestampAfterCompaction() {
+        HybridTimestamp timestamp0 = storage.timestampByRevision(1);
+        HybridTimestamp timestamp1 = storage.timestampByRevision(2);
+        HybridTimestamp timestamp2 = storage.timestampByRevision(3);
+
+        storage.compact(1);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp1));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp2));
+
+        storage.compact(2);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp2));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp0.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2.subtractPhysicalTime(1)));
     }
 
     private List<Integer> collectRevisions(byte[] key) {

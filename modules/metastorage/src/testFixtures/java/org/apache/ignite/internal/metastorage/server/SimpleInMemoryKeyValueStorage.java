@@ -449,8 +449,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(timestamp.longValue());
 
             if (revisionEntry == null) {
-                // Nothing to compact yet.
-                return -1;
+                throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
             return revisionEntry.getValue();
@@ -569,9 +568,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
 
         synchronized (mux) {
-            for (Iterator<Long> it = revToTsMap.keySet().iterator(); it.hasNext(); ) {
-                if (it.next() <= revision) {
+            for (Iterator<Map.Entry<Long, HybridTimestamp>> it = revToTsMap.entrySet().iterator(); it.hasNext(); ) {
+                Map.Entry<Long, HybridTimestamp> e = it.next();
+
+                if (e.getKey() <= revision) {
                     it.remove();
+
+                    tsToRevMap.remove(e.getValue().longValue());
                 } else {
                     break;
                 }
