@@ -2318,7 +2318,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
-    void testCleatDataBeforeRestoreFromSnapshot() {
+    void testClearDataBeforeRestoreFromSnapshot() {
         byte[] key0 = key(0);
         byte[] key1 = key(1);
         byte[] value = keyValue(0, 0);
