@@ -176,8 +176,10 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     /** Return results matcher, compare return type, precision and scale with analyzed object. */
     static Matcher<Object> checkReturnResult() {
         return new BaseMatcher<>() {
-            Object result;
-            ColumnMetadata meta;
+            private Object result;
+            private ColumnMetadata meta;
+            private int precision;
+            private int scale;
 
             @Override
             public boolean matches(Object actual) {
@@ -188,9 +190,6 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                 result = pair.getFirst();
                 meta = pair.getSecond();
 
-                int precision = 0;
-                int scale = 0;
-
                 if (result instanceof BigDecimal) {
                     precision = ((BigDecimal) result).precision();
                     scale = ((BigDecimal) result).scale();
@@ -200,13 +199,13 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                         && (result.getClass() != Double.class)
                         && (result.getClass() != Boolean.class);
 
-                boolean precisionScale = true;
+                boolean precisionScaleMatched = true;
 
                 if (checkPrecisionScale) {
-                    precisionScale = precision <= meta.precision() && scale <= meta.scale();
+                    precisionScaleMatched = precision <= meta.precision() && scale <= meta.scale();
                 }
 
-                return meta.type().javaClass() == result.getClass() && precisionScale;
+                return meta.type().javaClass() == result.getClass() && precisionScaleMatched;
             }
 
             @Override
@@ -216,7 +215,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
             @Override
             public void describeMismatch(Object item, Description description) {
-                description.appendText("Type: " + result.getClass());
+                description.appendText("Type: " + result.getClass() + ", precision=" + precision + ", scale=" + scale);
             }
         };
     }
