@@ -1382,7 +1382,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (revision != lastSeenRevision) {
                     if (!updatedEntries.isEmpty()) {
-                        var updatedEntriesCopy = (List<Entry>) List.copyOf(updatedEntries);
+                        List<Entry> updatedEntriesCopy = List.copyOf(updatedEntries);
 
                         assert ts != null : revision;
 
