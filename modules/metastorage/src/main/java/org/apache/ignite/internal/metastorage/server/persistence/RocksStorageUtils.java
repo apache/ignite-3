@@ -136,7 +136,7 @@ class RocksStorageUtils {
      * @param rocksValue Value bytes with a operation timestamp.
      */
     static long timestampFromRocksValue(byte[] rocksValue) {
-        return (long) LONG_ARRAY_HANDLE.get(rocksValue, Long.BYTES);
+        return (long) LONG_ARRAY_HANDLE.get(rocksValue, 0);
     }
 
     /** Converts from a byte array to a {@link Value}. */
