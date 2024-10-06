@@ -1403,7 +1403,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
             }
 
-            checkIterator(it);
+            try {
+                checkIterator(it);
+            } catch (RocksDBException e) {
+                throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            }
 
             // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
@@ -1454,6 +1458,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             return bytesToLong(tsValue);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.readLock().unlock();
         }

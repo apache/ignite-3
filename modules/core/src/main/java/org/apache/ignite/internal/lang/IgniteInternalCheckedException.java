@@ -50,7 +50,12 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      */
     private final int code;
 
-    /** Unique identifier of this exception that should help locating the error message in a log file. */
+    /**
+     * Unique identifier of the exception that helps locate the error message in a log file.
+     *
+     * <p>Not {@code final} because it gets accessed via reflection when creating a copy.
+     */
+    @SuppressWarnings({"NonFinalFieldOfException", "FieldMayBeFinal"})
     private UUID traceId;
 
     /**
@@ -131,7 +136,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(int code, String message, Throwable cause) {
+    public IgniteInternalCheckedException(int code, String message, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, message, cause);
     }
 
@@ -143,7 +148,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteInternalCheckedException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(message, cause);
 
         this.traceId = traceId;

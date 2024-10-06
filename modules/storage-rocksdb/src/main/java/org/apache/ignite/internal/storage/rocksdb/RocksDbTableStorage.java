@@ -97,7 +97,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             indexes.recoverIndexes(indexDescriptorSupplier);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to recover indexes", e);
+            throw new IgniteRocksDbException("Unable to recover indexes", e);
         }
     }
 
@@ -240,7 +240,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
-                throw new StorageException("Error when destroying storage: [{}]", e, mvPartitionStorages.createStorageInfo(partitionId));
+                throw new IgniteRocksDbException(
+                        String.format("Error when destroying storage: [%s]", mvPartitionStorages.createStorageInfo(partitionId)), e
+                );
             }
         }));
     }
@@ -274,7 +276,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             return nullCompletedFuture();
         } catch (RocksDBException e) {
-            throw new StorageException("Error when destroying index: {}", e, indexId);
+            throw new IgniteRocksDbException(String.format("Error when destroying index: %d", indexId), e);
         } finally {
             busyLock.leaveBusy();
         }
@@ -367,7 +369,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 return nullCompletedFuture();
             } catch (RocksDBException e) {
-                throw new StorageException("Error when trying to cleanup storage: [{}]", e, mvPartitionStorage.createStorageInfo());
+                throw new IgniteRocksDbException(
+                        String.format("Error when trying to cleanup storage: [%s]", mvPartitionStorage.createStorageInfo()), e
+                );
             } finally {
                 mvPartitionStorage.finishCleanup();
 
