@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.lang.ErrorGroups.Storage.STORAGE_CORRUPTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
@@ -27,10 +27,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteRocksDbException extends StorageException {
     public IgniteRocksDbException(@Nullable Throwable cause) {
-        super(STORAGE_CORRUPTED_ERR, cause);
+        super(INTERNAL_ERR, cause);
     }
 
     public IgniteRocksDbException(String message, @Nullable Throwable cause) {
-        super(STORAGE_CORRUPTED_ERR, message, cause);
+        super(INTERNAL_ERR, message, cause);
     }
 }

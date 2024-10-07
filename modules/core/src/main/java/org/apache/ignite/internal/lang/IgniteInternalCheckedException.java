@@ -50,6 +50,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      */
     private final int code;
 
+    /** Unique identifier of this exception that should help locating the error message in a log file. */
     private UUID traceId;
 
     /**
