@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -117,6 +119,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(WorkDirectoryExtension.class)
 class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
+
+    private static final int AWAIT_PRIMARY_REPLICA_SECONDS = 10;
 
     /**
      * Nodes bootstrap configuration pattern.
@@ -257,6 +261,20 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         causeLogTruncationOnSolePartitionLeader(0);
     }
 
+    private void waitForPrimaryReplica() {
+        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
+
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver().awaitPrimaryReplica(
+                cluster.solePartitionId(),
+                node.clockService().now(),
+                AWAIT_PRIMARY_REPLICA_SECONDS,
+                TimeUnit.SECONDS);
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        LOG.info("Lease is accepted by [nodeConsistentId={}].", primary.join().getLeaseholder());
+    }
+
     private void startAndInitCluster() {
         cluster.startAndInit(3, IntStream.range(0, 3).toArray());
     }
@@ -293,6 +311,8 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
+
+        waitForPrimaryReplica();
     }
 
     /**
