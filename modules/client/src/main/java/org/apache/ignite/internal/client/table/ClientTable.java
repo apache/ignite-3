@@ -576,8 +576,6 @@ public class ClientTable implements Table {
         assert in != null;
         assert schemaId != null;
 
-        // Retain unpacker while schema is loading.
-        in.in().retain();
         CompletableFuture<T> resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
 
         // Close unpacker.

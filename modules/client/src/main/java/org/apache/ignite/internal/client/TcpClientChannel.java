@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -315,9 +316,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 notificationHandlers.put(id, notificationFut);
             }
 
-            CompletableFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut, operationTimeout);
-
-            return fut;
+            return send(opCode, id, payloadWriter, payloadReader, notificationFut, operationTimeout);
 
         } catch (Throwable t) {
             return failedFuture(t);
@@ -381,8 +380,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             if (PublicApiThreading.executingSyncPublicApi()) {
-                // No need for asyncContinuationExecutor on sync public API calls.
-                return fut.thenApply(unpacker -> complete(payloadReader, notificationFut, unpacker));
+                // We are in the public API (user) thread, deserialize the response here.
+                ClientMessageUnpacker unpacker = fut.thenApply(ClientMessageUnpacker::retain).join();
+
+                return completedFuture(complete(payloadReader, notificationFut, unpacker));
             }
 
             return fut
@@ -802,7 +803,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
          * @param timeout Timeout in milliseconds.
          * @param fut Target future.
          */
-        public TimeoutObjectImpl(long timeout, CompletableFuture<ClientMessageUnpacker> fut) {
+        private TimeoutObjectImpl(long timeout, CompletableFuture<ClientMessageUnpacker> fut) {
             this.endTime = timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0;
             this.fut = fut;
         }
