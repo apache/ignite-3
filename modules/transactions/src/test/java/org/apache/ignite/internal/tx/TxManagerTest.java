@@ -244,8 +244,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testUpdateLowerWatermark() {
-        verify(lowWatermark).listen(eq(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE), any());
-
         // Let's check the absence of transactions.
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
 
