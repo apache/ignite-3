@@ -31,7 +31,7 @@ void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<clu
             auto fields_count = reader.read_int32();
             assert(fields_count >= 4);
 
-            auto id = reader.read_string();
+            auto id = reader.read_uuid();
             auto name = reader.read_string();
             auto host = reader.read_string();
             auto port = reader.read_uint16();

@@ -283,6 +283,22 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
                 }
             }
         }
-        return SqlTestUtils.makeLiteral(val.toString(), type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
+    }
+
+    private static String prevResult = "";
+
+    // It is necessary to have a guarantee that two values in a row will be different.
+    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
+    static String generateLiteralWithNoRepetition(NativeType type) {
+        Object val;
+        String valString;
+        do {
+            val = SqlTestUtils.generateValueByType(type);
+            valString = val == null ? "<null>" : val.toString();
+        } while (valString.equals(prevResult));
+        prevResult = valString;
+
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 }

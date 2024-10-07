@@ -72,6 +72,16 @@ public final class Types {
 
     public static final NativeType DECIMAL_MAX_0 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 0);
 
+    public static final NativeType TIME_3 = NativeTypes.time(3);
+
+    public static final NativeType TIMESTAMP_3 = NativeTypes.datetime(3);
+
+    public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
+
+    public static final NativeType VARCHAR_128 = NativeTypes.stringOf(128);
+
+    public static final NativeType VARBINARY_128 = NativeTypes.blobOf(128);
+
     private Types() {
         throw new AssertionError("Should not be called");
     }

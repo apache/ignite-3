@@ -15,32 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.app;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.marshalling.ByteArrayMarshaller;
-import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.catalog.annotations.Id;
 
 /**
- * Pojo job.
+ * A POJO class representing just the key columns of a table.
  */
-public class PojoJob implements ComputeJob<Pojo, String> {
-    /**
-     * Executes this job.
-     *
-     * @param context The execution context.
-     * @param pojo Job arguments.
-     * @return Future with the same pojo that was passed as an argument.
-     */
-    @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Pojo pojo) {
-        return CompletableFuture.completedFuture(pojo.getName());
+class PojoKey {
+    @Id
+    Integer id;
+
+    PojoKey() {
+    }
+
+    PojoKey(Integer id, String idStr) {
+        this.id = id;
     }
 
     @Override
-    public Marshaller<Pojo, byte[]> inputMarshaller() {
-        return ByteArrayMarshaller.create();
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        PojoKey pojoKey = (PojoKey) o;
+
+        return id != null ? id.equals(pojoKey.id) : pojoKey.id == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
     }
 }

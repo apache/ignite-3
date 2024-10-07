@@ -40,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * Base for tests of CMG and Metastorage group disaster recovery.
  */
 abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
+    final SystemDisasterRecoveryClient recoveryClient = new SystemDisasterRecoveryClient();
+
     @Override
     protected int initialNodes() {
         return 0;
@@ -107,19 +109,19 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
 
     final void migrate(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
         // Starting the node that did not see the repair.
-        IgniteImpl nodeMissingRepair = ((IgniteServerImpl) cluster.startEmbeddedNode(oldClusterNodeIndex).server()).igniteImpl();
+        cluster.startEmbeddedNode(oldClusterNodeIndex);
 
-        initiateMigrationToNewCluster(nodeMissingRepair, igniteImpl(newClusterNodeIndex));
+        initiateMigrationToNewCluster(oldClusterNodeIndex, newClusterNodeIndex);
 
         waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
-    static void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
-        // TODO: IGNITE-22879 - initiate migration via CLI.
-
-        ClusterState newClusterState = clusterState(repairedNode);
-
-        CompletableFuture<Void> migrationFuture = nodeMissingRepair.systemDisasterRecoveryManager().migrate(newClusterState);
-        assertThat(migrationFuture, willCompleteSuccessfully());
+    void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
+        recoveryClient.initiateMigration(
+                "localhost",
+                cluster.httpPort(nodeMissingRepairIndex),
+                "localhost",
+                cluster.httpPort(repairedNodeIndex)
+        );
     }
 }

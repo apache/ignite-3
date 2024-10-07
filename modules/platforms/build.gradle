@@ -21,6 +21,8 @@ plugins {
     alias(libs.plugins.cmake)
 }
 
+import dev.welbyseely.CMakeBuildTask
+import dev.welbyseely.CMakeConfigureTask
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
 
@@ -34,36 +36,33 @@ configurations {
 cmakeConfigure.enabled = false
 cmakeBuild.enabled = false
 
-task restoreTool(type: Exec) {
+def restoreTool = tasks.register('restoreTool', Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
     commandLine "dotnet", "tool", "restore"
 }
 
-task docfx(type: Exec) {
+def docfx = tasks.register('docfx', Exec) {
     dependsOn restoreTool
     workingDir "$rootDir/modules/platforms/dotnet"
 
     commandLine "dotnet", "docfx", "docs/docfx.json"
 }
 
-
-task aggregateDotnetDocs(type: Copy) {
+def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
     dependsOn docfx
 
     from("$rootDir/modules/platforms/dotnet/docs/_site")
     into("$rootDir/build/docs/dotnet")
 }
 
-
-task doxygenCppClient(type: Exec) {
+def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     workingDir "$rootDir/modules/platforms/cpp"
 
     commandLine "doxygen"
 }
 
-
-task copyNativeLibs(type: Copy) {
+def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
     include "**/*.so"
     from("$rootDir/modules/platforms/cpp")
     into("$buildDir/classes/")
@@ -79,31 +78,29 @@ cmake {
     getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
 
-task cmakeConfigureClient(type: dev.welbyseely.CMakeConfigureTask) {
+def cmakeConfigureClient = tasks.register('cmakeConfigureClient', CMakeConfigureTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
-    getDef().put('ENABLE_CLIENT', 'ON')
-    getDef().put('ENABLE_ODBC', 'OFF')
+    getDef().ENABLE_CLIENT='ON'
+    getDef().ENABLE_ODBC='OFF'
 }
 
-task cmakeBuildClient(type: dev.welbyseely.CMakeBuildTask) {
-    configureFromProject() // uses everything in the cmake { ... } section.
-}
-
-cmakeBuildClient.dependsOn cmakeConfigureClient
-
-task cmakeConfigureOdbc(type: dev.welbyseely.CMakeConfigureTask) {
-    configureFromProject() // uses everything in the cmake { ... } section.
-    getDef().put('ENABLE_CLIENT', 'OFF')
-    getDef().put('ENABLE_ODBC', 'ON')
-}
-
-task cmakeBuildOdbc(type: dev.welbyseely.CMakeBuildTask) {
+def cmakeBuildClient = tasks.register('cmakeBuildClient', CMakeBuildTask) {
+    dependsOn cmakeConfigureClient
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
-cmakeBuildOdbc.dependsOn cmakeConfigureOdbc
+def cmakeConfigureOdbc = tasks.register('cmakeConfigureOdbc', CMakeConfigureTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().ENABLE_CLIENT='OFF'
+    getDef().ENABLE_ODBC='ON'
+}
 
-task buildNuGet(type: Exec) {
+def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
+    dependsOn cmakeConfigureOdbc
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+def buildNuGet = tasks.register('buildNuGet', Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
     commandLine "dotnet", "pack", "Apache.Ignite",
@@ -113,7 +110,7 @@ task buildNuGet(type: Exec) {
             "/p:Version=${project.version}"
 }
 
-task buildDotNet(type: Exec) {
+def buildDotNet = tasks.register('buildDotNet', Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
     commandLine "dotnet", "build", "Apache.Ignite",
@@ -144,7 +141,7 @@ task zipCppClient(type: Zip) {
     }
 }
 
-task createChecksums(type: Checksum) {
+def createChecksums = tasks.register('createChecksums', Checksum) {
     dependsOn zipCppClient, zipNuGet
 
     inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
@@ -152,7 +149,7 @@ task createChecksums(type: Checksum) {
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signArtifacts', Sign) {
+def signArtifacts = tasks.register('signArtifacts', Sign) {
     sign zipNuGet
     sign zipCppClient
 }

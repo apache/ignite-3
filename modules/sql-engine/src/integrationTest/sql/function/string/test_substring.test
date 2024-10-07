@@ -226,25 +226,14 @@ SELECT SUBSTRING('1234567', 2.1, 3)
 statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <DECIMAL(2, 1)>)
 SELECT SUBSTRING('1234567', 2.1, 3.1)
 
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <INTEGER> FOR <CHAR(1)>)'
+SELECT SUBSTRING('1234567', 2, '1')
+
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <CHAR(1)> FOR <INTEGER>)'
+SELECT SUBSTRING('1234567', '2', 1)
+
 # https://issues.apache.org/jira/browse/IGNITE-22417
 # Actual error while resolving method 'substring[class java.lang.String, class java.math.BigDecimal]' in class class org.apache.calcite.runtime.SqlFunctions
 skipif ignite3
 statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)>
 SELECT SUBSTRING('1234567', 2.1)
-
-# Coercion
-
-query T
-SELECT SUBSTRING('1234567', 2, '1')
-----
-2
-
-query T
-SELECT SUBSTRING('1234567', '2', 1)
-----
-2
-
-query T
-SELECT SUBSTRING('1234567', '2', '1')
-----
-2

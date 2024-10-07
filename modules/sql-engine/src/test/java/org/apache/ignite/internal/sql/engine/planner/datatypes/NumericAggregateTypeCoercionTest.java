@@ -40,7 +40,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for aggregates, when operand belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for aggregates, when operand belongs to the NUMERIC type family.
  *
  * <p>Note: technically tests cases from this class doesn't involve {@link TypeCoercion}, yet this approach is convenient
  * to highlight how exactly types are deducted for particular functions.

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.spy;
 
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -47,7 +48,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        catalogManager = createCatalogManager("test-node");
+        catalogManager = spy(createCatalogManager("test-node"));
     }
 
     /** Creates catalog manager. */

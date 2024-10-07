@@ -183,6 +183,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
@@ -416,6 +417,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
+    private final MinimumRequiredTimeCollectorService minTimeCollectorService;
+
     @Nullable
     private StreamerReceiverRunner streamerReceiverRunner;
 
@@ -483,7 +486,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TransactionInflights transactionInflights,
             IndexMetaStorage indexMetaStorage,
             LogSyncer logSyncer,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MinimumRequiredTimeCollectorService minTimeCollectorService
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -511,6 +515,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.nodeName = nodeName;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
+        this.minTimeCollectorService = minTimeCollectorService;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1206,8 +1211,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             table.schemaView(),
                             clockService,
                             indexMetaStorage,
-                            topologyService.localMember().id()
+                            topologyService.localMember().id(),
+                            minTimeCollectorService
                     );
+
+                    minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
                     SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
                             partitionUpdateHandlers, internalTbl);
@@ -2674,7 +2682,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return stopReplicaFuture
-                .thenCompose(v -> mvGc.removeStorage(tablePartitionId));
+                .thenCompose(v -> {
+                    minTimeCollectorService.removePartition(tablePartitionId);
+                    return mvGc.removeStorage(tablePartitionId);
+                });
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {

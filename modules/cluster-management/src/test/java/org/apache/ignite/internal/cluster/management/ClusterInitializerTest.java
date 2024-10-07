@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,8 +89,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testNormalInit() {
-        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -116,8 +117,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testNormalInitSingleNodeList() {
-        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -143,8 +144,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitCancel() {
-        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -175,12 +176,12 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests a situation when the init command fails noncritically, so that initialization is not cancelled.
+     * Tests a situation when the init command fails non-critically, so that initialization is not cancelled.
      */
     @Test
     void testInitNoCancel() {
-        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);

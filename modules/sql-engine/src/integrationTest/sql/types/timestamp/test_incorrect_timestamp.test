@@ -8,45 +8,87 @@ PRAGMA enable_verification
 statement ok
 CREATE TABLE timestamp_t(t TIMESTAMP)
 
-statement error
-INSERT INTO timestamp_t VALUES ('blabla')
+statement error: Illegal TIMESTAMP literal 'blabla': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp 'blabla')
 
-statement error
-INSERT INTO timestamp_t VALUES ('1993-20-14 00:00:00')
+statement error: Invalid DATE value, 'blabla'
+INSERT INTO timestamp_t VALUES ('blabla'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('1993-08-99 00:00:00')
+statement error: Illegal TIMESTAMP literal '1993-20-14 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-20-14 00:00:00')
 
-statement error
-INSERT INTO timestamp_t VALUES ('1993-02-29 00:00:00')
+statement error: Invalid DATE value, '1993-20-14 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-20-14 00:00:00'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-02-29 00:00:00')
+statement error: Illegal TIMESTAMP literal '1993-08-99 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-08-99 00:00:00')
+
+statement error: Invalid DATE value, '1993-08-99 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-08-99 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1993-02-29 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-02-29 00:00:00')
+
+statement error: Value of DAY field is out of range in '1993-02-29 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-02-29 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-02-29 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-02-29 00:00:00')
+
+statement error: Value of DAY field is out of range in '1900-02-29 00:00:00'
+INSERT INTO timestamp_t VALUES ('1900-02-29 00:00:00'::timestamp)
 
 statement ok
-INSERT INTO timestamp_t VALUES ('1992-02-29 00:00:00')
+INSERT INTO timestamp_t VALUES (timestamp '1992-02-29 00:00:00')
 
 statement ok
-INSERT INTO timestamp_t VALUES ('2000-02-29 00:00:00')
+INSERT INTO timestamp_t VALUES ('1992-02-29 00:00:00'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('02-02-1992 00:00:00')
+statement ok
+INSERT INTO timestamp_t VALUES (timestamp '2000-02-29 00:00:00')
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-1-1 59:59:23')
+statement ok
+INSERT INTO timestamp_t VALUES ('2000-02-29 00:00:00'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900a01a01 00:00:00')
+statement error: Illegal TIMESTAMP literal '02-02-1992 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '02-02-1992 00:00:00')
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-1-1 00;00;00')
+statement error: Invalid DATE value, '02-02-1992 00:00:00'
+INSERT INTO timestamp_t VALUES ('02-02-1992 00:00:00'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-1-1 00a00a00')
+statement error: Illegal TIMESTAMP literal '1900-1-1 59:59:23': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 59:59:23')
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-1-1 00/00/00')
+statement error: Invalid DATE value, '1900-1-1 59:59:23'
+INSERT INTO timestamp_t VALUES ('1900-1-1 59:59:23'::timestamp)
 
-statement error
-INSERT INTO timestamp_t VALUES ('1900-1-1 00-00-00')
+statement error: Illegal TIMESTAMP literal '1900a01a01 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900a01a01 00:00:00')
+
+statement error: Invalid DATE value, '1900a01a01 00:00:00'
+INSERT INTO timestamp_t VALUES ('1900a01a01 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00;00;00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00;00;00')
+
+statement error: Invalid DATE value, '1900-1-1 00;00;00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00;00;00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00a00a00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00a00a00')
+
+statement error: Invalid DATE value, '1900-1-1 00a00a00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00a00a00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00/00/00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00/00/00')
+
+statement error: Invalid DATE value, '1900-1-1 00/00/00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00/00/00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00-00-00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00-00-00')
+
+statement error: Invalid DATE value, '1900-1-1 00-00-00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00-00-00'::timestamp)
 

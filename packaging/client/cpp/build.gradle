@@ -111,7 +111,7 @@ buildDeb {
 }
 
 // --- release setup --- //
-tasks.register('createChecksums', Checksum) {
+def createChecksums = tasks.register('createChecksums', Checksum) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }

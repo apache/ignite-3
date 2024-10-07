@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -96,6 +97,7 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -131,7 +133,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
+    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(new UUID(1, 2), "node", ADDR);
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
@@ -284,7 +286,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             lenient()
                     .doAnswer(invocationOnMock -> {
-                        String nodeId = invocationOnMock.getArgument(0);
+                        String nodeConsistenId = invocationOnMock.getArgument(0);
+                        UUID nodeId = deriveUuidFrom(nodeConsistenId);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId).thenApply(ReplicaResult::result);
                     })
@@ -424,7 +427,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager,
                 CLOCK_SERVICE,
                 mock(IndexMetaStorage.class),
-                LOCAL_NODE.id()
+                LOCAL_NODE.id(),
+                mock(MinimumRequiredTimeCollectorService.class)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,

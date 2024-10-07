@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -60,7 +61,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
         if (!(request instanceof TableAware)) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage

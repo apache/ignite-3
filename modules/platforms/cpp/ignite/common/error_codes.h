@@ -112,6 +112,7 @@ enum class code : underlying_t {
     COMPACTION = 0x50003,
     OP_EXECUTION = 0x50004,
     OP_EXECUTION_TIMEOUT = 0x50005,
+    COMPACTED = 0x50006,
 
     // Index group. Group code: 6
     INVALID_INDEX_DEFINITION = 0x60001,
@@ -147,12 +148,7 @@ enum class code : underlying_t {
     REPLICATION_SAFE_TIME_REORDERING = 0x80009,
 
     // Storage group. Group code: 9
-    GENERIC = 0x90001,
-    DIRECTORY_CREATION = 0x90002,
-    ALREADY_CLOSED = 0x90003,
-    STORAGE_REBALANCE = 0x90004,
-    ALREADY_DESTROYED = 0x90005,
-    INDEX_NOT_BUILT = 0x90006,
+    INDEX_NOT_BUILT = 0x90001,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,
@@ -160,6 +156,8 @@ enum class code : underlying_t {
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     PORT_IN_USE = 0xb0002,
+    FILE_TRANSFER = 0xb0003,
+    FILE_VALIDATION = 0xb0004,
     RECIPIENT_LEFT = 0xb0005,
     ADDRESS_UNRESOLVED = 0xb0006,
 

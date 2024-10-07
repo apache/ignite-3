@@ -192,7 +192,7 @@ public class ComputeMessaging {
                 .input(input)
                 .build();
 
-        return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, executeRequest)
                 .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
@@ -211,7 +211,7 @@ public class ComputeMessaging {
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(sender, executeResponse, correlationId);
+        respond(sender, executeResponse, correlationId);
     }
 
     /**
@@ -227,7 +227,7 @@ public class ComputeMessaging {
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobResultRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobResultRequest)
                 .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
@@ -242,14 +242,14 @@ public class ComputeMessaging {
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(sender, jobResultResponse, correlationId);
+        respond(sender, jobResultResponse, correlationId);
     }
 
-    CompletableFuture<Collection<JobState>> remoteStatesAsync(ClusterNode remoteNode) {
+    private CompletableFuture<Collection<JobState>> remoteStatesAsync(ClusterNode remoteNode) {
         JobStatesRequest jobStatesRequest = messagesFactory.jobStatesRequest()
                 .build();
 
-        return messagingService.invoke(remoteNode, jobStatesRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobStatesRequest)
                 .thenCompose(networkMessage -> statesFromJobStatesResponse((JobStatesResponse) networkMessage));
     }
 
@@ -269,7 +269,7 @@ public class ComputeMessaging {
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobStatesResponse, correlationId);
+        respond(sender, jobStatesResponse, correlationId);
     }
 
     /**
@@ -284,7 +284,7 @@ public class ComputeMessaging {
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobStateRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobStateRequest)
                 .thenCompose(networkMessage -> stateFromJobStateResponse((JobStateResponse) networkMessage));
     }
 
@@ -299,7 +299,7 @@ public class ComputeMessaging {
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobStateResponse, correlationId);
+        respond(sender, jobStateResponse, correlationId);
     }
 
     /**
@@ -315,7 +315,7 @@ public class ComputeMessaging {
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobCancelRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobCancelRequest)
                 .thenCompose(networkMessage -> cancelFromJobCancelResponse((JobCancelResponse) networkMessage));
     }
 
@@ -330,7 +330,7 @@ public class ComputeMessaging {
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobCancelResponse, correlationId);
+        respond(sender, jobCancelResponse, correlationId);
     }
 
     /**
@@ -348,7 +348,7 @@ public class ComputeMessaging {
                 .priority(newPriority)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobChangePriorityRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobChangePriorityRequest)
                 .thenCompose(networkMessage -> changePriorityFromJobChangePriorityResponse((JobChangePriorityResponse) networkMessage));
     }
 
@@ -368,7 +368,7 @@ public class ComputeMessaging {
                 .result(result)
                 .build();
 
-        messagingService.respond(sender, jobChangePriorityResponse, correlationId);
+        respond(sender, jobChangePriorityResponse, correlationId);
     }
 
     /**
@@ -457,7 +457,7 @@ public class ComputeMessaging {
         ClusterNode localMember = topologyService.localMember();
         CompletableFuture<?>[] futures = topologyService.allMembers()
                 .stream()
-                .filter(node -> !node.id().equals(localMember.id()))
+                .filter(node -> !node.name().equals(localMember.name()))
                 .map(node -> request.apply(node)
                         .thenAccept(response -> {
                             if (response != null) {
@@ -496,5 +496,13 @@ public class ComputeMessaging {
         return allOfToList(futures).exceptionally(throwable -> {
             throw error.apply(throwable);
         });
+    }
+
+    private CompletableFuture<NetworkMessage> invoke(ClusterNode remoteNode, NetworkMessage msg) {
+        return messagingService.invoke(remoteNode.name(), msg, NETWORK_TIMEOUT_MILLIS);
+    }
+
+    private void respond(ClusterNode sender, NetworkMessage msg, long correlationId) {
+        messagingService.respond(sender.name(), msg, correlationId);
     }
 }

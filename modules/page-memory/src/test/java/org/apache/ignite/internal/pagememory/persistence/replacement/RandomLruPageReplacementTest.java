@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.exception;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.lang.ErrorGroups.Network.NETWORK_ERR_GROUP;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
 
-class ErrorCodes {
-    /** File transfer error. */
-    static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
-
-    /** File validation error. */
-    static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
+/**
+ * Tests for the {@link RandomLruPageReplacementPolicy}.
+ */
+public class RandomLruPageReplacementTest extends AbstractPageReplacementTest {
+    @Override
+    protected String replacementMode() {
+        return RANDOM_LRU_REPLACEMENT_MODE;
+    }
 }

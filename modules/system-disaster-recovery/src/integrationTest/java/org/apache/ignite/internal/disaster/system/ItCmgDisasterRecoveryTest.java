@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,7 +59,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         assertThatCmgHasNoMajority(igniteImpl1BeforeRestart);
 
-        initiateCmgRepairVia(igniteImpl1BeforeRestart, 1);
+        initiateCmgRepairVia(1, 1);
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
@@ -81,12 +80,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(IgniteImpl conductor, int... newCmgIndexes) {
-        // TODO: IGNITE-22812 - initiate repair via CLI.
-
-        CompletableFuture<Void> initiationFuture = conductor.systemDisasterRecoveryManager()
-                .resetCluster(List.of(nodeNames(newCmgIndexes)));
-        assertThat(initiationFuture, willCompleteSuccessfully());
+    private void initiateCmgRepairVia(int condictorIndex, int... newCmgIndexes) throws InterruptedException {
+        recoveryClient.initiateCmgRepair("localhost", cluster.httpPort(condictorIndex), nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -102,7 +97,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         assertThatCmgHasNoMajority(igniteImpl2BeforeRestart);
 
-        initiateCmgRepairVia(igniteImpl2BeforeRestart, 2, 3, 4);
+        initiateCmgRepairVia(2, 2, 3, 4);
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
@@ -117,7 +112,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         cluster.stopNode(0);
 
-        initiateCmgRepairVia(igniteImpl(1), 1);
+        initiateCmgRepairVia(1, 1);
 
         // Doing this wait to make sure that blank node will be able to connect at least someone. If we don't do this, the new node
         // will still be able to connect, but this will happen on Scalecube's initial sync retry, and we don't want to wait for it
@@ -143,7 +138,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         IntStream.of(1, 2).parallel().forEach(this::restartPartially);
 
-        initiateCmgRepairVia(((IgniteServerImpl) cluster.server(1)).igniteImpl(), 1);
+        initiateCmgRepairVia(1, 1);
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
@@ -157,7 +152,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         // This makes the CMG majority go away.
         cluster.stopNode(0);
 
-        initiateCmgRepairVia(igniteImpl(1), 1);
+        initiateCmgRepairVia(1, 1);
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
@@ -195,16 +190,16 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         IntStream.of(0, 1).parallel().forEach(cluster::stopNode);
 
         // Repair CMG with nodes 2, 3, 4.
-        initiateCmgRepairVia(igniteImpl(2), 2, 3, 4);
+        initiateCmgRepairVia(2, 2, 3, 4);
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
 
         // Starting the nodes that did not see the repair (in parallel, to save time).
-        List<IgniteImpl> partialNodes = IntStream.of(0, 1).parallel()
+        IntStream.of(0, 1).parallel()
                 .mapToObj(index -> ((IgniteServerImpl) cluster.startEmbeddedNode(index).server()).igniteImpl())
                 .collect(toList());
 
-        initiateMigrationToNewCluster(partialNodes.get(0), igniteImpl(2));
+        initiateMigrationToNewCluster(0, 2);
 
         waitTillNodeRestartsInternally(0);
         waitTillNodeRestartsInternally(1);
@@ -222,7 +217,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         breakAndRepairCmgMajorityInTwoNodeCluster();
 
         // Second repair.
-        initiateCmgRepairVia(igniteImpl(1), 1);
+        initiateCmgRepairVia(1, 1);
         IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
     }
@@ -265,7 +260,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         cluster.stopNode(0);
 
         // Repair CMG with just node 1.
-        initiateCmgRepairVia(igniteImpl(1), 1);
+        initiateCmgRepairVia(1, 1);
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
 
@@ -306,7 +301,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         // Now, dataNodes should have become [1, 2], but as there is no CMG leader, no one is able to trigger data nodes update.
 
         // Repair CMG with just node 1.
-        initiateCmgRepairVia(igniteImpl(1), 1);
+        initiateCmgRepairVia(1, 1);
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
 

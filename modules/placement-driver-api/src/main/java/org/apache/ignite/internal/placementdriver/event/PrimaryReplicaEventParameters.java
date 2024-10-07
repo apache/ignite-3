@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver.event;
 
+import java.util.UUID;
 import org.apache.ignite.internal.event.CausalEventParameters;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 public class PrimaryReplicaEventParameters extends CausalEventParameters {
     private final ReplicationGroupId groupId;
 
-    private final String leaseholderId;
+    private final UUID leaseholderId;
 
     private final String leaseholder;
 
@@ -43,7 +44,7 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     public PrimaryReplicaEventParameters(
             long causalityToken,
             ReplicationGroupId groupId,
-            String leaseholderId,
+            UUID leaseholderId,
             String leaseholder,
             HybridTimestamp startTime
     ) {
@@ -61,7 +62,7 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     }
 
     /** Returns leaseholder node ID. */
-    public String leaseholderId() {
+    public UUID leaseholderId() {
         return leaseholderId;
     }
 

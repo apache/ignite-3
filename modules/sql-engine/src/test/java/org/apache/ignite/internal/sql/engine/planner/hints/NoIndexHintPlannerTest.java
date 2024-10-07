@@ -79,8 +79,8 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
         assertNoCertainIndex(format(sql, "'UNEXISTING', 'IDX_ID'"), TBL1, "IDX_ID");
         assertNoCertainIndex(format(sql, "\"UNEXISTING\", \"IDX_ID\""), TBL1, "IDX_ID");
 
-        assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1, IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1='v' and val2='v'");
-        assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1='v' and val2='v'");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1, IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
     }
 
     @Test
@@ -165,7 +165,7 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
                 .size(sz)
                 .distribution(IgniteDistributions.single())
                 .addKeyColumn("ID", NativeTypes.INT32)
-                .addColumn("VAL1", NativeTypes.STRING)
+                .addColumn("VAL1", NativeTypes.INT32)
                 .addColumn("VAL2", NativeTypes.STRING)
                 .addColumn("VAL3", NativeTypes.STRING);
     }

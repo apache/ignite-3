@@ -42,15 +42,31 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 public interface SystemDisasterRecoveryApi {
     @Post("reset")
     @Operation(
-            operationId = "reset",
+            operationId = "resetCluster",
             description = "Initiates cluster reset to repair CMG/Metastorage group/both."
     )
     @ApiResponse(responseCode = "200", description = "Cluster reset initiated.")
+    // TODO: IGNITE-23274 - introduce a constant for common error descriptions.
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Bad request.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.PROBLEM_JSON)
+    @Produces({MediaType.APPLICATION_JSON, MediaType.PROBLEM_JSON})
     CompletableFuture<Void> reset(@Body ResetClusterRequest command);
+
+    @Post("migrate")
+    @Operation(
+            operationId = "migrate",
+            description = "Migrates nodes from old cluster to new (repaired) cluster."
+    )
+    @ApiResponse(responseCode = "200", description = "Migration initiated.")
+    // TODO: IGNITE-23274 - introduce a constant for common error descriptions.
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON, MediaType.PROBLEM_JSON})
+    CompletableFuture<Void> migrate(@Body MigrateRequest command);
 }
