@@ -44,8 +44,13 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -79,6 +84,8 @@ import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -167,11 +174,14 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -197,12 +207,14 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -551,7 +563,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22858")
     void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -620,6 +631,48 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 () -> IntStream.range(0, 3).allMatch(i -> assertTableListenersCount(getNode(i), zoneId, 1)),
                 30_000L
         ));
+    }
+
+    @Test
+    void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
+        String zoneName = "TEST_ZONE";
+        String tableName = "TEST_TABLE";
+
+        startNodes(testInfo, 3);
+
+        Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 3).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        DistributionZonesTestUtil.createZone(node.catalogManager, zoneName, 1, 3);
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 0), 10_000L));
+
+        createTable(node, zoneName, tableName);
+
+        assertTrue(waitForCondition(
+                () -> IntStream.range(0, 3).allMatch(i -> getNode(i).tableManager.table(tableName) != null),
+                30_000L
+        ));
+
+        assertTrue(waitForCondition(
+                () -> IntStream.range(0, 3).allMatch(i -> assertTableListenersCount(getNode(i), zoneId, 1)),
+                30_000L
+        ));
+
+        nodes.values().forEach(n -> checkNoDestroyPartitionStoragesInvokes(n, tableName, 0));
+
+        alterZone(node.catalogManager, zoneName, 1);
+
+        nodes.values().stream().filter(n -> !replicaAssignment.consistentId().equals(n.name)).forEach(n -> {
+            checkDestroyPartitionStoragesInvokes(n, tableName, 0);
+        });
+
     }
 
     @Test
@@ -922,6 +975,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private final IndexMetaStorage indexMetaStorage;
 
         private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+
+        private volatile MvTableStorage mvTableStorage;
+
+        private volatile TxStateTableStorage txStateTableStorage;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -1271,7 +1328,25 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     logSyncer,
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService
-            );
+            ) {
+
+                @Override
+                protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+                    mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
+
+                    return mvTableStorage;
+                }
+
+                @Override
+                protected TxStateTableStorage createTxStateTableStorage(
+                        CatalogTableDescriptor tableDescriptor,
+                        CatalogZoneDescriptor zoneDescriptor
+                ) {
+                    txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+
+                    return txStateTableStorage;
+                }
+            };
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
@@ -1413,5 +1488,31 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static InternalTable getInternalTable(Node node, String tableName) {
+        Table table = node.tableManager.table(tableName);
+
+        assertNotNull(table, tableName);
+
+        return ((TableViewInternal) table).internalTable();
+    }
+
+    private static void checkNoDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
+        InternalTable internalTable = getInternalTable(node, tableName);
+
+        verify(internalTable.storage(), never())
+                .destroyPartition(partitionId);
+        verify(internalTable.txStateStorage(), never())
+                .destroyTxStateStorage(partitionId);
+    }
+
+    private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
+        InternalTable internalTable = getInternalTable(node, tableName);
+
+        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .destroyPartition(partitionId);
+        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .destroyTxStateStorage(partitionId);
     }
 }
