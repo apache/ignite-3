@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cursor;
@@ -41,13 +43,16 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
         this.it = it;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         it.close();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @throws IgniteInternalException if an exception occurs during iteration.
+     */
     @Override
     public boolean hasNext() {
         boolean isValid = it.isValid();
@@ -58,14 +63,13 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
             try {
                 it.status();
             } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
+                throw new IgniteInternalException(INTERNAL_ERR, e);
             }
         }
 
         return isValid;
     }
 
-    /** {@inheritDoc} */
     @Override
     public T next() {
         if (!hasNext()) {
