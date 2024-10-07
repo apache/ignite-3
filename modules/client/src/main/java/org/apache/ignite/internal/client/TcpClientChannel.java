@@ -381,14 +381,23 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             if (PublicApiThreading.executingSyncPublicApi()) {
                 // We are in the public API (user) thread, deserialize the response here.
-                ClientMessageUnpacker unpacker = fut.join();
+                try {
+                    ClientMessageUnpacker unpacker = fut.join();
 
-                return completedFuture(complete(payloadReader, notificationFut, unpacker));
+                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
+                } catch (Throwable t) {
+                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
+                }
             }
 
             // Handle the response in the async continuation pool.
-            // TODO: Handle exceptions in the async continuation pool as well.
-            return fut.thenApplyAsync(unpacker -> complete(payloadReader, notificationFut, unpacker), asyncContinuationExecutor);
+            return fut.handleAsync((unpacker, err) -> {
+                if (err != null) {
+                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
+                }
+
+                return complete(payloadReader, notificationFut, unpacker);
+            }, asyncContinuationExecutor);
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
