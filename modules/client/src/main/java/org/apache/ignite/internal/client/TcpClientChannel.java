@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -275,12 +274,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        try {
-            var unpacker = new ClientMessageUnpacker(buf);
-
+        try (var unpacker = new ClientMessageUnpacker(buf)) {
             processNextMessage(unpacker);
         } catch (Throwable t) {
-            buf.release();
             close(t, false);
         }
     }
@@ -385,25 +381,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             if (PublicApiThreading.executingSyncPublicApi()) {
-                try {
-                    ClientMessageUnpacker unpacker = fut.get();
-
-                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
-                } catch (Exception e) {
-                    return failedFuture(e);
-                }
+                // No need for asyncContinuationExecutor on sync public API calls.
+                return fut.thenApply(unpacker -> complete(payloadReader, notificationFut, unpacker));
             }
 
-            return fut.handleAsync(
-                    (unpacker, err) -> {
-                        if (err != null) {
-                            throw sneakyThrow(err);
-                        }
-
-                        return complete(payloadReader, notificationFut, unpacker);
-                    },
-                    asyncContinuationExecutor
-            );
+            return fut
+                    .thenApply(ClientMessageUnpacker::retain)
+                    .thenApplyAsync(unpacker -> complete(payloadReader, notificationFut, unpacker), asyncContinuationExecutor);
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -470,8 +454,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         TimeoutObjectImpl pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
-            unpacker.close();
-
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
 
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId), endpoint());
@@ -486,8 +468,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
-
-            unpacker.close();
 
             pendingReq.future().completeExceptionally(err);
         }
@@ -518,7 +498,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
         }
 
-        try (unpacker) {
+        try {
             if (err != null) {
                 handler.completeExceptionally(err);
             } else {
@@ -627,7 +607,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .handleAsync((unpacker, err) -> {
+                .handle((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
@@ -644,7 +624,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         metrics.handshakesFailedIncrement();
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), th);
                     }
-                }, asyncContinuationExecutor);
+                });
     }
 
     /**
