@@ -75,7 +75,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -1406,7 +1405,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             try {
                 it.status();
             } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
+                throw new MetaStorageException(OP_EXECUTION_ERR, e);
             }
 
             // Notify about the events left after finishing the loop above.
@@ -1459,7 +1458,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return bytesToLong(tsValue);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.readLock().unlock();
         }
