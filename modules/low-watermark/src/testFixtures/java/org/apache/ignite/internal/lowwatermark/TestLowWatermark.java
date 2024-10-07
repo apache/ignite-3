@@ -19,7 +19,6 @@ package org.apache.ignite.internal.lowwatermark;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -153,8 +152,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     private CompletableFuture<Void> updateAndNotifyInternal(HybridTimestamp newLowWatermark) {
         var parameters = new ChangeLowWatermarkEventParameters(newLowWatermark);
 
-        return fireEvent(LOW_WATERMARK_BEFORE_CHANGE, parameters)
-                .thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark))
+        return waitForLocksAndSetLowWatermark(newLowWatermark)
                 .thenCompose(unused -> fireEvent(LOW_WATERMARK_CHANGED, parameters));
     }
 

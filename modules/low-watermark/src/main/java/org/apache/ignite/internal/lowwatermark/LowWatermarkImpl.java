@@ -20,7 +20,6 @@ package org.apache.ignite.internal.lowwatermark;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -335,29 +334,29 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
-        return inBusyLockAsync(busyLock, () ->
-                fireEvent(LOW_WATERMARK_BEFORE_CHANGE, new ChangeLowWatermarkEventParameters(newLowWatermark))
-                        .thenComposeAsync(unused -> {
-                            vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
+        return inBusyLockAsync(busyLock, () -> {
+                    vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
 
-                            return waitForLocksAndSetLowWatermark(newLowWatermark).thenCompose(unused2 ->
-                                            fireEvent(LOW_WATERMARK_CHANGED, new ChangeLowWatermarkEventParameters(newLowWatermark)));
-                        }, scheduledThreadPool)
-                        .whenCompleteAsync((unused, throwable) -> {
-                            if (throwable != null) {
-                                if (!(throwable instanceof NodeStoppingException)) {
-                                    LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
+                    return waitForLocksAndSetLowWatermark(newLowWatermark)
+                            .thenComposeAsync(unused2 -> fireEvent(
+                                    LOW_WATERMARK_CHANGED,
+                                    new ChangeLowWatermarkEventParameters(newLowWatermark)), scheduledThreadPool)
+                            .whenCompleteAsync((unused, throwable) -> {
+                                if (throwable != null) {
+                                    if (!(throwable instanceof NodeStoppingException)) {
+                                        LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
 
-                                    failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
+                                        failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
+
+                                        inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
+                                    }
+                                } else {
+                                    LOG.info("Successful low watermark update: {}", newLowWatermark);
 
                                     inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
                                 }
-                            } else {
-                                LOG.info("Successful low watermark update: {}", newLowWatermark);
-
-                                inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
-                            }
-                        }, scheduledThreadPool)
+                            }, scheduledThreadPool);
+                }
         );
     }
 
