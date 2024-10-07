@@ -53,15 +53,17 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     /**
      * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).
      *
+     * @param lockId Lock id.
      * @param ts Timestamp to lock.
-     * @return Lock id, or null if the lock was not acquired due to the low watermark being higher than the provided timestamp.
+     * @return True if the lock was acquired,
+     *     false if the lock was not acquired due to the low watermark being higher than the provided timestamp.
      */
-    @Nullable Long lock(HybridTimestamp ts);
+    boolean tryLock(Object lockId, HybridTimestamp ts);
 
     /**
-     * Releases the lock created by {@link #lock(HybridTimestamp)}.
+     * Releases the lock created by {@link #tryLock(Object, HybridTimestamp)}.
      *
      * @param lockId Lock id.
      */
-    void unlock(long lockId);
+    void unlock(Object lockId);
 }

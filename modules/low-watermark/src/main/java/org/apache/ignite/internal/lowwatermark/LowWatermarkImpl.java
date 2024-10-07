@@ -34,7 +34,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -123,9 +122,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             new LowWatermarkCandidate(MIN_VALUE, nullCompletedFuture())
     );
 
-    private final AtomicLong lockIdGenerator = new AtomicLong();
-
-    private final Map<Long, LowWatermarkLock> locks = new ConcurrentHashMap<>();
+    private final Map<Object, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -306,20 +303,19 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public @Nullable Long lock(HybridTimestamp ts) {
+    public boolean tryLock(Object lockId, HybridTimestamp ts) {
         return inBusyLock(busyLock, () -> {
             updateLowWatermarkLock.readLock().lock();
 
             try {
                 HybridTimestamp lwm = lowWatermark;
                 if (lwm != null && ts.compareTo(lwm) < 0) {
-                    return null;
+                    return false;
                 }
 
-                long lockId = lockIdGenerator.incrementAndGet();
                 locks.put(lockId, new LowWatermarkLock(ts));
 
-                return lockId;
+                return true;
             } finally {
                 updateLowWatermarkLock.readLock().unlock();
             }
@@ -327,7 +323,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void unlock(long lockId) {
+    public void unlock(Object lockId) {
         LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {

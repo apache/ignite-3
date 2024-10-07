@@ -413,8 +413,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
-        Long lwmLockId = lowWatermark.lock(readTimestamp);
-        if (lwmLockId == null) {
+        boolean lockAcquired = lowWatermark.tryLock(txId, readTimestamp);
+        if (!lockAcquired) {
             throw new IgniteInternalException(
                     TX_READ_ONLY_TOO_OLD_ERR,
                     "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
@@ -424,14 +424,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
-            txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(lwmLockId));
+            txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(txId));
 
             CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
             assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
             return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
         } catch (Throwable t) {
-            lowWatermark.unlock(lwmLockId);
+            lowWatermark.unlock(txId);
             throw t;
         }
     }
