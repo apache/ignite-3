@@ -132,6 +132,11 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     protected int partitionCount() {
-        return 8;
+        return partitionCount;
+    }
+
+    @Override
+    protected int replicaCount() {
+        return 1;
     }
 }

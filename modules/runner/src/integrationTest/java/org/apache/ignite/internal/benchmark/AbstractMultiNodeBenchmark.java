@@ -251,7 +251,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected int partitionCount() {
-        return CatalogUtils.DEFAULT_PARTITION_COUNT;
+        return CatalogUtils.DEFAULT_PARTITION_COUNT; // TODO use CPU count
     }
 
     protected int replicaCount() {

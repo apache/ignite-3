@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
@@ -27,11 +28,12 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -40,8 +42,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -54,7 +56,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -104,28 +105,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Enlisted transactions.
      */
-    private final ConcurrentHashMap<UUID, ConcurrentLinkedQueue<LockState>> txMap = new ConcurrentHashMap<>(1024);
+    private final ConcurrentHashMap<UUID, ConcurrentLinkedQueue<Releasable>> txMap = new ConcurrentHashMap<>(1024);
 
-    /**
-     * Parent lock manager.
-     * TODO asch Needs optimization https://issues.apache.org/jira/browse/IGNITE-20895
-     */
-    private final LockManager parentLockManager;
-
-    private final EventListener<LockEventParameters> parentLockConflictListener = this::parentLockConflictListener;
+    private final ConcurrentHashMap<Object, LockState2> coarseMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      */
     public HeapLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS, new HeapUnboundedLockManager());
+        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS);
     }
 
     /**
      * Constructor.
      */
     public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        this(deadlockPreventionPolicy, SLOTS, SLOTS, new HeapUnboundedLockManager());
+        this(deadlockPreventionPolicy, SLOTS, SLOTS);
     }
 
     /**
@@ -135,12 +130,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * @param maxSize Raw slots size.
      * @param mapSize Lock map size.
      */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy, int maxSize, int mapSize, LockManager parentLockManager) {
+    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy, int maxSize, int mapSize) {
         if (mapSize > maxSize) {
             throw new IllegalArgumentException("maxSize=" + maxSize + " < mapSize=" + mapSize);
         }
 
-        this.parentLockManager = Objects.requireNonNull(parentLockManager);
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
                 ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
@@ -158,14 +152,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         slots = tmp; // Atomic init.
-
-        parentLockManager.listen(LockEvent.LOCK_CONFLICT, parentLockConflictListener);
     }
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
-            return parentLockManager.acquire(txId, lockKey, lockMode);
+            LockState2 s = new LockState2(lockKey);
+            LockState2 cur = coarseMap.putIfAbsent(lockKey, s);
+
+            return (cur == null ? s : cur).acquire(txId, lockKey, lockMode);
         }
 
         while (true) {
@@ -186,6 +181,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     @Override
     @TestOnly
     public void release(Lock lock) {
+        if (lock.lockKey().contextId() == null) {
+            LockState2 lockState2 = coarseMap.get(lock.lockKey());
+            if (lockState2 != null) {
+                lockState2.release(lock);
+            }
+            return;
+        }
+
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
@@ -195,10 +198,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
-        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895 
-        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
-            parentLockManager.release(txId, lockKey, lockMode);
-
+        if (lockKey.contextId() == null) {
+            LockState2 lockState2 = coarseMap.get(lockKey);
+            if (lockState2 != null) {
+                lockState2.release(new Lock(lockKey, lockMode, txId));
+            }
             return;
         }
 
@@ -211,42 +215,34 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void releaseAll(UUID txId) {
-        ConcurrentLinkedQueue<LockState> states = this.txMap.remove(txId);
+        ConcurrentLinkedQueue<Releasable> states = this.txMap.remove(txId);
 
         if (states != null) {
-            for (LockState state : states) {
+            for (Releasable state : states) {
                 if (state.tryRelease(txId)) {
-                    LockKey key = state.key; // State may be already invalidated.
+                    LockKey key = state.key(); // State may be already invalidated.
                     if (key != null) {
-                        locks.compute(key, (k, v) -> adjustLockState(state, v));
+                        locks.compute(key, (k, v) -> adjustLockState((LockState) state, v));
                     }
                 }
             }
         }
-
-        parentLockManager.releaseAll(txId);
     }
 
     @Override
     public Iterator<Lock> locks(UUID txId) {
-        ConcurrentLinkedQueue<LockState> lockStates = txMap.get(txId);
-
-        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895
-        if (lockStates == null) {
-            return parentLockManager.locks(txId);
-        }
+        ConcurrentLinkedQueue<Releasable> lockStates = txMap.get(txId);
 
         List<Lock> result = new ArrayList<>();
 
-        for (LockState lockState : lockStates) {
-            Waiter waiter = lockState.waiter(txId);
-
-            if (waiter != null) {
-                result.add(new Lock(lockState.key, waiter.lockMode(), txId));
+        for (Releasable lockState : lockStates) {
+            Lock lock = lockState.lock(txId);
+            if (lock != null) {
+                result.add(lock);
             }
         }
 
-        return CollectionUtils.concat(result.iterator(), parentLockManager.locks(txId));
+        return result.iterator();
     }
 
     /**
@@ -302,11 +298,17 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
-        return parentLockManager.isEmpty();
-    }
+        for (LockState2 value : coarseMap.values()) {
+            if (!value.sLocksOwners.isEmpty()) {
+                return false;
+            }
 
-    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
-        return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
+            if (!value.ixLocksOwners.isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Nullable
@@ -328,10 +330,202 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
     }
 
+    public interface Releasable {
+        boolean tryRelease(UUID txId);
+
+        LockKey key();
+
+        Lock lock(UUID txId);
+    }
+
+    public class LockState2 implements Releasable {
+        private final ReentrantReadWriteLock[] locks = new ReentrantReadWriteLock[Runtime.getRuntime().availableProcessors() / 2];
+
+        {
+            for (int i = 0; i < locks.length; i++) {
+                locks[i] = new ReentrantReadWriteLock();
+            }
+        }
+
+        private final Map<UUID, Lock> ixLocksOwners = new ConcurrentHashMap<>();
+        private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> sLocksWaiters = new HashMap<>();
+        private final Map<UUID, Lock> sLocksOwners = new ConcurrentHashMap<>();
+
+        private final LockKey lockKey;
+
+        public LockState2(LockKey lockKey) {
+            this.lockKey = lockKey;
+        }
+
+        @Override
+        public boolean tryRelease(UUID txId) {
+            release(lock(txId));
+
+            return false;
+        }
+
+        @Override
+        public LockKey key() {
+            return lockKey;
+        }
+
+        // Remove duplicate.
+        private void track(UUID txId) {
+            // TODO avoid compute call be pre-read ?
+            txMap.compute(txId, (k, v) -> {
+                if (v == null) {
+                    v = new ConcurrentLinkedQueue<>();
+                }
+
+                v.add(this);
+
+                return v;
+            });
+        }
+
+        @Override
+        public Lock lock(UUID txId) {
+            Lock lock = ixLocksOwners.get(txId);
+
+            if (lock != null) {
+                return lock;
+            }
+
+            int idx = Math.abs(txId.hashCode()) % locks.length;
+
+            locks[idx].readLock().lock();
+
+            try {
+                return sLocksOwners.get(txId);
+            } finally {
+                locks[idx].readLock().unlock();
+            }
+        }
+
+        public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+            switch (lockMode) {
+                case S:
+                    for (ReentrantReadWriteLock lock : locks) {
+                        lock.writeLock().lock();
+                    }
+
+                    try {
+                        track(txId);
+                        if (!ixLocksOwners.isEmpty()) {
+                            CompletableFuture<Lock> fut = new CompletableFuture<>();
+                            sLocksWaiters.put(txId, new IgniteBiTuple<>(new Lock(lockKey, lockMode, txId), fut));
+                            return fut;
+                        } else {
+                            Lock lock = new Lock(lockKey, lockMode, txId);
+                            sLocksOwners.put(txId, lock);
+                            return completedFuture(lock);
+                        }
+                    } finally {
+                        for (ReentrantReadWriteLock lock : locks) {
+                            lock.writeLock().unlock();
+                        }
+                    }
+
+                case IX:
+                    int idx = Math.abs(txId.hashCode()) % locks.length;
+
+                    boolean locked = locks[idx].readLock().tryLock();
+
+                    if (!locked) {
+                        return CompletableFuture.failedFuture(new LockException(ACQUIRE_LOCK_ERR,
+                                "Failed to acquire a lock due to a conflict [locker=" + txId + ", mode=" + lockMode + ']'));
+                    }
+
+                    try {
+                        if (!sLocksOwners.isEmpty()) {
+                            return CompletableFuture.failedFuture(new LockException(ACQUIRE_LOCK_ERR,
+                                    "Failed to acquire a lock due to a conflict [locker=" + txId + ", mode=" + lockMode + ']'));
+                        } else {
+                            track(txId);
+                            Lock lock = new Lock(lockKey, lockMode, txId);
+                            ixLocksOwners.put(txId, lock); // TODO can avoid this by using counters ?
+                            return completedFuture(lock);
+                        }
+                    } finally {
+                        locks[idx].readLock().unlock();
+                    }
+
+                default:
+                    assert false : "Unsupported coarse lock mode: " + lockMode;
+            }
+
+            return null; // Should not be here.
+        }
+
+        public void release(Lock lock) {
+            if (lock == null) {
+                return;
+            }
+
+            switch (lock.lockMode()) {
+                case S:
+                    for (ReentrantReadWriteLock l : locks) {
+                        l.writeLock().lock();
+                    }
+
+                    try {
+                        Lock removed = sLocksOwners.remove(lock.txId());
+
+                        assert removed != null: "Attempt to release not acquired lock: " + lock.txId();
+                    } finally {
+                        for (ReentrantReadWriteLock l : locks) {
+                            l.writeLock().unlock();
+                        }
+                    }
+
+                    break;
+                case IX:
+                    int idx = Math.abs(lock.txId().hashCode()) % locks.length;
+
+                    Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> wakeups;
+
+                    locks[idx].readLock().lock();
+
+                    try {
+                        var removed = ixLocksOwners.remove(lock.txId());
+
+                        assert removed != null: "Attempt to release not acquired lock: " + lock.txId();
+
+                        if (!ixLocksOwners.isEmpty() || sLocksWaiters.isEmpty()) {
+                            assert sLocksOwners.isEmpty();
+
+                            return; // Nothing to do.
+                        }
+
+                        // No race here because locks can't be re-acquired after releaseAll due to 2-phase locking.
+
+                        // Promote waiters to owners.
+                        wakeups = new HashMap<>(sLocksWaiters);
+
+                        sLocksWaiters.clear();
+
+                        for (IgniteBiTuple<Lock, CompletableFuture<Lock>> value : wakeups.values()) {
+                            sLocksOwners.put(value.getKey().txId(), value.getKey());
+                        }
+                    } finally {
+                        locks[idx].readLock().unlock();
+                    }
+
+                    for (Entry<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> entry : wakeups.entrySet()) {
+                        entry.getValue().get2().complete(entry.getValue().get1());
+                    }
+
+                    break;
+                default:
+                    assert false : "Unsupported coarse unlock mode: " + lock.lockMode();
+            }
+        }
+    }
+
     /**
      * A lock state.
      */
-    public class LockState {
+    public class LockState implements Releasable {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
@@ -346,6 +540,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
 
             this.waiters = new TreeMap<>(txComparator);
+        }
+
+        @Override
+        public LockKey key() {
+            return key;
+        }
+
+        @Override
+        public Lock lock(UUID txId) {
+            Waiter waiter = waiters.get(txId);
+
+            if (waiter != null) {
+                return new Lock(key, waiter.lockMode(), txId);
+            }
+
+            return null;
         }
 
         /**
@@ -510,7 +720,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @param txId Transaction id.
          * @return {@code True} if the queue is empty.
          */
-        boolean tryRelease(UUID txId) {
+        @Override
+        public boolean tryRelease(UUID txId) {
             Collection<WaiterImpl> toNotify;
 
             synchronized (waiters) {
