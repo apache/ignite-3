@@ -269,7 +269,7 @@ public class Cluster {
                 BASE_PORT + nodeIndex,
                 seedAddressesString(),
                 BASE_CLIENT_PORT + nodeIndex,
-                BASE_HTTP_PORT + nodeIndex,
+                httpPort(nodeIndex),
                 BASE_HTTPS_PORT + nodeIndex
         );
 
@@ -300,6 +300,13 @@ public class Cluster {
         return testNodeName(testInfo, nodeIndex);
     }
 
+    /**
+     * Returns HTTP port by index.
+     */
+    public int httpPort(int nodeIndex) {
+        return BASE_HTTP_PORT + nodeIndex;
+    }
+
     private static <T> void setListAtIndex(List<T> list, int i, T element) {
         while (list.size() < i) {
             list.add(null);
@@ -322,6 +329,13 @@ public class Cluster {
                 .map(index -> BASE_PORT + index)
                 .mapToObj(port -> "\"localhost:" + port + '\"')
                 .collect(joining(", "));
+    }
+
+    /**
+     * Returns all Ignite servers.
+     */
+    public List<IgniteServer> servers() {
+        return igniteServers;
     }
 
     /**

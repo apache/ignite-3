@@ -148,12 +148,7 @@ enum class code : underlying_t {
     REPLICATION_SAFE_TIME_REORDERING = 0x80009,
 
     // Storage group. Group code: 9
-    GENERIC = 0x90001,
-    DIRECTORY_CREATION = 0x90002,
-    ALREADY_CLOSED = 0x90003,
-    STORAGE_REBALANCE = 0x90004,
-    ALREADY_DESTROYED = 0x90005,
-    INDEX_NOT_BUILT = 0x90006,
+    INDEX_NOT_BUILT = 0x90001,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,

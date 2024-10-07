@@ -15,29 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.lang.ErrorGroups.Common;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/**
- * Exception that is be thrown when trying to access a closed storage.
- */
-public class StorageClosedException extends StorageException {
-    private static final long serialVersionUID = -7988332521347221109L;
+/** {@link Value} container for creating and restoring from a snapshot. */
+class ValueSnapshot implements Serializable {
+    private static final long serialVersionUID = -435898107081479568L;
 
-    /**
-     * Default constructor.
-     */
-    public StorageClosedException() {
-        this("Storage is already closed");
+    private final byte[] bytes;
+
+    private final boolean tombstone;
+
+    private final HybridTimestamp operationTimestamp;
+
+    ValueSnapshot(Value value) {
+        bytes = value.bytes();
+        tombstone = value.tombstone();
+        operationTimestamp = value.operationTimestamp();
     }
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(Common.INTERNAL_ERR, message);
+    Value toValue() {
+        return tombstone ? new Value(Value.TOMBSTONE, operationTimestamp) : new Value(bytes, operationTimestamp);
     }
 }
