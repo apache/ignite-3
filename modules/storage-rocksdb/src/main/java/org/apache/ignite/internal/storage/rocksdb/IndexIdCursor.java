@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -100,7 +99,7 @@ public class IndexIdCursor implements Cursor<TableAndIndexId> {
 
         if (!hasNext) {
             try {
-                RocksUtils.checkIterator(it);
+                it.status();
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException(e);
             }

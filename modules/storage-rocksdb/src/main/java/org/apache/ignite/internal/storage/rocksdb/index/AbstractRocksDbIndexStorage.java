@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -368,7 +367,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
             if (!it.isValid()) {
                 try {
-                    RocksUtils.checkIterator(it);
+                    it.status();
                 } catch (RocksDBException e) {
                     throw new IgniteRocksDbException(e);
                 }
@@ -408,7 +407,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
                     it.next();
                 } else {
                     try {
-                        RocksUtils.checkIterator(it);
+                        it.status();
                     } catch (RocksDBException e) {
                         throw new IgniteRocksDbException(e);
                     }

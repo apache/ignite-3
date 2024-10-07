@@ -1056,7 +1056,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 it.seek(keyBuf);
 
                 if (!it.isValid()) {
-                    RocksUtils.checkIterator(it);
+                    it.status();
 
                     return null;
                 }

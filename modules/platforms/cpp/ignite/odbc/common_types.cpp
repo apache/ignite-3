@@ -226,6 +226,7 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // Storage group. Group code: 9
         case error::code::INDEX_NOT_BUILT:
+        case error::code::STORAGE_CORRUPTED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10

@@ -40,19 +40,7 @@ public class RocksUtils {
             consumer.accept(iterator.key(), iterator.value());
         }
 
-        checkIterator(iterator);
-    }
-
-    /**
-     * Checks the status of the iterator and throws an exception if it is not correct.
-     *
-     * <p>This operation is guaranteed to throw if an internal error has occurred during the iteration.
-     *
-     * @param it RocksDB iterator.
-     * @throws RocksDBException if the iterator has an incorrect status.
-     */
-    public static void checkIterator(RocksIterator it) throws RocksDBException {
-        it.status();
+        iterator.status();
     }
 
     /**

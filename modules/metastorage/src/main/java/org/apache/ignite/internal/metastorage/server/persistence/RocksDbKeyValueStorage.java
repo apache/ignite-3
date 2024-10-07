@@ -40,7 +40,6 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -76,6 +75,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -1404,9 +1404,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             try {
-                checkIterator(it);
+                it.status();
             } catch (RocksDBException e) {
-                throw new MetaStorageException(OP_EXECUTION_ERR, e);
+                throw new IgniteInternalException(e);
             }
 
             // Notify about the events left after finishing the loop above.
@@ -1449,7 +1449,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(hybridTsToArray(timestamp));
 
-            checkIterator(rocksIterator);
+            rocksIterator.status();
 
             byte[] tsValue = rocksIterator.value();
 
@@ -1459,7 +1459,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return bytesToLong(tsValue);
         } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            throw new IgniteInternalException(e);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1678,7 +1678,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            checkIterator(iterator);
+            iterator.status();
         }
     }
 

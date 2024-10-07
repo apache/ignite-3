@@ -56,7 +56,7 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
             // check the status first. This operation is guaranteed to throw if an internal error has occurred during
             // the iteration. Otherwise, we've exhausted the data range.
             try {
-                RocksUtils.checkIterator(it);
+                it.status();
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(e);
             }
