@@ -134,11 +134,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** The local state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
-    /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
-    private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
-            Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
-    );
-
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
@@ -415,10 +410,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
             txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(txId));
 
-            CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
-            assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
-
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture);
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
@@ -848,20 +840,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+    void completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
         finishedTxs.add(1);
-
-        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
-
-        assert readOnlyTxFuture != null : txIdAndTimestamp;
-
-        readOnlyTxFuture.complete(null);
 
         UUID txId = txIdAndTimestamp.getTxId();
 
         transactionInflights.markReadOnlyTxFinished(txId);
-
-        return readOnlyTxFuture;
     }
 
     @Override
