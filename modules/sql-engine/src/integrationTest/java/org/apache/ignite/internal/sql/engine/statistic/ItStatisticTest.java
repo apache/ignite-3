@@ -19,6 +19,9 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsRowCount;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.AfterAll;
@@ -41,7 +44,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testStatisticsRowCount() throws InterruptedException {
+    public void testStatisticsRowCount() throws Exception {
         // For test we should always update statistics.
         long prevValueOfThreshold = sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(0);
         try {
@@ -71,13 +74,16 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
     private static AtomicInteger counter = new AtomicInteger(0);
 
-    private static void insertAndUpdateRunQuery(int numberOfRecords) {
+    private void insertAndUpdateRunQuery(int numberOfRecords) throws ExecutionException, TimeoutException, InterruptedException {
         int start = counter.get();
         int end = counter.addAndGet(numberOfRecords) - 1;
         sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", start, end);
 
         // run unique sql to update statistics
         sql(getUniqueQuery());
+
+        // wait to update statistics
+        sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
     }
 
     private static String getUniqueQuery() {

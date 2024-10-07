@@ -20,11 +20,14 @@ package org.apache.ignite.internal.sql.engine.statistic;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -49,6 +52,9 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
+    private final EventListener<CreateTableEventParameters> createTableEventListener = fromConsumer(this::onTableCreate);
+
+    private volatile Future<Void> statisticUpdateFut = CompletableFuture.completedFuture(null);
 
     /** A queue for deferred table destruction events. */
     private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue = new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
@@ -93,22 +99,25 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             return;
         }
 
-        tableSizeMap.putIfAbsent(tableId, DEFAULT_VALUE);
-        ActualSize tblSize = tableSizeMap.get(tableId);
-        long currTs = FastTimestamps.coarseCurrentTimeMillis();
-        long lastUpdateTime = tblSize.getTimestamp();
+        ActualSize tableSize = tableSizeMap.get(tableId);
+        if (tableSize == null) {
+            // has been concurrently cleaned up, no need more update statistic for the table.
+            return;
+        }
+        long currTimestamp = FastTimestamps.coarseCurrentTimeMillis();
+        long lastUpdateTime = tableSize.getTimestamp();
 
-        if (lastUpdateTime <= currTs - thresholdTimeToPostponeUpdateMs) {
+        if (lastUpdateTime <= currTimestamp - thresholdTimeToPostponeUpdateMs) {
             // Prevent to run update for the same table twice concurrently.
-            if (!tableSizeMap.replace(tableId, tblSize, new ActualSize(tblSize.getSize(), currTs))) {
+            if (!tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp))) {
                 return;
             }
 
             // just request new table size in background.
-            tableView.internalTable().estimatedSize()
+            statisticUpdateFut = tableView.internalTable().estimatedSize()
                     .thenAccept(size -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
-                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new ActualSize(size, currTs));
+                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new ActualSize(size, currTimestamp));
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
                         return null;
@@ -118,6 +127,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
     @Override
     public void start() {
+        catalogService.listen(CatalogEvent.TABLE_CREATE, createTableEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
     }
@@ -126,6 +136,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     public void stop() {
         lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        catalogService.removeListener(CatalogEvent.TABLE_CREATE, createTableEventListener);
     }
 
     private void onTableDrop(DropTableEventParameters parameters) {
@@ -133,6 +144,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         int catalogVersion = parameters.catalogVersion();
 
         destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId));
+    }
+
+    private void onTableCreate(CreateTableEventParameters parameters) {
+        tableSizeMap.put(parameters.tableId(), DEFAULT_VALUE);
     }
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
@@ -190,5 +205,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         long prevValue = thresholdTimeToPostponeUpdateMs;
         thresholdTimeToPostponeUpdateMs = milliseconds;
         return prevValue;
+    }
+
+    /**
+     * Returns feature for the last run update statistics to have ability wait update statistics.
+     */
+    @TestOnly
+    public Future<Void> lastUpdateStatisticFuture(){
+        return statisticUpdateFut;
     }
 }
