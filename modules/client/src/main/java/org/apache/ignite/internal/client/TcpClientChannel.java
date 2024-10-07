@@ -345,6 +345,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         var fut = new CompletableFuture<ClientMessageUnpacker>();
+        fut.thenApply(ClientMessageUnpacker::retain);
 
         pendingReqs.put(id, new TimeoutObjectImpl(timeout, fut));
 
@@ -381,14 +382,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             if (PublicApiThreading.executingSyncPublicApi()) {
                 // We are in the public API (user) thread, deserialize the response here.
-                ClientMessageUnpacker unpacker = fut.thenApply(ClientMessageUnpacker::retain).join();
+                ClientMessageUnpacker unpacker = fut.join();
 
                 return completedFuture(complete(payloadReader, notificationFut, unpacker));
             }
 
-            return fut
-                    .thenApply(ClientMessageUnpacker::retain)
-                    .thenApplyAsync(unpacker -> complete(payloadReader, notificationFut, unpacker), asyncContinuationExecutor);
+            // Handle the response in the async continuation pool.
+            // TODO: Handle exceptions in the async continuation pool as well.
+            return fut.thenApplyAsync(unpacker -> complete(payloadReader, notificationFut, unpacker), asyncContinuationExecutor);
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
