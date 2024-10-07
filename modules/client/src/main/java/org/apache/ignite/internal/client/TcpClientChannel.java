@@ -425,22 +425,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param notificationFut Notify future.
      * @param unpacker Unpacked message.
      */
-    private <T> T complete(
-            PayloadReader<T> payloadReader,
-            CompletableFuture<PayloadInputChannel> notificationFut,
+    private <T> @Nullable T complete(
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker
     ) {
         try (unpacker) {
             if (payloadReader != null) {
                 return payloadReader.apply(new PayloadInputChannel(this, unpacker, notificationFut));
             }
+
+            return null;
         } catch (Throwable e) {
             log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
             throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
         }
-
-        return null;
     }
 
     /**
