@@ -607,7 +607,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .handle((unpacker, err) -> {
+                .thenApplyAsync(ClientMessageUnpacker::retain)
+                .handleAsync((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
@@ -624,7 +625,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         metrics.handshakesFailedIncrement();
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), th);
                     }
-                });
+                }, asyncContinuationExecutor);
     }
 
     /**
