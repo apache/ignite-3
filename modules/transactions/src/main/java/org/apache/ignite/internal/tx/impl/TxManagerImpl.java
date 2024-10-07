@@ -392,8 +392,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
                 : currentReadTimestamp(beginTimestamp);
 
-        TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
-
         boolean lockAcquired = lowWatermark.tryLock(txId, readTimestamp);
         if (!lockAcquired) {
             throw new IgniteInternalException(
