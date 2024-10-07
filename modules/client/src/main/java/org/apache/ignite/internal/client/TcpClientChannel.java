@@ -280,6 +280,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             processNextMessage(unpacker);
         } catch (Throwable t) {
+            buf.release();
             close(t, false);
         }
     }
