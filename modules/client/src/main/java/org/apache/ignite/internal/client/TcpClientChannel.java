@@ -607,7 +607,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .thenApplyAsync(ClientMessageUnpacker::retain)
+                .thenApply(ClientMessageUnpacker::retain)
                 .handleAsync((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
