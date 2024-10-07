@@ -345,7 +345,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         var fut = new CompletableFuture<ClientMessageUnpacker>();
-        fut.thenApply(ClientMessageUnpacker::retain);
 
         pendingReqs.put(id, new TimeoutObjectImpl(timeout, fut));
 
@@ -435,7 +434,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            pendingReqs.remove(-1L).future().complete(unpacker);
+            pendingReqs.remove(-1L).future().complete(unpacker.retain());
             return;
         }
 
@@ -466,7 +465,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            pendingReq.future().complete(unpacker);
+            pendingReq.future().complete(unpacker.retain());
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
@@ -609,7 +608,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .thenApply(ClientMessageUnpacker::retain)
                 .handleAsync((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
