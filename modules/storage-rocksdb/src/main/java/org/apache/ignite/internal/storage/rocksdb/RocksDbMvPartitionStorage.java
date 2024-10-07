@@ -991,7 +991,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         try {
                             return super.hasNext();
                         } catch (IgniteInternalException e) {
-                            throw new IgniteRocksDbException("Failed to read entry", e);
+                            if (e.getCause() instanceof RocksDBException) {
+                                throw new IgniteRocksDbException("Failed to read entry", (RocksDBException) e.getCause());
+                            } else {
+                                throw e;
+                            }
                         }
                     });
                 }
@@ -1131,7 +1135,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 this.leaseStartTime = leaseStartTime;
                 this.primaryReplicaNodeId = primaryReplicaNodeId;
                 this.primaryReplicaNodeName = primaryReplicaNodeName;
-            } catch (RocksDBException | IOException e) {
+            } catch (IOException e) {
+                throw new StorageException(e);
+            } catch (RocksDBException e) {
                 throw new IgniteRocksDbException(e);
             }
 

@@ -18,19 +18,32 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Storage.STORAGE_CORRUPTED_ERR;
 
 import org.apache.ignite.internal.storage.StorageException;
-import org.jetbrains.annotations.Nullable;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.Status;
+import org.rocksdb.Status.Code;
 
 /**
  * Exception that gets thrown if an error occurs in the underlying RocksDB storage.
  */
 public class IgniteRocksDbException extends StorageException {
-    public IgniteRocksDbException(@Nullable Throwable cause) {
-        super(INTERNAL_ERR, cause);
+    public IgniteRocksDbException(RocksDBException cause) {
+        super(parseErrorCode(cause), cause);
     }
 
-    public IgniteRocksDbException(String message, @Nullable Throwable cause) {
-        super(INTERNAL_ERR, message, cause);
+    public IgniteRocksDbException(String message, RocksDBException cause) {
+        super(parseErrorCode(cause), message, cause);
+    }
+
+    private static int parseErrorCode(RocksDBException ex) {
+        Status status = ex.getStatus();
+
+        if (status != null && status.getCode() == Code.Corruption) {
+            return STORAGE_CORRUPTED_ERR;
+        } else {
+            return INTERNAL_ERR;
+        }
     }
 }
