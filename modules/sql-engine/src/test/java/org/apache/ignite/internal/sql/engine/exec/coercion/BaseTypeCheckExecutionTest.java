@@ -26,7 +26,9 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
+import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -155,8 +157,8 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         }
 
         void process(String sql, Matcher<Object> resultMatcher) {
-            var gatewayNode = cluster.node("N1");
-            var plan = gatewayNode.prepare(sql);
+            TestNode gatewayNode = cluster.node("N1");
+            QueryPlan plan = gatewayNode.prepare(sql);
             ResultSetMetadata resultMeta = plan.metadata();
             ColumnMetadata colMeta = resultMeta.columns().get(0);
 

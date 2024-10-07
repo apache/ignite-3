@@ -27,7 +27,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /** Check execution and return results for numeric arithmetics. */
-public class NumericBinaryOperationsTypeCoercionExecutionTest extends BaseTypeCheckExecutionTest {
+public class NumericBinaryOperationsExecutionTest extends BaseTypeCheckExecutionTest {
     private static final Set<NativeType> APPROXIMATE_NUMERIC_TYPES = Set.of(NativeTypes.DOUBLE, NativeTypes.FLOAT);
 
     @ParameterizedTest
