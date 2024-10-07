@@ -1323,7 +1323,7 @@ public class PartitionReplicaLifecycleManager  extends
             try {
                 IgniteUtils.closeAllManually(stopping.build());
             } catch (Throwable t) {
-                LOG.error("Unable to stop partition", t);
+                LOG.error("Unable to stop partition.", t);
             }
         }, ioExecutor);
 

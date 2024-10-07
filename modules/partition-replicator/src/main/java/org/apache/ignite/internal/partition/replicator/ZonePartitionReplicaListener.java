@@ -139,7 +139,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                         listener.onShutdown();
                     } catch (Throwable th) {
                         LOG.error("Error during table partition listener stop for [tableId="
-                                        + id.tableId() + ", partitionId=" + id.partitionId() + "]",
+                                        + id.tableId() + ", partitionId=" + id.partitionId() + "].",
                                 th
                         );
                     }
