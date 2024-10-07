@@ -55,7 +55,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -69,8 +68,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -142,12 +139,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
     );
 
-    /**
-     * Low watermark value, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never
-     * been updated yet.
-     */
-    private final AtomicReference<HybridTimestamp> lowWatermarkValueReference = new AtomicReference<>();
-
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
@@ -199,8 +190,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaExpiredListener;
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
-
-    private final EventListener<ChangeLowWatermarkEventParameters> lowWatermarkBeforeChangeListener = this::onLwmBeforeChange;
 
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
@@ -780,10 +769,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkBeforeChangeListener);
-
-            lowWatermarkValueReference.set(lowWatermark.getLowWatermark());
-
             return nullCompletedFuture();
         });
     }
@@ -808,8 +793,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
-
-        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkBeforeChangeListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
 
@@ -879,16 +862,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         transactionInflights.markReadOnlyTxFinished(txId);
 
         return readOnlyTxFuture;
-    }
-
-    private CompletableFuture<Boolean> onLwmBeforeChange(ChangeLowWatermarkEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp newLowWatermark = parameters.newLowWatermark();
-
-            increaseLowWatermarkValueReferenceBusy(newLowWatermark);
-
-            return falseCompletedFuture();
-        });
     }
 
     @Override
@@ -1006,19 +979,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             localRwTxCounter.decrementRwTxCount(beginTimestamp(txId));
 
             return null;
-        });
-    }
-
-    private void increaseLowWatermarkValueReferenceBusy(HybridTimestamp newLowWatermark) {
-        lowWatermarkValueReference.updateAndGet(previousLowWatermark -> {
-            if (previousLowWatermark == null) {
-                return newLowWatermark;
-            }
-
-            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
-
-            return newLowWatermark;
         });
     }
 }
