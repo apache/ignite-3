@@ -125,10 +125,18 @@ class RocksStorageUtils {
      * Gets a revision from a key with a revision.
      *
      * @param rocksKey Key with a revision.
-     * @return Revision.
      */
     static long revisionFromRocksKey(byte[] rocksKey) {
         return (long) LONG_ARRAY_HANDLE.get(rocksKey, 0);
+    }
+
+    /**
+     * Gets a operation timestamp from a value bytes.
+     *
+     * @param rocksValue Value bytes with a operation timestamp.
+     */
+    static long timestampFromRocksValue(byte[] rocksValue) {
+        return (long) LONG_ARRAY_HANDLE.get(rocksValue, 0);
     }
 
     /** Converts from a byte array to a {@link Value}. */

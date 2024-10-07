@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
@@ -87,7 +88,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     }
 
     @Override
-    public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision) {
+    public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp) {
         if (!nodeNames.isEmpty() && !nodeNames.contains(disasterRecoveryManager.localNode().name())) {
             return nullCompletedFuture();
         }
