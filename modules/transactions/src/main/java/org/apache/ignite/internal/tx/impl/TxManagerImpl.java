@@ -39,14 +39,11 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_O
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
