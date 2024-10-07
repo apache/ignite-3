@@ -35,9 +35,9 @@ import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -46,8 +46,6 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
-    private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
-
     /**
      * Default constructor.
      */
@@ -356,14 +354,6 @@ public class IgniteSqlFunctions {
         }
     }
 
-    /**
-     * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
-     * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
-     */
-    public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, s, roundingMode);
-    }
-
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 
@@ -378,7 +368,7 @@ public class IgniteSqlFunctions {
             }
         }
 
-        return dec.setScale(scale, roundingMode);
+        return dec.setScale(scale, IgniteMath.ROUNDING_MODE);
     }
 
     private static BigDecimal processFractionData(Number value, int precision, int scale) {
@@ -397,7 +387,7 @@ public class IgniteSqlFunctions {
             throw numericOverflowError(precision, scale);
         }
 
-        return num.setScale(scale, roundingMode);
+        return num.setScale(scale,IgniteMath.ROUNDING_MODE);
     }
 
     private static BigDecimal convertToBigDecimal(Number value) {
