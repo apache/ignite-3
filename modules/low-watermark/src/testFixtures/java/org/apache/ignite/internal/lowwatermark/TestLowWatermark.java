@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
@@ -53,9 +52,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
-    private final AtomicLong lockIdGenerator = new AtomicLong();
-
-    private final Map<Long, LowWatermarkLock> locks = new ConcurrentHashMap<>();
+    private final Map<Object, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
@@ -89,26 +86,25 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public @Nullable Long lock(HybridTimestamp lockTs) {
+    public boolean tryLock(Object lockId, HybridTimestamp lockTs) {
         updateLowWatermarkLock.readLock().lock();
 
         try {
             HybridTimestamp lwm = ts;
             if (lwm != null && lockTs.compareTo(lwm) < 0) {
-                return null;
+                return false;
             }
 
-            long lockId = lockIdGenerator.incrementAndGet();
             locks.put(lockId, new LowWatermarkLock(lockTs));
 
-            return lockId;
+            return true;
         } finally {
             updateLowWatermarkLock.readLock().unlock();
         }
     }
 
     @Override
-    public void unlock(long lockId) {
+    public void unlock(Object lockId) {
         LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {
