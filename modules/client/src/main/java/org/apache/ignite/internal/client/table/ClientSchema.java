@@ -215,8 +215,7 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    @Nullable
-    public ClientColumn columnSafe(String name) {
+    public @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
