@@ -104,6 +104,7 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -117,6 +118,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 @Timeout(90)
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-23379")
 class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
