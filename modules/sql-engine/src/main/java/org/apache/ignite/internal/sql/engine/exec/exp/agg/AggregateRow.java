@@ -32,10 +32,13 @@ public final class AggregateRow<RowT> {
 
     private final AggregateType type;
 
+    private final AccumulatorsState state;
+
     /** Constructor. */
-    public AggregateRow(List<AccumulatorWrapper<RowT>> accs, AggregateType type) {
+    public AggregateRow(List<AccumulatorWrapper<RowT>> accs, AggregateType type, AccumulatorsState state) {
         this.type = type;
         this.accs = accs;
+        this.state = state;
     }
 
     /** Initialized an empty group if necessary. */
@@ -57,8 +60,13 @@ public final class AggregateRow<RowT> {
 
     /** Updates this row by using data of the given row. */
     public void update(ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
-        for (AccumulatorWrapper<RowT> acc : accs) {
-            acc.add(row);
+        for (int i = 0; i < accs.size(); i++) {
+            AccumulatorWrapper<RowT> acc = accs.get(i);
+
+            state.setIndex(i);
+            acc.add(state, row);
+
+            state.resetIndex();
         }
     }
 
@@ -73,9 +81,20 @@ public final class AggregateRow<RowT> {
     /** Writes aggregate state of the given row to given array. */
     public void writeTo(Object[] output, ImmutableBitSet allFields, byte groupId) {
         int cardinality = allFields.cardinality();
+
+        AccumulatorsState result = new AccumulatorsState(accs.size());
+
         for (int i = 0; i < accs.size(); i++) {
-            AccumulatorWrapper<RowT> wrapper = accs.get(i);
-            output[i + cardinality] = wrapper.end();
+            AccumulatorWrapper<RowT> acc = accs.get(i);
+
+            state.setIndex(i);
+            result.setIndex(i);
+
+            acc.end(state, result);
+            output[i + cardinality] = result.get();
+
+            state.resetIndex();
+            result.resetIndex();
         }
 
         if (groupId != NO_GROUP_ID && type == AggregateType.MAP) {

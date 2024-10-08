@@ -294,7 +294,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         /** {@inheritDoc} */
         @Override
-        public void add(RowT row) {
+        public void add(AccumulatorsState state, RowT row) {
             if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
                 return;
             }
@@ -327,28 +327,25 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
                 distinctSet.add(arg);
             } else {
-                accumulator.add(aggArgs);
+                accumulator.add(state, args);
             }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            Object result;
-
+        public void end(AccumulatorsState state, AccumulatorsState result) {
             if (distinct) {
                 assert distinctSet != null : "No distinct set";
 
                 for (Object elem : distinctSet) {
-                    accumulator.add(elem);
+                    accumulator.add(state, new Object[]{elem});
                 }
-                result = accumulator.end();
+                accumulator.end(state, result);
             } else {
-                result = accumulator.end();
+                accumulator.end(state, result);
             }
 
-            return outAdapter.apply(result);
+            result.set(outAdapter.apply(result.get()));
         }
-
     }
 }

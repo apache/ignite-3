@@ -17,34 +17,48 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.function.Supplier;
+import java.util.BitSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A helper class for testing accumulator functions.
+ * Stores states of multiple accumulator functions.
  */
-public final class StatefulAccumulator {
+public class AccumulatorsState {
 
-    private final Accumulator accumulator;
+    private final Object[] row;
 
-    private final AccumulatorsState state = new AccumulatorsState(1);
+    private final BitSet set = new BitSet();
 
-    private final AccumulatorsState result = new AccumulatorsState(1);
+    private int index;
 
-    public StatefulAccumulator(Supplier<? extends Accumulator> supplier) {
-        this(supplier.get());
+    /** Constructor. */
+    public AccumulatorsState(int rowSize) {
+        this.row = new Object[rowSize];
     }
 
-    public StatefulAccumulator(Accumulator accumulator) {
-        this.accumulator = accumulator;
+    /** Sets current field index. */
+    public void setIndex(int i) {
+        this.index = i;
     }
 
-    public void add(Object... args) {
-        accumulator.add(state, args);
+    /** Resets current field index. */
+    public void resetIndex() {
+        this.index = -1;
     }
 
-    public @Nullable Object end() {
-        accumulator.end(state, result);
-        return result.get();
+    /** Returns a value of the current field. */
+    public @Nullable Object get() {
+        return row[index];
+    }
+
+    /** Set a value of the current field. */
+    public void set(@Nullable Object value) {
+        row[index] = value;
+        set.set(index);
+    }
+
+    /** Returns {@code true} if current field has been set. */
+    public boolean hasValue() {
+        return set.get(index);
     }
 }

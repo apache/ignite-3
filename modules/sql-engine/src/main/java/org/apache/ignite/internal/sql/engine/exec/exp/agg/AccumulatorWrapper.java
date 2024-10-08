@@ -19,10 +19,22 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 /**
  * AccumulatorWrapper interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface AccumulatorWrapper<RowT> {
-    void add(RowT row);
 
-    Object end();
+    /**
+     * Updates this accumulator using columns from the given row.
+     *
+     * @param state Accumulator state.
+     * @param row Row
+     */
+    void add(AccumulatorsState state, RowT row);
+
+    /**
+     * Computes result of this accumulator.
+     *
+     * @param state Accumulator state.
+     * @param result Result holder.
+     */
+    void end(AccumulatorsState state, AccumulatorsState result);
 }

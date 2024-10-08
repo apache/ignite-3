@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 
@@ -249,7 +250,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             this.grpKeys = grpKeys;
 
             List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
-            aggRow = new AggregateRow<>(wrappers, type);
+            AccumulatorsState state = new AccumulatorsState(wrappers.size());
+            aggRow = new AggregateRow<>(wrappers, type, state);
         }
 
         private void add(RowT row) {

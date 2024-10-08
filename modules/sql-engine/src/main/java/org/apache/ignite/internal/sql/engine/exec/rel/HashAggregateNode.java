@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
@@ -307,7 +308,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 wrappers = accFactory.get();
             }
 
-            return new AggregateRow<>(wrappers, type);
+            AccumulatorsState state = new AccumulatorsState(wrappers.size());
+            return new AggregateRow<>(wrappers, type, state);
         }
 
         private boolean isEmpty() {

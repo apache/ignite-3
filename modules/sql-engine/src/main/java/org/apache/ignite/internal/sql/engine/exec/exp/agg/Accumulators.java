@@ -205,35 +205,55 @@ public class Accumulators {
     }
 
     /**
-     * {@code SINGLE_VALUE(SUBQUERY)} accumulator. Pseudo accumulator that returns a first value produced by a subquery
-     * and an error if a subquery returns more than one row.
+     * {@code SINGLE_VALUE(SUBQUERY)} accumulator. Pseudo accumulator that returns a first value produced by a subquery and an error if a
+     * subquery returns more than one row.
      */
-    public static class SingleVal extends AnyVal {
-        private boolean touched;
+    public static class SingleVal implements Accumulator {
 
-        private SingleVal(RelDataType type) {
-            super(type);
-        }
+        private final RelDataType type;
 
         public static Supplier<Accumulator> newAccumulator(RelDataType type) {
             return () -> new SingleVal(type);
         }
 
+        private SingleVal(RelDataType type) {
+            this.type = type;
+        }
+
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
-            if (touched) {
-                throw new SqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value.");
-            }
-            touched = true;
+        public void add(AccumulatorsState state, Object... args) {
+            assert args.length == 1;
 
-            super.add(args);
+            if (state.hasValue()) {
+                throw new SqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value.");
+            } else {
+                state.set(args[0]);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return type;
         }
     }
 
     /**
-     * {@code LITERAL_AGG} accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise.
-     * Calcite`s implementation RexImpTable#LiteralAggImplementor.
+     * {@code LITERAL_AGG} accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise. Calcite`s implementation
+     * RexImpTable#LiteralAggImplementor.
      */
     public static class LiteralVal extends AnyVal {
         private LiteralVal(RelDataType type) {
@@ -246,8 +266,9 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return holder != null;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            Object val = state.get();
+            result.set(val != null);
         }
     }
 
@@ -255,8 +276,6 @@ public class Accumulators {
      * {@code ANY_VALUE} accumulator.
      */
     public static class AnyVal implements Accumulator {
-        protected Object holder;
-
         private final RelDataType type;
 
         private AnyVal(RelDataType type) {
@@ -269,18 +288,19 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object[] args) {
             assert args.length == 1 : args.length;
 
-            if (holder == null) {
-                holder = args[0];
+            Object current = state.get();
+            if (current == null) {
+                state.set(args[0]);
             }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return holder;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
         }
 
         /** {@inheritDoc} */
@@ -302,9 +322,12 @@ public class Accumulators {
     public static class DecimalAvg implements Accumulator {
         public static final IntFunction<Accumulator> FACTORY = DecimalAvg::new;
 
-        private BigDecimal sum = BigDecimal.ZERO;
+        /** State. */
+        public static class DecimalAvgState {
+            private BigDecimal sum = BigDecimal.ZERO;
 
-        private BigDecimal cnt = BigDecimal.ZERO;
+            private BigDecimal cnt = BigDecimal.ZERO;
+        }
 
         private final int precision;
 
@@ -317,21 +340,37 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             BigDecimal in = (BigDecimal) args[0];
 
             if (in == null) {
                 return;
             }
 
-            sum = sum.add(in);
-            cnt = cnt.add(BigDecimal.ONE);
+            DecimalAvgState sumState = (DecimalAvgState) state.get();
+            if (sumState == null) {
+                sumState = new DecimalAvgState();
+                state.set(sumState);
+            }
+
+            sumState.sum = sumState.sum.add(in);
+            sumState.cnt = sumState.cnt.add(BigDecimal.ONE);
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, precision, scale);
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            DecimalAvgState sumState = (DecimalAvgState) state.get();
+
+            if (sumState == null) {
+                result.set(null);
+            } else {
+                if (sumState.cnt.compareTo(BigDecimal.ZERO) == 0) {
+                    result.set(null);
+                } else {
+                    result.set(IgniteSqlFunctions.decimalDivide(sumState.sum, sumState.cnt, precision, scale));
+                }
+            }
         }
 
         /** {@inheritDoc} */
@@ -353,27 +392,46 @@ public class Accumulators {
     public static class DoubleAvg implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
 
-        private double sum;
+        /** State. */
+        public static class DoubleAvgState {
+            private double sum;
 
-        private long cnt;
+            private long cnt;
+        }
 
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             Double in = (Double) args[0];
 
             if (in == null) {
                 return;
             }
 
-            sum += in;
-            cnt++;
+            DoubleAvgState avgState = (DoubleAvgState) state.get();
+            if (avgState == null) {
+                avgState = new DoubleAvgState();
+                state.set(avgState);
+            }
+
+            avgState.sum += in;
+            avgState.cnt++;
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return cnt > 0 ? sum / cnt : null;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            DoubleAvgState avgState = (DoubleAvgState) state.get();
+            if (avgState == null) {
+                result.set(null);
+            } else {
+                if (avgState.cnt > 0) {
+                    result.set(avgState.sum / avgState.cnt);
+                } else {
+                    result.set(null);
+                }
+            }
+
         }
 
         /** {@inheritDoc} */
@@ -393,22 +451,30 @@ public class Accumulators {
     public static class LongCount implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = LongCount::new;
 
-        private long cnt;
-
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             assert nullOrEmpty(args) || args.length == 1;
 
             if (nullOrEmpty(args) || args[0] != null) {
-                cnt++;
+                Long cnt = (Long) state.get();
+
+                if (cnt == null) {
+                    state.set(1L);
+                } else {
+                    state.set(cnt + 1L);
+                }
             }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return cnt;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            if (state.get() == null) {
+                result.set(0L);
+            } else {
+                result.set(state.get());
+            }
         }
 
         /** {@inheritDoc} */
@@ -428,34 +494,39 @@ public class Accumulators {
     public static class Sum implements Accumulator {
         private Accumulator acc;
 
-        private boolean empty = true;
-
         public Sum(Accumulator acc) {
             this.acc = acc;
         }
 
         /** {@inheritDoc} */
-        @Override public void add(Object... args) {
+        @Override
+        public void add(AccumulatorsState state, Object... args) {
             if (args[0] == null) {
                 return;
             }
 
-            empty = false;
-            acc.add(args[0]);
+            acc.add(state, args);
         }
 
         /** {@inheritDoc} */
-        @Override public Object end() {
-            return empty ? null : acc.end();
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            if (!state.hasValue()) {
+                result.set(null);
+            } else {
+                result.set(state.get());
+            }
         }
 
         /** {@inheritDoc} */
-        @Override public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
             return acc.argumentTypes(typeFactory);
         }
 
         /** {@inheritDoc} */
-        @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
         }
     }
@@ -464,24 +535,31 @@ public class Accumulators {
     public static class DoubleSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DoubleSumEmptyIsZero::new;
 
-        private double sum;
-
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             Double in = (Double) args[0];
 
             if (in == null) {
                 return;
             }
 
-            sum += in;
+            Double sum = (Double) state.get();
+            if (sum == null) {
+                state.set(in);
+            } else {
+                state.set(sum + in);
+            }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return sum;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            if (!state.hasValue()) {
+                result.set(0.0d);
+            } else {
+                result.set(state.get());
+            }
         }
 
         /** {@inheritDoc} */
@@ -501,24 +579,31 @@ public class Accumulators {
     public static class LongSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = LongSumEmptyIsZero::new;
 
-        private long sum;
-
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             Long in = (Long) args[0];
 
             if (in == null) {
                 return;
             }
 
-            sum += in;
+            Long sum = (Long) state.get();
+            if (sum == null) {
+                state.set(in);
+            } else {
+                state.set(sum + in);
+            }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return sum;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            if (!state.hasValue()) {
+                result.set(0L);
+            } else {
+                result.set(state.get());
+            }
         }
 
         /** {@inheritDoc} */
@@ -538,24 +623,31 @@ public class Accumulators {
     public static class DecimalSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
 
-        private BigDecimal sum = BigDecimal.ZERO;
-
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             BigDecimal in = (BigDecimal) args[0];
 
             if (in == null) {
                 return;
             }
 
-            sum = sum.add(in);
+            BigDecimal sum = (BigDecimal) state.get();
+            if (sum == null) {
+                state.set(in);
+            } else {
+                state.set(sum.add(in));
+            }
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return sum;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            if (!state.hasValue()) {
+                result.set(BigDecimal.ZERO);
+            } else {
+                result.set(state.get());
+            }
         }
 
         /** {@inheritDoc} */
@@ -580,9 +672,6 @@ public class Accumulators {
 
         private final RelDataType returnType;
 
-        @SuppressWarnings({"rawtypes"})
-        private Comparable val;
-
         private MinMaxAccumulator(boolean min, RelDataTypeFactory typeFactory, RelDataType relDataType) {
             var nullableType = typeFactory.createTypeWithNullability(relDataType, true);
 
@@ -598,16 +687,25 @@ public class Accumulators {
         /** {@inheritDoc} **/
         @Override
         @SuppressWarnings({"rawtypes"})
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             Comparable in = (Comparable) args[0];
 
-            doApply(in);
+            if (in == null) {
+                return;
+            }
+
+            Comparable current = (Comparable) state.get();
+            if (current == null) {
+                state.set(in);
+            } else {
+                state.set(doApply(in, current));
+            }
         }
 
         /** {@inheritDoc} **/
         @Override
-        public Object end() {
-            return val;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
         }
 
         /** {@inheritDoc} **/
@@ -623,11 +721,7 @@ public class Accumulators {
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        private void doApply(Comparable in) {
-            if (in == null) {
-                return;
-            }
-
+        private Comparable doApply(Comparable in, Comparable val) {
             if (val == null) {
                 val = in;
             } else {
@@ -638,6 +732,7 @@ public class Accumulators {
                     val = cmp < 0 ? in : val;
                 }
             }
+            return val;
         }
     }
 
@@ -649,34 +744,36 @@ public class Accumulators {
 
         private final boolean min;
 
-        private CharSequence val;
-
-        private boolean empty = true;
-
         VarCharMinMax(boolean min) {
             this.min = min;
         }
 
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             CharSequence in = (CharSequence) args[0];
 
             if (in == null) {
                 return;
             }
 
-            val = empty ? in : min
-                    ? (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? val : in) :
-                    (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? in : val);
+            CharSequence val = (CharSequence) state.get();
 
-            empty = false;
+            if (val == null) {
+                val = in;
+            } else if (min) {
+                val = CharSeqComparator.INSTANCE.compare(val, in) < 0 ? val : in;
+            } else {
+                val = CharSeqComparator.INSTANCE.compare(val, in) < 0 ? in : val;
+            }
+
+            state.set(val);
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return empty ? null : val;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
         }
 
         /** {@inheritDoc} */
@@ -722,34 +819,36 @@ public class Accumulators {
 
         private final boolean min;
 
-        private ByteString val;
-
-        private boolean empty = true;
-
         VarBinaryMinMax(boolean min) {
             this.min = min;
         }
 
         /** {@inheritDoc} */
         @Override
-        public void add(Object... args) {
+        public void add(AccumulatorsState state, Object... args) {
             ByteString in = (ByteString) args[0];
 
             if (in == null) {
                 return;
             }
 
-            val = empty ? in : min
-                    ? (val.compareTo(in) < 0 ? val : in)
-                    : (val.compareTo(in) < 0 ? in : val);
+            ByteString val = (ByteString) state.get();
 
-            empty = false;
+            if (val == null) {
+                val = in;
+            } else if (min) {
+                val = val.compareTo(in) < 0 ? val : in;
+            } else {
+                val = val.compareTo(in) < 0 ? in : val;
+            }
+
+            state.set(val);
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return empty ? null : val;
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
         }
 
         /** {@inheritDoc} */
