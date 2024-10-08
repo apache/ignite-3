@@ -81,7 +81,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
@@ -165,7 +164,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(clusterStateStorage);
 
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
@@ -521,8 +520,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         Entry entry1 = metaStorageManager0.getLocally(key1, Long.MAX_VALUE);
         Entry entry2 = metaStorageManager0.getLocally(key2, Long.MAX_VALUE);
 
-        assertThat(revToTs.get(entry1.revision()), is(metaStorageManager0.timestampByRevision(entry1.revision())));
-        assertThat(revToTs.get(entry2.revision()), is(metaStorageManager0.timestampByRevision(entry2.revision())));
+        assertThat(revToTs.get(entry1.revision()), is(metaStorageManager0.timestampByRevisionLocally(entry1.revision())));
+        assertThat(revToTs.get(entry2.revision()), is(metaStorageManager0.timestampByRevisionLocally(entry2.revision())));
     }
 
     private static class RevisionAndTimestamp {

@@ -38,7 +38,7 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
     private final List<Constraint> constraints = new ArrayList<>();
 
-    private final List<WithOption> withOptions = new ArrayList<>();
+    private final List<Option> withOptions = new ArrayList<>();
 
     private Colocate colocate;
 
@@ -119,7 +119,7 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl zone(String zone) {
         Objects.requireNonNull(zone, "Zone name must not be null.");
 
-        withOptions.add(WithOption.primaryZone(zone));
+        withOptions.add(Option.primaryZone(zone));
         return this;
     }
 

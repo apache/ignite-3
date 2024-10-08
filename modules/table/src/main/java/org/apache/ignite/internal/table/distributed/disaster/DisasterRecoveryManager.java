@@ -50,7 +50,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -81,6 +80,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -522,11 +522,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     return;
                 }
 
-                request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+                request.handle(this, watchEvent.revision(), watchEvent.timestamp()).whenComplete(copyStateTo(operationFuture));
 
                 break;
             case MULTI_NODE:
-                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
+                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision(), watchEvent.timestamp());
 
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed.

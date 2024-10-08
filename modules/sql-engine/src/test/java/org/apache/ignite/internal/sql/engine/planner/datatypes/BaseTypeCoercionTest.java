@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,10 +58,6 @@ import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for testing types coercion. */
 public class BaseTypeCoercionTest extends AbstractPlannerTest {
-    static Stream<Arguments> allNumericPairs() {
-        return Arrays.stream(NumericPair.values()).map(Arguments::of);
-    }
-
     /**
      * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
      */
@@ -144,6 +140,33 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
+    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<Object> result) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
+
+                assertThat(comparison, instanceOf(RexCall.class));
+
+                RexCall comparisonCall = (RexCall) comparison;
+
+                RexNode leftOperand = comparisonCall.getOperands().get(0);
+                RexNode rightOperand = comparisonCall.getOperands().get(1);
+
+                assertThat(leftOperand, first);
+                assertThat(rightOperand, second);
+                assertThat(actual, result);
+
+                return true;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
+        };
+    }
+
     /**
      * Creates a matcher to verify that given expression has expected return type, but it is not CAST operator.
      *
@@ -203,7 +226,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    private static Matcher<RelNode> ofType(NativeType type) {
+    private static Matcher<Object> ofType(NativeType type) {
         return new BaseMatcher<>() {
             BasicSqlType expectedType;
             BasicSqlType relRowType;
@@ -247,14 +270,14 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static class TestCaseBuilderEx {
         private final TypePair pair;
-        private Matcher<RexNode> firstOpMatcher;
-        private Matcher<RexNode> secondOpMatcher;
+        private Matcher<?> firstOpMatcher;
+        private Matcher<?> secondOpMatcher;
 
         private TestCaseBuilderEx(TypePair pair) {
             this.pair = pair;
         }
 
-        TestCaseBuilderEx firstOpMatches(Matcher<RexNode> operandMatcher) {
+        TestCaseBuilderEx firstOpMatches(Matcher<?> operandMatcher) {
             firstOpMatcher = operandMatcher;
 
             return this;
@@ -262,10 +285,11 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         TestCaseBuilderEx firstOpBeSame() {
             firstOpMatcher = ofTypeWithoutCast(pair.first());
+
             return this;
         }
 
-        TestCaseBuilderEx secondOpMatches(Matcher<RexNode> operandMatcher) {
+        TestCaseBuilderEx secondOpMatches(Matcher<?> operandMatcher) {
             secondOpMatcher = operandMatcher;
             return this;
         }
@@ -276,9 +300,12 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         }
 
         Arguments resultWillBe(NativeType type) {
-            return Arguments.of(pair, firstOpMatcher, secondOpMatcher, Named.of(type.displayName(), type));
+            return Arguments.of(pair, firstOpMatcher, secondOpMatcher, ofType(type));
         }
 
+        Arguments checkResult(NativeType type) {
+            return Arguments.of(pair, ofTypeWithoutCast(pair.first()), ofTypeWithoutCast(pair.second()), ofType(type));
+        }
     }
 
     /**
@@ -363,6 +390,22 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
                 }
             }
         }
-        return SqlTestUtils.makeLiteral(val.toString(), type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
+    }
+
+    private static String prevResult = "";
+
+    // It is necessary to have a guarantee that two values in a row will be different.
+    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
+    static String generateLiteralWithNoRepetition(NativeType type) {
+        Object val;
+        String valString;
+        do {
+            val = SqlTestUtils.generateValueByType(type);
+            valString = val == null ? "<null>" : val.toString();
+        } while (valString.equals(prevResult));
+        prevResult = valString;
+
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 }

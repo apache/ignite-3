@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
@@ -85,7 +86,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
             ClusterTime clusterTime,
-            Supplier<String> nodeIdSupplier
+            Supplier<UUID> nodeIdSupplier
     ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
@@ -254,12 +255,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .build();
 
         return context.raftService().run(syncTimeCommand);
-    }
-
-    // TODO: IGNITE-19417 Implement.
-    @Override
-    public CompletableFuture<Void> compact() {
-        throw new UnsupportedOperationException();
     }
 
     @Override

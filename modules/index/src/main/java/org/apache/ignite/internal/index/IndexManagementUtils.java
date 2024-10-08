@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -296,7 +297,7 @@ class IndexManagementUtils {
      * @param clusterService Cluster service.
      * @param nodeId Node ID of interest.
      */
-    static boolean isLocalNode(ClusterService clusterService, String nodeId) {
+    static boolean isLocalNode(ClusterService clusterService, UUID nodeId) {
         return nodeId.equals(localNode(clusterService).id());
     }
 

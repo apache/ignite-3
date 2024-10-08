@@ -22,12 +22,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -57,7 +58,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholderSupplier.get());
     }
 
-    public TestPlacementDriver(String leaseholder, String leaseholderId) {
+    public TestPlacementDriver(String leaseholder, UUID leaseholderId) {
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder, leaseholderId);
     }
 

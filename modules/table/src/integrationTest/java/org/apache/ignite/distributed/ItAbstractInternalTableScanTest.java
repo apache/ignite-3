@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -122,7 +123,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
 
             @Override
-            public @Nullable ClusterNode getById(String id) {
+            public @Nullable ClusterNode getById(UUID id) {
                 return singleNode.id().equals(id)
                         ? singleNode
                         : null;

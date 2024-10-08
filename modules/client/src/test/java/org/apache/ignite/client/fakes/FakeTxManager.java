@@ -137,7 +137,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public String coordinatorId() {
+            public UUID coordinatorId() {
                 return null;
             }
 

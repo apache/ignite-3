@@ -339,7 +339,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         String sql = "MERGE INTO test1 dst USING test1 src ON dst.a = src.a + 1 "
                 + "WHEN MATCHED THEN UPDATE SET b = dst.b + 1 " // dst.b just for check here
-                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a)";
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a::varchar)";
 
         for (int i = 0; i < 5; i++) {
             sql(sql);
@@ -484,6 +484,39 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .returns(1, 4)
                 .returns(2, null)
                 .check();
+    }
+
+    @Test
+    public void testMergeWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        String sql = "MERGE INTO t0 USING t1 ON t0.id = t1.id "
+                + "WHEN MATCHED THEN UPDATE SET val = (SELECT val FROM t1 WHERE id > ?)";
+
+        sql("INSERT INTO t0 VALUES (1, 0), (2, 0)");
+        sql("INSERT INTO t1 VALUES (1, -100), (3, 3)");
+
+        // sub-query returns no rows.
+        sql(sql, 3);
+        assertQuery("SELECT * FROM t0 ORDER BY id")
+                .returns(1, null)
+                .returns(2, 0)
+                .check();
+
+        // sub-query returns single row.
+        sql(sql, 1);
+        assertQuery("SELECT * FROM t0 ORDER BY id")
+                .returns(1, 3)
+                .returns(2, 0)
+                .check();
+
+        // sub-query returns more than one row.
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql(sql, 0)
+        );
     }
 
     /**
@@ -686,6 +719,37 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testUpdateWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        sql("INSERT INTO t0 VALUES (1, 1), (2, 2)");
+        sql("INSERT INTO t1 VALUES (1, 1), (2, 2)");
+
+        // Sub-query returns no rows.
+        sql("UPDATE t0 SET val = (SELECT val FROM t1 WHERE id = -42)");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .returns(2, null)
+                .check();
+
+        // Sub-query returns single row.
+        sql("UPDATE t0 SET val = (SELECT val FROM t1 WHERE id = 2)");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 2)
+                .returns(2, 2)
+                .check();
+
+        // Sub-query returns more than one row.
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("UPDATE t0 SET val = (SELECT val FROM t1)")
+        );
+    }
+
+    @Test
     public void testDropDefault() {
         // SQL Standard 2016 feature F221 - Explicit defaults
         // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
@@ -846,6 +910,35 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql("DROP TABLE " + type);
             sql("DROP TABLE T_HELPER");
         }
+    }
+
+    @Test
+    public void testInsertValueWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        sql("INSERT INTO t1 VALUES (1, 1), (2, 2)");
+
+        // Sub-query returns no rows.
+        sql("INSERT INTO t0 VALUES (1, (SELECT val FROM t1 WHERE id = -42))");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .check();
+
+        // Sub-query returns single row.
+        sql("INSERT INTO t0 VALUES (2, (SELECT val FROM t1 WHERE id = 2))");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .returns(2, 2)
+                .check();
+
+        // Sub-query returns more than one row.
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("INSERT INTO t0 VALUES (2, (SELECT val FROM t1))")
+        );
     }
 
     @ParameterizedTest

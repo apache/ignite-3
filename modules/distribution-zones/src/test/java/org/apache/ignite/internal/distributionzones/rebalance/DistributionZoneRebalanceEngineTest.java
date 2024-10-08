@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
@@ -30,6 +29,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -62,9 +63,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -95,6 +93,8 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -137,6 +137,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    private Map<UUID, NodeWithAttributes> nodeWithAttributesMap;
+
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
@@ -147,13 +149,13 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
 
-        Map<String, NodeWithAttributes> nodeWithAttributesMap = Map.of(
-                "node0",  new NodeWithAttributes("node0", "node0", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node1",  new NodeWithAttributes("node1", "node1", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node2",  new NodeWithAttributes("node2", "node2", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node3",  new NodeWithAttributes("node3", "node3", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node4",  new NodeWithAttributes("node4", "node4", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node5",  new NodeWithAttributes("node5", "node5", Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
+        nodeWithAttributesMap = Map.of(
+                id(0),  new NodeWithAttributes("node0", id(0), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(1),  new NodeWithAttributes("node1", id(1), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(2),  new NodeWithAttributes("node2", id(2), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(3),  new NodeWithAttributes("node3", id(3), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(4),  new NodeWithAttributes("node4", id(4), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(5),  new NodeWithAttributes("node5", id(5), Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
         );
 
         when(distributionZoneManager.nodesAttributes()).thenReturn(nodeWithAttributesMap);
@@ -228,7 +230,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
 
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
@@ -262,6 +264,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             return completedFuture(result);
         }).when(metaStorageManager).getAll(any());
+    }
+
+    private static UUID id(int n) {
+        return new UUID(0, n);
     }
 
     @AfterEach
@@ -530,19 +536,27 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         if (nodes != null) {
             newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
-                    .map(n -> new Node(n, n))
+                    .map(n -> new Node(n, findNodeIdByConsistentId(n)))
                     .collect(toSet())));
         } else {
             newLogicalTopology = null;
         }
 
-        Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, clock.now());
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 
         WatchEvent evt = new WatchEvent(entryEvent);
 
         watchListener.onUpdate(evt);
+    }
+
+    private UUID findNodeIdByConsistentId(String consistentId) {
+        return nodeWithAttributesMap.values().stream()
+                .filter(node -> node.nodeName().equals(consistentId))
+                .findAny()
+                .orElseThrow(() -> new RuntimeException("Did not find any node by consistentId='" + consistentId + "'"))
+                .nodeId();
     }
 
     private void createZone(String zoneName, int partitions, int replicas) {
@@ -570,7 +584,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> initialDataNodes = Set.of("node0");
         List<Set<Assignment>> initialAssignments =
-                AffinityUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+                calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
 
         int catalogVersion = catalogManager.latestCatalogVersion();
         long timestamp = catalogManager.catalog(catalogVersion).time();

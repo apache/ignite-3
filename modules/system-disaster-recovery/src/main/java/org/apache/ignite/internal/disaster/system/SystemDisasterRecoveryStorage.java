@@ -38,6 +38,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     private final VaultManager vault;
 
+    private volatile ResetClusterMessage volatileResetClusterMessage;
+
     /** Constructor. */
     public SystemDisasterRecoveryStorage(VaultManager vault) {
         this.vault = vault;
@@ -53,7 +55,18 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
         vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
     }
 
-    /** Reads cluster state. */
+    @Override
+    public void saveVolatileResetClusterMessage(ResetClusterMessage message) {
+        volatileResetClusterMessage = message;
+    }
+
+    /**
+     * Reads cluster state from the Vault. This is used for cases when it may be needed to read it during node startup (and the usual
+     * CMG state storage might be empty at those moments).
+     *
+     * @return Cluster state saved to the Vault or {@code null} if it was not saved yet (which means that the node has never joined
+     *     the cluster yet).
+     */
     public @Nullable ClusterState readClusterState() {
         return readFromVault(CLUSTER_STATE_VAULT_KEY);
     }
@@ -78,5 +91,10 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     void saveResetClusterMessage(ResetClusterMessage message) {
         vault.put(RESET_CLUSTER_MESSAGE_VAULT_KEY, ByteUtils.toBytes(message));
+    }
+
+    @Override
+    public @Nullable ResetClusterMessage readVolatileResetClusterMessage() {
+        return volatileResetClusterMessage;
     }
 }

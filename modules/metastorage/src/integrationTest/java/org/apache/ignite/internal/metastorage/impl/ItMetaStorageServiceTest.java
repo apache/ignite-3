@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -144,7 +145,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             new byte[]{1},
             new byte[]{2},
             10,
-            2
+            ANY_TIMESTAMP
     );
 
     /**
@@ -162,7 +163,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{1},
                 new byte[]{2},
                 10,
-                2
+                ANY_TIMESTAMP
         );
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry1.key()), entry1);
@@ -171,7 +172,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{3},
                 new byte[]{4},
                 10,
-                3
+                ANY_TIMESTAMP
         );
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry2.key()), entry2);

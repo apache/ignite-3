@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rest.api.node;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /** Node state. */
-@Schema(description = "Possible node statuses.")
+@Schema(description = "Possible node states.")
 public enum State {
     STARTING,
     STARTED,

@@ -17,19 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
-@ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
-    @WorkDirectory
-    private Path workDir;
-
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());

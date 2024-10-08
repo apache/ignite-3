@@ -179,11 +179,10 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
 
             inflightBatchRequestTracker.onRequestBegin();
 
-            retrieveBatch(scanId, n).thenAccept(binaryRows -> {
+            CompletableFuture<Collection<T>> retriveBatchFuture = retrieveBatch(scanId, n);
+            retriveBatchFuture.whenComplete((batch, err) -> inflightBatchRequestTracker.onRequestEnd()).thenAccept(binaryRows -> {
                 assert binaryRows != null;
                 assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
-
-                inflightBatchRequestTracker.onRequestEnd();
 
                 binaryRows.forEach(subscriber::onNext);
 
@@ -197,8 +196,6 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
                     }
                 }
             }).exceptionally(t -> {
-                inflightBatchRequestTracker.onRequestEnd();
-
                 cancel(t, false);
 
                 return null;

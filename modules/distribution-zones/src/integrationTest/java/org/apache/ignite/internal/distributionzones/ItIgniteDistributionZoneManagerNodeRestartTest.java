@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
@@ -141,21 +142,21 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -186,10 +187,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         VaultManager vault = createVault(dir);
 
-        var clusterStateStorage = new TestClusterStateStorage();
+        var clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
         var clusterIdService = new ClusterIdService(vault);
-        clusterIdService.clusterId(UUID.randomUUID());
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -230,7 +230,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 mock(FailureManager.class)
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -365,7 +365,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        Map<String, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
+        Map<UUID, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
         node.stop();
 
@@ -373,7 +373,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        Map<String, NodeWithAttributes> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
+        Map<UUID, NodeWithAttributes> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
 
         assertEquals(3, nodeAttributesAfterRestart.size());
 

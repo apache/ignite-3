@@ -891,6 +891,13 @@ public class LogManagerImpl implements LogManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+
+        if (c.lastLogId == null) {
+            assert stopped : "Last log id can be null only when node is stopping.";
+
+            throw new IllegalStateException("Node is shutting down");
+        }
+
         return c.lastLogId.getIndex();
     }
 
@@ -942,6 +949,12 @@ public class LogManagerImpl implements LogManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+        if (c.lastLogId == null) {
+            assert stopped : "Last log id can be null only when node is stopping.";
+
+            throw new IllegalStateException("Node is shutting down");
+        }
+
         return c.lastLogId;
     }
 

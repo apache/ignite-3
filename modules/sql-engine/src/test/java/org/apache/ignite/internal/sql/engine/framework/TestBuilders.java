@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
@@ -51,9 +52,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
-import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -86,6 +84,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
@@ -687,7 +688,7 @@ public class TestBuilders {
                     .map(name -> {
                         List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
                         NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                        LogicalNode logicalNode = new LogicalNode(name, name, addr);
+                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
 
                         if (systemViewForNode.isEmpty()) {
                             return logicalNode;

@@ -27,8 +27,8 @@ public enum ZoneOptionEnum {
     /** Number of replicas. */
     REPLICAS,
 
-    /** Affinity function name. */
-    AFFINITY_FUNCTION,
+    /** Partition distribution algorithm name. */
+    DISTRIBUTION_ALGORITHM,
 
     /** An expression to filter data nodes. */
     DATA_NODES_FILTER,

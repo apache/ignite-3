@@ -39,7 +39,6 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -102,7 +101,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
-        Objects.requireNonNull(keys, "keys");
+        checkKeysForNulls(keys);
 
         if (keys.isEmpty()) {
             return emptyMapCompletedFuture();
@@ -153,8 +152,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r.in()), defaultValue),
-                null,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
+                defaultValue,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
                 tx);
     }
@@ -209,8 +208,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
@@ -230,6 +230,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs, "pairs");
+
+        for (Entry<Tuple, Tuple> entry : pairs.entrySet()) {
+            Objects.requireNonNull(entry.getKey(), "key");
+            Objects.requireNonNull(entry.getValue(), "val");
+        }
 
         if (pairs.isEmpty()) {
             return nullCompletedFuture();
@@ -297,6 +302,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
@@ -354,7 +360,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
-        Objects.requireNonNull(keys, "keys");
+        checkKeysForNulls(keys);
 
         if (keys.isEmpty()) {
             return emptyCollectionCompletedFuture();
@@ -427,6 +433,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
@@ -440,6 +447,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
         Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(oldVal, "oldVal");
+        Objects.requireNonNull(newVal, "newVal");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,

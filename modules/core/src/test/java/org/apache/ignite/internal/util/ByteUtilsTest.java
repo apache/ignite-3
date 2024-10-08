@@ -137,4 +137,15 @@ public class ByteUtilsTest {
 
         assertThat(bytesToUuid(uuidToBytes(original)), is(original));
     }
+
+    @Test
+    void bytesToUuidWithOffsetGivesOriginalUuid() {
+        UUID original = UUID.randomUUID();
+
+        byte[] uuidBytes = uuidToBytes(original);
+        byte[] fullBytes = new byte[uuidBytes.length + 1];
+        System.arraycopy(uuidBytes, 0, fullBytes, 1, uuidBytes.length);
+
+        assertThat(bytesToUuid(fullBytes, 1), is(original));
+    }
 }

@@ -9,7 +9,7 @@ statement ok
 INSERT INTO integers SELECT 42
 
 statement ok
-INSERT INTO integers SELECT CAST(NULL AS VARCHAR)
+INSERT INTO integers SELECT CAST(NULL AS INTEGER)
 
 query I rowsort
 SELECT * FROM integers

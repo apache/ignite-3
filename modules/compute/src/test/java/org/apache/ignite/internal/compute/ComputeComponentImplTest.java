@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
@@ -43,6 +44,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -139,8 +141,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponent computeComponent;
 
-    private final ClusterNode testNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test-host", 1));
-    private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
+    private final ClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
@@ -226,7 +228,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private void assertThatNoRequestsWereSent() {
-        verify(messagingService, never()).invoke(any(ClusterNode.class), any(), anyLong());
+        verify(messagingService, never()).invoke(anyString(), any(), anyLong());
     }
 
     @Test
@@ -243,7 +245,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, COMPLETED);
@@ -268,7 +270,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void getsStateAndCancelsRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, EXECUTING);
@@ -288,7 +290,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void changePriorityRemotelyUsingNetworkCommunication() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);
 
@@ -303,7 +305,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteResponse executeResponse = new ComputeMessagesFactory().executeResponse()
                 .jobId(jobId)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), any(ExecuteRequest.class), anyLong()))
+        when(messagingService.invoke(anyString(), any(ExecuteRequest.class), anyLong()))
                 .thenReturn(completedFuture(executeResponse));
     }
 
@@ -311,7 +313,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobResultResponse jobResultResponse = new ComputeMessagesFactory().jobResultResponse()
                 .result("remoteResponse")
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobResultResponse));
     }
 
@@ -319,7 +321,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobStateResponse jobStateResponse = new ComputeMessagesFactory().jobStateResponse()
                 .state(JobStateImpl.builder().id(jobId).status(status).createTime(Instant.now()).build())
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobStateRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobStateRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobStateResponse));
     }
 
@@ -327,7 +329,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobCancelResponse jobCancelResponse = new ComputeMessagesFactory().jobCancelResponse()
                 .result(result)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobCancelResponse));
     }
 
@@ -335,7 +337,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobChangePriorityResponse jobChangePriorityResponse = new ComputeMessagesFactory().jobChangePriorityResponse()
                 .result(true)
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobChangePriorityResponse));
     }
 
@@ -404,12 +406,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesRemotelyWithException() {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         JobResultResponse jobResultResponse = new ComputeMessagesFactory().jobResultResponse()
                 .throwable(new JobException("Oops", new Exception()))
                 .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
+        when(messagingService.invoke(anyString(), argThat(msg -> jobResultRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobResultResponse));
 
         ExecutionException ex = assertThrows(
@@ -477,7 +479,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void remoteExecutionReleasesStopLock() throws Exception {
-        UUID jobId = UUID.randomUUID();
+        UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
 
@@ -511,7 +513,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobResultResponse response = sendRequestAndCaptureResponse(jobResultRequest, testNode, 123L);
 
@@ -525,7 +527,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobStateRequest jobStateRequest = new ComputeMessagesFactory().jobStateRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobStateResponse response = sendRequestAndCaptureResponse(jobStateRequest, testNode, 123L);
 
@@ -539,7 +541,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobCancelRequest jobCancelRequest = new ComputeMessagesFactory().jobCancelRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .build();
         JobCancelResponse response = sendRequestAndCaptureResponse(jobCancelRequest, testNode, 123L);
 
@@ -553,7 +555,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
-                .jobId(UUID.randomUUID())
+                .jobId(randomUUID())
                 .priority(1)
                 .build();
         JobChangePriorityResponse response = sendRequestAndCaptureResponse(jobChangePriorityRequest, testNode, 123L);
@@ -587,7 +589,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stopCausesCancellationExceptionOnRemoteExecution() {
-        respondWithExecuteResponseWhenExecuteRequestIsSent(UUID.randomUUID());
+        respondWithExecuteResponseWhenExecuteRequestIsSent(randomUUID());
         respondWithIncompleteFutureWhenJobResultRequestIsSent();
 
         CompletableFuture<String> resultFuture = executeRemotely(SimpleJob.class.getName());
@@ -598,7 +600,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWithIncompleteFutureWhenJobResultRequestIsSent() {
-        when(messagingService.invoke(any(ClusterNode.class), any(JobResultRequest.class), anyLong()))
+        when(messagingService.invoke(anyString(), any(JobResultRequest.class), anyLong()))
                 .thenReturn(new CompletableFuture<>());
     }
 
@@ -650,14 +652,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private <T extends NetworkMessage> T invokeAndCaptureRequest(Class<T> clazz) {
         ArgumentCaptor<T> requestCaptor = ArgumentCaptor.forClass(clazz);
-        verify(messagingService).invoke(eq(remoteNode), requestCaptor.capture(), anyLong());
+        verify(messagingService).invoke(eq(remoteNode.name()), requestCaptor.capture(), anyLong());
         return requestCaptor.getValue();
     }
 
     private <T extends NetworkMessage> T sendRequestAndCaptureResponse(NetworkMessage request, ClusterNode sender, long correlationId) {
         AtomicBoolean responseSent = new AtomicBoolean(false);
 
-        when(messagingService.respond(eq(sender), any(), eq(correlationId)))
+        when(messagingService.respond(eq(sender.name()), any(), eq(correlationId)))
                 .thenAnswer(invocation -> {
                     responseSent.set(true);
                     return nullCompletedFuture();
@@ -668,7 +670,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         await().until(responseSent::get, is(true));
 
         ArgumentCaptor<T> responseCaptor = ArgumentCaptor.captor();
-        verify(messagingService).respond(eq(sender), responseCaptor.capture(), eq(correlationId));
+        verify(messagingService).respond(eq(sender.name()), responseCaptor.capture(), eq(correlationId));
         return responseCaptor.getValue();
     }
 

@@ -44,6 +44,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -150,10 +151,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private TopologyAwareRaftGroupService raftClient;
 
-    private final Function<BiFunction<ReplicaRequest, String, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
+    private final Function<BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
             (invokeImpl) -> new ReplicaListener() {
                 @Override
-                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
                     return invokeImpl.apply(request, senderId);
                 }
 

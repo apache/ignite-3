@@ -125,6 +125,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
+     * Future used to chain local appends to UpdateLog to avoid useless concurrency (as all concurrent attempts to append compete for
+     * the same catalog version, hence only one will win and the rest will have to retry).
+     *
+     * <p>Guarded by {@link #lastSaveUpdateFutureMutex}.
+     */
+    private CompletableFuture<Void> lastSaveUpdateFuture = nullCompletedFuture();
+
+    /**
+     * Guards access to {@link #lastSaveUpdateFuture}.
+     */
+    private final Object lastSaveUpdateFutureMutex = new Object();
+
+    /**
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
@@ -408,7 +421,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
 
-        saveUpdate(updateProducer, 0)
+        saveUpdateEliminatingLocalConcurrency(updateProducer)
                 .thenCompose(this::awaitVersionActivation)
                 .whenComplete((newVersion, err) -> {
                     if (err != null) {
@@ -442,6 +455,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 });
 
         return resultFuture;
+    }
+
+    private CompletableFuture<Integer> saveUpdateEliminatingLocalConcurrency(UpdateProducer updateProducer) {
+        // Avoid useless and wasteful competition for the save catalog version by enforcing an order.
+        synchronized (lastSaveUpdateFutureMutex) {
+            CompletableFuture<Integer> chainedFuture = lastSaveUpdateFuture
+                    .thenCompose(unused -> saveUpdate(updateProducer, 0));
+
+            // Suppressing any exception to make sure it doesn't ruin subsequent appends. The suppression is not a problem
+            // as the callers will handle exceptions anyway.
+            lastSaveUpdateFuture = chainedFuture.handle((res, ex) -> null);
+
+            return chainedFuture;
+        }
     }
 
     private CompletableFuture<Integer> awaitVersionActivation(int version) {

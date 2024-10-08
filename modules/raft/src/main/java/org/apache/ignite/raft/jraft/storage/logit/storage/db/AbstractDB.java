@@ -31,7 +31,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
-import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
+import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.factory.LogStoreFactory;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile.RecoverResult;
@@ -320,15 +321,36 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     }
 
     /**
-     * Write the data and return it's wrote position.
+     * Write the data and return its written position.
      * @param data logEntry data
-     * @return (wrotePosition, expectFlushPosition)
+     * @return (writtenPosition, expectFlushPosition)
      */
     public Pair<Integer, Long> appendLogAsync(final long logIndex, final byte[] data) {
         final int waitToWroteSize = SegmentFile.getWriteBytes(data);
         final SegmentFile segmentFile = (SegmentFile) this.fileManager.getLastFile(logIndex, waitToWroteSize, true);
         if (segmentFile != null) {
             final int pos = segmentFile.appendData(logIndex, data);
+            final long expectFlushPosition = segmentFile.getFileFromOffset() + pos + waitToWroteSize;
+            return Pair.of(pos, expectFlushPosition);
+        }
+        return Pair.of(-1, (long) -1);
+    }
+
+    /**
+     * Write the data and return its written position. Based on {@link #appendLogAsync(long, byte[])}, but more efficient.
+     *
+     * @param encoder Log entry encoder
+     * @param logEntry Log entry
+     * @return (writtenPosition, expectFlushPosition)
+     */
+    public Pair<Integer, Long> appendLogAsync(final long logIndex, LogEntryEncoder encoder, LogEntry logEntry) {
+        V1Encoder v1Encoder = (V1Encoder)encoder;
+        int dataSize = v1Encoder.size(logEntry);
+        final int waitToWroteSize = SegmentFile.getWriteBytes(dataSize);
+
+        final SegmentFile segmentFile = (SegmentFile) this.fileManager.getLastFile(logIndex, waitToWroteSize, true);
+        if (segmentFile != null) {
+            final int pos = segmentFile.appendData(logIndex, v1Encoder, logEntry, dataSize);
             final long expectFlushPosition = segmentFile.getFileFromOffset() + pos + waitToWroteSize;
             return Pair.of(pos, expectFlushPosition);
         }

@@ -73,7 +73,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     // -1 is used as an initial value, in order not to clash with {@code ReplicaMeta.getStartTime}
     private volatile long leaseStartTime = -1;
 
-    private volatile String primaryReplicaNodeId;
+    private volatile UUID primaryReplicaNodeId;
 
     private volatile String primaryReplicaNodeName;
 
@@ -640,7 +640,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public synchronized void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     ) {
         checkStorageClosed();
@@ -662,7 +662,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable String primaryReplicaNodeId() {
+    public @Nullable UUID primaryReplicaNodeId() {
         checkStorageClosed();
 
         return primaryReplicaNodeId;

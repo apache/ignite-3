@@ -18,22 +18,20 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 
-/**
- * Interface for write page to {@link PageStore}.
- */
+/** Interface for writing dirty pages to {@link PageStore} on checkpoint. */
 public interface PageStoreWriter {
     /**
-     * Callback for write page. {@link PersistentPageMemory} will copy page content to buffer before call.
+     * Writes page to {@link PageStore}. {@link PersistentPageMemory} will copy page content to buffer before call.
      *
      * @param fullPageId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
-     * PersistentPageMemory#beginCheckpoint(CompletableFuture)} method call.
+     * PersistentPageMemory#beginCheckpoint} method call.
      * @param buf Temporary buffer to write changes into.
-     * @param tag {@code Partition generation} if data was read.
+     * @param tag {@code Partition generation} if data was read. {@link PersistentPageMemory#TRY_AGAIN_TAG} if failed to get a write lock
+     *      for a page and need to try writing again later.
      * @throws IgniteInternalCheckedException If write page failed.
      */
     void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;

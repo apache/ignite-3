@@ -93,7 +93,9 @@ dependencies {
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-security-api')
-    testFixturesImplementation project(':ignite-affinity')
+    testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.junit
 }
 

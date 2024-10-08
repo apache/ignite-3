@@ -334,6 +334,7 @@ public class NodeImpl implements Node, RaftServerService {
         List<PeerId> newLearners = new ArrayList<>();
         List<PeerId> oldLearners = new ArrayList<>();
         Closure done;
+        boolean async;
 
         ConfigurationCtx(final NodeImpl node) {
             super();
@@ -361,6 +362,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.done = done;
             this.stage = Stage.STAGE_CATCHING_UP;
+            this.async = async;
             if (async) {
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, Status.OK());
             }
@@ -473,10 +475,12 @@ public class NodeImpl implements Node, RaftServerService {
                         }
                     }
 
-                    oldDoneClosure.run(status);
+                    if (!this.async) {
+                      oldDoneClosure.run(status);
+                    }
                 };
 
-                // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
+                // In case of changePeerAsync this invocation is used in order to trigger listener callbacks.
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
                 this.done = null;
             }
@@ -1584,15 +1588,16 @@ public class NodeImpl implements Node, RaftServerService {
 
     private void executeApplyingTasks(final List<LogEntryAndClosure> tasks) {
         if (!this.logManager.hasAvailableCapacityToAppendEntries(1)) {
-        	// It's overload, fail-fast
-        	final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
-        			.collect(Collectors.toList());
-        	Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
-        		for (final Closure done : dones) {
-        			done.run(new Status(RaftError.EBUSY, "Node %s log manager is busy.", this.getNodeId()));
-        		}
-        	});
-        	return;
+            // It's overload, fail-fast
+            final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
+                     .collect(Collectors.toList());
+            Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
+                for (final Closure done : dones) {
+                    done.run(new Status(RaftError.EBUSY, "Node %s log manager is busy.", this.getNodeId()));
+                }
+            });
+
+            return;
         }
 
         this.writeLock.lock();
@@ -2778,13 +2783,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public long lastLogIndex() {
-        this.readLock.lock();
-        try {
-            return logManager.getLastLogIndex();
-        }
-        finally {
-            this.readLock.unlock();
-        }
+        return lastLogIndexAndTerm().getIndex();
     }
 
     @Override

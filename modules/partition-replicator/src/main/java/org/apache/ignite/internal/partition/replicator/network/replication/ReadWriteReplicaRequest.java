@@ -31,7 +31,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    String coordinatorId();
+    UUID coordinatorId();
 
     /**
      * Return {@code true} if this is a full transaction.

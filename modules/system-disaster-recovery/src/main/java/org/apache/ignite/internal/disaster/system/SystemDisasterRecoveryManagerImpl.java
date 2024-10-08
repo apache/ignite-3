@@ -39,6 +39,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermRequestMessage;
 import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
@@ -46,6 +48,8 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessageBuilder;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetastorageGroupMaintenance;
@@ -61,6 +65,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link SystemDisasterRecoveryManager}.
  */
 public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecoveryManager, IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryManagerImpl.class);
+
     private final String thisNodeName;
     private final TopologyService topologyService;
     private final MessagingService messagingService;
@@ -121,7 +127,12 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                         if (!thisNodeName.equals(sender.name())) {
                             restarter.initiateRestart();
                         }
-                    }, restartExecutor);
+                    }, restartExecutor)
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.error("Error when handling a ResetClusterMessage", ex);
+                        }
+                    });
         });
     }
 
@@ -138,12 +149,22 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                             .build();
 
                     messagingService.respond(sender, response, correlationId);
+                })
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.error("Error when handling a MetastorageIndexTermRequestMessage", ex);
+                    }
                 });
     }
 
     private void handleBecomeMetastorageLeaderMessage(BecomeMetastorageLeaderMessage message, ClusterNode sender, long correlationId) {
-        metastorageGroupMaintenance.becomeLonelyLeader(message.pauseLeaderSecondaryDuties())
-                .thenRun(() -> messagingService.respond(sender, successResponseMessage(), correlationId));
+        metastorageGroupMaintenance.becomeLonelyLeader(message.termBeforeChange(), message.targetVotingSet())
+                .thenRun(() -> messagingService.respond(sender, successResponseMessage(), correlationId))
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.error("Error when handling a BecomeMetastorageLeaderMessage", ex);
+                    }
+                });
     }
 
     @Override

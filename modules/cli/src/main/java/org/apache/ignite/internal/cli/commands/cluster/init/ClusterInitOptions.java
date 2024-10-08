@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STO
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_PARAM_LABEL;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
@@ -147,7 +148,9 @@ public class ClusterInitOptions {
 
                     config = config.withFallback(ConfigFactory.parseString(content));
                 } catch (IOException e) {
-                    throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.files, e);
+                    throw new IgniteCliException("Couldn't read cluster configuration file " + file, e);
+                } catch (ConfigException e) {
+                    throw new ConfigFileParseException("Couldn't parse cluster configuration file " + file, e);
                 }
             }
 

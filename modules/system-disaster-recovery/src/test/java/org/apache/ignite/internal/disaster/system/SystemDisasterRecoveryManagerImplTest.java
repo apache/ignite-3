@@ -21,6 +21,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClusterTag;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
@@ -56,9 +57,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
@@ -133,12 +137,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ComponentContext componentContext = new ComponentContext();
 
-    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID().toString(), thisNodeName, new NetworkAddress("host", 1001));
+    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
 
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID().toString(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID().toString(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID().toString(), "node4", new NetworkAddress("host", 1004));
-    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID().toString(), "node5", new NetworkAddress("host", 1005));
+    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
+    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
@@ -228,7 +232,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @EnumSource(ResetCluster.class)
     void resetClusterRequiresClusterState(ResetCluster action) {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        markinitConfigApplied();
+        markInitConfigApplied();
 
         ClusterResetException ex = assertWillThrow(action.resetCluster(manager, List.of(thisNodeName)), ClusterResetException.class);
         assertThat(ex.getMessage(), is("Node does not have cluster state."));
@@ -248,7 +252,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
     }
 
-    private void markinitConfigApplied() {
+    private void markInitConfigApplied() {
         vaultManager.put(INIT_CONFIG_APPLIED_VAULT_KEY, BYTE_EMPTY_ARRAY);
     }
 
@@ -260,7 +264,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
         prepareNodeStateForClusterReset();
 
-        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
 
         CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name()));
@@ -283,7 +287,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareNodeStateForClusterReset() {
-        markinitConfigApplied();
+        markInitConfigApplied();
         putClusterState();
     }
 
@@ -312,7 +316,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
         prepareNodeStateForClusterReset();
 
-        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
 
         CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name(), node3.name()));
@@ -355,7 +359,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondSuccessfullyFrom(ClusterNode node) {
-        when(messagingService.invoke(eq(node), any(), anyLong()))
+        when(messagingService.invoke(eq(node), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
     }
 
@@ -548,7 +552,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
 
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
-        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
 
         assertThat(manager.migrate(newState), willCompleteSuccessfully());
@@ -641,13 +645,18 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void initiatesBecomingMetastorageLeader(boolean pauseLeaderSecondaryDuties) {
-        when(metastorageMaintenance.becomeLonelyLeader(pauseLeaderSecondaryDuties)).thenReturn(nullCompletedFuture());
+    @ValueSource(ints = {1, 3})
+    void initiatesBecomingMetastorageLeader(int targetVotingSetSize) {
+        Set<String> targetSet = IntStream.range(0, targetVotingSetSize)
+                .mapToObj(n -> "node" + n)
+                .collect(toSet());
+        when(metastorageMaintenance.becomeLonelyLeader(1, targetSet))
+                .thenReturn(nullCompletedFuture());
 
         NetworkMessageHandler handler = extractMessageHandler();
         BecomeMetastorageLeaderMessage message = messagesFactory.becomeMetastorageLeaderMessage()
-                .pauseLeaderSecondaryDuties(pauseLeaderSecondaryDuties)
+                .termBeforeChange(1)
+                .targetVotingSet(targetSet)
                 .build();
         handler.onReceived(message, thisNode, 123L);
 

@@ -122,7 +122,7 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return transaction.coordinatorId();
     }
 

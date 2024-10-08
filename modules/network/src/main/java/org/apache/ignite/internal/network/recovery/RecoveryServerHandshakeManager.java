@@ -26,7 +26,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
@@ -228,7 +227,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.receivedCount = message.receivedCount();
         this.remoteChannelId = message.connectionId();
 
-        ChannelKey channelKey = new ChannelKey(remoteNode.name(), UUID.fromString(remoteNode.id()), remoteChannelId);
+        ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), remoteChannelId);
         switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> tryAcquireDescriptorAndFinishHandshake(message));
     }
 
@@ -288,12 +287,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 remoteNode.name(),
-                UUID.fromString(remoteNode.id()),
-                this.remoteChannelId
+                remoteNode.id(),
+                remoteChannelId
         );
 
         while (!descriptor.tryAcquire(ctx, handshakeCompleteFuture)) {
-            if (shouldCloseChannel(UUID.fromString(localNode.id()), UUID.fromString(remoteNode.id()))) {
+            if (shouldCloseChannel(localNode.id(), remoteNode.id())) {
                 // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
                 // the competitor realises it should terminate (this realization will happen on the other side of the channel), send
                 // the corresponding message to this node, terminate its handshake and complete the 'clinch resolved' future.

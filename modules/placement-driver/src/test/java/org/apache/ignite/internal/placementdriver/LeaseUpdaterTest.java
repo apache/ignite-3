@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Collections.emptyMap;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -44,8 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -63,6 +62,8 @@ import org.apache.ignite.internal.metastorage.dsl.OperationImpl;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -91,7 +92,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster node. */
-    private final LogicalNode node = new LogicalNode("123", "test-node", NetworkAddress.from("127.0.0.1:10000"));
+    private final LogicalNode node = new LogicalNode(randomUUID(), "test-node", NetworkAddress.from("127.0.0.1:10000"));
     @Mock
     private ClusterService clusterService;
     @Mock
@@ -113,11 +114,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        HybridClockImpl clock = new HybridClockImpl();
+
         Entry entry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
                 Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(node.name())).toBytes(),
                 1,
-                0
+                clock.now()
         );
 
         when(mcEntriesCursor.iterator()).thenReturn(List.of(entry).iterator());
@@ -150,7 +153,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl()),
+                new TestClockService(clock),
                 new AssignmentsTracker(metaStorageManager),
                 replicationConfiguration
         );

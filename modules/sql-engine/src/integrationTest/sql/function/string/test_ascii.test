@@ -38,17 +38,15 @@ SELECT ASCII('Ä')
 ----
 196
 
-query I
+statement error: Cannot apply 'ASCII' to arguments of type 'ASCII(<INTEGER>)'
 SELECT ASCII(5)
-----
-53
 
 query I
 SELECT ASCII(NULL)
 ----
 NULL
 
-statement error
+statement error: Invalid number of arguments to function 'ASCII'
 SELECT ASCII()
 
 query T

@@ -34,4 +34,7 @@ public class CatalogCompactionMessageGroup {
 
     /** See {@link CatalogCompactionPrepareUpdateTxBeginTimeMessage} for the details. */
     public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_MESSAGE = 2;
+
+    /** Message type for {@link AvailablePartitionsMessage}. */
+    public static final short AVAILABLE_PARTITIONS = 40;
 }

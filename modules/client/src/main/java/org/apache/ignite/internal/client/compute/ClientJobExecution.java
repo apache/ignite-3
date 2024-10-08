@@ -56,7 +56,12 @@ class ClientJobExecution<R> implements JobExecution<R> {
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, @Nullable Marshaller<R, byte[]> marshaller) {
+    ClientJobExecution(
+            ReliableChannel ch,
+            CompletableFuture<SubmitResult> reqFuture,
+            @Nullable Marshaller<R, byte[]> marshaller,
+            @Nullable Class<R> resultClass
+    ) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
@@ -66,7 +71,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        Object result = ClientComputeJobUnpacker.unpackJobResult(marshaller, r.in());
+                        Object result = ClientComputeJobUnpacker.unpackJobResult(r.in(), marshaller, resultClass);
                         stateFuture.complete(unpackJobState(r));
                         return (R) result;
                     }

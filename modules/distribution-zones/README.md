@@ -1,8 +1,8 @@
 This module provides implementations for the Distribution Zones module.
 
 ## Brief overview
-Data partitioning in Apache Ignite is controlled by the affinity function that determines the mapping both between keys and partitions 
-and partitions and nodes. Specifying an affinity function along with replica factor and partitions count sometimes is not enough, 
+Data partitioning in Apache Ignite is controlled by the partition distribution algorithm that determines the mapping both between keys and 
+partitions and partitions and nodes. Specifying these parameters sometimes is not enough,
 meaning that explicit fine grained tuning is required in order to control what data goes where. 
 Distribution zones provides aforementioned configuration possibilities that eventually makes it possible to achieve following goals:
 

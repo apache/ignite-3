@@ -49,8 +49,9 @@ public class FunctionsTest extends AbstractPlannerTest {
                 expr("SUBSTR(?, ?, ?)", "123456789", 1, 2).ok(),
 
                 expr("SUBSTR(NULL, 1, 2)").project("SUBSTR(null:NULL, 1, 2)"),
-                expr("SUBSTR(?, 1)", new Object[]{null}).project("SUBSTR(?0, 1)"),
-                expr("SUBSTR('123456789', ?)", new Object[]{null}).project("SUBSTR(_UTF-8'123456789', ?0)")
+                expr("SUBSTR(?, 1)", new Object[]{null}).project("SUBSTR(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1)"),
+                expr("SUBSTR(?, 1, 2)", new Object[]{null}).project("SUBSTR(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1, 2)"),
+                expr("SUBSTR('123456789', ?)", new Object[]{null}).project("SUBSTR(_UTF-8'123456789', CAST(?0):BIGINT)")
         );
     }
 

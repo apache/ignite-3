@@ -402,7 +402,7 @@ public class ConnectionManager implements ChannelCreationListener {
             sender.closeAsync().whenCompleteAsync((res, ex) -> {
                 RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
                         sender.consistentId(),
-                        UUID.fromString(sender.launchId()),
+                        sender.launchId(),
                         sender.channelId()
                 );
 
@@ -610,7 +610,7 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param id ID of the node (it must have already left the topology).
      */
-    public void handleNodeLeft(String id) {
+    public void handleNodeLeft(UUID id) {
         // We rely on the fact that the node with the given ID has already left the physical topology.
         assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
 
@@ -625,7 +625,7 @@ public class ConnectionManager implements ChannelCreationListener {
         );
     }
 
-    private CompletableFuture<Void> closeChannelsWith(String id) {
+    private CompletableFuture<Void> closeChannelsWith(UUID id) {
         List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
                 .filter(entry -> entry.getValue().launchId().equals(id))
                 .collect(toList());
@@ -640,10 +640,10 @@ public class ConnectionManager implements ChannelCreationListener {
         return allOf(closeFutures.toArray(CompletableFuture[]::new));
     }
 
-    private void disposeRecoveryDescriptorsOfLeftNode(String id) {
+    private void disposeRecoveryDescriptorsOfLeftNode(UUID id) {
         Exception exceptionToFailSendFutures = new RecipientLeftException();
 
-        for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(UUID.fromString(id))) {
+        for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(id)) {
             blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures);
         }
     }

@@ -21,22 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link TestRocksDbKeyValueStorage} key-value storage implementation.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
     private TestRocksDbKeyValueStorage testRocksDbKeyValueStorage;
-
-    @WorkDirectory
-    private Path workDir;
 
     @Override
     protected KeyValueStorage createStorage() {
@@ -46,7 +38,7 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
     }
 
     @Test
-    void testRestoreAfterRestart() {
+    void testRestoreAfterRestart() throws Exception {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
 
@@ -75,5 +67,10 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
 
         assertArrayEquals(key, e.key());
         assertArrayEquals(val, e.value());
+    }
+
+    @Override
+    void testSnapshot() {
+        // TestRocksDbKeyValueStorage does not clean up the storage on startup.
     }
 }

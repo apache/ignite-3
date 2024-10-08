@@ -32,13 +32,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -51,13 +53,17 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     private final ClusterStateStorage storage;
 
-    private final ClusterIdSupplier clusterIdSupplier;
+    private final ClusterStateStorageManager clusterStateStorageManager;
 
     private final List<LogicalTopologyEventListener> listeners = new CopyOnWriteArrayList<>();
 
-    public LogicalTopologyImpl(ClusterStateStorage storage, ClusterIdSupplier clusterIdSupplier) {
+    private volatile @Nullable UUID clusterId;
+
+    /** Constructor. */
+    public LogicalTopologyImpl(ClusterStateStorage storage) {
         this.storage = storage;
-        this.clusterIdSupplier = clusterIdSupplier;
+
+        clusterStateStorageManager = new ClusterStateStorageManager(storage);
     }
 
     @Override
@@ -128,11 +134,21 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private UUID requiredClusterId() {
-        UUID clusterId = clusterIdSupplier.clusterId();
+        UUID localClusterId = clusterId;
+        if (localClusterId != null) {
+            return localClusterId;
+        }
 
-        assert clusterId != null : "clusterId cannot be null when commands are already being executed by the CMG state machine";
+        // It is safe to read cluster state from the CMG storage as it was either restored from a snapshot (and has cluster state),
+        // or init command was executed before current command and put cluster state to the CMG storage.
+        ClusterState clusterState = clusterStateStorageManager.getClusterState();
+        assert clusterState != null : "clusterState cannot be null when commands are already being executed by the CMG state machine";
 
-        return clusterId;
+        // clusterId cannot have different non-null values for the same node during the same launch, so we don't need to synchronize.
+        localClusterId = clusterState.clusterTag().clusterId();
+        clusterId = localClusterId;
+
+        return localClusterId;
     }
 
     private void saveSnapshotToStorage(LogicalTopologySnapshot newTopology) {
@@ -143,7 +159,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, LogicalNode> mapById = snapshot.nodes().stream()
+        Map<UUID, LogicalNode> mapById = snapshot.nodes().stream()
                 .collect(toMap(LogicalNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.

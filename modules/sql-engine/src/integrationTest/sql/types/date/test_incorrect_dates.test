@@ -5,62 +5,86 @@
 statement ok
 CREATE TABLE dates(i DATE)
 
-statement error
-INSERT INTO dates VALUES ('blabla')
+statement error: Illegal DATE literal 'blabla': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date 'blabla')
+
+statement error: Invalid DATE value, 'blabla'
+INSERT INTO dates VALUES ('blabla'::DATE)
 
 # month out of range
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('1993-20-14')
+statement error: Illegal DATE literal '1993-20-14': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1993-20-14')
+
+statement error: Value of MONTH field is out of range in '1993-20-14'
+INSERT INTO dates VALUES ('1993-20-14'::DATE)
 
 # day out of range
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('1993-08-99')
+statement error: Illegal DATE literal '1993-08-99': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1993-08-99')
+
+statement error: Value of DAY field is out of range in '1993-08-99'
+INSERT INTO dates VALUES ('1993-08-99'::DATE)
 
 # day out of range because not a leapyear
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('1993-02-29')
+statement error: Illegal DATE literal '1993-02-29': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1993-02-29')
+
+statement error: Value of DAY field is out of range in '1993-02-29'
+INSERT INTO dates VALUES ('1993-02-29'::DATE)
 
 # day out of range because not a leapyear
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('1900-02-29')
+statement error: Illegal DATE literal '1900-02-29': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1900-02-29')
+
+statement error: Value of DAY field is out of range in '1900-02-29'
+INSERT INTO dates VALUES ('1900-02-29'::DATE)
 
 # day in range because of leapyear
 statement ok
-INSERT INTO dates VALUES ('1992-02-29')
+INSERT INTO dates VALUES (date '1992-02-29')
+
+statement ok
+INSERT INTO dates VALUES ('1992-02-29'::DATE)
 
 # day in range because of leapyear
 statement ok
-INSERT INTO dates VALUES ('2000-02-29')
+INSERT INTO dates VALUES (date '2000-02-29')
+
+statement ok
+INSERT INTO dates VALUES ('2000-02-29'::DATE)
 
 # test incorrect date formats
 # dd-mm-YYYY
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('02-02-1992')
+statement error: Illegal DATE literal '02-02-1992': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '02-02-1992')
+
+statement error: Invalid DATE value, '02-02-1992'
+INSERT INTO dates VALUES ('02-02-1992'::DATE)
 
 # different separators are not supported
-statement error
-INSERT INTO dates VALUES ('1900a01a01')
+statement error: Illegal DATE literal '1900a01a01': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1900a01a01')
+
+statement error: Invalid DATE value, '1900a01a01'
+INSERT INTO dates VALUES ('1900a01a01'::DATE)
 
 # this should work though
 statement ok
-INSERT INTO dates VALUES ('1900-1-1')
+INSERT INTO dates VALUES (date '1900-1-1')
+
+statement ok
+INSERT INTO dates VALUES ('1900-1-1'::DATE)
 
 # out of range dates
-statement error
-INSERT INTO dates VALUES ('-100000000-01-01')
+statement error: Illegal DATE literal '-100000000-01-01': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '-100000000-01-01')
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18663
-statement error
-INSERT INTO dates VALUES ('1000000000-01-01')
+statement error: Invalid DATE value, '-100000000-01-01'
+INSERT INTO dates VALUES ('-100000000-01-01'::DATE)
+
+statement error: Illegal DATE literal '1000000000-01-01': not in format 'yyyy-MM-dd'
+INSERT INTO dates VALUES (date '1000000000-01-01')
+
+statement error: Invalid DATE value, '1000000000-01-01'
+INSERT INTO dates VALUES ('1000000000-01-01'::DATE)
 

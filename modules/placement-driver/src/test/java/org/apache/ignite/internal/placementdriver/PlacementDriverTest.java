@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.affinity.Assignment.forPeer;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -48,12 +49,10 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -66,6 +65,9 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
@@ -94,7 +96,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
-    private static final String LEASEHOLDER_ID_1 = "leaseholder1_id";
+    private static final UUID LEASEHOLDER_ID_1 = randomUUID();
 
     private static final ClusterNode FAKE_NODE = new ClusterNodeImpl(LEASEHOLDER_ID_1, LEASEHOLDER_1, mock(NetworkAddress.class));
 
@@ -358,9 +360,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertFalse(primaryReplicaFuture.isDone());
 
         String newLeaseholder = "newLeaseholder";
+        UUID newLeaseholderId = randomUUID();
         Lease newLease = new Lease(
                 newLeaseholder,
-                newLeaseholder,
+                newLeaseholderId,
                 new HybridTimestamp(newLeaseholderPhysicalStartTimeMilliseconds, 0),
                 new HybridTimestamp(newLeaseholderPhysicalStartTimeMilliseconds + leaseDurationMilliseconds, 0),
                 false,
@@ -370,7 +373,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         );
 
         if (newLeaseholderIsOnline) {
-            leaseholder = new ClusterNodeImpl(newLeaseholder, newLeaseholder, mock(NetworkAddress.class));
+            leaseholder = new ClusterNodeImpl(newLeaseholderId, newLeaseholder, mock(NetworkAddress.class));
         }
 
         // Publish the lease for the new leaseholder.
@@ -381,7 +384,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
             ReplicaMeta replicaMeta = primaryReplicaFuture.join();
 
-            assertEquals(newLeaseholder, replicaMeta.getLeaseholderId());
+            assertEquals(newLeaseholderId, replicaMeta.getLeaseholderId());
             assertEquals(newLeaseholder, replicaMeta.getLeaseholder());
             assertEquals(newLease.getStartTime(), replicaMeta.getStartTime());
             assertEquals(newLease.getExpirationTime(), replicaMeta.getExpirationTime());
@@ -907,7 +910,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public @Nullable ClusterNode getById(String id) {
+            public @Nullable ClusterNode getById(UUID id) {
                 return leaseholder;
             }
         }, clockService);

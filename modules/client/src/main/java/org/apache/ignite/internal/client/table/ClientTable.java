@@ -40,6 +40,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
+import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -86,6 +88,8 @@ public class ClientTable implements Table {
     private final Object partitionAssignmentLock = new Object();
 
     private volatile PartitionAssignment partitionAssignment = null;
+
+    private volatile int partitionCount = -1;
 
     private final ClientPartitionManager clientPartitionManager;
 
@@ -150,12 +154,12 @@ public class ClientTable implements Table {
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         Objects.requireNonNull(recMapper);
 
-        return new ClientRecordView<>(this, sql, recMapper);
+        return new PublicApiClientRecordView<>(new ClientRecordView<>(this, sql, recMapper));
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new ClientRecordBinaryView(this, sql);
+        return new PublicApiClientRecordView<>(new ClientRecordBinaryView(this, sql));
     }
 
     /** {@inheritDoc} */
@@ -164,13 +168,13 @@ public class ClientTable implements Table {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(valMapper);
 
-        return new ClientKeyValueView<>(this, sql, keyMapper, valMapper);
+        return new PublicApiClientKeyValueView<>(new ClientKeyValueView<>(this, sql, keyMapper, valMapper));
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new ClientKeyValueBinaryView(this, sql);
+        return new PublicApiClientKeyValueView<>(new ClientKeyValueBinaryView(this, sql));
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {
@@ -215,7 +219,7 @@ public class ClientTable implements Table {
             ClientSchema last = null;
 
             for (var i = 0; i < schemaCnt; i++) {
-                last = readSchema(r.in());
+                last = readSchema(r.in(), ver);
 
                 if (log.isDebugEnabled()) {
                     log.debug("Schema loaded [tableId=" + id + ", schemaVersion=" + last.version() + "]");
@@ -226,7 +230,7 @@ public class ClientTable implements Table {
         });
     }
 
-    private ClientSchema readSchema(ClientMessageUnpacker in) {
+    private ClientSchema readSchema(ClientMessageUnpacker in, int targetVer) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
@@ -255,7 +259,10 @@ public class ClientTable implements Table {
         }
 
         var schema = new ClientSchema(schemaVer, columns, marshallers);
-        schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
+
+        if (schemaVer != targetVer) {
+            schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
+        }
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {
@@ -569,7 +576,7 @@ public class ClientTable implements Table {
         assert in != null;
         assert schemaId != null;
 
-        var resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
+        CompletableFuture<T> resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
 
         // Close unpacker.
         resFut.handle((tuple, err) -> {
@@ -621,6 +628,15 @@ public class ClientTable implements Table {
                         int cnt = r.in().unpackInt();
                         assert cnt >= 0 : "Invalid partition count: " + cnt;
 
+                        int oldPartitionCount = partitionCount;
+
+                        if (oldPartitionCount < 0) {
+                            partitionCount = cnt;
+                        } else if (oldPartitionCount != cnt) {
+                            throw new IgniteException(INTERNAL_ERR,
+                                    String.format("Partition count has changed for table '%s': %d -> %d", name, oldPartitionCount, cnt));
+                        }
+
                         boolean assignmentAvailable = r.in().unpackBoolean();
                         if (!assignmentAvailable) {
                             // Invalidate current assignment so that we can retry on the next call.
@@ -649,6 +665,15 @@ public class ClientTable implements Table {
 
             return newAssignment.partitionsFut;
         }
+    }
+
+    /**
+     * Gets partition count when available; otherwise, returns -1.
+     *
+     * @return Partition count, or -1 if not available.
+     */
+    int tryGetPartitionCount() {
+        return partitionCount;
     }
 
     @Nullable

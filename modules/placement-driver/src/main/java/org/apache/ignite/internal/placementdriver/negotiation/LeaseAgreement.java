@@ -23,12 +23,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -135,6 +136,15 @@ public class LeaseAgreement {
     }
 
     /**
+     * Returns true if the agreement is cancelled, false otherwise.
+     *
+     * @return True if the agreement is cancelled, false otherwise.
+     */
+    public boolean isCancelled() {
+        return responseFut.isDone() && !responseFut.isCompletedExceptionally() && responseFut.join() == null;
+    }
+
+    /**
      * Check the validity of the agreement in the current logical topology and group assignments. If the suggested leaseholder
      * has left topology or not included into the current assignments, the agreement is broken.
      *
@@ -157,7 +167,7 @@ public class LeaseAgreement {
 
             responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
-            Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+            Set<UUID> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
             if (!nodeIds.contains(lease.getLeaseholderId())) {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",

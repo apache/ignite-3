@@ -28,7 +28,6 @@ plugins {
 apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
-    mavenLocal()
     maven {
         url = uri('https://repository.apache.org/snapshots')
     }
@@ -118,7 +117,6 @@ subprojects {
     apply plugin: 'base'
 
     repositories {
-        mavenLocal()
         maven {
             url = uri('https://repository.apache.org/snapshots')
             mavenContent {
