@@ -367,8 +367,6 @@ public class VersatileReadWriteLock {
         }
 
         for (Iterator<CompletableFuture<Void>> iterator = writeLockWaitSet.iterator(); iterator.hasNext(); ) {
-            CompletableFuture<Void> future = iterator.next();
-
             if (!tryWriteLock()) {
                 // Someone has already acquired a conflicting lock, we're too late, let's wait for next opportunity.
                 break;
@@ -379,6 +377,8 @@ public class VersatileReadWriteLock {
             // we will need to release the lock.
             // We can use non-atomic pattern 'check whether future is done, and if not, finalize acquisition and complete the future'
             // because this is done in the critical section (under protection 'holding the write lock' invariant).
+
+            CompletableFuture<Void> future = iterator.next();
 
             // Removing as soon as possible to avoid an infinite recursion in the #writeUnlock() call that follows.
             iterator.remove();
@@ -406,12 +406,12 @@ public class VersatileReadWriteLock {
         }
 
         for (Iterator<CompletableFuture<Void>> iterator = readLockWaitSet.iterator(); iterator.hasNext(); ) {
-            CompletableFuture<Void> future = iterator.next();
-
             if (!tryReadLock()) {
                 // Someone has already acquired a write lock, we're too late, let's wait for next opportunity.
                 break;
             }
+
+            CompletableFuture<Void> future = iterator.next();
 
             iterator.remove();
 
