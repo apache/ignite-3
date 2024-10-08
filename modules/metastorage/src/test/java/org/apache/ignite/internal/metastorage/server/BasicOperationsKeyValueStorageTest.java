@@ -529,34 +529,34 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // Remove non-existent entry.
         removeFromMs(key);
 
-        assertEquals(0, storage.revision());
+        assertEquals(1, storage.revision());
         assertTrue(storage.get(key).empty());
 
         putToMs(key, val);
 
-        assertEquals(1, storage.revision());
+        assertEquals(2, storage.revision());
 
         // Remove existent entry.
         removeFromMs(key);
 
-        assertEquals(2, storage.revision());
+        assertEquals(3, storage.revision());
 
         Entry e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
-        assertEquals(2, e.revision());
+        assertEquals(3, e.revision());
 
         // Remove already removed entry (tombstone can't be removed).
         removeFromMs(key);
 
-        assertEquals(2, storage.revision());
+        assertEquals(4, storage.revision());
 
         e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
-        assertEquals(2, e.revision());
+        assertEquals(3, e.revision());
     }
 
     @Test

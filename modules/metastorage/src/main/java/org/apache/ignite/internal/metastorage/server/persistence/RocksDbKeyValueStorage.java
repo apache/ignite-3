@@ -630,9 +630,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                 updateKeysIndex(batch, key, curRev);
-
-                fillAndWriteBatch(batch, curRev, opTs);
             }
+
+            fillAndWriteBatch(batch, curRev, opTs);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -746,8 +746,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private void applyOperations(Collection<Operation> ops, HybridTimestamp opTs) throws RocksDBException {
         long curRev = rev + 1;
 
-        boolean modified = false;
-
         List<byte[]> updatedKeys = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -760,18 +758,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                         updatedKeys.add(key);
 
-                        modified = true;
-
                         break;
 
                     case REMOVE:
-                        boolean removed = addToBatchForRemoval(batch, key, curRev, opTs);
-
-                        if (removed) {
+                        if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                             updatedKeys.add(key);
                         }
-
-                        modified |= removed;
 
                         break;
 
@@ -783,13 +775,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified) {
-                for (byte[] key : updatedKeys) {
-                    updateKeysIndex(batch, key, curRev);
-                }
-
-                fillAndWriteBatch(batch, curRev, opTs);
+            for (byte[] key : updatedKeys) {
+                updateKeysIndex(batch, key, curRev);
             }
+
+            fillAndWriteBatch(batch, curRev, opTs);
         }
     }
 
