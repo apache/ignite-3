@@ -576,7 +576,7 @@ public class ClientTable implements Table {
         assert in != null;
         assert schemaId != null;
 
-        var resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
+        CompletableFuture<T> resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
 
         // Close unpacker.
         resFut.handle((tuple, err) -> {

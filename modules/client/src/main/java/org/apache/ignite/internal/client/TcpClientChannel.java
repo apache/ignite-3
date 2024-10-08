@@ -275,9 +275,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        try {
-            var unpacker = new ClientMessageUnpacker(buf);
-
+        try (var unpacker = new ClientMessageUnpacker(buf)) {
             processNextMessage(unpacker);
         } catch (Throwable t) {
             close(t, false);
@@ -318,9 +316,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 notificationHandlers.put(id, notificationFut);
             }
 
-            CompletableFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut, operationTimeout);
-
-            return fut;
+            return send(opCode, id, payloadWriter, payloadReader, notificationFut, operationTimeout);
 
         } catch (Throwable t) {
             return failedFuture(t);
@@ -384,25 +380,24 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             if (PublicApiThreading.executingSyncPublicApi()) {
+                // We are in the public API (user) thread, deserialize the response here.
                 try {
-                    ClientMessageUnpacker unpacker = fut.get();
+                    ClientMessageUnpacker unpacker = fut.join();
 
                     return completedFuture(complete(payloadReader, notificationFut, unpacker));
-                } catch (Exception e) {
-                    return failedFuture(e);
+                } catch (Throwable t) {
+                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
                 }
             }
 
-            return fut.handleAsync(
-                    (unpacker, err) -> {
-                        if (err != null) {
-                            throw sneakyThrow(err);
-                        }
+            // Handle the response in the async continuation pool.
+            return fut.handleAsync((unpacker, err) -> {
+                if (err != null) {
+                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
+                }
 
-                        return complete(payloadReader, notificationFut, unpacker);
-                    },
-                    asyncContinuationExecutor
-            );
+                return complete(payloadReader, notificationFut, unpacker);
+            }, asyncContinuationExecutor);
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -424,22 +419,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param notificationFut Notify future.
      * @param unpacker Unpacked message.
      */
-    private <T> T complete(
-            PayloadReader<T> payloadReader,
-            CompletableFuture<PayloadInputChannel> notificationFut,
+    private <T> @Nullable T complete(
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker
     ) {
         try (unpacker) {
             if (payloadReader != null) {
                 return payloadReader.apply(new PayloadInputChannel(this, unpacker, notificationFut));
             }
+
+            return null;
         } catch (Throwable e) {
             log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
             throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
         }
-
-        return null;
     }
 
     /**
@@ -448,7 +443,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            pendingReqs.remove(-1L).future().complete(unpacker);
+            pendingReqs.remove(-1L).future().complete(unpacker.retain());
             return;
         }
 
@@ -469,8 +464,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         TimeoutObjectImpl pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
-            unpacker.close();
-
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
 
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId), endpoint());
@@ -481,12 +474,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            pendingReq.future().complete(unpacker);
+            pendingReq.future().complete(unpacker.retain());
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
-
-            unpacker.close();
 
             pendingReq.future().completeExceptionally(err);
         }
@@ -517,7 +508,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
         }
 
-        try (unpacker) {
+        try {
             if (err != null) {
                 handler.completeExceptionally(err);
             } else {
@@ -820,7 +811,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
          * @param timeout Timeout in milliseconds.
          * @param fut Target future.
          */
-        public TimeoutObjectImpl(long timeout, CompletableFuture<ClientMessageUnpacker> fut) {
+        private TimeoutObjectImpl(long timeout, CompletableFuture<ClientMessageUnpacker> fut) {
             this.endTime = timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0;
             this.fut = fut;
         }
