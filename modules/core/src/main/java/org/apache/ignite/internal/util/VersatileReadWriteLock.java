@@ -340,12 +340,13 @@ public class VersatileReadWriteLock {
     public void writeUnlock() {
         while (true) {
             int curState = state;
-            // There could still be some read locks if the write lock was taken forcefully.
-            int readLocks = readLocks(curState);
 
             if (!writeLocked(curState)) {
                 throw new IllegalMonitorStateException();
             }
+
+            // There could still be some read locks if the write lock was taken forcefully.
+            int readLocks = readLocks(curState);
 
             if (STATE_VH.compareAndSet(this, state, state(false, readLocks))) {
                 break;
