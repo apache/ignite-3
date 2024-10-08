@@ -756,7 +756,7 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return sendReadOnlyToReplicationGroup(tx, tablePartitionId, op);
+        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
     }
 
     /**
@@ -777,7 +777,7 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return sendReadOnlyToReplicationGroup(tx, tablePartitionId, op);
+        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
     }
 
     /**
@@ -789,7 +789,7 @@ public class InternalTableImpl implements InternalTable {
      * @param <R> The future.
      * @return The future.
      */
-    private <R> CompletableFuture<R> sendReadOnlyToReplicationGroup(
+    private <R> CompletableFuture<R> sendReadOnlyToPrimaryReplica(
             InternalTransaction tx,
             TablePartitionId tablePartitionId,
             BiFunction<TablePartitionId, Long, ReplicaRequest> op
