@@ -105,7 +105,7 @@ public class VersatileReadWriteLock {
     /** Futures to be completed when read locks (one per future) are acquired after a write lock is released. */
     private final Set<CompletableFuture<Void>> readLockWaitSet = ConcurrentHashMap.newKeySet();
 
-    /** Futures to be completed when a write lock (one per future) is acquired after an impeding lock is released. */
+    /** Futures to be completed when a write lock (one per future) is acquired after a conflicting lock is released. */
     private final Set<CompletableFuture<Void>> writeLockWaitSet = ConcurrentHashMap.newKeySet();
 
     /** In this pool {@link #readLockWaitSet} and {@link #writeLockWaitSet} will be completed. */
@@ -391,7 +391,7 @@ public class VersatileReadWriteLock {
                     writeUnlock();
                 }
             } else {
-                // Someone has already acquired an impeding lock, we're too late, let's wait for next opportunity.
+                // Someone has already acquired a conflicting lock, we're too late, let's wait for next opportunity.
                 break;
             }
         }
