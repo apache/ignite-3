@@ -149,6 +149,7 @@ enum class code : underlying_t {
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,
+    STORAGE_CORRUPTED = 0x90002,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,

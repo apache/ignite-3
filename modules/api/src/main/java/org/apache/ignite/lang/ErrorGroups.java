@@ -417,6 +417,9 @@ public class ErrorGroups {
 
         /** Error reading from an index that has not yet been built. */
         public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Error indicating a possible data corruption in the storage. */
+        public static final int STORAGE_CORRUPTED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Distribution zones error group. */
