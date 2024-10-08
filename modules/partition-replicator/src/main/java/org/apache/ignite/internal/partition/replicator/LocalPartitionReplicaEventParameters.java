@@ -23,7 +23,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 /**
  * Parameters for the events about zone partition replicas produced by {@link PartitionReplicaLifecycleManager}.
  */
-public class PartitionReplicaEventParameters implements EventParameters {
+public class LocalPartitionReplicaEventParameters implements EventParameters {
     /** Zone partition id. */
     private final ZonePartitionId zonePartitionId;
 
@@ -32,7 +32,7 @@ public class PartitionReplicaEventParameters implements EventParameters {
      *
      * @param zonePartitionId Zone partition id.
      */
-    public PartitionReplicaEventParameters(ZonePartitionId zonePartitionId) {
+    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId) {
         this.zonePartitionId = zonePartitionId;
     }
 

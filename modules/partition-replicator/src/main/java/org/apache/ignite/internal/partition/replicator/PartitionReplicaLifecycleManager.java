@@ -140,7 +140,7 @@ import org.jetbrains.annotations.Nullable;
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
 public class PartitionReplicaLifecycleManager  extends
-        AbstractEventProducer<LocalPartitionReplicaEvent, PartitionReplicaEventParameters> implements IgniteComponent {
+        AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -170,7 +170,7 @@ public class PartitionReplicaLifecycleManager  extends
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
-    private final Set<ReplicationGroupId> replicationGroupIds = ConcurrentHashMap.newKeySet();
+    private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
     private final Map<Integer, StampedLock> zonePartitionsLocks = new ConcurrentHashMap<>();
@@ -487,7 +487,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                             return fireEvent(
                                     LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
-                                    new PartitionReplicaEventParameters(
+                                    new LocalPartitionReplicaEventParameters(
                                             new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
                                     )
                             );
@@ -935,7 +935,7 @@ public class PartitionReplicaLifecycleManager  extends
         }
     }
 
-    private CompletableFuture<?> stopAndDestroyPartition(ReplicationGroupId zonePartitionId) {
+    private CompletableFuture<?> stopAndDestroyPartition(ZonePartitionId zonePartitionId) {
         return weakStopPartition(zonePartitionId);
     }
 
@@ -1239,17 +1239,13 @@ public class PartitionReplicaLifecycleManager  extends
         return nullCompletedFuture();
     }
 
-    private static String zoneInfo(CatalogZoneDescriptor zoneDescriptor) {
-        return zoneDescriptor.id() + "/" + zoneDescriptor.name();
-    }
-
     private @Nullable Assignments stableAssignments(ZonePartitionId zonePartitionId, long revision) {
         Entry entry = metaStorageMgr.getLocally(stablePartAssignmentsKey(zonePartitionId), revision);
 
         return Assignments.fromBytes(entry.value());
     }
 
-    private CompletableFuture<Void> weakStopPartition(ReplicationGroupId zonePartitionId) {
+    private CompletableFuture<Void> weakStopPartition(ZonePartitionId zonePartitionId) {
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
@@ -1263,14 +1259,41 @@ public class PartitionReplicaLifecycleManager  extends
      * @param zonePartitionId Partition ID.
      * @return Future that will be completed after all resources have been closed.
      */
-    private CompletableFuture<?> stopPartition(ReplicationGroupId zonePartitionId) {
-        CompletableFuture<Boolean> stopReplicaFuture;
+    private CompletableFuture<?> stopPartition(ZonePartitionId zonePartitionId) {
+        CompletableFuture<?> stopReplicaFuture;
+
+        AtomicReference<Long> stamp = new AtomicReference<>(null);
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(zonePartitionId);
+            zonePartitionsLocks.compute(zonePartitionId.zoneId(), (id, lock) -> {
+                if (lock == null) {
+                    lock = new StampedLock();
+                }
+
+                stamp.set(lock.writeLock());
+
+                return lock;
+            });
+
+            stopReplicaFuture = replicaMgr.stopReplica(zonePartitionId)
+                    .thenCompose((replicaWasStopped) -> {
+                        if (replicaWasStopped) {
+                            replicationGroupIds.remove(zonePartitionId);
+
+                            return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, new LocalPartitionReplicaEventParameters(
+                                    zonePartitionId));
+                        } else {
+                            return nullCompletedFuture();
+                        }
+                    }).whenComplete((result, th) -> {
+                        zonePartitionsLocks.get(zonePartitionId.zoneId()).unlockWrite(stamp.get());
+                    });
+
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();
+
+            zonePartitionsLocks.get(zonePartitionId.zoneId()).unlockWrite(stamp.get());
         }
 
         return stopReplicaFuture;
@@ -1281,7 +1304,7 @@ public class PartitionReplicaLifecycleManager  extends
      *
      * @param partitionIds Partitions to stop.
      */
-    private void cleanUpPartitionsResources(Set<ReplicationGroupId> partitionIds) {
+    private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
         CompletableFuture<Void> future = runAsync(() -> {
             Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
@@ -1290,7 +1313,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                 int i = 0;
 
-                for (ReplicationGroupId partitionId : partitionIds) {
+                for (ZonePartitionId partitionId : partitionIds) {
                     stopReplicaFutures[i++] = stopPartition(partitionId);
                 }
 
@@ -1300,7 +1323,7 @@ public class PartitionReplicaLifecycleManager  extends
             try {
                 IgniteUtils.closeAllManually(stopping.build());
             } catch (Throwable t) {
-                LOG.error("Unable to stop partition");
+                LOG.error("Unable to stop partition.", t);
             }
         }, ioExecutor);
 

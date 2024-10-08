@@ -17,37 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
-    }
-
-    @Override
-    boolean isPersistent() {
-        return true;
-    }
-
-    @Override
-    void restartStorage(boolean clear) throws Exception {
-        storage.close();
-
-        if (clear) {
-            IgniteUtils.deleteIfExists(storageDir());
-        }
-
-        storage = createStorage();
-
-        storage.start();
-    }
-
-    private Path storageDir() {
-        return workDir.resolve("storage");
     }
 }

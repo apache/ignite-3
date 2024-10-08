@@ -47,3 +47,6 @@ INSERT INTO test3 VALUES (null, 22), (12, null), (13, 22)
 # SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
 statement error: Illegal mixing of types in CASE or COALESCE statement
 SELECT COALESCE(CAST(a AS VARCHAR), 11) FROM test3 ORDER BY a
+
+statement error: Illegal mixing of types in CASE or COALESCE statement
+SELECT COALESCE(null, null, null, null, 25, '')

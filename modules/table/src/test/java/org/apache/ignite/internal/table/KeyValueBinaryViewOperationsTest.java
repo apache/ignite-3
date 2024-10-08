@@ -17,41 +17,26 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase {
     /**
@@ -499,33 +484,6 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
         assertThrows(NullPointerException.class, () -> tbl.replace(null, key, val, null));
 
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
-    }
-
-    @Test
-    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
-        SchemaDescriptor schema = schemaDescriptor();
-        InternalTable internalTable = spy(createInternalTable(schema));
-        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
-
-        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
-                internalTable,
-                new DummySchemaManagerImpl(schema),
-                schemaVersions,
-                mock(IgniteSql.class),
-                marshallers
-        );
-
-        BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
-
-        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
-                .doReturn(completedFuture(resultRow))
-                .when(internalTable).get(any(), any());
-
-        Tuple result = view.get(null, Tuple.create().set("ID", 1L));
-
-        assertThat(result.longValue("VAL"), is(2L));
-
-        verify(internalTable, times(2)).get(any(), isNull());
     }
 
     private SchemaDescriptor schemaDescriptor() {

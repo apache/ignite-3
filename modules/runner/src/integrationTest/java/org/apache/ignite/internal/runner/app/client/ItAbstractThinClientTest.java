@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -185,6 +187,16 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     protected Ignite server(int idx) {
         return startedNodes.get(idx);
+    }
+
+    protected ClusterNode node(int idx) {
+        return sortedNodes().get(idx);
+    }
+
+    protected List<ClusterNode> sortedNodes() {
+        return client.clusterNodes().stream()
+                .sorted(Comparator.comparing(ClusterNode::name))
+                .collect(toList());
     }
 
     /**

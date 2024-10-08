@@ -39,7 +39,7 @@ public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     public void testExecute() throws SQLException {
         stmt.execute("delete from PUBLIC.PERSON where substring(SID, 2, 1)::int % 2 = 0");
 
-        KeyValueView<Tuple, Tuple> kvView = clusterNodes.get(0).tables().table("PERSON").keyValueView();
+        KeyValueView<Tuple, Tuple> kvView = CLUSTER.node(0).tables().table("PERSON").keyValueView();
 
         assertFalse(kvView.contains(null, Tuple.create().set("ID", 2)));
         assertTrue(kvView.contains(null, Tuple.create().set("ID", 1)));
@@ -57,7 +57,7 @@ public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTe
 
         assertEquals(1, res);
 
-        KeyValueView<Tuple, Tuple> kvView = clusterNodes.get(0).tables().table("PERSON").keyValueView();
+        KeyValueView<Tuple, Tuple> kvView = CLUSTER.node(0).tables().table("PERSON").keyValueView();
 
         assertFalse(kvView.contains(null, Tuple.create().set("ID", 2)));
         assertTrue(kvView.contains(null, Tuple.create().set("ID", 1)));

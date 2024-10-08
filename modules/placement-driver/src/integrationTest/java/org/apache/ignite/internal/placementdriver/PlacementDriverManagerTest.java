@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -592,27 +593,31 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testRedirectionAcceptance() throws Exception {
         AtomicReference<String> redirect = new AtomicReference<>();
+        AtomicBoolean forceDetected = new AtomicBoolean(false);
 
         leaseGrantHandler = (req, handler) -> {
+            if (req.force()) {
+                forceDetected.set(true);
+            }
+
             if (redirect.get() == null) {
                 redirect.set(handler.equals(nodeName) ? anotherNodeName : nodeName);
-
-                return PLACEMENT_DRIVER_MESSAGES_FACTORY
-                        .leaseGrantedMessageResponse()
-                        .accepted(false)
-                        .redirectProposal(redirect.get())
-                        .build();
-            } else {
-                return PLACEMENT_DRIVER_MESSAGES_FACTORY
-                        .leaseGrantedMessageResponse()
-                        .accepted(redirect.get().equals(handler))
-                        .build();
             }
+
+            return PLACEMENT_DRIVER_MESSAGES_FACTORY
+                    .leaseGrantedMessageResponse()
+                    .accepted(redirect.get().equals(handler))
+                    .redirectProposal(redirect.get().equals(handler) ? null : redirect.get())
+                    .build();
         };
 
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
+
+        if (forceDetected.get()) {
+            fail("Unexpected force leaseGrantedMessage detected");
+        }
     }
 
     @Test

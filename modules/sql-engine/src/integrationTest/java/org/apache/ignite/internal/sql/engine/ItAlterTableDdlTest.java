@@ -21,13 +21,17 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -35,6 +39,11 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -195,6 +204,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         sql("ALTER TABLE test ADD COLUMN valts TIMESTAMP(3) DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
         sql("ALTER TABLE test ADD COLUMN valstr VARCHAR DEFAULT 'string'");
         sql("ALTER TABLE test ADD COLUMN valbin VARBINARY DEFAULT x'ff'");
+        sql("ALTER TABLE test ADD COLUMN valuuid UUID DEFAULT '00000000-0000-0000-0000-000000000000'");
 
         sql("INSERT INTO test (id) VALUES (0)");
 
@@ -205,7 +215,8 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                         LocalTime.of(11, 22, 33, 444000000),
                         LocalDateTime.of(2001, Month.DECEMBER, 21, 11, 22, 33, 444000000),
                         "string",
-                        new byte[]{(byte) 0xff}
+                        new byte[]{(byte) 0xff},
+                        UUID.fromString("00000000-0000-0000-0000-000000000000")
                 )
                 .check();
     }
@@ -221,5 +232,106 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 "Failed to parse query: Encountered \"rand_uuid\"",
                 () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
         );
+    }
+
+    @Test
+    public void uuidDefault() {
+        UUID defaultUuid = UUID.randomUUID();
+        sql("CREATE TABLE test(id INT PRIMARY KEY)");
+
+        RecordView<Tuple> recView = CLUSTER.aliveNode().tables().table("test").recordView();
+        KeyValueView<Tuple, Tuple> kvBinaryView = CLUSTER.aliveNode().tables().table("test").keyValueView();
+        KeyValueView<Integer, UUID> kvView = CLUSTER.aliveNode().tables().table("test").keyValueView(Integer.class, UUID.class);
+
+        // Ensure that invalid UUIDs are rejected.
+        {
+            //noinspection ThrowableNotThrown
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Invalid default value for column 'VAL'",
+                    () -> sql("ALTER TABLE test ADD COLUMN (val UUID DEFAULT '00000000-0000-0000-0000-')")
+            );
+
+            //noinspection ThrowableNotThrown
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Invalid default value for column 'VAL'",
+                    () -> sql("ALTER TABLE test ADD COLUMN (val UUID DEFAULT 911)")
+            );
+        }
+
+        // Add column with UUID default value.
+        sql(format("ALTER TABLE test ADD COLUMN (val UUID DEFAULT '{}')", defaultUuid));
+
+        // Put some data.
+        sql("INSERT INTO test VALUES (1, DEFAULT), (2, DEFAULT)");
+        sql("INSERT INTO test (id) VALUES (3)");
+        recView.upsert(null, Tuple.create().set("id", 4));
+        kvBinaryView.put(null, Tuple.create().set("id", 5), Tuple.create());
+        sql("INSERT INTO test VALUES (6, NULL)");
+        kvView.put(null, 7, null);
+
+        // Verify UUID value using SQL.
+        {
+            assertQuery("SELECT id, val FROM test ORDER BY id")
+                    .returns(1, defaultUuid)
+                    .returns(2, defaultUuid)
+                    .returns(3, defaultUuid)
+                    .returns(4, defaultUuid)
+                    .returns(5, defaultUuid)
+                    .returns(6, null)
+                    .returns(7, null)
+                    .check();
+        }
+
+        // Verify UUID values using record and key-value view.
+        {
+            List<Integer> ids = List.of(1, 2, 3, 4, 5);
+
+            ids.forEach(id -> {
+                Tuple record = recView.get(null, Tuple.create().set("id", id));
+                assertThat("id=" + id, record.uuidValue("val"), equalTo(defaultUuid));
+
+                Tuple row = kvBinaryView.get(null, Tuple.create().set("id", id));
+                assertNotNull(row);
+                assertThat("id=" + id, row.uuidValue("val"), equalTo(defaultUuid));
+
+                UUID val = kvView.get(null, id);
+                assertThat("id=" + id, val, equalTo(defaultUuid));
+            });
+
+            List<Integer> nullIds = List.of(6, 7);
+
+            nullIds.forEach(id -> {
+                Tuple record = recView.get(null, Tuple.create().set("id", id));
+                assertNull(record.uuidValue("val"), "id=" + id);
+
+                Tuple row = kvBinaryView.get(null, Tuple.create().set("id", id));
+                assertNotNull(row);
+                assertNull(row.uuidValue("val"), "id=" + id);
+
+                NullableValue<UUID> val = kvView.getNullable(null, id);
+                assertNotNull(val, "id=" + id);
+                assertNull(val.get());
+            });
+        }
+
+        // Verify NULL as default value.
+        {
+            sql("ALTER TABLE test ALTER COLUMN val SET DEFAULT NULL");
+            sql("INSERT INTO test VALUES (8, DEFAULT)");
+            sql("INSERT INTO test (id) VALUES (9)");
+            assertQuery("SELECT id, val FROM test ORDER BY id")
+                    .returns(1, defaultUuid)
+                    .returns(2, defaultUuid)
+                    .returns(3, defaultUuid)
+                    .returns(4, defaultUuid)
+                    .returns(5, defaultUuid)
+                    .returns(6, null)
+                    .returns(7, null)
+                    .returns(8, null)
+                    .returns(9, null)
+                    .check();
+        }
     }
 }

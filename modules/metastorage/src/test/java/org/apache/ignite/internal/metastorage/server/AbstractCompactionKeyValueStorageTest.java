@@ -24,8 +24,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,8 +35,10 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -42,8 +46,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /** Compaction tests. */
 @ExtendWith(WorkDirectoryExtension.class)
@@ -91,10 +93,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
-
-    abstract boolean isPersistent();
-
-    abstract void restartStorage(boolean clear) throws Exception;
 
     @Test
     void testCompactRevision1() {
@@ -160,24 +158,172 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision6();
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testRevisionsAfterRestart(boolean clearStorage) throws Exception {
-        assumeTrue(isPersistent());
-
+    @Test
+    void testRevisionsAfterRestart() {
         storage.compact(6);
 
         Path snapshotDir = workDir.resolve("snapshot");
 
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        restartStorage(clearStorage);
-
         storage.restoreSnapshot(snapshotDir);
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(), collectRevisions(BAR_KEY));
         assertEquals(List.of(), collectRevisions(SOME_KEY));
+    }
+
+    @Test
+    void testCompactBeforeStopIt() {
+        storage.stopCompaction();
+
+        storage.compact(6);
+
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
+    }
+
+    @Test
+    void testSetAndGetCompactionRevision() {
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.setCompactionRevision(0);
+        assertEquals(0, storage.getCompactionRevision());
+
+        storage.setCompactionRevision(1);
+        assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSetAndGetCompactionRevisionAndRestart() throws Exception {
+        storage.setCompactionRevision(1);
+
+        restartStorage();
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevisionDoesNotChangeRevisionInMemory() {
+        storage.saveCompactionRevision(0);
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.saveCompactionRevision(1);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevisionAndRestart() throws Exception {
+        storage.saveCompactionRevision(1);
+
+        restartStorage();
+
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevisionInSnapshot() {
+        storage.saveCompactionRevision(1);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+        assertEquals(-1, storage.getCompactionRevision());
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testSaveCompactionRevisionInSnapshotAndRestart() throws Exception {
+        storage.saveCompactionRevision(1);
+
+        Path snapshotDir = workDir.resolve("snapshot");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage();
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testCompactDontSetAndSaveCompactionRevision() throws Exception {
+        storage.compact(1);
+        assertEquals(-1, storage.getCompactionRevision());
+
+        restartStorage();
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testRestoreFromSnapshotWithoutSaveCompactionRevision() throws Exception {
+        Path snapshotDir = workDir.resolve("snapshot");
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
+
+        restartStorage();
+
+        storage.restoreSnapshot(snapshotDir);
+        assertEquals(-1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testEntryOperationTimestampAfterCompaction() {
+        storage.compact(6);
+
+        assertNull(storage.get(BAR_KEY).timestamp());
+    }
+
+    @Test
+    void testTimestampByRevisionAfterCompaction() {
+        storage.compact(1);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertDoesNotThrow(() -> storage.timestampByRevision(2));
+        assertDoesNotThrow(() -> storage.timestampByRevision(3));
+
+        storage.compact(2);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(2));
+        assertDoesNotThrow(() -> storage.timestampByRevision(3));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(1));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(2));
+        assertThrows(CompactedException.class, () -> storage.timestampByRevision(3));
+    }
+
+    @Test
+    void testRevisionByTimestampAfterCompaction() {
+        HybridTimestamp timestamp1 = storage.timestampByRevision(1);
+        HybridTimestamp timestamp2 = storage.timestampByRevision(2);
+        HybridTimestamp timestamp3 = storage.timestampByRevision(3);
+
+        storage.compact(1);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp2));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp3));
+
+        storage.compact(2);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2.subtractPhysicalTime(1)));
+        assertDoesNotThrow(() -> storage.revisionByTimestamp(timestamp3));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp1.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp2.subtractPhysicalTime(1)));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3));
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3.subtractPhysicalTime(1)));
     }
 
     private List<Integer> collectRevisions(byte[] key) {

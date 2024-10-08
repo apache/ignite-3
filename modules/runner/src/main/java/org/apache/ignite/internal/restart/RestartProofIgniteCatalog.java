@@ -88,6 +88,16 @@ class RestartProofIgniteCatalog implements IgniteCatalog, Wrapper {
         });
     }
 
+    @Override
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
+        return attachmentLock.attachedAsync(ignite -> ignite.catalog().tableDefinitionAsync(tableName));
+    }
+
+    @Override
+    public TableDefinition tableDefinition(String tableName) {
+        return attachmentLock.attached(ignite -> ignite.catalog().tableDefinition(tableName));
+    }
+
     private Table wrapTable(Table table, Ignite ignite) {
         return new RestartProofTable(attachmentLock, ignite, RestartProofTable.tableId(table));
     }
@@ -100,6 +110,16 @@ class RestartProofIgniteCatalog implements IgniteCatalog, Wrapper {
     @Override
     public void createZone(ZoneDefinition definition) {
         attachmentLock.consumeAttached(ignite -> ignite.catalog().createZone(definition));
+    }
+
+    @Override
+    public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
+        return attachmentLock.attachedAsync(ignite -> ignite.catalog().zoneDefinitionAsync(zoneName));
+    }
+
+    @Override
+    public ZoneDefinition zoneDefinition(String zoneName) {
+        return attachmentLock.attached(ignite -> ignite.catalog().zoneDefinition(zoneName));
     }
 
     @Override

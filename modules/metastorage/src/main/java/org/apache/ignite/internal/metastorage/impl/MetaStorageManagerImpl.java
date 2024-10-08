@@ -603,6 +603,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             return nullCompletedFuture();
         }
 
+        storage.stopCompaction();
+
         busyLock.block();
 
         deployWatchesFuture.cancel(true);
@@ -748,16 +750,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public HybridTimestamp timestampByRevision(long revision) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.timestampByRevision(revision);
-        } finally {
-            busyLock.leaveBusy();
-        }
+    public HybridTimestamp timestampByRevisionLocally(long revision) {
+        return inBusyLock(busyLock, () -> storage.timestampByRevision(revision));
     }
 
     @Override
@@ -1135,5 +1129,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public void compactLocally(long revision) {
         inBusyLock(busyLock, () -> storage.compact(revision));
+    }
+
+    @Override
+    public void saveCompactionRevisionLocally(long revision) {
+        inBusyLock(busyLock, () -> storage.saveCompactionRevision(revision));
+    }
+
+    @Override
+    public void setCompactionRevisionLocally(long revision) {
+        inBusyLock(busyLock, () -> storage.setCompactionRevision(revision));
+    }
+
+    @Override
+    public long getCompactionRevisionLocally() {
+        return inBusyLock(busyLock, storage::getCompactionRevision);
     }
 }

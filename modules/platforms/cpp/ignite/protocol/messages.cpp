@@ -63,7 +63,7 @@ handshake_response parse_handshake_response(bytes_view message) {
         return res;
 
     UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
+    UNUSED_VALUE reader.skip(); // Cluster node ID. Needed for partition-aware compute.
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
     auto cluster_ids_len = reader.read_int32();

@@ -22,9 +22,11 @@ import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogSystemViewProvider;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -43,7 +45,11 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
     /** {@inheritDoc} */
     @Override
     public List<SystemView<?>> getView(Supplier<Catalog> catalogSupplier) {
-        SystemView<?> zoneSystemView = SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
+        return List.of(getZoneView(catalogSupplier), getStorageProfilesView(catalogSupplier));
+    }
+
+    private static SystemView<?> getZoneView(Supplier<Catalog> catalogSupplier) {
+        return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
                 .name("ZONES")
                 .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
@@ -60,8 +66,34 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                         }
                 ))
                 .build();
+    }
 
-        return List.of(zoneSystemView);
+    private static SystemView<?> getStorageProfilesView(Supplier<Catalog> catalogSupplier) {
+        Iterable<ZoneWithProfile> viewData = () -> {
+            Catalog catalog = catalogSupplier.get();
+
+            return catalog.zones().stream()
+                    .flatMap(zone -> {
+                        List<CatalogStorageProfileDescriptor> profiles = zone.storageProfiles().profiles();
+                        CatalogStorageProfileDescriptor defaultProfile = zone.storageProfiles().defaultProfile();
+
+                        return profiles.stream().map(profile ->
+                                new ZoneWithProfile(
+                                        zone.name(),
+                                        profile.storageProfile(),
+                                        Objects.equals(profile.storageProfile(), defaultProfile.storageProfile())
+                                )
+                        );
+                    }).iterator();
+        };
+
+        return SystemViews.<ZoneWithProfile>clusterViewBuilder()
+                .name("ZONE_STORAGE_PROFILES")
+                .addColumn("ZONE_NAME", STRING, zone -> zone.zoneName)
+                .addColumn("STORAGE_PROFILE", STRING, zone -> zone.profileName)
+                .addColumn("IS_DEFAULT_PROFILE", BOOLEAN, zone -> zone.isDefaultProfile)
+                .dataProvider(SubscriptionUtils.fromIterable(viewData))
+                .build();
     }
 
     /** Wraps a CatalogZoneDescriptor and a flag indicating whether this zone is the default zone. */
@@ -72,6 +104,21 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
         ZoneWithDefaultMarker(CatalogZoneDescriptor zone, boolean isDefault) {
             this.zone = zone;
             this.isDefault = isDefault;
+        }
+    }
+
+    /**
+     * Wraps a zone and a one of storage profile of the zone.
+     */
+    private static class ZoneWithProfile {
+        private final String zoneName;
+        private final String profileName;
+        private final boolean isDefaultProfile;
+
+        private ZoneWithProfile(String zoneName, String profileName, boolean defaultProfile) {
+            this.zoneName = zoneName;
+            this.profileName = profileName;
+            this.isDefaultProfile = defaultProfile;
         }
     }
 }

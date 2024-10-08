@@ -98,6 +98,13 @@ public:
     [[nodiscard]] const std::string &get_sql_state() const;
 
     /**
+     * Get SQL state of the record.
+     *
+     * @return Internal constant.
+     */
+    [[nodiscard]] sql_state get_sql_state_internal() const { return m_sql_state; }
+
+    /**
      * Get row number.
      *
      * @return The row number in the row set, or the parameter number in the set of m_parameters, with which the status

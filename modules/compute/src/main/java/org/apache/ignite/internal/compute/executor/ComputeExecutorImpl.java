@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute.executor;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
+import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
@@ -24,7 +26,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -94,7 +94,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobInstance, context, inputMarshaller),
+                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
@@ -104,37 +104,12 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
             T input,
+            Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
             @Nullable Marshaller<T, byte[]> inputMarshaller
     ) {
-        return () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
-    }
-
-    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaller<T, byte[]> marshaller, Object input) {
-        if (marshaller == null || input == null) {
-            return (T) input;
-        }
-
-        if (input instanceof byte[]) {
-            try {
-                return marshaller.unmarshal((byte[]) input);
-            } catch (Exception ex) {
-                throw new ComputeException(Compute.MARSHALLING_TYPE_MISMATCH_ERR,
-                        "Exception in user-defined marshaller: " + ex.getMessage(),
-                        ex
-                );
-            }
-        }
-
-        throw new ComputeException(
-                Compute.MARSHALLING_TYPE_MISMATCH_ERR,
-                "Marshaller is defined, expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
-                        + "If you want to use default marshalling strategy, "
-                        + "then you should not define your marshaller in the job. "
-                        + "If you would like to use your own marshaller, then double-check "
-                        + "that both of them are defined in the client and in the server."
-        );
+        return () -> jobInstance.executeAsync(context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
     }
 
     @Override

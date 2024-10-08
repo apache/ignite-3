@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -57,7 +56,8 @@ class TupleWithSchemaMarshallingTest {
                 Tuple.create().set("col14", "string"),
                 Tuple.create().set("col15", new byte[]{1, 2, 3}),
                 Tuple.create().set("col16", Period.ofDays(10)),
-                Tuple.create().set("col17", Duration.ofDays(10))
+                Tuple.create().set("col17", Duration.ofDays(10)),
+                Tuple.create().set("col18", Tuple.create().set("col1", 1))
         ).map(Arguments::of);
     }
 
@@ -67,8 +67,7 @@ class TupleWithSchemaMarshallingTest {
                 Tuple.create().set("col1", 1).set("col2", new Object()),
                 Tuple.create().set("col", new ArrayList<>()),
                 Tuple.create().set("col", new HashMap<>()),
-                Tuple.create().set("col", new HashMap<>()),
-                Tuple.create().set("col", Tuple.create())
+                Tuple.create().set("col", new HashMap<>())
         ).map(Arguments::of);
     }
 
@@ -106,16 +105,11 @@ class TupleWithSchemaMarshallingTest {
                 .set("col14", "string")
                 .set("col15", new byte[]{1, 2, 3})
                 .set("col16", Period.ofDays(10))
-                .set("col17", Duration.ofDays(10));
+                .set("col17", Duration.ofDays(10))
+                .set("col18", Tuple.create().set("col1", 1));
 
         byte[] marshalled = TupleWithSchemaMarshalling.marshal(tuple);
         assertEquals(tuple, TupleWithSchemaMarshalling.unmarshal(marshalled));
-    }
-
-    @Test
-    void nullTuple() {
-        byte[] marshalled = TupleWithSchemaMarshalling.marshal(null);
-        assertNull(TupleWithSchemaMarshalling.unmarshal(marshalled));
     }
 
     @MethodSource("unsupportedTypes")

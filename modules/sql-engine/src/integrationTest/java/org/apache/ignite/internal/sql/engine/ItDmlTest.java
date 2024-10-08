@@ -339,7 +339,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         String sql = "MERGE INTO test1 dst USING test1 src ON dst.a = src.a + 1 "
                 + "WHEN MATCHED THEN UPDATE SET b = dst.b + 1 " // dst.b just for check here
-                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a)";
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a::varchar)";
 
         for (int i = 0; i < 5; i++) {
             sql(sql);

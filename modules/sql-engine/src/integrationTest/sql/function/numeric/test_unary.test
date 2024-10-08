@@ -52,7 +52,7 @@ statement ok
 CREATE TABLE dates(d DATE)
 
 statement ok
-INSERT INTO dates VALUES ('1992-02-02')
+INSERT INTO dates VALUES (date '1992-02-02')
 
 statement error
 SELECT +d FROM dates
