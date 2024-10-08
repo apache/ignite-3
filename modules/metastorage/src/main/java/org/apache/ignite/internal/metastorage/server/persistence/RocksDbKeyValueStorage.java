@@ -41,7 +41,6 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -631,9 +630,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                 updateKeysIndex(batch, key, curRev);
-
-                fillAndWriteBatch(batch, curRev, opTs);
             }
+
+            fillAndWriteBatch(batch, curRev, opTs);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -747,8 +746,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private void applyOperations(Collection<Operation> ops, HybridTimestamp opTs) throws RocksDBException {
         long curRev = rev + 1;
 
-        boolean modified = false;
-
         List<byte[]> updatedKeys = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -761,18 +758,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                         updatedKeys.add(key);
 
-                        modified = true;
-
                         break;
 
                     case REMOVE:
-                        boolean removed = addToBatchForRemoval(batch, key, curRev, opTs);
-
-                        if (removed) {
+                        if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                             updatedKeys.add(key);
                         }
-
-                        modified |= removed;
 
                         break;
 
@@ -784,13 +775,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified) {
-                for (byte[] key : updatedKeys) {
-                    updateKeysIndex(batch, key, curRev);
-                }
-
-                fillAndWriteBatch(batch, curRev, opTs);
+            for (byte[] key : updatedKeys) {
+                updateKeysIndex(batch, key, curRev);
             }
+
+            fillAndWriteBatch(batch, curRev, opTs);
         }
     }
 
@@ -1404,7 +1393,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
             }
 
-            checkIterator(it);
+            try {
+                it.status();
+            } catch (RocksDBException e) {
+                throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            }
 
             // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
@@ -1446,7 +1439,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(hybridTsToArray(timestamp));
 
-            checkIterator(rocksIterator);
+            rocksIterator.status();
 
             byte[] tsValue = rocksIterator.value();
 
@@ -1455,6 +1448,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             return bytesToLong(tsValue);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1673,7 +1668,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            checkIterator(iterator);
+            iterator.status();
         }
     }
 

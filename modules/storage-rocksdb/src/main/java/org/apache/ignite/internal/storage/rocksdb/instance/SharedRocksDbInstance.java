@@ -48,6 +48,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
@@ -402,7 +403,7 @@ public final class SharedRocksDbInstance {
                 scheduleIndexCfsDestroyIfNeeded(cfsToRemove);
             }
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to destroy table data. [tableId={}]", e, targetTableId);
+            throw new IgniteRocksDbException(String.format("Failed to destroy table data. [tableId=%d]", targetTableId), e);
         }
     }
 
@@ -423,7 +424,7 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily = ColumnFamily.withPrivateOptions(db, cfDescriptor);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
+            throw new IgniteRocksDbException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }
 
         flusher.addColumnFamily(columnFamily.handle());
@@ -437,9 +438,8 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily.destroy();
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                    e, columnFamily.name(), path
+            throw new IgniteRocksDbException(
+                    String.format("Failed to destroy RocksDB Column Family. [cfName=%s, path=%s]", columnFamily.name(), path), e
             );
         }
     }

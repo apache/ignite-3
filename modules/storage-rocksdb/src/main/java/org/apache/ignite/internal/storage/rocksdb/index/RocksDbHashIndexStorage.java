@@ -28,10 +28,10 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -131,7 +131,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
             }
         });
     }
@@ -148,7 +148,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
             }
         });
     }

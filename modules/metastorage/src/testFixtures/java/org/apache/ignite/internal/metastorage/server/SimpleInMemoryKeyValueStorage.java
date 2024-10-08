@@ -250,9 +250,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            if (doRemove(key, curRev, opTs)) {
-                updateRevision(curRev, opTs);
-            }
+            doRemove(key, curRev, opTs);
+            updateRevision(curRev, opTs);
         }
     }
 
@@ -305,19 +304,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             long curRev = rev + 1;
 
-            boolean modified = false;
-
             for (Operation op : ops) {
                 switch (op.type()) {
                     case PUT:
                         doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
-                        modified = true;
-
                         break;
 
                     case REMOVE:
-                        modified |= doRemove(toByteArray(op.key()), curRev, opTs);
+                        doRemove(toByteArray(op.key()), curRev, opTs);
 
                         break;
 
@@ -329,9 +324,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified) {
-                updateRevision(curRev, opTs);
-            }
+            updateRevision(curRev, opTs);
 
             return branch;
         }
@@ -349,8 +342,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 if (branch.isTerminal()) {
                     long curRev = rev + 1;
 
-                    boolean modified = false;
-
                     Collection<Operation> ops = new ArrayList<>(branch.update().operations());
 
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
@@ -365,12 +356,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                             case PUT:
                                 doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
-                                modified = true;
-
                                 break;
 
                             case REMOVE:
-                                modified |= doRemove(toByteArray(op.key()), curRev, opTs);
+                                doRemove(toByteArray(op.key()), curRev, opTs);
 
                                 break;
 
@@ -382,9 +371,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         }
                     }
 
-                    if (modified) {
-                        updateRevision(curRev, opTs);
-                    }
+                    updateRevision(curRev, opTs);
 
                     return branch.update().result();
                 } else {
@@ -673,16 +660,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private boolean doRemove(byte[] key, long curRev, HybridTimestamp opTs) {
+    private void doRemove(byte[] key, long curRev, HybridTimestamp opTs) {
         Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
-            return false;
+            return;
         }
 
         doPut(key, TOMBSTONE, curRev, opTs);
-
-        return true;
     }
 
     /**

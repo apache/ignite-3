@@ -356,6 +356,9 @@ namespace Apache.Ignite
 
             /// <summary> IndexNotBuilt error. </summary>
             public const int IndexNotBuilt = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> StorageCorrupted error. </summary>
+            public const int StorageCorrupted = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
