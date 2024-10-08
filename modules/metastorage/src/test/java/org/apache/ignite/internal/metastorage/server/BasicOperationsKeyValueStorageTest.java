@@ -2245,33 +2245,41 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.put(key, value, MIN_VALUE);
     }
 
-    private void putAllToMs(List<byte[]> keys, List<byte[]> values) {
+    void putAllToMs(List<byte[]> keys, List<byte[]> values) {
         storage.putAll(keys, values, MIN_VALUE);
     }
 
-    private void removeFromMs(byte[] key) {
+    void removeFromMs(byte[] key) {
         storage.remove(key, MIN_VALUE);
     }
 
-    private void removeAllFromMs(List<byte[]> keys) {
+    void removeAllFromMs(List<byte[]> keys) {
         storage.removeAll(keys, MIN_VALUE);
     }
 
-    private boolean invokeOnMs(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+    private boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure) {
+        return invokeOnMs(condition, success, failure, createCommandId());
+    }
+
+    boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure, CommandId commandId) {
         return storage.invoke(
                 condition,
                 success,
                 failure,
                 MIN_VALUE,
-                createCommandId()
+                commandId
         );
     }
 
     private StatementResult invokeOnMs(If iif) {
+        return invokeOnMs(iif, createCommandId());
+    }
+
+    StatementResult invokeOnMs(If iif, CommandId commandId) {
         return storage.invoke(
                 iif,
                 MIN_VALUE,
-                createCommandId()
+                commandId
         );
     }
 

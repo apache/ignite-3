@@ -17,13 +17,29 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.junit.jupiter.api.Test;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+    }
+
+    @Test
+    void checksumsAreRemovedForCompactedRevisions() {
+        assertNotNull(storage.checksum(3));
+
+        storage.compact(3);
+
+        assertNull(storage.checksum(1));
+        assertNull(storage.checksum(2));
+        assertNull(storage.checksum(3));
+        assertNotNull(storage.checksum(4));
     }
 }

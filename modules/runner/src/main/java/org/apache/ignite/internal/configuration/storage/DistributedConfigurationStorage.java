@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -242,7 +242,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             return falseCompletedFuture();
         }
 
-        Set<Operation> operations = new HashSet<>();
+        List<Operation> operations = new ArrayList<>();
 
         for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
@@ -263,7 +263,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 ? notExists(MASTER_KEY)
                 : revision(MASTER_KEY).eq(curChangeId);
 
-        return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
+        return metaStorageMgr.invoke(condition, operations, List.of(Operations.noop()));
     }
 
     @Override

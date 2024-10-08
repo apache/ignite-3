@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAl
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -170,8 +169,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Boolean> invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure
+            List<Operation> success,
+            List<Operation> failure
     ) {
         InvokeCommand invokeCommand = context.commandsFactory().invokeCommand()
                 .condition(condition)

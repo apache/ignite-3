@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -213,7 +212,7 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Updates an entry for the given key conditionally.
      */
-    CompletableFuture<Boolean> invoke(Condition cond, Collection<Operation> success, Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements.
