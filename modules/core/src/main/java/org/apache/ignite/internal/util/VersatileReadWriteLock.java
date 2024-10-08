@@ -369,30 +369,30 @@ public class VersatileReadWriteLock {
         for (Iterator<CompletableFuture<Void>> iterator = writeLockWaitSet.iterator(); iterator.hasNext(); ) {
             CompletableFuture<Void> future = iterator.next();
 
-            if (tryWriteLock()) {
-                // We were able to acquire the write lock. It might be that lock intent corresponding to this future has already been
-                // handled by another thread (and the lock has already been released), so we need to check this; if this is true,
-                // we will need to release the lock.
-                // We can use non-atomic pattern 'check whether future is done, and if not, finalize acquisition and complete the future'
-                // because this is done in the critical section (under protection 'holding the write lock' invariant).
-
-                // Removing as soon as possible to avoid an infinite recursion in the #writeUnlock() call that follows.
-                iterator.remove();
-
-                if (!future.isDone()) {
-                    // First finalize the acquisition.
-                    decrementPendingWriteLocks();
-
-                    asyncContinuationExecutor.execute(() -> future.complete(null));
-                } else {
-                    // The one who added this future has already taken the write lock for us (and it has already been released
-                    // [as we could take it again]; as they have completed the future, this is us who needs to unlock the excess.
-                    // They also decremented pending write locks, so we don't need to do it again.
-                    writeUnlock();
-                }
-            } else {
+            if (!tryWriteLock()) {
                 // Someone has already acquired a conflicting lock, we're too late, let's wait for next opportunity.
                 break;
+            }
+
+            // We were able to acquire the write lock. It might be that lock intent corresponding to this future has already been
+            // handled by another thread (and the lock has already been released), so we need to check this; if this is true,
+            // we will need to release the lock.
+            // We can use non-atomic pattern 'check whether future is done, and if not, finalize acquisition and complete the future'
+            // because this is done in the critical section (under protection 'holding the write lock' invariant).
+
+            // Removing as soon as possible to avoid an infinite recursion in the #writeUnlock() call that follows.
+            iterator.remove();
+
+            if (!future.isDone()) {
+                // First finalize the acquisition.
+                decrementPendingWriteLocks();
+
+                asyncContinuationExecutor.execute(() -> future.complete(null));
+            } else {
+                // The one who added this future has already taken the write lock for us (and it has already been released
+                // [as we could take it again]; as they have completed the future, this is us who needs to unlock the excess.
+                // They also decremented pending write locks, so we don't need to do it again.
+                writeUnlock();
             }
         }
     }
