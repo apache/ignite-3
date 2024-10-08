@@ -28,9 +28,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.avatica.util.ByteString;
@@ -59,17 +57,10 @@ public class Accumulators {
     }
 
     /**
-     * AccumulatorFactory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Returns a supplier that creates a accumulator functions for the given aggregate call.
      */
     public Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
-        if (!call.isDistinct()) {
-            return accumulatorFunctionFactory(call);
-        }
-
-        Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
-
-        return () -> new DistinctAccumulator(fac);
+        return accumulatorFunctionFactory(call);
     }
 
     private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
@@ -214,17 +205,17 @@ public class Accumulators {
     }
 
     /**
-     * SingleVal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * {@code SINGLE_VALUE(SUBQUERY)} accumulator. Pseudo accumulator that returns a first value produced by a subquery
+     * and an error if a subquery returns more than one row.
      */
-    private static class SingleVal extends AnyVal {
+    public static class SingleVal extends AnyVal {
         private boolean touched;
 
         private SingleVal(RelDataType type) {
             super(type);
         }
 
-        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
             return () -> new SingleVal(type);
         }
 
@@ -241,15 +232,15 @@ public class Accumulators {
     }
 
     /**
-     * LITERAL_AGG accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise.
+     * {@code LITERAL_AGG} accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise.
      * Calcite`s implementation RexImpTable#LiteralAggImplementor.
      */
-    private static class LiteralVal extends AnyVal {
+    public static class LiteralVal extends AnyVal {
         private LiteralVal(RelDataType type) {
             super(type);
         }
 
-        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
             return () -> new LiteralVal(type);
         }
 
@@ -261,9 +252,9 @@ public class Accumulators {
     }
 
     /**
-     * ANY_VALUE accumulator.
+     * {@code ANY_VALUE} accumulator.
      */
-    private static class AnyVal implements Accumulator {
+    public static class AnyVal implements Accumulator {
         protected Object holder;
 
         private final RelDataType type;
@@ -272,7 +263,7 @@ public class Accumulators {
             this.type = type;
         }
 
-        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
             return () -> new AnyVal(type);
         }
 
@@ -306,8 +297,7 @@ public class Accumulators {
     }
 
     /**
-     * DecimalAvg.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * {AVG(DECIMAL)} accumulator.
      */
     public static class DecimalAvg implements Accumulator {
         public static final IntFunction<Accumulator> FACTORY = DecimalAvg::new;
@@ -358,8 +348,7 @@ public class Accumulators {
     }
 
     /**
-     * DoubleAvg.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * {@code AVG(DOUBLE)} accumulator.
      */
     public static class DoubleAvg implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
@@ -400,7 +389,8 @@ public class Accumulators {
         }
     }
 
-    private static class LongCount implements Accumulator {
+    /** {@code COUNT(LONG)} accumulator.. */
+    public static class LongCount implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = LongCount::new;
 
         private long cnt;
@@ -434,7 +424,8 @@ public class Accumulators {
         }
     }
 
-    private static class Sum implements Accumulator {
+    /** Wraps another sum accumulator and returns {@code null} if there was updates. */
+    public static class Sum implements Accumulator {
         private Accumulator acc;
 
         private boolean empty = true;
@@ -469,7 +460,8 @@ public class Accumulators {
         }
     }
 
-    private static class DoubleSumEmptyIsZero implements Accumulator {
+    /** {@code SUM(DOUBLE)} accumulator. */
+    public static class DoubleSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DoubleSumEmptyIsZero::new;
 
         private double sum;
@@ -505,7 +497,8 @@ public class Accumulators {
         }
     }
 
-    private static class LongSumEmptyIsZero implements Accumulator {
+    /** {@code SUM(LONG)} accumulator. */
+    public static class LongSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = LongSumEmptyIsZero::new;
 
         private long sum;
@@ -541,7 +534,8 @@ public class Accumulators {
         }
     }
 
-    private static class DecimalSumEmptyIsZero implements Accumulator {
+    /** SUM(DECIMAL) accumulator. */
+    public static class DecimalSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
 
         private BigDecimal sum = BigDecimal.ZERO;
@@ -577,7 +571,8 @@ public class Accumulators {
         }
     }
 
-    private static final class MinMaxAccumulator implements Accumulator {
+    /** {@code MIN/MAX} accumulator. */
+    public static final class MinMaxAccumulator implements Accumulator {
 
         private final boolean min;
 
@@ -596,7 +591,7 @@ public class Accumulators {
             this.returnType = nullableType;
         }
 
-        static Supplier<Accumulator> newAccumulator(boolean min, RelDataTypeFactory typeFactory, RelDataType type) {
+        public static Supplier<Accumulator> newAccumulator(boolean min, RelDataTypeFactory typeFactory, RelDataType type) {
             return () -> new MinMaxAccumulator(min, typeFactory, type);
         }
 
@@ -646,7 +641,8 @@ public class Accumulators {
         }
     }
 
-    private static class VarCharMinMax implements Accumulator {
+    /** {@code MIN/MAX} for {@code VARCHAR} type. */
+    public static class VarCharMinMax implements Accumulator {
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new VarCharMinMax(true);
 
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new VarCharMinMax(false);
@@ -657,7 +653,7 @@ public class Accumulators {
 
         private boolean empty = true;
 
-        private VarCharMinMax(boolean min) {
+        VarCharMinMax(boolean min) {
             this.min = min;
         }
 
@@ -717,24 +713,20 @@ public class Accumulators {
         }
     }
 
-    private static class VarBinaryMinMax implements Accumulator {
+    /** {@code MIN/MAX} for {@code VARBINARY} type. */
+    public static class VarBinaryMinMax implements Accumulator {
 
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new VarBinaryMinMax(true);
 
-
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new VarBinaryMinMax(false);
-
 
         private final boolean min;
 
-
         private ByteString val;
-
 
         private boolean empty = true;
 
-
-        private VarBinaryMinMax(boolean min) {
+        VarBinaryMinMax(boolean min) {
             this.min = min;
         }
 
@@ -770,50 +762,6 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
-        }
-    }
-
-    private static class DistinctAccumulator implements Accumulator {
-        private final Accumulator acc;
-
-        private final Set<Object> set = new HashSet<>();
-
-        private DistinctAccumulator(Supplier<Accumulator> accSup) {
-            this.acc = accSup.get();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            Object in = args[0];
-
-            if (in == null) {
-                return;
-            }
-
-            set.add(in);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object end() {
-            for (Object o : set) {
-                acc.add(o);
-            }
-
-            return acc.end();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return acc.argumentTypes(typeFactory);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return acc.returnType(typeFactory);
         }
     }
 

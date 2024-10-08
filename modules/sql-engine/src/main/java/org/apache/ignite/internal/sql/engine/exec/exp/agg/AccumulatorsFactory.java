@@ -24,7 +24,9 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Modifier;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * AccumulatorsFactory.
@@ -265,6 +268,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final boolean distinct;
 
+        private final @Nullable Set<Object> distinctSet;
+
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,
@@ -274,13 +279,15 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
-            distinct = call.isDistinct();
+            this.distinct = call.isDistinct();
 
             // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
+
+            distinctSet = call.isDistinct() ? new HashSet<>() : null;
 
             handler = ctx.rowHandler();
         }
@@ -313,13 +320,34 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 }
             }
 
-            accumulator.add(inAdapter.apply(args));
+            Object[] aggArgs = inAdapter.apply(args);
+            if (distinct) {
+                Object arg = aggArgs[0];
+                assert distinctSet != null : "No distinct set";
+
+                distinctSet.add(arg);
+            } else {
+                accumulator.add(aggArgs);
+            }
         }
 
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return outAdapter.apply(accumulator.end());
+            Object result;
+
+            if (distinct) {
+                assert distinctSet != null : "No distinct set";
+
+                for (Object elem : distinctSet) {
+                    accumulator.add(elem);
+                }
+                result = accumulator.end();
+            } else {
+                result = accumulator.end();
+            }
+
+            return outAdapter.apply(result);
         }
 
     }
