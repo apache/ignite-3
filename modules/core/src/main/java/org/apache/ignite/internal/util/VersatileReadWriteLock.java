@@ -380,7 +380,7 @@ public class VersatileReadWriteLock {
                 iterator.remove();
 
                 if (!future.isDone()) {
-                    // First finalize the aqcuisition.
+                    // First finalize the acquisition.
                     decrementPendingWriteLocks();
 
                     asyncContinuationExecutor.execute(() -> future.complete(null));
