@@ -348,7 +348,7 @@ public class VersatileReadWriteLock {
             // There could still be some read locks if the write lock was taken forcefully.
             int readLocks = readLocks(curState);
 
-            if (STATE_VH.compareAndSet(this, state, state(false, readLocks))) {
+            if (STATE_VH.compareAndSet(this, curState, state(false, readLocks))) {
                 break;
             }
         }
