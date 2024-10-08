@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
@@ -28,12 +27,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
@@ -53,7 +50,6 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.provider.Arguments;
 
 /** Base class for testing types coercion. */
@@ -140,7 +136,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<Object> result) {
+    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<RexCall> result) {
         return new BaseMatcher<>() {
             @Override
             public boolean matches(Object actual) {
@@ -155,7 +151,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
                 assertThat(leftOperand, first);
                 assertThat(rightOperand, second);
-                assertThat(actual, result);
+                assertThat(comparisonCall, result);
 
                 return true;
             }
@@ -226,24 +222,19 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
-    private static Matcher<Object> ofType(NativeType type) {
+    private static Matcher<RexCall> ofType(NativeType type) {
         return new BaseMatcher<>() {
-            BasicSqlType expectedType;
-            BasicSqlType relRowType;
+            RelDataType expectedType;
+            RelDataType relRowType;
 
             @Override
-            public boolean matches(Object actual) {
-                assert actual != null;
+            public boolean matches(Object item) {
+                assert item != null;
 
-                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) actual;
+                RexCall rexCall = (RexCall) item;
 
-                RelDataType rowType = scan.getRowType();
-
-                assert rowType.getFieldList().size() == 1;
-
-                relRowType = (BasicSqlType) rowType.getFieldList().get(0).getType();
-
-                expectedType = (BasicSqlType) native2relationalType(Commons.typeFactory(), type);
+                relRowType = rexCall.getType();
+                expectedType = native2relationalType(Commons.typeFactory(), type);
 
                 return SqlTypeUtil.equalSansNullability(relRowType, expectedType);
             }

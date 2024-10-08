@@ -47,7 +47,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
@@ -70,7 +69,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
             TypePair typePair,
             Matcher<RexNode> arg1,
             Matcher<RexNode> arg2,
-            NativeType returnType
+            Matcher<RexCall> returnType
     ) throws Exception {
 
         NativeType type1 = typePair.first();
@@ -1477,12 +1476,16 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
             return this;
         }
 
+        Matcher<RelNode> resultWillBe(Matcher<RexCall> returnType) {
+            return new ProjectionRexNodeMatcher(new CallMatcher(returnType));
+        }
+
         Matcher<RelNode> resultWillBe(NativeType returnType) {
-            return new ProjectionRexNodeMatcher(returnType);
+            return new ProjectionRexNodeMatcher(new CallMatcher(returnType));
         }
 
         Matcher<RelNode> resultWillBe(RelDataType returnType) {
-            return new ProjectionRexNodeMatcher(returnType);
+            return new ProjectionRexNodeMatcher(new CallMatcher(returnType));
         }
 
         private String expectedArguments() {
@@ -1491,14 +1494,10 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
 
         private class ProjectionRexNodeMatcher extends TypeSafeDiagnosingMatcher<RelNode> {
 
-            private final Pair<NativeType, RelDataType> returnType;
+            private final CallMatcher callMatcher;
 
-            private ProjectionRexNodeMatcher(NativeType returnType) {
-                this.returnType = new Pair<>(returnType, null);
-            }
-
-            private ProjectionRexNodeMatcher(RelDataType returnType) {
-                this.returnType = new Pair<>(null, returnType);
+            private ProjectionRexNodeMatcher(CallMatcher callMatcher) {
+                this.callMatcher = callMatcher;
             }
 
             @Override
@@ -1519,21 +1518,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                     assertThat("Operand#" + i + ". Expected arguments: " + expectedArguments(), call.getOperands().get(i), arg);
                 }
 
-                IgniteTypeFactory tf = Commons.typeFactory();
-                RelDataType actualRelType = call.getType();
-                RelDataType expectedRelType;
-
-                if (returnType.getFirst() != null) {
-                    expectedRelType = native2relationalType(tf, returnType.getFirst(), returnTypeNullability);
-                } else {
-                    expectedRelType = tf.createTypeWithNullability(returnType.getSecond(), returnTypeNullability);
-                }
-
-                String message = "Expected return type "
-                        + expectedRelType + " but got " + actualRelType
-                        + ". Expected arguments: " + expectedArguments();
-
-                assertEquals(actualRelType, expectedRelType, message);
+                callMatcher.checkCall(call, expectedArguments(), returnTypeNullability);
                 return true;
             }
 
@@ -1553,6 +1538,59 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                 return (RexCall) functionScan.getCall();
             } else {
                 return null;
+            }
+        }
+    }
+
+
+    private static class CallMatcher {
+
+        private final NativeType nativeType;
+
+        private final RelDataType relDataType;
+
+        private final Matcher<RexCall> callMatcher;
+
+        CallMatcher(NativeType nativeType) {
+            this.nativeType = nativeType;
+            this.relDataType = null;
+            this.callMatcher = null;
+        }
+
+        CallMatcher(RelDataType relDataType) {
+            this.nativeType = null;
+            this.relDataType = relDataType;
+            this.callMatcher = null;
+        }
+
+        CallMatcher(Matcher<RexCall> callMatcher) {
+            this.nativeType = null;
+            this.relDataType = null;
+            this.callMatcher = callMatcher;
+        }
+
+        void checkCall(RexCall call, String expectedArguments, boolean returnTypeNullability) {
+            IgniteTypeFactory tf = Commons.typeFactory();
+            RelDataType actualRelType = call.getType();
+            RelDataType expectedRelType;
+
+            if (nativeType != null || relDataType != null) {
+
+                if (nativeType != null) {
+                    expectedRelType = native2relationalType(tf, nativeType, returnTypeNullability);
+                } else {
+                    expectedRelType = tf.createTypeWithNullability(relDataType, returnTypeNullability);
+                }
+
+                String message = "Expected return type "
+                        + expectedRelType + " but got " + actualRelType
+                        + ". Expected arguments: " + expectedArguments;
+
+                assertEquals(actualRelType, expectedRelType, message);
+            } else if (callMatcher != null) {
+                assertThat("Return type does not match", call, callMatcher);
+            } else {
+                throw new IllegalStateException("Not possible");
             }
         }
     }
