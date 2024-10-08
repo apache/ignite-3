@@ -20,10 +20,13 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -93,5 +96,15 @@ public class KeyValueStorageUtilsTest {
         assertEquals(2, maxRevisionIndex(keyRevisions, 7));
         assertEquals(2, maxRevisionIndex(keyRevisions, 8));
         assertEquals(2, maxRevisionIndex(keyRevisions, 9));
+    }
+
+    @Test
+    void testIsLastIndex() {
+        long[] array = {3, 5, 7};
+
+        assertFalse(isLastIndex(array, 0));
+        assertFalse(isLastIndex(array, 1));
+
+        assertTrue(isLastIndex(array, 2));
     }
 }
