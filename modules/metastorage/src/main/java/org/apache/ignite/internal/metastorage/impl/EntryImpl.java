@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.server.Value;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of the {@link Entry}. */
@@ -133,5 +134,14 @@ public final class EntryImpl implements Entry {
                 + ", revision=" + revision
                 + ", timestamp=" + timestamp
                 + '}';
+    }
+
+    /** Converts to {@link EntryImpl}. */
+    public static Entry toEntry(byte[] key, long revision, Value value) {
+        if (value.tombstone()) {
+            return tombstone(key, revision, value.operationTimestamp());
+        }
+
+        return new EntryImpl(key, value.bytes(), revision, value.operationTimestamp());
     }
 }

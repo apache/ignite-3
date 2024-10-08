@@ -22,10 +22,11 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
@@ -696,7 +697,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void compactForKey(byte[] key, long[] revs, long compactionRevision) {
         int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
-        if (indexToCompact == NOTHING_TO_COMPACT_INDEX) {
+        if (indexToCompact == NOT_FOUND) {
             return;
         }
 
@@ -740,22 +741,26 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= 0;
 
-        List<Long> revs = keysIdx.get(key);
+        long[] keyRevisions = toLongArray(keysIdx.get(key));
+        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
 
-        if (revs == null || revs.isEmpty()) {
+        if (maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
             return EntryImpl.empty(key);
         }
 
-        long lastRev = maxRevision(revs, revUpperBound);
+        long revision = keyRevisions[maxRevisionIndex];
 
-        // lastRev can be -1 if maxRevision return -1.
-        if (lastRev == -1) {
-            return EntryImpl.empty(key);
+        Value value = getValue(key, revision);
+
+        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
+            throw new CompactedException(revUpperBound, compactionRevision);
         }
 
-        return doGetValue(key, lastRev);
+        return EntryImpl.toEntry(key, revision, value);
     }
 
     private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
@@ -985,8 +990,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private static long[] toLongArray(List<Long> list) {
-        if (list.isEmpty()) {
+    private static long[] toLongArray(@Nullable List<Long> list) {
+        if (list == null) {
             return LONG_EMPTY_ARRAY;
         }
 
@@ -1007,5 +1012,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value.tombstone();
+    }
+
+    private Value getValue(byte[] key, long revision) {
+        NavigableMap<byte[], Value> valueByKey = revsIdx.get(revision);
+
+        assert valueByKey != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        Value value = valueByKey.get(key);
+
+        assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        return value;
     }
 }

@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,30 +31,30 @@ import org.junit.jupiter.api.Test;
 public class KeyValueStorageUtilsTest {
     @Test
     void testIndexToCompactNoRevisions() {
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(LONG_EMPTY_ARRAY, 0, revision -> false));
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(LONG_EMPTY_ARRAY, 0, revision -> true));
+        assertEquals(NOT_FOUND, indexToCompact(LONG_EMPTY_ARRAY, 0, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(LONG_EMPTY_ARRAY, 0, revision -> true));
     }
 
     @Test
     void testIndexToCompactSingleRevision() {
         long[] keyRevisions = {2};
 
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 1, revision -> false));
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 1, revision -> true));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 1, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 1, revision -> true));
 
         assertEquals(0, indexToCompact(keyRevisions, 2, revision -> true));
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 2, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 2, revision -> false));
 
         assertEquals(0, indexToCompact(keyRevisions, 3, revision -> true));
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 3, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 3, revision -> false));
     }
 
     @Test
     void testIndexToCompactMultipleRevisions() {
         long[] keyRevisions = {2, 4, 5};
 
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 1, revision -> true));
-        assertEquals(NOTHING_TO_COMPACT_INDEX, indexToCompact(keyRevisions, 1, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 1, revision -> true));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 1, revision -> false));
 
         assertEquals(0, indexToCompact(keyRevisions, 2, revision -> true));
         assertEquals(0, indexToCompact(keyRevisions, 2, revision -> false));
@@ -74,5 +75,23 @@ public class KeyValueStorageUtilsTest {
     @Test
     void testToUtf8String() {
         assertEquals("foo", toUtf8String("foo".getBytes(UTF_8)));
+    }
+
+    @Test
+    void testMaxRevisionIndex() {
+        long[] keyRevisions = {3, 5, 7};
+
+        assertEquals(NOT_FOUND, maxRevisionIndex(keyRevisions, 1));
+        assertEquals(NOT_FOUND, maxRevisionIndex(keyRevisions, 2));
+
+        assertEquals(0, maxRevisionIndex(keyRevisions, 3));
+        assertEquals(0, maxRevisionIndex(keyRevisions, 4));
+
+        assertEquals(1, maxRevisionIndex(keyRevisions, 5));
+        assertEquals(1, maxRevisionIndex(keyRevisions, 6));
+
+        assertEquals(2, maxRevisionIndex(keyRevisions, 7));
+        assertEquals(2, maxRevisionIndex(keyRevisions, 8));
+        assertEquals(2, maxRevisionIndex(keyRevisions, 9));
     }
 }

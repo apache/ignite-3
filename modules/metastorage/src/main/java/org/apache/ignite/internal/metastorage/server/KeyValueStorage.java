@@ -56,7 +56,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long revision();
 
     /**
-     * Returns an entry by the given key.
+     * Returns the latest version of an entry by key.
+     *
+     * <p>Never throws {@link CompactedException}.</p>
      *
      * @param key The key.
      * @return Value corresponding to the given key.
@@ -70,6 +72,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revUpperBound The upper bound of revision.
      * @return Value corresponding to the given key.
      */
+    // TODO: IGNITE-23283 улучшить документацию
     Entry get(byte[] key, long revUpperBound);
 
     /**

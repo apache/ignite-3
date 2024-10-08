@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -58,6 +59,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     private static final byte[] SOME_VALUE = fromString("someValue");
 
+    private static final byte[] NOT_EXISTS_KEY = fromString("notExistsKey");
+
     @WorkDirectory
     Path workDir;
 
@@ -68,14 +71,19 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void setUp() {
         super.setUp();
 
+        // Revision = 1.
         storage.putAll(List.of(FOO_KEY, BAR_KEY), List.of(SOME_VALUE, SOME_VALUE), clock.now());
+        // Revision = 2.
         storage.put(BAR_KEY, SOME_VALUE, clock.now());
+        // Revision = 3.
         storage.put(FOO_KEY, SOME_VALUE, clock.now());
+        // Revision = 4.
         storage.put(SOME_KEY, SOME_VALUE, clock.now());
 
         var fooKey = new ByteArray(FOO_KEY);
         var barKey = new ByteArray(BAR_KEY);
 
+        // Revision = 5.
         var iif = new If(
                 new AndCondition(new ExistenceCondition(Type.EXISTS, FOO_KEY), new ExistenceCondition(Type.EXISTS, BAR_KEY)),
                 new Statement(ops(put(fooKey, SOME_VALUE), remove(barKey)).yield()),
@@ -84,14 +92,17 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         storage.invoke(iif, clock.now(), new CommandIdGenerator(UUID::randomUUID).newId());
 
+        // Revision = 6.
         storage.remove(SOME_KEY, clock.now());
 
+        // Revision = 7.
         // Special revision update to prevent tests from failing.
         storage.put(fromString("fake"), SOME_VALUE, clock.now());
 
+        assertEquals(7, storage.revision());
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
-        assertEquals(List.of(1, 2, 5), collectRevisions(BAR_KEY));
-        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
+        assertEquals(List.of(1, 2, 5 /** Tombstone */), collectRevisions(BAR_KEY));
+        assertEquals(List.of(4, 6 /** Tombstone */), collectRevisions(SOME_KEY));
     }
 
     @Test
@@ -326,6 +337,98 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3.subtractPhysicalTime(1)));
     }
 
+    @Test
+    void testGetSingleEntryLatestAndCompaction() {
+        storage.setCompactionRevision(6);
+
+        assertDoesNotThrow(() -> storage.get(FOO_KEY));
+        assertDoesNotThrow(() -> storage.get(BAR_KEY));
+        assertDoesNotThrow(() -> storage.get(NOT_EXISTS_KEY));
+    }
+
+    @Test
+    void testGetSingleEntryAndCompactionForFooKey() {
+        // FOO_KEY has revisions: [1, 3, 5].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 1);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 2);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 2);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 3);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 4);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 4);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 4);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 4);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
+    }
+
+    @Test
+    void testGetSingleEntryAndCompactionForBarKey() {
+        // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 1);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 2);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 2);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 3);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 4);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 4);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 5);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 5);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 6);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 6);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 7);
+    }
+
+    @Test
+    void testGetSingleEntryAndCompactionForNotExistsKey() {
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 1);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 2);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 2);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 3);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 4);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 4);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 5);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 5);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 6);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 6);
+        assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 7);
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -342,5 +445,28 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     private static byte[] fromString(String s) {
         return s.getBytes(UTF_8);
+    }
+
+    private void assertThrowsCompactedExceptionForGetSingleValue(byte[] key, long endRevisionInclusive) {
+        for (long i = 0; i <= endRevisionInclusive; i++) {
+            long revisionUpperBound = i;
+
+            assertThrows(
+                    CompactedException.class,
+                    () -> storage.get(key, revisionUpperBound),
+                    () -> String.format("key=%s, revision=%s", toUtf8String(key), revisionUpperBound)
+            );
+        }
+    }
+
+    private void assertDoesNotThrowCompactedExceptionForGetSingleValue(byte[] key, long startRevisionInclusive) {
+        for (long i = startRevisionInclusive; i <= storage.revision(); i++) {
+            long revisionUpperBound = i;
+
+            assertDoesNotThrow(
+                    () -> storage.get(key, revisionUpperBound),
+                    () -> String.format("key=%s, revision=%s", toUtf8String(key), revisionUpperBound)
+            );
+        }
     }
 }
