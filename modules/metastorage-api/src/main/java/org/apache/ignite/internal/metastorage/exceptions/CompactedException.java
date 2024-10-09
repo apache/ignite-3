@@ -36,10 +36,17 @@ public class CompactedException extends MetaStorageException {
     /**
      * Constructs an exception with a given message.
      *
-     * @param revision Requested revision.
+     * @param requestedRevision Requested revision.
+     * @param latestCompactedRevision Latest compacted revision.
      */
-    public CompactedException(long revision) {
-        super(COMPACTED_ERR, "Requested revision has already been compacted: " + revision);
+    public CompactedException(long requestedRevision, long latestCompactedRevision) {
+        super(
+                COMPACTED_ERR,
+                String.format(
+                        "Requested revision has already been compacted: [requested=%s, lastCompacted=%s]",
+                        requestedRevision, latestCompactedRevision
+                )
+        );
     }
 
     /**
@@ -68,5 +75,12 @@ public class CompactedException extends MetaStorageException {
      */
     public CompactedException(Throwable cause) {
         super(COMPACTED_ERR, cause);
+    }
+
+    /** Throws {@link CompactedException} if the requested revision is less than or equal to the last compacted one. */
+    public static void throwIfRequestedRevisionLessThanOrEqualToCompacted(long requestedRevision, long compactedRevision) {
+        if (requestedRevision <= compactedRevision) {
+            throw new CompactedException(requestedRevision, compactedRevision);
+        }
     }
 }

@@ -19,10 +19,11 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
@@ -97,6 +98,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
@@ -402,7 +404,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         byte[] bytes = revisionToChecksum.get(longToBytes(revision));
 
         if (bytes == null) {
-            throw new CompactedException(revision);
+            throw new CompactedException(revision, compactionRevision);
         }
 
         return bytesToLong(bytes);
@@ -658,7 +660,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys) {
+    public List<Entry> getAll(List<byte[]> keys) {
         rwLock.readLock().lock();
 
         try {
@@ -669,7 +671,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
@@ -1032,7 +1034,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void compact(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         try {
             compactKeys(revision);
@@ -1093,7 +1095,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
-            if (NOTHING_TO_COMPACT_INDEX == indexToCompact) {
+            if (NOT_FOUND == indexToCompact) {
                 return;
             }
 
@@ -1119,56 +1121,40 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /**
-     * Gets all entries with given keys and a revision.
-     *
-     * @param keys Target keys.
-     * @param rev  Target revision.
-     * @return Collection of entries.
-     */
-    private Collection<Entry> doGetAll(Collection<byte[]> keys, long rev) {
-        assert keys != null : "keys list can't be null.";
-        assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev >= 0;
+    private List<Entry> doGetAll(Collection<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
 
         var res = new ArrayList<Entry>(keys.size());
 
         for (byte[] key : keys) {
-            res.add(doGet(key, rev));
+            res.add(doGet(key, revUpperBound));
         }
 
         return res;
     }
 
-    /**
-     * Gets the value by key and revision.
-     *
-     * @param key            Target key.
-     * @param revUpperBound  Target upper bound of revision.
-     * @return Value.
-     */
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= 0 : revUpperBound;
 
-        long[] revs;
-        try {
-            revs = getRevisions(key);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
+        long[] keyRevisions = getRevisionsForOperation(key);
+        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
 
-        if (revs.length == 0) {
+        if (maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
             return EntryImpl.empty(key);
         }
 
-        long lastRev = maxRevision(revs, revUpperBound);
+        long revision = keyRevisions[maxRevisionIndex];
 
-        // lastRev can be -1 if maxRevision return -1.
-        if (lastRev == -1) {
-            return EntryImpl.empty(key);
+        Value value = getValueForOperation(key, revision);
+
+        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
+            throw new CompactedException(revUpperBound, compactionRevision);
         }
 
-        return doGetValue(key, lastRev);
+        return EntryImpl.toEntry(key, revision, value);
     }
 
     /**
@@ -1217,10 +1203,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Get a list of the revisions of the entry corresponding to the key.
+     * Returns array of revisions of the entry corresponding to the key.
      *
      * @param key Key.
-     * @return Array of revisions.
      * @throws RocksDBException If failed to perform {@link RocksDB#get(ColumnFamilyHandle, byte[])}.
      */
     private long[] getRevisions(byte[] key) throws RocksDBException {
@@ -1231,6 +1216,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         return getAsLongs(revisions);
+    }
+
+    /**
+     * Returns array of revisions of the entry corresponding to the key.
+     *
+     * @param key Key.
+     * @throws MetaStorageException If there was an error while getting the revisions for the key.
+     */
+    private long[] getRevisionsForOperation(byte[] key) {
+        try {
+            return getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, "Failed to get revisions for the key: " + toUtf8String(key), e);
+        }
     }
 
     /**
@@ -1638,7 +1637,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 
@@ -1657,7 +1656,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 
@@ -1784,6 +1783,22 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                             "Error getting key value by revision: [KeyBytes=%s, keyBytesToUtf8String=%s, revision=%s]",
                             Arrays.toString(key), toUtf8String(key), revision
                     ),
+                    e
+            );
+        }
+    }
+
+    private Value getValueForOperation(byte[] key, long revision) {
+        try {
+            byte[] valueBytes = data.get(keyToRocksKey(revision, key));
+
+            assert valueBytes != null && valueBytes.length != 0 : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+            return bytesToValue(valueBytes);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(
+                    OP_EXECUTION_ERR,
+                    String.format("Failed to get value: [key=%s, revision=%s]", toUtf8String(key), revision),
                     e
             );
         }

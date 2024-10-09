@@ -54,12 +54,72 @@ public interface MetaStorageManager extends IgniteComponent {
     long appliedRevision();
 
     /**
-     * Retrieves an entry for the given key.
+     * Returns a future of getting the latest version of an entry by key from the metastore leader.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param key The key.
      */
     CompletableFuture<Entry> get(ByteArray key);
 
     /**
-     * Retrieves an entry for the given key and the revision upper bound.
+     * Returns a future of getting an entry for the given key and the revision upper bound from the metastore leader.
+     *
+     * <p>Future may complete with exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link CompactedException} - If the requested entry was not found and the {@code revUpperBound} is less than or equal to the
+     *     last compacted one.</li>
+     * </ul>
+     *
+     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
+     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - will return an empty value.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - a {@link CompactedException} will be thrown.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
+     * @param key The key.
+     * @param revUpperBound The upper bound of revision.
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
 
@@ -81,15 +141,61 @@ public interface MetaStorageManager extends IgniteComponent {
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
-     * Returns an entry by the given key and bounded by the given revision. The entry is obtained
-     * from the local storage.
+     * Returns an entry for the given key and the revision upper bound locally.
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
      * up to user to wait for the appropriate time to call this method.
      *
+     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
+     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - will return an empty value.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - a {@link CompactedException} will be thrown.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
      * @param key The key.
      * @param revUpperBound The upper bound of revision.
      * @return Value corresponding to the given key.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
+     *      compacted one.
      */
     Entry getLocally(ByteArray key, long revUpperBound);
 
@@ -134,7 +240,13 @@ public interface MetaStorageManager extends IgniteComponent {
     HybridTimestamp timestampByRevisionLocally(long revision);
 
     /**
-     * Retrieves entries for given keys.
+     * Returns a future of getting the latest version of entries corresponding to the given keys from the metastore leader.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param keys Set of keys (must not be empty).
      */
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys);
 

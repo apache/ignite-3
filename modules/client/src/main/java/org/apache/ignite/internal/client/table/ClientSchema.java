@@ -215,11 +215,11 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    @Nullable ClientColumn columnSafe(String name) {
+    public @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
-    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 

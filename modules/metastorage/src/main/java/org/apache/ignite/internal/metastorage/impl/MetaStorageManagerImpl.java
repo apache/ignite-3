@@ -685,28 +685,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.get(key));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key)));
     }
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound)));
     }
 
     @Override
@@ -724,15 +708,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Entry getLocally(ByteArray key, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.get(key.bytes(), revUpperBound);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> storage.get(key.bytes(), revUpperBound));
     }
 
     @Override
@@ -755,32 +731,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves entries for given keys and the revision upper bound.
-     *
-     * @see MetaStorageService#getAll(Set, long)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys, revUpperBound));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys)));
     }
 
     /**
