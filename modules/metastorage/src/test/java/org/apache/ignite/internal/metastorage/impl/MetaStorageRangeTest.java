@@ -44,6 +44,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -64,6 +65,8 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metaStorageManager;
 
     abstract KeyValueStorage getStorage(Path path);
+
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = new KeyValueUpdateContext(0, 0, HybridTimestamp.MIN_VALUE);
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
@@ -96,7 +99,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .mapToObj(ByteUtils::intToBytes)
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         List<Entry> expectedEntries = getAll(keys);
 
@@ -143,7 +146,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 
@@ -158,7 +161,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 

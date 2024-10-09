@@ -15,20 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage;
+package org.apache.ignite.internal.metastorage.impl.raft;
 
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.apache.ignite.raft.jraft.storage.snapshot.startup.StartupSnapshotReader;
 
-/** Snapshot storage factory interface. */
-@FunctionalInterface
-public interface SnapshotStorageFactory {
-    /**
-     * Creates a snapshot storage.
-     *
-     * @param uri Snapshot URI.
-     * @param raftOptions Raft options.
-     * @return Snapshot storage. {@code null} if there's no snapshot.
-     */
-    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
+/**
+ * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
+ */
+class StartupMetaStorageSnapshotReader extends StartupSnapshotReader {
+    private final MetaStorageSnapshotStorageFactory factory;
+
+    StartupMetaStorageSnapshotReader(MetaStorageSnapshotStorageFactory factory) {
+        this.factory = factory;
+    }
+
+    @Override
+    public SnapshotMeta load() {
+        return factory.startupSnapshotMeta();
+    }
+
+    @Override
+    public String getPath() {
+        return ""; // This is deliberate.
+    }
 }

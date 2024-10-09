@@ -40,6 +40,7 @@ import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -92,7 +93,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                     toServerCondition(condition),
                     success,
                     failure,
-                    HybridTimestamp.MIN_VALUE,
+                    new KeyValueUpdateContext(0, 0, HybridTimestamp.MIN_VALUE),
                     new CommandIdGenerator(UUID::randomUUID).newId()
             );
 

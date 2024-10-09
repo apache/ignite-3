@@ -72,6 +72,7 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -118,6 +119,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * <p>Multi-threaded access is guarded by {@link #mux}.</p>
      */
     private long rev;
+
+    /** Last update index. */
+    private long index;
+
+    /** Last update term. */
+    private long term;
+
+    /** Last saved configuration. */
+    private byte[] configuration;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.
@@ -169,19 +179,57 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void put(byte[] key, byte[] value, HybridTimestamp opTs) {
+    public void setIndexAndTerm(long index, long term) {
         synchronized (mux) {
-            long curRev = rev + 1;
-
-            doPut(key, value, curRev, opTs);
-
-            updateRevision(curRev, opTs);
+            this.index = index;
+            this.term = term;
         }
     }
 
-    private void updateRevision(long newRevision, HybridTimestamp ts) {
+    @Override
+    public @Nullable IndexWithTerm getIndexWithTerm() {
+        synchronized (mux) {
+            if (index == 0) {
+                return null;
+            }
+
+            return new IndexWithTerm(index, term);
+        }
+    }
+
+    @Override
+    public void saveConfiguration(byte[] configuration, long index, long term) {
+        synchronized (mux) {
+            this.configuration = configuration;
+
+            setIndexAndTerm(index, term);
+        }
+    }
+
+    @Override
+    public byte @Nullable [] getConfiguration() {
+        synchronized (mux) {
+            return configuration;
+        }
+    }
+
+    @Override
+    public void put(byte[] key, byte[] value, KeyValueUpdateContext context) {
+        synchronized (mux) {
+            long curRev = rev + 1;
+
+            doPut(key, value, curRev, context.timestamp);
+
+            updateRevision(curRev, context);
+        }
+    }
+
+    private void updateRevision(long newRevision, KeyValueUpdateContext context) {
+        setIndexAndTerm(context.index, context.term);
+
         rev = newRevision;
 
+        HybridTimestamp ts = context.timestamp;
         tsToRevMap.put(ts.longValue(), rev);
         revToTsMap.put(rev, ts);
 
@@ -202,11 +250,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
+    public void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context) {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            doPutAll(curRev, keys, values, opTs);
+            doPutAll(curRev, keys, values, context);
         }
     }
 
@@ -247,17 +295,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void remove(byte[] key, HybridTimestamp opTs) {
+    public void remove(byte[] key, KeyValueUpdateContext context) {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            doRemove(key, curRev, opTs);
-            updateRevision(curRev, opTs);
+            doRemove(key, curRev, context.timestamp);
+            updateRevision(curRev, context);
         }
     }
 
     @Override
-    public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
+    public void removeAll(List<byte[]> keys, KeyValueUpdateContext context) {
         synchronized (mux) {
             long curRev = rev + 1;
 
@@ -277,7 +325,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            doPutAll(curRev, existingKeys, vals, opTs);
+            doPutAll(curRev, existingKeys, vals, context);
         }
     }
 
@@ -286,10 +334,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             Condition condition,
             Collection<Operation> success,
             Collection<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     ) {
         synchronized (mux) {
+            HybridTimestamp opTs = context.timestamp;
+
             Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
             boolean branch = condition.test(e.toArray(new Entry[]{}));
@@ -325,15 +375,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            updateRevision(curRev, opTs);
+            updateRevision(curRev, context);
 
             return branch;
         }
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
+    public StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId) {
         synchronized (mux) {
+            HybridTimestamp opTs = context.timestamp;
+
             If currIf = iif;
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.cond().keys()));
@@ -372,7 +424,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         }
                     }
 
-                    updateRevision(curRev, opTs);
+                    updateRevision(curRev, context);
 
                     return branch.update().result();
                 } else {
@@ -886,8 +938,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     }
 
-    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, HybridTimestamp opTs) {
+    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, KeyValueUpdateContext context) {
         synchronized (mux) {
+            HybridTimestamp opTs = context.timestamp;
+
             // Update revsIdx.
             NavigableMap<byte[], Value> entries = new TreeMap<>(CMP);
 
@@ -910,13 +964,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 revsIdx.put(curRev, entries);
             }
 
-            updateRevision(curRev, opTs);
-
+            updateRevision(curRev, context);
         }
-    }
-
-    private static long lastRevision(List<Long> revs) {
-        return revs.get(revs.size() - 1);
     }
 
     @Override

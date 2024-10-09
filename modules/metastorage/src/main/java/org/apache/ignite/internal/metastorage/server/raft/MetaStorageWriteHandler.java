@@ -59,6 +59,7 @@ import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.Statement;
@@ -129,6 +130,9 @@ public class MetaStorageWriteHandler {
     private void handleNonCachedWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
+        long commandIndex = clo.index();
+        long commandTerm = clo.term();
+
         try {
             if (command instanceof MetaStorageWriteCommand) {
                 var cmdWithTime = (MetaStorageWriteCommand) command;
@@ -137,10 +141,12 @@ public class MetaStorageWriteHandler {
                     var syncTimeCommand = (SyncTimeCommand) command;
 
                     // Ignore the command if it has been sent by a stale leader.
-                    if (clo.term() != syncTimeCommand.initiatorTerm()) {
+                    if (commandTerm != syncTimeCommand.initiatorTerm()) {
                         LOG.info("Sync time command closure term {}, initiator term {}, ignoring the command",
-                                clo.term(), syncTimeCommand.initiatorTerm()
+                                commandTerm, syncTimeCommand.initiatorTerm()
                         );
+
+                        storage.setIndexAndTerm(commandIndex, commandTerm);
 
                         clo.result(null);
 
@@ -148,7 +154,7 @@ public class MetaStorageWriteHandler {
                     }
                 }
 
-                handleWriteWithTime(clo, cmdWithTime);
+                handleWriteWithTime(clo, cmdWithTime, commandIndex, commandTerm);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -160,7 +166,7 @@ public class MetaStorageWriteHandler {
             LOG.error(
                     "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
                     t,
-                    clo.index(), clo.index(), command
+                    commandIndex, commandTerm, command
             );
 
             throw t;
@@ -172,49 +178,55 @@ public class MetaStorageWriteHandler {
      *
      * @param clo Command closure.
      * @param command Command.
+     * @param index Command index.
+     * @param term Command term.
      */
-    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, long index, long term) {
         HybridTimestamp opTime = command.safeTime();
+
+        KeyValueUpdateContext context = new KeyValueUpdateContext(index, term, opTime);
 
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
-            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), opTime);
+            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), context);
 
             clo.result(null);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
-            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), opTime);
+            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), context);
 
             clo.result(null);
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
-            storage.remove(toByteArray(rmvCmd.key()), opTime);
+            storage.remove(toByteArray(rmvCmd.key()), context);
 
             clo.result(null);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
-            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), opTime);
+            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), context);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), context, cmd.id()));
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
+            clo.result(storage.invoke(toIf(cmd.iif()), context, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
-            storage.advanceSafeTime(command.safeTime());
+            storage.setIndexAndTerm(index, term);
+
+            storage.advanceSafeTime(opTime);
 
             clo.result(null);
         } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
             EvictIdempotentCommandsCacheCommand cmd = (EvictIdempotentCommandsCacheCommand) command;
-            evictIdempotentCommandsCache(cmd.evictionTimestamp(), opTime);
+            evictIdempotentCommandsCache(cmd.evictionTimestamp(), context);
 
             clo.result(null);
         }
@@ -377,9 +389,9 @@ public class MetaStorageWriteHandler {
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      *
      * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
-     * @param operationTimestamp Command operation timestamp.
+     * @param context Command operation context.
      */
-    void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
+    void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, KeyValueUpdateContext context) {
         LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
 
         List<byte[]> evictionCandidateKeys = collectEvictionCandidateKeys(evictionTimestamp);
@@ -395,7 +407,7 @@ public class MetaStorageWriteHandler {
             idempotentCommandCache.remove(commandId);
         });
 
-        storage.removeAll(evictionCandidateKeys, operationTimestamp);
+        storage.removeAll(evictionCandidateKeys, context);
 
         LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
                         + " removedEntriesCount={}, cacheSize={}].",

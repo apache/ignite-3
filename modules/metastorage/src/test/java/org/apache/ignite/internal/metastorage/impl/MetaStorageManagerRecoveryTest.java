@@ -41,6 +41,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -167,7 +168,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
         for (int i = 0; i < targetRevision; i++) {
-            kvs.put(new byte[0], new byte[0], clock.now());
+            kvs.put(new byte[0], new byte[0], new KeyValueUpdateContext(0, 0, clock.now()));
         }
 
         assertThat(msDeployFut, willSucceedFast());

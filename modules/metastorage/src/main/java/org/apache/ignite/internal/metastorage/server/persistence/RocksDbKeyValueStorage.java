@@ -95,11 +95,13 @@ import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.Watch;
 import org.apache.ignite.internal.metastorage.server.WatchProcessor;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -154,6 +156,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final byte[] COMPACTION_REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
+    );
+
+    /**
+     * Key for storing index and term.
+     *
+     * @see #setIndexAndTerm(long, long)
+     */
+    private static final byte[] INDEX_AND_TERM_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_INDEX_AND_TERM_KEY".getBytes(UTF_8)
+    );
+
+    /**
+     * Key for storing configuration.
+     *
+     * @see #saveConfiguration(byte[], long, long)
+     */
+    private static final byte[] CONFIGURATION_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_CONFIGURATION_KEY".getBytes(UTF_8)
     );
 
     /** Lexicographic order comparator. */
@@ -277,11 +299,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            // Delete existing data, relying on the raft's snapshot and log playback
-            destroyRocksDb();
-
             createDb();
-        } catch (IOException | RocksDBException e) {
+        } catch (RocksDBException e) {
             closeRocksResources();
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         } finally {
@@ -330,6 +349,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     private DBOptions createDbOptions() {
         DBOptions options = new DBOptions()
+                .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
                 .setCreateIfMissing(true);
 
@@ -469,21 +489,86 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void put(byte[] key, byte[] value, HybridTimestamp opTs) {
+    public void put(byte[] key, byte[] value, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            addDataToBatch(batch, key, value, curRev, opTs);
+            addDataToBatch(batch, key, value, curRev, context.timestamp);
 
             updateKeysIndex(batch, key, curRev);
 
-            fillAndWriteBatch(batch, curRev, opTs);
+            fillAndWriteBatch(batch, curRev, context);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void setIndexAndTerm(long index, long term) {
+        rwLock.writeLock().lock();
+
+        try (WriteBatch batch = new WriteBatch()) {
+            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+
+            db.write(defaultWriteOptions, batch);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public @Nullable IndexWithTerm getIndexWithTerm() {
+        rwLock.readLock().lock();
+
+        try {
+            byte[] bytes = data.get(INDEX_AND_TERM_KEY);
+
+            if (bytes == null) {
+                return null;
+            }
+
+            long[] longs = getAsLongs(bytes);
+
+            return new IndexWithTerm(longs[0], longs[1]);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void saveConfiguration(byte[] configuration, long index, long term) {
+        rwLock.writeLock().lock();
+
+        try (WriteBatch batch = new WriteBatch()) {
+            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+            data.put(batch, CONFIGURATION_KEY, configuration);
+
+            db.write(defaultWriteOptions, batch);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public byte @Nullable [] getConfiguration() {
+        rwLock.readLock().lock();
+
+        try {
+            return data.get(CONFIGURATION_KEY);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -511,20 +596,24 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      *
      * @param batch Write batch.
      * @param newRev New revision.
-     * @param ts Operation's timestamp.
+     * @param context Operation's context.
      * @throws RocksDBException If failed.
      */
-    private void fillAndWriteBatch(WriteBatch batch, long newRev, @Nullable HybridTimestamp ts) throws RocksDBException {
+    private void fillAndWriteBatch(WriteBatch batch, long newRev, KeyValueUpdateContext context) throws RocksDBException {
+        HybridTimestamp ts = context.timestamp;
+
         byte[] revisionBytes = longToBytes(newRev);
 
         data.put(batch, REVISION_KEY, revisionBytes);
 
-        if (ts != null) {
-            byte[] tsBytes = hybridTsToArray(ts);
+        assert ts != null;
 
-            tsToRevision.put(batch, tsBytes, revisionBytes);
-            revisionToTs.put(batch, revisionBytes, tsBytes);
-        }
+        byte[] tsBytes = hybridTsToArray(ts);
+
+        tsToRevision.put(batch, tsBytes, revisionBytes);
+        revisionToTs.put(batch, revisionBytes, tsBytes);
+
+        data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, context.index, context.term));
 
         db.write(defaultWriteOptions, batch);
 
@@ -548,19 +637,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
+    public void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            addAllToBatch(batch, keys, values, curRev, opTs);
+            addAllToBatch(batch, keys, values, curRev, context.timestamp);
 
             for (byte[] key : keys) {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, opTs);
+            fillAndWriteBatch(batch, curRev, context);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -624,17 +713,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void remove(byte[] key, HybridTimestamp opTs) {
+    public void remove(byte[] key, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            if (addToBatchForRemoval(batch, key, curRev, opTs)) {
+            if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, opTs);
+            fillAndWriteBatch(batch, curRev, context);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -643,7 +732,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
+    public void removeAll(List<byte[]> keys, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -652,7 +741,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                if (addToBatchForRemoval(batch, key, curRev, opTs)) {
+                if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
                     existingKeys.add(key);
                 }
             }
@@ -661,7 +750,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, opTs);
+            fillAndWriteBatch(batch, curRev, context);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -674,7 +763,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             Condition condition,
             Collection<Operation> success,
             Collection<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     ) {
         rwLock.writeLock().lock();
@@ -691,7 +780,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
             );
 
-            applyOperations(ops, opTs);
+            applyOperations(ops, context);
 
             return branch;
         } catch (RocksDBException e) {
@@ -702,7 +791,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
+    public StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId) {
         rwLock.writeLock().lock();
 
         try {
@@ -731,7 +820,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                             update.result().result())
                     );
 
-                    applyOperations(ops, opTs);
+                    applyOperations(ops, context);
 
                     return update.result();
                 } else {
@@ -745,7 +834,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private void applyOperations(Collection<Operation> ops, HybridTimestamp opTs) throws RocksDBException {
+    private void applyOperations(Collection<Operation> ops, KeyValueUpdateContext context) throws RocksDBException {
+        HybridTimestamp opTs = context.timestamp;
+
         long curRev = rev + 1;
 
         List<byte[]> updatedKeys = new ArrayList<>();
@@ -781,7 +872,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, opTs);
+            fillAndWriteBatch(batch, curRev, context);
         }
     }
 
@@ -1032,7 +1123,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             if (indexToCompact == revs.length - 1) {
                 index.delete(batch, key);
             } else {
-                index.put(batch, key, longsToBytes(revs, indexToCompact + 1));
+                index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
             }
         } catch (Throwable t) {
             throw new MetaStorageException(

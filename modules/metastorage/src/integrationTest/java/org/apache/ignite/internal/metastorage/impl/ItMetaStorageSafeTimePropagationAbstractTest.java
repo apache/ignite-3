@@ -87,7 +87,7 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
 
         HybridTimestamp opTs = clock.now();
 
-        storage.put(key(0), keyValue(0, 1), opTs);
+        storage.put(key(0), keyValue(0, 1), msContext(opTs));
 
         // Ensure watch listener is called.
         assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));

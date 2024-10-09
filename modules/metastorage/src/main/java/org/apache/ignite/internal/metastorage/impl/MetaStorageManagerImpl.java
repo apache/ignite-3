@@ -38,6 +38,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
@@ -82,6 +84,7 @@ import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.tostring.S;
@@ -286,7 +289,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private void listenForRecovery(long targetRevision) {
-        storage.setRecoveryRevisionListener(storageRevision -> {
+        LongConsumer listener = storageRevision -> {
             if (!busyLock.enterBusy()) {
                 recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
@@ -307,29 +310,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             } finally {
                 busyLock.leaveBusy();
             }
-        });
+        };
 
-        if (!busyLock.enterBusy()) {
-            recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
-
-            return;
-        }
+        storage.setRecoveryRevisionListener(listener);
 
         // Storage might be already up-to-date, so check here manually after setting the listener.
-        try {
-            long storageRevision = storage.revision();
-
-            if (storageRevision >= targetRevision) {
-                storage.setRecoveryRevisionListener(null);
-
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
+        listener.accept(storage.revision());
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
@@ -401,7 +387,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
                 topologyAwareRaftGroupServiceFactory,
-                raftGroupOptionsConfigurer
+                options -> {
+                    raftGroupOptionsConfigurer.configure(options);
+
+                    ((RaftGroupOptions) options).snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
+                }
         );
 
         serviceFuture
