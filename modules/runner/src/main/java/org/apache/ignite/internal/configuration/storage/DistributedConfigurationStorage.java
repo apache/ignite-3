@@ -46,6 +46,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -241,7 +242,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             return falseCompletedFuture();
         }
 
-        var operations = new ArrayList<>();
+        var operations = new ArrayList<Operation>();
 
         for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
