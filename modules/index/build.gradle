@@ -50,6 +50,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
+    testImplementation(testFixtures(project(':ignite-failure-handler')))
     testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-replicator')
     testImplementation project(':ignite-cluster-management')

@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for RocksDB key-value storage implementation.
@@ -27,5 +33,37 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+    }
+
+    @Test
+    void testRestoreAfterRestart() throws Exception {
+        byte[] key = key(1);
+        byte[] val = keyValue(1, 1);
+
+        Entry e = storage.get(key);
+
+        assertTrue(e.empty());
+
+        putToMs(key, val);
+
+        e = storage.get(key);
+
+        assertArrayEquals(key, e.key());
+        assertArrayEquals(val, e.value());
+
+        long revisionBeforeRestart = storage.revision();
+
+        storage.close();
+
+        storage = new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+
+        storage.start();
+
+        assertEquals(revisionBeforeRestart, storage.revision());
+
+        e = storage.get(key);
+
+        assertArrayEquals(key, e.key());
+        assertArrayEquals(val, e.value());
     }
 }

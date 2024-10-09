@@ -88,6 +88,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -426,7 +427,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), assignmentsBytes,
-                clock.now()
+                new KeyValueUpdateContext(0, 0, clock.now())
         );
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
@@ -460,7 +461,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             keyValueStorage.put(
                     stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), assignmentsBytes,
-                    clock.now()
+                    new KeyValueUpdateContext(0, 0, clock.now())
             );
         }
 
@@ -592,7 +593,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
 
-            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i), timestamp), clock.now());
+            keyValueStorage.put(stableAssignmentPartitionKey,
+                    Assignments.toBytes(initialAssignments.get(i), timestamp),
+                    new KeyValueUpdateContext(0, 0, clock.now())
+            );
         }
     }
 

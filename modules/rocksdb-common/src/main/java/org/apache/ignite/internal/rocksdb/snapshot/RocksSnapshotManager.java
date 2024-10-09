@@ -201,6 +201,7 @@ public class RocksSnapshotManager {
      * @param snapshotDir Path to the directory where a snapshot was created.
      */
     public void restoreSnapshot(Path snapshotDir) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23393 No failure protection if we fail during one of ingestions.
         try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
             for (ColumnFamilyRange range : ranges) {
                 Path snapshotPath = snapshotDir.resolve(range.columnFamily().name());

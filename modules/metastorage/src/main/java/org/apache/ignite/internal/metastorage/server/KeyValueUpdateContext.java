@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Snapshot storage factory interface. */
-@FunctionalInterface
-public interface SnapshotStorageFactory {
-    /**
-     * Creates a snapshot storage.
-     *
-     * @param uri Snapshot URI.
-     * @param raftOptions Raft options.
-     * @return Snapshot storage. {@code null} if there's no snapshot.
-     */
-    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
+/**
+ * Operation context for update operations in {@link KeyValueStorage}. Includes operation timestamp and a necessary metadata in terms of a
+ * {@code long index} and {@code long term}.
+ */
+public class KeyValueUpdateContext {
+    public final long index;
+    public final long term;
+    public final HybridTimestamp timestamp;
+
+    public KeyValueUpdateContext(long index, long term, HybridTimestamp timestamp) {
+        assert timestamp != null;
+
+        this.index = index;
+        this.term = term;
+        this.timestamp = timestamp;
+    }
 }

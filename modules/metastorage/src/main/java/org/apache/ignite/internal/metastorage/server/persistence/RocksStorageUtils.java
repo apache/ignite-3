@@ -230,11 +230,11 @@ class RocksStorageUtils {
     /**
      * Converts an array of {@code long} values to an array of bytes.
      *
-     * @param values Array of values.
      * @param valuesOffset Offset in the array of values to start from.
+     * @param values Array of values.
      * @return Array of bytes.
      */
-    static byte[] longsToBytes(long[] values, int valuesOffset) {
+    static byte[] longsToBytes(int valuesOffset, long... values) {
         assert valuesOffset < values.length : "off=" + valuesOffset + ", arr.len=" + values.length;
 
         var result = new byte[(values.length - valuesOffset) * Long.BYTES];

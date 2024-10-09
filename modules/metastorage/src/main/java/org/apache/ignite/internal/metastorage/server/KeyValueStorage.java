@@ -32,6 +32,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -151,38 +152,69 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /**
+     * Saves an index and a term into the storage. These values are used to determine a storage state after restart.
+     *
+     * @param index Index value.
+     * @param term Term value.
+     */
+    void setIndexAndTerm(long index, long term);
+
+    /**
+     * Returns an index and term pair.
+     *
+     * @return An index and term pair. {@code null} if no {@link #setIndexAndTerm(long, long)} has been called yet on this storage.
+     */
+    @Nullable IndexWithTerm getIndexWithTerm();
+
+    /**
+     * Saves an arbitrary storage configuration as a byte array.
+     *
+     * @param configuration Configuration bytes.
+     * @param index Operation's index.
+     * @param term Operation's term.
+     */
+    void saveConfiguration(byte[] configuration, long index, long term);
+
+    /**
+     * Returns configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}.
+     *
+     * @return Configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}. {@code null} if it's never been called.
+     */
+    byte @Nullable [] getConfiguration();
+
+    /**
      * Inserts an entry with the given key and given value.
      *
      * @param key The key.
      * @param value The value.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void put(byte[] key, byte[] value, HybridTimestamp opTs);
+    void put(byte[] key, byte[] value, KeyValueUpdateContext context);
 
     /**
      * Inserts entries with given keys and given values.
      *
      * @param keys The key list.
      * @param values The values list.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
+    void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context);
 
     /**
      * Removes an entry with the given key.
      *
      * @param key The key.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void remove(byte[] key, HybridTimestamp opTs);
+    void remove(byte[] key, KeyValueUpdateContext context);
 
     /**
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void removeAll(List<byte[]> keys, HybridTimestamp opTs);
+    void removeAll(List<byte[]> keys, KeyValueUpdateContext context);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
@@ -190,7 +222,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param condition Condition.
      * @param success Success operations.
      * @param failure Failure operations.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      * @param commandId Command Id.
      * @return Result of test condition.
      */
@@ -198,7 +230,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
             Condition condition,
             Collection<Operation> success,
             Collection<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     );
 
@@ -206,13 +238,13 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      * @param commandId Command Id.
      * @return execution result
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
+    StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.
