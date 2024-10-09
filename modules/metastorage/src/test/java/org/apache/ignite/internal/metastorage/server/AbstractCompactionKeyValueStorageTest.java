@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -429,6 +430,110 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 7);
     }
 
+    @Test
+    void testGetAllLatestAndCompaction() {
+        storage.setCompactionRevision(6);
+
+        assertDoesNotThrow(() -> storage.getAll(List.of(FOO_KEY, BAR_KEY, NOT_EXISTS_KEY)));
+    }
+
+    @Test
+    void testGetAllAndCompactionForFooKey() {
+        // FOO_KEY has revisions: [1, 3, 5].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetAll(1, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(2, FOO_KEY);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetAll(2, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(3, FOO_KEY);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetAll(3, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(4, FOO_KEY);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetAll(4, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(5, FOO_KEY);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetAll(4, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(5, FOO_KEY);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetAll(4, FOO_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(5, FOO_KEY);
+    }
+
+    @Test
+    void testGetAllAndCompactionForBarKey() {
+        // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetAll(1, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(2, BAR_KEY);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetAll(2, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(3, BAR_KEY);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetAll(3, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(4, BAR_KEY);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetAll(4, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(5, BAR_KEY);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetAll(5, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(6, BAR_KEY);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetAll(6, BAR_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(7, BAR_KEY);
+    }
+
+    @Test
+    void testGetAllAndCompactionForNotExistsKey() {
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetAll(1, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(2, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetAll(2, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(3, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetAll(3, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(4, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetAll(4, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(5, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetAll(5, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(6, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetAll(6, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(7, NOT_EXISTS_KEY);
+    }
+
+    @Test
+    void testGetAllAndCompactionForMultipleKeys() {
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetAll(1, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(2, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetAll(5, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
+        assertThrowsCompactedExceptionForGetAll(5, FOO_KEY, BAR_KEY);
+        assertThrowsCompactedExceptionForGetAll(5, FOO_KEY, NOT_EXISTS_KEY);
+        assertThrowsCompactedExceptionForGetAll(5, BAR_KEY, NOT_EXISTS_KEY);
+        assertDoesNotThrowCompactedExceptionForGetAll(6, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -468,5 +573,34 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                     () -> String.format("key=%s, revision=%s", toUtf8String(key), revisionUpperBound)
             );
         }
+    }
+
+    private void assertThrowsCompactedExceptionForGetAll(long endRevisionInclusive, byte[]... keys) {
+        for (long i = 0; i <= endRevisionInclusive; i++) {
+            long revisionUpperBound = i;
+
+            assertThrows(
+                    CompactedException.class,
+                    () -> storage.getAll(List.of(keys), revisionUpperBound),
+                    () -> String.format("keys=%s, revision=%s", toUtf8String(keys), revisionUpperBound)
+            );
+        }
+    }
+
+    private void assertDoesNotThrowCompactedExceptionForGetAll(long startRevisionInclusive, byte[]... keys) {
+        for (long i = startRevisionInclusive; i <= storage.revision(); i++) {
+            long revisionUpperBound = i;
+
+            assertDoesNotThrow(
+                    () -> storage.getAll(List.of(keys), revisionUpperBound),
+                    () -> String.format("keys=%s, revision=%s", toUtf8String(keys), revisionUpperBound)
+            );
+        }
+    }
+
+    private static String toUtf8String(byte[]... keys) {
+        return Arrays.stream(keys)
+                .map(KeyValueStorageUtils::toUtf8String)
+                .collect(joining(", ", "[", "]"));
     }
 }

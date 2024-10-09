@@ -602,7 +602,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys) {
+    public List<Entry> getAll(List<byte[]> keys) {
         rwLock.readLock().lock();
 
         try {
@@ -613,7 +613,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
@@ -1046,22 +1046,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /**
-     * Gets all entries with given keys and a revision.
-     *
-     * @param keys Target keys.
-     * @param rev  Target revision.
-     * @return Collection of entries.
-     */
-    private Collection<Entry> doGetAll(Collection<byte[]> keys, long rev) {
-        assert keys != null : "keys list can't be null.";
-        assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev >= 0;
+    private List<Entry> doGetAll(Collection<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
 
         var res = new ArrayList<Entry>(keys.size());
 
         for (byte[] key : keys) {
-            res.add(doGet(key, rev));
+            res.add(doGet(key, revUpperBound));
         }
 
         return res;

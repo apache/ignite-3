@@ -154,7 +154,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     private static final NavigableMap<ByteArray, Entry> EXPECTED_RESULT_MAP;
 
     /** Expected server result collection. */
-    private static final Collection<Entry> EXPECTED_SRV_RESULT_COLL;
+    private static final List<Entry> EXPECTED_SRV_RESULT_COLL;
 
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();

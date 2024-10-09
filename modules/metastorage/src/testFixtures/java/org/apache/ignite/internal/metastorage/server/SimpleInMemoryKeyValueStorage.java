@@ -233,14 +233,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys) {
+    public List<Entry> getAll(List<byte[]> keys) {
         synchronized (mux) {
             return doGetAll(keys, rev);
         }
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         synchronized (mux) {
             return doGetAll(keys, revUpperBound);
         }
@@ -711,15 +711,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private Collection<Entry> doGetAll(List<byte[]> keys, long rev) {
-        assert keys != null : "keys list can't be null.";
-        assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev >= 0;
+    private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
 
-        Collection<Entry> res = new ArrayList<>(keys.size());
+        var res = new ArrayList<Entry>(keys.size());
 
         for (byte[] key : keys) {
-            res.add(doGet(key, rev));
+            res.add(doGet(key, revUpperBound));
         }
 
         return res;
