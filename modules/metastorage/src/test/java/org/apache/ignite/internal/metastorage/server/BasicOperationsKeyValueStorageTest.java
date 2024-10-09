@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,6 +85,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
     @WorkDirectory
     Path workDir;
+
+    /** Whether the implemention under test supports checksums. */
+    protected abstract boolean supportsChecksums();
 
     @Test
     public void testPut() {
@@ -2141,6 +2145,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         storage.put(key, value, hybridTimestamp(10));
 
+        long checksum1 = 0;
+        if (supportsChecksums()) {
+            checksum1 = storage.checksum(1);
+        }
+
         Path snapshotDir = workDir.resolve("snapshotDir");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
@@ -2153,6 +2162,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertEquals(1L, storage.revision());
         assertFalse(storage.get(key).empty());
+
+        if (supportsChecksums()) {
+            assertThat(storage.checksum(1), is(checksum1));
+        }
     }
 
     @Test

@@ -49,6 +49,11 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
     }
 
+    @Override
+    protected boolean supportsChecksums() {
+        return true;
+    }
+
     @Test
     public void putChecksum() {
         byte[] key = key(1);
