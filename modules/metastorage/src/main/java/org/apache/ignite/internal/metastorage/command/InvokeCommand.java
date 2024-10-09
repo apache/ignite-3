@@ -27,7 +27,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(MetastorageCommandsMessageGroup.INVOKE)
 public interface InvokeCommand extends IdempotentCommand {
-    /**b
+    /**
      * Returns condition.
      *
      * @return Condition.
