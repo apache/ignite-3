@@ -1677,13 +1677,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
-            byte[] checksumBytes = revisionToChecksum.get(longToBytes(revision));
-
-            if (checksumBytes == null) {
-                throw new CompactedException("Requested revision has already been compacted: " + revision);
-            }
-
-            return bytesToLong(checksumBytes);
+            return checksumByRevision(revision);
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision " + revision, e);
         } finally {
