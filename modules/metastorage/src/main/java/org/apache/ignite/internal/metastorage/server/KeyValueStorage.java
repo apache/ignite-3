@@ -60,8 +60,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Never throws {@link CompactedException}.</p>
      *
-     * @param key The key.
-     * @return Value corresponding to the given key.
+     * @param key Key.
      */
     Entry get(byte[] key);
 
@@ -112,7 +111,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     </li>
      * </ul>
      *
-     * @param key The key.
+     * @param key Key.
      * @param revUpperBound The upper bound of revision.
      * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
      *      {@link #setCompactionRevision compacted} one.
@@ -132,21 +131,24 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
-     * Returns all entries corresponding to given keys.
+     * Returns the latest version of entries corresponding to the given keys.
      *
-     * @param keys Keys collection.
-     * @return Entries corresponding to given keys.
+     * <p>Never throws {@link CompactedException}.</p>
+     *
+     * @param keys Not empty keys.
      */
-    Collection<Entry> getAll(List<byte[]> keys);
+    List<Entry> getAll(List<byte[]> keys);
 
     /**
-     * Returns all entries corresponding to given keys and bounded by the given revision.
+     * Returns entries corresponding to the given keys and bounded by the given revision.
      *
-     * @param keys Keys collection.
+     * @param keys Not empty keys.
      * @param revUpperBound Upper bound of revision.
-     * @return Entries corresponding to given keys.
+     * @throws CompactedException If getting any of the individual entries would have thrown this exception as if
+     *      {@link #get(byte[], long)} was used.
+     * @see #get(byte[], long)
      */
-    Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /**
      * Inserts an entry with the given key and given value.

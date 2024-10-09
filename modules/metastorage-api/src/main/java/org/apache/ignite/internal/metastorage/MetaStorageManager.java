@@ -241,7 +241,13 @@ public interface MetaStorageManager extends IgniteComponent {
     HybridTimestamp timestampByRevisionLocally(long revision);
 
     /**
-     * Retrieves entries for given keys.
+     * Returns a future of getting the latest version of entries corresponding to the given keys from the metastore leader.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param keys Set of keys (must not be empty).
      */
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys);
 

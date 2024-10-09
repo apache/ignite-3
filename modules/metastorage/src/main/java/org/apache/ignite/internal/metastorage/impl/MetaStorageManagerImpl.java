@@ -732,32 +732,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves entries for given keys and the revision upper bound.
-     *
-     * @see MetaStorageService#getAll(Set, long)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys, revUpperBound));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys)));
     }
 
     /**
