@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.disaster.system.storage;
 
+import java.util.UUID;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,4 +29,18 @@ public interface MetastorageRepairStorage {
      * Reads {@link ResetClusterMessage} from the volatile state; returns {@code null} if it's not saved.
      */
     @Nullable ResetClusterMessage readVolatileResetClusterMessage();
+
+    /**
+     * Reads cluster ID in which this node witnessed (that is, participated or reentered the Metastorage group if not participated)
+     * last Metastorage repair.
+     */
+    @Nullable UUID readWitnessedMetastorageRepairClusterId();
+
+    /**
+     * Saves cluster ID in which this node witnessed (that is, participated or reentered the Metastorage group if not participated)
+     * a Metastorage repair.
+     *
+     * @param repairClusterId ID of the cluster.
+     */
+    void saveWitnessedMetastorageRepairClusterId(UUID repairClusterId);
 }

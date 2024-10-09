@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -967,14 +968,21 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
     public CompletableFuture<Set<String>> metaStorageNodes() {
+        return metaStorageInfo()
+                .thenApply(MetaStorageInfo::metaStorageNodes);
+    }
+
+    /**
+     * Returns a future that, when complete, resolves into a Meta storage info.
+     */
+    public CompletableFuture<MetaStorageInfo> metaStorageInfo() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
             return raftServiceAfterJoin()
-                    .thenCompose(CmgRaftService::readClusterState)
-                    .thenApply(ClusterState::metaStorageNodes);
+                    .thenCompose(CmgRaftService::readMetaStorageInfo);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1052,21 +1060,52 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     /**
-     * Changes metastorage nodes in the CMG.
+     * Changes metastorage nodes in the CMG for the graceful Metastorage reconfiguration procedure.
      *
+     * @param newMetastorageNodes Metastorage node names to set.
      * @return Future that completes when the command is executed by the CMG.
      */
     public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
+        return changeMetastorageNodesInternal(newMetastorageNodes, null);
+    }
+
+    /**
+     * Changes metastorage nodes in the CMG for the forceful (with repair) Metastorage reconfiguration procedure.
+     *
+     * @param newMetastorageNodes Metastorage node names to set.
+     * @param metastorageRepairingConfigIndex Raft index in the Metastorage group under which the forced configuration is
+     *     (or will be) saved.
+     * @return Future that completes when the command is executed by the CMG.
+     */
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes, long metastorageRepairingConfigIndex) {
+        return changeMetastorageNodesInternal(newMetastorageNodes, metastorageRepairingConfigIndex);
+    }
+
+    private CompletableFuture<Void> changeMetastorageNodesInternal(
+            Set<String> newMetastorageNodes,
+            @Nullable Long metastorageRepairingConfigIndex
+    ) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
+        UUID metastorageRepairClusterId = metastorageRepairingConfigIndex == null ? null : requiredClusterId();
+
         try {
             return raftServiceAfterJoin()
-                    .thenCompose(service -> service.changeMetastorageNodes(newMetastorageNodes));
+                    .thenCompose(service -> service.changeMetastorageNodes(
+                            newMetastorageNodes,
+                            metastorageRepairClusterId,
+                            metastorageRepairingConfigIndex
+                    ));
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private UUID requiredClusterId() {
+        ClusterState clusterState = clusterStateStorageMgr.getClusterState();
+        return requireNonNull(clusterState, "Still no cluster state.").clusterTag().clusterId();
     }
 
     /**

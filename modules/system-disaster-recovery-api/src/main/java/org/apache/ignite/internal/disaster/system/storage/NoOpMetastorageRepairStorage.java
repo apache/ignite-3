@@ -15,23 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.disaster.system.message;
+package org.apache.ignite.internal.disaster.system.storage;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import java.util.UUID;
+import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Response to {@link MetastorageIndexTermRequestMessage}.
+ * Implementation of {@link MetastorageRepairStorage} that does nothing.
  */
-@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_RESPONSE)
-public interface MetastorageIndexTermResponseMessage extends NetworkMessage {
-    /**
-     * Returns Raft index of the Metastorage group on the sender of this message.
-     */
-    long raftIndex();
+public class NoOpMetastorageRepairStorage implements MetastorageRepairStorage {
+    @Override
+    public @Nullable ResetClusterMessage readVolatileResetClusterMessage() {
+        return null;
+    }
 
-    /**
-     * Returns term corresponding to the Raft index of the Metastorage group on the sender of this message.
-     */
-    long raftTerm();
+    @Override
+    public @Nullable UUID readWitnessedMetastorageRepairClusterId() {
+        return null;
+    }
+
+    @Override
+    public void saveWitnessedMetastorageRepairClusterId(UUID repairClusterId) {
+        // No-op.
+    }
 }

@@ -152,6 +152,21 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
+    public void putAll(List<byte[]> keys, List<byte[]> values) {
+        inBusyLock(busyLock, () -> {
+            try (var batch = new WriteBatch()) {
+                for (int i = 0; i < keys.size(); i++) {
+                    batch.put(keys.get(i), values.get(i));
+                }
+
+                db.write(defaultWriteOptions, batch);
+            } catch (RocksDBException e) {
+                throw new CmgStorageException("Unable to put data into Rocks DB", e);
+            }
+        });
+    }
+
+    @Override
     public void replaceAll(byte[] prefix, byte[] key, byte[] value) {
         inBusyLock(busyLock, () -> {
             try (var batch = new WriteBatch()) {

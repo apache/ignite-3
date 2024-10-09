@@ -28,7 +28,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
@@ -48,22 +48,22 @@ class ItMetastorageIndexGettingTest extends ClusterPerTestIntegrationTest {
             parametersBuilder.metaStorageNodeNames(cluster.nodeName(1));
         });
 
-        MetastorageIndexTermResponseMessage response = getMetastorageIndexAndTermFrom(1);
+        StartMetastorageRepairResponse response = getMetastorageIndexAndTermFrom(1);
 
         assertThat(response.raftIndex(), is(greaterThanOrEqualTo(1L)));
         assertThat(response.raftTerm(), is(greaterThanOrEqualTo(1L)));
     }
 
-    private MetastorageIndexTermResponseMessage getMetastorageIndexAndTermFrom(int targetNodeIndex)
+    private StartMetastorageRepairResponse getMetastorageIndexAndTermFrom(int targetNodeIndex)
             throws InterruptedException, ExecutionException, TimeoutException {
         IgniteImpl ignite0 = igniteImpl(0);
 
         CompletableFuture<NetworkMessage> future = ignite0.clusterService().messagingService().invoke(
                 cluster.nodeName(targetNodeIndex),
-                messagesFactory.metastorageIndexTermRequestMessage().build(),
+                messagesFactory.startMetastorageRepairRequest().build(),
                 SECONDS.toMillis(10)
         );
-        return (MetastorageIndexTermResponseMessage) future.get(10, SECONDS);
+        return (StartMetastorageRepairResponse) future.get(10, SECONDS);
     }
 
     @Test
@@ -79,7 +79,7 @@ class ItMetastorageIndexGettingTest extends ClusterPerTestIntegrationTest {
         // This will not be able to finish its startup.
         cluster.startEmbeddedNode(2);
 
-        MetastorageIndexTermResponseMessage response = getMetastorageIndexAndTermFrom(2);
+        StartMetastorageRepairResponse response = getMetastorageIndexAndTermFrom(2);
 
         assertThat(response.raftIndex(), is(greaterThanOrEqualTo(1L)));
         assertThat(response.raftTerm(), is(greaterThanOrEqualTo(1L)));

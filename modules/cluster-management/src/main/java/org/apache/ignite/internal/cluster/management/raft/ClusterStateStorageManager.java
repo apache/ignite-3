@@ -18,8 +18,12 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -28,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,6 +43,9 @@ public class ClusterStateStorageManager {
 
     /** Prefix for validation tokens. */
     private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
+
+    private static final byte[] METASTORAGE_REPAIR_CLUSTER_ID_KEY = "metastorageRepairClusterId".getBytes(UTF_8);
+    private static final byte[] METASTORAGE_REPAIRING_CONFIG_INDEX_KEY = "metastorageRepairingConfigIndex".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
 
@@ -92,7 +98,7 @@ public class ClusterStateStorageManager {
     }
 
     private static byte[] validatedNodeKey(UUID nodeId) {
-        byte[] nodeIdBytes = ByteUtils.uuidToBytes(nodeId);
+        byte[] nodeIdBytes = uuidToBytes(nodeId);
 
         return ByteBuffer.allocate(VALIDATED_NODE_PREFIX.length + nodeIdBytes.length)
                 .put(VALIDATED_NODE_PREFIX)
@@ -105,6 +111,37 @@ public class ClusterStateStorageManager {
      */
     List<LogicalNode> getValidatedNodes() {
         return storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
+    }
+
+    /**
+     * Saves information about Metastorage repair.
+     *
+     * @param repairClusterId ID that the cluster has when performaing the repair.
+     * @param repairingConfigIndex Raft index in the Metastorage group under which the forced configuration is (or will be) saved.
+     */
+    void saveMetastorageRepairInfo(UUID repairClusterId, long repairingConfigIndex) {
+        storage.putAll(
+                List.of(METASTORAGE_REPAIR_CLUSTER_ID_KEY, METASTORAGE_REPAIRING_CONFIG_INDEX_KEY),
+                List.of(uuidToBytes(repairClusterId), longToBytes(repairingConfigIndex))
+        );
+    }
+
+    /**
+     * Returns ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
+     * happened in the current cluster incarnation.
+     */
+    @Nullable UUID getMetastorageRepairClusterId() {
+        byte[] bytes = storage.get(METASTORAGE_REPAIR_CLUSTER_ID_KEY);
+        return bytes == null ? null : bytesToUuid(bytes);
+    }
+
+    /**
+     * Returns Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
+     * repair happened in the current cluster incarnation.
+     */
+    @Nullable Long getMetastorageRepairingConfigIndex() {
+        byte[] bytes = storage.get(METASTORAGE_REPAIRING_CONFIG_INDEX_KEY);
+        return bytes == null ? null : bytesToLong(bytes);
     }
 
     /**

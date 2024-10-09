@@ -506,6 +506,8 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRpcClient(client);
 
+            nodeOptions.setExternallyEnforcedConfigIndex(groupOptions.externallyEnforcedConfigIndex());
+
             var server = new RaftGroupService(
                     nodeId.groupId().toString(),
                     PeerId.fromPeer(nodeId.peer()),

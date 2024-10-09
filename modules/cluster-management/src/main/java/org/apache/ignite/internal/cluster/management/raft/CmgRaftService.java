@@ -25,14 +25,16 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
@@ -330,11 +333,27 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that completes when the change is finished.
      */
-    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes) {
-        ChangeMetastorageNodesCommand command = msgFactory.changeMetastorageNodesCommand()
+    public CompletableFuture<Void> changeMetastorageNodes(
+            Set<String> newMetastorageNodes,
+            @Nullable UUID metastorageRepairClusterId,
+            @Nullable Long metastorageRepairingConfigIndex
+    ) {
+        ChangeMetaStorageInfoCommand command = msgFactory.changeMetaStorageInfoCommand()
                 .metaStorageNodes(Set.copyOf(newMetastorageNodes))
+                .metastorageRepairClusterId(metastorageRepairClusterId)
+                .metastorageRepairingConfigIndex(metastorageRepairingConfigIndex)
                 .build();
         return raftService.run(command);
+    }
+
+    /**
+     * Retrieves the Metastorage info.
+     *
+     * @return Future that resolves into the metastorage info or {@code null} if even cluster state does not exist.
+     */
+    public CompletableFuture<MetaStorageInfo> readMetaStorageInfo() {
+        return raftService.run(msgFactory.readMetaStorageInfoCommand().build())
+                .thenApply(MetaStorageInfo.class::cast);
     }
 
     @Override
