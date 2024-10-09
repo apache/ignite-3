@@ -479,6 +479,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *    Expressions.makeBinary -> IgniteExpressions.makeBinary (or IgniteExpressions.decimalDivision in cause of decimal division).
  *    Expressions.multiply   -> IgniteExpressions.multiplyExact
  *    Expressions.divide     -> IgniteExpressions.divideExact
+ *    Expressions.divide     -> IgniteExpressions.makeDecimalDivision (if one or both operands are decimals)
  *    Expressions.negate     -> IgniteExpressions.makeUnary
  *    Expressions.subtract   -> IgniteExpressions.subtractExact
  *    Expressions.add        -> IgniteExpressions.addExact
