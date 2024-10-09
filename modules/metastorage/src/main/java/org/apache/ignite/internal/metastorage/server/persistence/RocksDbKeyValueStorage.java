@@ -578,9 +578,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         if (existingChecksumBytes != null) {
             long existingChecksum = bytesToLong(existingChecksumBytes);
             if (existingChecksum != newChecksum) {
-                throw new MetaStorageException(INTERNAL_ERR, "Metastorage revision checksum differs from a checksum for the same revision "
-                        + "saved earlier. This probably means that the Metastorage has diverged. [revision="
-                        + newRev + ", existingChecksum=" + existingChecksum + ", newChecksum=" + newChecksum + "]");
+                throw new MetaStorageException(
+                        INTERNAL_ERR,
+                        String.format(
+                                "Metastorage revision checksum differs from a checksum for the same revision saved earlier. "
+                                        + "This probably means that the Metastorage has diverged. [revision=%d, existingChecksum=%d, "
+                                        + "newChecksum=%d]",
+                                newRev, existingChecksum, newChecksum
+                        )
+                );
             }
         }
     }
