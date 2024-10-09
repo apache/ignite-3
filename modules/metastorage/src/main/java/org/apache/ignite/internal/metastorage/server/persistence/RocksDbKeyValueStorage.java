@@ -397,7 +397,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         byte[] bytes = revisionToChecksum.get(longToBytes(revision));
 
         if (bytes == null) {
-            throw new CompactedException("Revision is compacted: " + revision);
+            throw new CompactedException(revision);
         }
 
         return bytesToLong(bytes);
