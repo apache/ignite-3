@@ -299,8 +299,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
+            Files.createDirectories(dbPath);
+
             createDb();
-        } catch (RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             closeRocksResources();
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         } finally {
