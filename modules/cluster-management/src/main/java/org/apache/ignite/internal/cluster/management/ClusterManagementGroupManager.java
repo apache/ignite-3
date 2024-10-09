@@ -1105,7 +1105,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private UUID requiredClusterId() {
         ClusterState clusterState = clusterStateStorageMgr.getClusterState();
-        return requireNonNull(clusterState, "Still no cluster state").clusterTag().clusterId();
+        return requireNonNull(clusterState, "Still no cluster state.").clusterTag().clusterId();
     }
 
     /**
