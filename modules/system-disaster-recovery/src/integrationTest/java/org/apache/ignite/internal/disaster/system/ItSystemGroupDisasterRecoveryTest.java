@@ -127,8 +127,6 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         cluster.startEmbeddedNode(oldClusterNodeIndex);
 
         initiateMigrationToNewCluster(oldClusterNodeIndex, newClusterNodeIndex);
-
-        waitTillNodeRestartsInternally(oldClusterNodeIndex);
     }
 
     void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
