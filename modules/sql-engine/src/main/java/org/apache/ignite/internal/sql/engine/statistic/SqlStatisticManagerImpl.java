@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +27,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
@@ -46,7 +48,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
-    private static final long DEFAULT_TABLE_SIZE = 1_000_000;
+    private static final long DEFAULT_TABLE_SIZE = 1_000_000L;
     private static final long MINIMUM_TABLE_SIZE = 1_000L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
 
@@ -63,6 +65,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
 
+    /* Contains all known table id's with statistics. */
     private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
     private volatile long thresholdTimeToPostponeUpdateMs = TimeUnit.MINUTES.toMillis(1);
@@ -130,6 +133,16 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         catalogService.listen(CatalogEvent.TABLE_CREATE, createTableEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
+
+        // Need to have all known tables for all available history of catalog.
+        int earliestVersion = catalogService.earliestCatalogVersion();
+        int latestVersion = catalogService.latestCatalogVersion();
+        for (int version = earliestVersion; version <= latestVersion; version++) {
+            Collection<CatalogTableDescriptor> tables = catalogService.tables(version);
+            for (CatalogTableDescriptor table : tables) {
+                tableSizeMap.putIfAbsent(table.id(), DEFAULT_VALUE);
+            }
+        }
     }
 
     @Override
@@ -211,7 +224,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      * Returns feature for the last run update statistics to have ability wait update statistics.
      */
     @TestOnly
-    public Future<Void> lastUpdateStatisticFuture(){
+    public Future<Void> lastUpdateStatisticFuture() {
         return statisticUpdateFut;
     }
 }
