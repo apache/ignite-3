@@ -34,6 +34,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta Storage learner manager.
@@ -137,6 +138,7 @@ class MetaStorageLearnerManager {
      *
      * <p>This is only used by test code, and there is no method for enabling learners addition back as this is not needed in our tests.
      */
+    @TestOnly
     void disableLearnersAddition() {
         learnersAdditionEnabled = false;
     }
