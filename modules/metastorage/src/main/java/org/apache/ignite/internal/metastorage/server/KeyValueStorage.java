@@ -131,7 +131,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
-     * Returns the latest version of an entries by keys.
+     * Returns the latest version of entries corresponding to the given keys.
      *
      * <p>Never throws {@link CompactedException}.</p>
      *
@@ -140,11 +140,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> getAll(List<byte[]> keys);
 
     /**
-     * Returns an entries by the given keys and bounded by the given revision.
+     * Returns entries corresponding to the given keys and bounded by the given revision.
      *
      * @param keys Not empty keys.
      * @param revUpperBound Upper bound of revision.
-     * @throws CompactedException If getting one of an entries will throw this exception as if using {@link #get(byte[], long)}.
+     * @throws CompactedException If getting any of the individual entries would have thrown this exception as if
+     *      {@link #get(byte[], long)} was used.
      * @see #get(byte[], long)
      */
     List<Entry> getAll(List<byte[]> keys, long revUpperBound);
