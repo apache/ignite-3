@@ -353,7 +353,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private void createDb() throws RocksDBException {
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
-        assert descriptors.size() == 5;
+        assert descriptors.size() == 5 : descriptors.size();
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
