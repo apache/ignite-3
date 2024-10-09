@@ -120,8 +120,10 @@ public class ClusterStateStorageManager {
      * @param repairingConfigIndex Raft index in the Metastorage group under which the forced configuration is (or will be) saved.
      */
     void saveMetastorageRepairInfo(UUID repairClusterId, long repairingConfigIndex) {
-        storage.put(METASTORAGE_REPAIR_CLUSTER_ID_KEY, uuidToBytes(repairClusterId));
-        storage.put(METASTORAGE_REPAIRING_CONFIG_INDEX_KEY, longToBytes(repairingConfigIndex));
+        storage.putAll(
+                List.of(METASTORAGE_REPAIR_CLUSTER_ID_KEY, METASTORAGE_REPAIRING_CONFIG_INDEX_KEY),
+                List.of(uuidToBytes(repairClusterId), longToBytes(repairingConfigIndex))
+        );
     }
 
     /**
