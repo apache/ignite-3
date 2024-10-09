@@ -56,7 +56,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long revision();
 
     /**
-     * Returns an entry by the given key.
+     * Returns the latest version of an entry by key.
+     *
+     * <p>Never throws {@link CompactedException}.</p>
      *
      * @param key The key.
      * @return Value corresponding to the given key.
@@ -66,9 +68,54 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns an entry by the given key and bounded by the given revision.
      *
+     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
+     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - will return an empty value.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - a {@link CompactedException} will be thrown.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
      * @param key The key.
      * @param revUpperBound The upper bound of revision.
-     * @return Value corresponding to the given key.
+     * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
+     *      {@link #setCompactionRevision compacted} one.
      */
     Entry get(byte[] key, long revUpperBound);
 
