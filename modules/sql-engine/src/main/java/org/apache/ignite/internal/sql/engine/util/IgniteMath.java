@@ -284,13 +284,7 @@ public class IgniteMath {
         if (x == null || y == null) {
             return null;
         }
-        BigDecimal r = x.divide(y, s, ROUNDING_MODE);
-
-        System.err.println(x);
-        System.err.println(y);
-        System.err.println(r);
-
-        return r;
+        return x.divide(y, s, ROUNDING_MODE);
     }
 
     private static void throwDivisionByZero() {
