@@ -215,6 +215,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     private long rev;
 
+    /**
+     * Facility to work with checksums.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
     private MetastorageChecksum checksum;
 
     /**
