@@ -1,4 +1,4 @@
-# name: test/sql/types/integer/cast_to_integer.test
+# name: test/sql/types/integer/integer_integer_overflow_cast.test
 # description: Test casting from integer to integer
 # group: [integer]
 
