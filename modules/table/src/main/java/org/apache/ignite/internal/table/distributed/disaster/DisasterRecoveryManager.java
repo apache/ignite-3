@@ -522,11 +522,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     return;
                 }
 
-                request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+                request.handle(this, watchEvent.revision(), watchEvent.timestamp()).whenComplete(copyStateTo(operationFuture));
 
                 break;
             case MULTI_NODE:
-                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
+                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision(), watchEvent.timestamp());
 
                 if (operationFuture == null) {
                     // We're not the initiator, or timeout has passed.

@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.exception;
+package org.apache.ignite.internal.catalog.compaction.message;
 
-import static org.apache.ignite.lang.ErrorGroups.Network.NETWORK_ERR_GROUP;
+import java.util.BitSet;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
-class ErrorCodes {
-    /** File transfer error. */
-    static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+/** Information on available partitions. */
+@Transferable(CatalogCompactionMessageGroup.AVAILABLE_PARTITIONS)
+public interface AvailablePartitionsMessage extends NetworkMessage {
 
-    /** File validation error. */
-    static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
+    /** Returns table id. */
+    int tableId();
+
+    /** Returns bit set that contains available partitions. */
+    BitSet partitions();
 }

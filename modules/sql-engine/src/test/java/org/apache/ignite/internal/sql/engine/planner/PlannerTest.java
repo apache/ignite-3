@@ -108,8 +108,8 @@ public class PlannerTest extends AbstractPlannerTest {
         String sql = "SELECT val from (\n"
                 + "   SELECT * \n"
                 + "   FROM TEST \n"
-                + "   WHERE VAL = 10) \n"
-                + "WHERE VAL = 10";
+                + "   WHERE VAL = 10::VARCHAR) \n"
+                + "WHERE VAL = 10::VARCHAR";
 
         assertPlan(sql, publicSchema, Predicate.not(nodeOrAnyChild(isInstanceOf(IgniteFilter.class)))
                 .and(nodeOrAnyChild(isInstanceOf(IgniteTableScan.class)

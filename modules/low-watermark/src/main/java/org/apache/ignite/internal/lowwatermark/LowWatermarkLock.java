@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.lowwatermark;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.marshalling.ByteArrayMarshaller;
-import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/**
- * Pojo job.
- */
-public class PojoJob implements ComputeJob<Pojo, String> {
-    /**
-     * Executes this job.
-     *
-     * @param context The execution context.
-     * @param pojo Job arguments.
-     * @return Future with the same pojo that was passed as an argument.
-     */
-    @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Pojo pojo) {
-        return CompletableFuture.completedFuture(pojo.getName());
+final class LowWatermarkLock {
+    private final HybridTimestamp timestamp;
+
+    private final CompletableFuture<Void> future = new CompletableFuture<>();
+
+    LowWatermarkLock(HybridTimestamp timestamp) {
+        this.timestamp = timestamp;
     }
 
-    @Override
-    public Marshaller<Pojo, byte[]> inputMarshaller() {
-        return ByteArrayMarshaller.create();
+    public HybridTimestamp timestamp() {
+        return timestamp;
+    }
+
+    CompletableFuture<Void> future() {
+        return future;
     }
 }

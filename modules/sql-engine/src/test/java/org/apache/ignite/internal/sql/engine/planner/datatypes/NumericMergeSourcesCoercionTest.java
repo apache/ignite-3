@@ -47,11 +47,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for MERGE operations, when values belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for MERGE operations, when values belongs to the NUMERIC type family.
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
+public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
 
     @ParameterizedTest
     @MethodSource("argsForMergeWithColumnAsValue")

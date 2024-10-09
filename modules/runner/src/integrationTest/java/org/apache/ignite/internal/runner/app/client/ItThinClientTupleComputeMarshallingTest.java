@@ -19,32 +19,22 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Comparator;
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -56,14 +46,11 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClientTest {
-    static final String TABLE_NAME = "test";
-    IgniteClient client;
+    private static final String TABLE_NAME = "test";
 
     @BeforeEach
     void setUp() {
-        client = client();
-
-        client.catalog().createTable(
+        client().catalog().createTable(
                 TableDefinition.builder(TABLE_NAME)
                         .columns(
                                 column("key_col", ColumnType.INT32),
@@ -72,7 +59,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
                         .build()
         );
 
-        client.tables().table(TABLE_NAME).keyValueView().put(
+        client().tables().table(TABLE_NAME).keyValueView().put(
                 null,
                 Tuple.create().set("key_col", 2),
                 Tuple.create().set("value_col", "hi")
@@ -81,27 +68,24 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
 
     @AfterEach
     void tearDown() {
-        client.catalog().dropTable(TABLE_NAME);
+        client().catalog().dropTable(TABLE_NAME);
     }
 
     @Test
     void tupleFromTableApiAsArgument() {
         // Given tuple from the table.
-        var tup = client.tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("key_col", 2));
+        var tup = client().tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("key_col", 2));
 
         // When submit job with the tuple as an argument.
-        JobExecution<String> resultJobExec = client.compute().submit(
+        JobExecution<String> resultJobExec = client().compute().submit(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(TupleArgJob.class).build(),
                 tup
         );
 
         // Then job completes successfully.
-        assertStatusCompleted(resultJobExec);
-        assertThat(
-                getSafe(resultJobExec.resultAsync()),
-                equalTo("hi")
-        );
+        assertThat(resultJobExec.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(resultJobExec.resultAsync(), willBe("hi"));
     }
 
     @Test
@@ -110,20 +94,50 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         var key = 2;
 
         // When submit job that returns tuple from the table.
-        JobExecution<Tuple> resultJobExec = client.compute().submit(
+        JobExecution<Tuple> resultJobExec = client().compute().submit(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(TupleResultJob.class).build(),
                 key
         );
 
         // Then tuple is returned.
-        assertStatusCompleted(resultJobExec);
+        assertThat(resultJobExec.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(resultJobExec.resultAsync(), willCompleteSuccessfully());
         assertThat(
-                getSafe(resultJobExec.resultAsync()).stringValue("value_col"),
+                resultJobExec.resultAsync().join().stringValue("value_col"),
                 equalTo("hi")
         );
     }
 
+    /**
+     * Tests that the nested tuples are correctly serialized and deserialized.
+     */
+    @Test
+    void nestedTuplesArgumentSerialization() {
+        var argument = Tuple.create(
+                Map.of("level1_key1", Tuple.create(
+                                Map.of("level2_key1", Tuple.create(
+                                        Map.of("level3_key1", "level3_value1"))
+                                )
+                        ),
+                        "level1_key2", Tuple.create(
+                                Map.of("level2_key1", Tuple.create(
+                                        Map.of("level3_key1", "level3_value1"))
+                                )
+                        ),
+                        "level1_key3", "Non-tuple-string-value",
+                        "level1_key4", 42
+                )
+        );
+
+        Tuple resultTuple = client().compute().execute(
+                JobTarget.node(node(1)),
+                JobDescriptor.builder(TupleComputeJob.class).build(),
+                argument
+        );
+
+        assertThat(resultTuple, equalTo(argument));
+    }
 
     static class TupleResultJob implements ComputeJob<Integer, Tuple> {
         @Override
@@ -133,7 +147,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         }
     }
 
-    static class TupleArgJob implements ComputeJob<Tuple, String> {
+    private static class TupleArgJob implements ComputeJob<Tuple, String> {
         @Override
         public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable Tuple arg) {
             if (arg == null) {
@@ -144,48 +158,11 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         }
     }
 
-    private static void assertResultFailsWithErr(int errCode, JobExecution<?> result) {
-        var ex = assertThrows(CompletionException.class, () -> result.resultAsync().join());
-        assertThat(ex.getCause(), instanceOf(ComputeException.class));
-        assertThat(((ComputeException) ex.getCause()).code(), equalTo(errCode));
-    }
-
-    private static void assertStatusFailed(JobExecution<?> result) {
-        var state = getSafe(result.stateAsync());
-        assertThat(state, is(notNullValue()));
-        assertThat(state.status(), equalTo(JobStatus.FAILED));
-    }
-
-    private static void assertStatusCompleted(JobExecution<?> result) {
-        var state = getSafe(result.stateAsync());
-        assertThat(state, is(notNullValue()));
-        assertThat(state.status(), equalTo(JobStatus.COMPLETED));
-    }
-
-    private static <T> T getSafe(@Nullable CompletableFuture<T> fut) {
-        assertThat(fut, is(notNullValue()));
-
-        try {
-            int waitSec = 5;
-            return fut.get(waitSec, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            var cause = e.getCause();
-            if (cause instanceof ClassCastException) {
-                throw (ClassCastException) cause;
-            }
-            throw new RuntimeException(e);
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
+    /** Returns the argument as a result. */
+    private static class TupleComputeJob implements ComputeJob<Tuple, Tuple> {
+        @Override
+        public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Tuple arg) {
+            return completedFuture(arg);
         }
-    }
-
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
     }
 }

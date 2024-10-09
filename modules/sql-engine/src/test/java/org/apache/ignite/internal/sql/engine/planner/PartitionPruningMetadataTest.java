@@ -183,9 +183,6 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT ?::INT) s(x)",
                 TABLE_C1, "[c1=?0]", "[c1=?2]"),
 
-        // single tuple insert with implicit cast
-        CASE_11("t VALUES ('1', 10)", TABLE_C1, "[c1=1]"),
-
         // single tuple insert with explicit cast
         CASE_12("t VALUES ('1'::smallint, 10)", TABLE_C1, "[c1=1]"),
 

@@ -294,9 +294,9 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T arg) {
         try {
-            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
+            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
         } catch (Throwable e) {
             context.close();
             throw e;

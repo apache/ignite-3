@@ -174,7 +174,7 @@ public class ErrorGroups {
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Table is stopping. */
-        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) (5));
+        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Table definition is incorrect. */
         public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
@@ -415,23 +415,11 @@ public class ErrorGroups {
         /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = registerGroup("STORAGE", (short) 9);
 
-        /** Default error code when nothing else is specified. */
-        public static final int GENERIC_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
-
-        /** Failed to create a directory. */
-        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Operation on a closed storage. */
-        public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Storage rebalancing error. */
-        public static final int STORAGE_REBALANCE_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 4);
-
-        /** Operation on a destroyed storage. */
-        public static final int ALREADY_DESTROYED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 5);
-
         /** Error reading from an index that has not yet been built. */
-        public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Error indicating a possible data corruption in the storage. */
+        public static final int STORAGE_CORRUPTED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Distribution zones error group. */
@@ -455,6 +443,12 @@ public class ErrorGroups {
 
         /** Port is in use. */
         public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** File transfer error. */
+        public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** File validation error. */
+        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
@@ -675,7 +669,7 @@ public class ErrorGroups {
         /** Unsupported object type error. */
         public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** There format of bytes is wrong. */
+        /** Unmarshalling error. */
         public static final int UNMARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

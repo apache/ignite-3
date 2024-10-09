@@ -188,12 +188,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void exactWithApproxComparison() {
-        assertQuery("SELECT '1.1' > 2").returns(false).check();
         assertQuery("SELECT '1.1'::INTEGER > 2").returns(false).check();
-
-        assertQuery("SELECT '1.1' > 2.2").returns(false).check();
 
         assertQuery("SELECT 1.1::INTEGER > 2").returns(false).check();
         assertQuery("SELECT 2 < 1.1::INTEGER").returns(false).check();
@@ -203,63 +199,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT 1.1::float > 2").returns(false).check();
         assertQuery("SELECT '1.1'::float > 2").returns(false).check();
-    }
-
-    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    @ParameterizedTest()
-    @MethodSource("exactDecimalTypes")
-    public void testFilterTypeWiderThanColumnExprErr(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
-        sql(format("create table tbl(v {});", typeName));
-        sql(format("insert into tbl values({});", upper));
-
-        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
-
-        String errMsg = typeName + " out of range";
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v = '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v = {}::VARCHAR", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}')", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {}::VARCHAR)", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                "out of range",
-                () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
     }
 
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
@@ -279,9 +218,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v = {}", upper)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} = v", upper)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v = '{}'", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE '{}' = v", upper)).returns(checkReturn).check();
-
         assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
 
@@ -290,18 +226,15 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertQuery(format("SELECT * FROM tbl WHERE v < (SELECT {})", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})::varchar", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v = ' {} '", strUpper)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN (' {}' + '1', '0')", lessUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}), '0')", strUpper))
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ({} + 1)", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}))", strUpper))
                 .returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1, '0')", lessUpper, typeName)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1)", lessUpper, typeName)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '0')").withParam(lessUpper).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
-        assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1)").withParam(lessUpper).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ({} - 1)", strUpper)).returns(checkReturn).check();
 
         BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
         assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
@@ -457,7 +390,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         LocalDateTime localDateTime = LocalDateTime.parse(isoStr);
         Instant instant = localDateTime.atZone(zoneId).toInstant();
 
-        assertQuery(format("INSERT INTO timestamps VALUES(1, '{}', '{}')", tsStr, tsStr))
+        assertQuery(format(
+                "INSERT INTO timestamps VALUES(1, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')",
+                tsStr, tsStr))
                 .withTimeZoneId(zoneId)
                 .returns(1L)
                 .check();
@@ -582,9 +517,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
         assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
         assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0000000"))).check();
-
-        assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
-        assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
 
         assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
                 .returns(new BigDecimal("1.00")).check();
@@ -859,7 +791,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, 123)"));
+                    sql("insert into limitedChar(pk, f1) values (1, 123::VARCHAR)"));
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
@@ -872,7 +804,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test'))"));
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test')::VARCHAR)"));
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
                     sql("insert into limitedChar(pk, f1) values (1, '12' || ?)", "dynamic param string"));

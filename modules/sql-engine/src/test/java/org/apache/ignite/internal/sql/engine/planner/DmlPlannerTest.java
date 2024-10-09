@@ -18,20 +18,30 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -249,6 +259,50 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @Test
+    public void testValuesNodeTypeDerivationForDefaultOperator() throws Exception {
+        IgniteTable test = TestBuilders.table()
+                .name("TEST")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("UUID_VAL", NativeTypes.UUID, new UUID(1L, 2L))
+                .addColumn("INT_VAL", NativeTypes.INT32, 42)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(test);
+
+        Predicate<List<RexNode>> expressionsAsOfExpectedType =
+                expressions -> expressionsAsOfType(expressions, NativeTypes.INT32, NativeTypes.UUID, NativeTypes.INT32);
+
+        Predicate<IgniteKeyValueModify> kvModifyNodeWithExpressionsOfExpectedTypes = isInstanceOf(IgniteKeyValueModify.class)
+                .and(kvModify -> expressionsAsOfExpectedType.test(kvModify.expressions()));
+
+        assertPlan(
+                "INSERT INTO test (id, int_val) VALUES (1, DEFAULT)",
+                schema,
+                kvModifyNodeWithExpressionsOfExpectedTypes
+        );
+
+        assertPlan(
+                "INSERT INTO test (id, uuid_val) VALUES (1, DEFAULT)",
+                schema,
+                kvModifyNodeWithExpressionsOfExpectedTypes
+        );
+
+        Predicate<IgniteProject> projectNodeWithProjectionsOfExpectedTypes = isInstanceOf(IgniteProject.class)
+                .and(project -> expressionsAsOfExpectedType.test(project.getProjects()));
+
+        assertPlan(
+                "INSERT INTO test VALUES (1, DEFAULT, 1), (1, 'asd'::UUID, DEFAULT)",
+                schema,
+                hasChildThat(
+                        isInstanceOf(IgniteUnionAll.class)
+                                .and(input(0, projectNodeWithProjectionsOfExpectedTypes))
+                                .and(input(1, projectNodeWithProjectionsOfExpectedTypes))
+                )
+        );
+    }
+
     private static Stream<String> updatePrimaryKey() {
         return Stream.of(
                 "UPDATE TEST SET ID = ID + 1",
@@ -265,5 +319,20 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 .addColumn("C2", NativeTypes.INT32)
                 .distribution(distribution)
                 .build();
+    }
+
+    private static boolean expressionsAsOfType(List<RexNode> expressions, NativeType... expectedTypes) {
+        assert expressions.size() == expectedTypes.length;
+
+        for (int i = 0; i < expressions.size(); i++) {
+            RelDataType actualType = expressions.get(i).getType();
+            RelDataType expectedType = TypeUtils.native2relationalType(Commons.typeFactory(), expectedTypes[i], actualType.isNullable());
+
+            if (actualType != expectedType) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

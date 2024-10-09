@@ -136,6 +136,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -722,7 +723,8 @@ public class ItTxTestCluster {
                         clockServices.get(assignment),
                         mock(IndexMetaStorage.class),
                         // TODO use proper index.
-                        clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id()
+                        clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
+                        mock(MinimumRequiredTimeCollectorService.class)
                 );
 
                 Function<RaftGroupService, ReplicaListener> createReplicaListener = raftClient -> newReplicaListener(

@@ -69,16 +69,34 @@ class CatalogManagerCompactionFacade {
     }
 
     /**
-     * Returns the catalog version that is active at the given timestamp.
+     * Returns a catalog revision for a version prior to the one that is active at the given timestamp or {@code null},
+     * if there is no such revision. For example, if at some timestamp {@code T} the active catalog version is {@code V},
+     * then this method returns a catalog revision for version {@code V - 1}.
      *
      * @param timestamp Timestamp.
-     * @return Catalog or {@code null} if such version of the catalog doesn't exist.
+     * @return Catalog revision or {@code null}.
      */
-    @Nullable Catalog catalogByTsNullable(long timestamp) {
+    @Nullable Catalog catalogPriorToVersionAtTsNullable(long timestamp) {
         try {
             int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
             return catalogManager.catalog(catalogVer - 1);
+        } catch (IllegalStateException ignore) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the catalog version that is active at the given timestamp.
+     *
+     * @param timestamp Timestamp.
+     * @return Catalog revision or {@code null} if such version of the catalog doesn't exist.
+     */
+    @Nullable Catalog catalogAtTsNullable(long timestamp) {
+        try {
+            int catalogVer = catalogManager.activeCatalogVersion(timestamp);
+
+            return catalogManager.catalog(catalogVer);
         } catch (IllegalStateException ignore) {
             return null;
         }

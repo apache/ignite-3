@@ -206,6 +206,46 @@ public class TableDefinition {
         return new Builder(this);
     }
 
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableDefinition that = (TableDefinition) o;
+        return ifNotExists == that.ifNotExists
+                && Objects.equals(tableName, that.tableName)
+                && Objects.equals(schemaName, that.schemaName)
+                && Objects.equals(columns, that.columns)
+                && pkType == that.pkType
+                && Objects.equals(pkColumns, that.pkColumns)
+                && Objects.equals(colocationColumns, that.colocationColumns)
+                && Objects.equals(zoneName, that.zoneName)
+                && Objects.equals(keyClass, that.keyClass)
+                && Objects.equals(valueClass, that.valueClass)
+                && Objects.equals(indexes, that.indexes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                tableName,
+                schemaName,
+                ifNotExists,
+                columns,
+                pkType,
+                pkColumns,
+                colocationColumns,
+                zoneName,
+                keyClass,
+                valueClass,
+                indexes
+        );
+    }
+
     /**
      * Builder for the table definition.
      */

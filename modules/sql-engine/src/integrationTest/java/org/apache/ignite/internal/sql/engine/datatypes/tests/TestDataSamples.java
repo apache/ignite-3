@@ -162,6 +162,30 @@ public final class TestDataSamples<T extends Comparable<T>> {
         }
 
         /**
+         * Adds the given values without alternative representation.
+         */
+        public Builder<T> add(Collection<T> values) {
+            for (T value : values) {
+                add(value);
+            }
+
+            return this;
+        }
+
+        /**
+         * Add a sample value without alternative representation.
+         */
+        public Builder<T> add(T value) {
+            alts.computeIfAbsent(value, (key) -> new TreeMap<>());
+
+            if (!values.contains(value)) {
+                values.add(value);
+            }
+
+            return this;
+        }
+
+        /**
          * Creates an instance of {@link TestDataSamples}.
          **/
         public TestDataSamples<T> build() {

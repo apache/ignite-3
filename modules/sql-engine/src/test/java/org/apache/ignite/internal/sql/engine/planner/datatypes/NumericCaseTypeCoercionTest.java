@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for CASE operator, when operands belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for CASE operator, when operands belongs to the NUMERIC type family.
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which operand.
  */
@@ -98,20 +98,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
         assertPlan(format("SELECT CASE WHEN RAND_UUID() != RAND_UUID() THEN {} ELSE {} END FROM t", params.get(0), params.get(1)),
                 SCHEMA, operandCaseMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-    }
-
-    private static String prevResult = "";
-
-    // It is necessary to have a guarantee that two values in a row will be different.
-    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
-    private static String generateLiteralWithNoRepetition(NativeType type) {
-        String val;
-        do {
-            val = SqlTestUtils.generateValueByType(type).toString();
-        } while (val.equals(prevResult));
-        prevResult = val;
-
-        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 
     static Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {

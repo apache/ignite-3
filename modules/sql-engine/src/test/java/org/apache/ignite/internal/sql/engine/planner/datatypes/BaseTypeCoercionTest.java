@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +31,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -53,12 +53,11 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.params.provider.Arguments;
 
-abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
-
-    static Stream<Arguments> allNumericPairs() {
-        return Arrays.stream(NumericPair.values()).map(Arguments::of);
-    }
-
+/** Base class for testing types coercion. */
+public class BaseTypeCoercionTest extends AbstractPlannerTest {
+    /**
+     * Ensures that object mapping doesn't miss any type pair from {@link NumericPair}.
+     */
     static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
@@ -138,6 +137,33 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
+    static Matcher<IgniteRel> operandsWithResultMatcher(Matcher<RexNode> first, Matcher<RexNode> second, Matcher<Object> result) {
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
+
+                assertThat(comparison, instanceOf(RexCall.class));
+
+                RexCall comparisonCall = (RexCall) comparison;
+
+                RexNode leftOperand = comparisonCall.getOperands().get(0);
+                RexNode rightOperand = comparisonCall.getOperands().get(1);
+
+                assertThat(leftOperand, first);
+                assertThat(rightOperand, second);
+                assertThat(actual, result);
+
+                return true;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
+        };
+    }
+
     /**
      * Creates a matcher to verify that given expression has expected return type, but it is not CAST operator.
      *
@@ -146,7 +172,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static Matcher<RexNode> ofTypeWithoutCast(NativeType type) {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
+        RelDataType sqlType = native2relationalType(typeFactory, type);
 
         return new BaseMatcher<>() {
             @Override
@@ -175,7 +201,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static Matcher<RexNode> castTo(NativeType type) {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
+        RelDataType sqlType = native2relationalType(typeFactory, type);
 
         return new BaseMatcher<>() {
             @Override
@@ -197,14 +223,92 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         };
     }
 
+    private static Matcher<Object> ofType(NativeType type) {
+        return new BaseMatcher<>() {
+            BasicSqlType expectedType;
+            BasicSqlType relRowType;
+
+            @Override
+            public boolean matches(Object actual) {
+                assert actual != null;
+
+                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) actual;
+
+                RelDataType rowType = scan.getRowType();
+
+                assert rowType.getFieldList().size() == 1;
+
+                relRowType = (BasicSqlType) rowType.getFieldList().get(0).getType();
+
+                expectedType = (BasicSqlType) native2relationalType(Commons.typeFactory(), type);
+
+                return SqlTypeUtil.equalSansNullability(relRowType, expectedType);
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                if (expectedType != null && relRowType != null) {
+                    description.appendText("Expected type: " + expectedType + ", but found: " + relRowType);
+                }
+            }
+        };
+    }
+
     static TestCaseBuilder forTypePair(TypePair typePair) {
         return new TestCaseBuilder(typePair);
+    }
+
+    static TestCaseBuilderEx forTypePairEx(TypePair typePair) {
+        return new TestCaseBuilderEx(typePair);
     }
 
     /**
      * Not really a builder, but provides DSL-like API to describe test case.
      */
-    static class TestCaseBuilder {
+    static class TestCaseBuilderEx {
+        private final TypePair pair;
+        private Matcher<?> firstOpMatcher;
+        private Matcher<?> secondOpMatcher;
+
+        private TestCaseBuilderEx(TypePair pair) {
+            this.pair = pair;
+        }
+
+        TestCaseBuilderEx firstOpMatches(Matcher<?> operandMatcher) {
+            firstOpMatcher = operandMatcher;
+
+            return this;
+        }
+
+        TestCaseBuilderEx firstOpBeSame() {
+            firstOpMatcher = ofTypeWithoutCast(pair.first());
+
+            return this;
+        }
+
+        TestCaseBuilderEx secondOpMatches(Matcher<?> operandMatcher) {
+            secondOpMatcher = operandMatcher;
+            return this;
+        }
+
+        TestCaseBuilderEx secondOpBeSame() {
+            secondOpMatcher = ofTypeWithoutCast(pair.second());
+            return this;
+        }
+
+        Arguments resultWillBe(NativeType type) {
+            return Arguments.of(pair, firstOpMatcher, secondOpMatcher, ofType(type));
+        }
+
+        Arguments checkResult(NativeType type) {
+            return Arguments.of(pair, ofTypeWithoutCast(pair.first()), ofTypeWithoutCast(pair.second()), ofType(type));
+        }
+    }
+
+    /**
+     * Not really a builder, but provides DSL-like API to describe test case.
+     */
+    public static class TestCaseBuilder {
         private final TypePair pair;
         private Matcher<?> firstOpMatcher;
 
@@ -283,6 +387,22 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
                 }
             }
         }
-        return SqlTestUtils.makeLiteral(val.toString(), type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
+    }
+
+    private static String prevResult = "";
+
+    // It is necessary to have a guarantee that two values in a row will be different.
+    // Otherwise, a SQL optimizator can fold complex statement with two values into simple literal.
+    static String generateLiteralWithNoRepetition(NativeType type) {
+        Object val;
+        String valString;
+        do {
+            val = SqlTestUtils.generateValueByType(type);
+            valString = val == null ? "<null>" : val.toString();
+        } while (valString.equals(prevResult));
+        prevResult = valString;
+
+        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -30,18 +31,19 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -68,11 +70,13 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         executeSql(String.format(
                 "CREATE ZONE %s WITH "
                         + "REPLICAS=%d, "
+                        + "PARTITIONS=%d, "
                         + "DATA_NODES_AUTO_ADJUST_SCALE_UP=%d, "
                         + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN=%d, "
                         + "STORAGE_PROFILES='%s'",
                 TEST_ZONE_NAME,
                 initialNodes(),
+                5,
                 IMMEDIATE_TIMER_VALUE,
                 IMMEDIATE_TIMER_VALUE,
                 String.join(", ", ALL_STORAGE_PROFILES)
@@ -99,7 +103,6 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23001")
     void testEstimatedSizeAfterScaleUp() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);
@@ -159,24 +162,35 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void waitForRebalance(int numNodes) throws InterruptedException {
+        boolean success = waitForCondition(() -> stableAssignmentNodes().size() == numNodes, 10_000);
+
+        if (!success) {
+            Set<String> stableAssignmentNodes = stableAssignmentNodes();
+
+            fail(String.format(
+                    "Expected %d nodes in stable assignments, but got %d. They are: %s",
+                    numNodes,
+                    stableAssignmentNodes.size(),
+                    stableAssignmentNodes
+            ));
+        }
+    }
+
+    private Set<String> stableAssignmentNodes() {
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 
-        assertTrue(waitForCondition(() -> {
-            CompletableFuture<List<Entry>> entriesFuture = subscribeToList(metaStorageManager.prefix(stableAssignmentsPrefix));
+        CompletableFuture<List<Entry>> entriesFuture = subscribeToList(metaStorageManager.prefix(stableAssignmentsPrefix));
 
-            assertThat(entriesFuture, willCompleteSuccessfully());
+        assertThat(entriesFuture, willCompleteSuccessfully());
 
-            long assignedNodesNum = entriesFuture.join().stream()
-                    .map(entry -> Assignments.fromBytes(entry.value()))
-                    .filter(Objects::nonNull)
-                    .flatMap(assignments -> assignments.nodes().stream())
-                    .distinct()
-                    .count();
-
-            return assignedNodesNum == numNodes;
-        }, 10_000));
+        return entriesFuture.join().stream()
+                .map(entry -> Assignments.fromBytes(entry.value()))
+                .filter(Objects::nonNull)
+                .flatMap(assignments -> assignments.nodes().stream())
+                .map(Assignment::consistentId)
+                .collect(toSet());
     }
 
     private TableViewInternal tableViewInternal(String tableName) {

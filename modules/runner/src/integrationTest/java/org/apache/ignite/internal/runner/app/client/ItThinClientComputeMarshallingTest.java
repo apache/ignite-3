@@ -25,7 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -45,7 +44,7 @@ import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduce;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduceTuples;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
-import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
+import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
@@ -167,7 +166,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         PojoResult result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // The job accepts PojoArg and returns PojoResult and defines marshaller for both.
-                JobDescriptor.builder(PojoJob.class)
+                JobDescriptor.builder(PojoJobWithCustomMarshallers.class)
                         // The client must define both marshaller as well.
                         .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
                         .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
@@ -273,22 +272,16 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         List<String> result = client().compute().executeMapReduce(
                 TaskDescriptor.builder(MapReduce.class)
                         .splitJobArgumentMarshaller(ByteArrayMarshaller.create())
-                        .reduceJobArgumentMarshaller(ByteArrayMarshaller.create())
+                        .reduceJobResultMarshaller(ByteArrayMarshaller.create())
                         .build(),
                 // input_O goes to 0 node and input_1 goes to 1 node
                 List.of("Input_0", "Input_1")
         );
 
         // Then.
-        assertThat(
-                result,
-                hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
+        assertThat(result, hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
         // And
-        assertThat(
-                result,
-                hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
+        assertThat(result, hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
     }
 
     @Test
@@ -307,15 +300,5 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         expectedTuple.set("echo", "echo");
 
         assertThat(result, equalTo(expectedTuple));
-    }
-
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
     }
 }

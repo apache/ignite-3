@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
+import java.util.List;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * <ol>
  *     <li>the minimum timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
  *     <li>the minimum starting time among locally started active RW transactions</li>
+ *     <li>A list of currently available table partitions.</li>
  * </ol>
  */
 @Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_RESPONSE)
@@ -36,4 +38,7 @@ public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
 
     /** Returns node's minimum starting time among locally started active RW transactions. */
     long minimumActiveTxTime();
+
+    /** Returns available table partitions. */
+    List<AvailablePartitionsMessage> partitions();
 }

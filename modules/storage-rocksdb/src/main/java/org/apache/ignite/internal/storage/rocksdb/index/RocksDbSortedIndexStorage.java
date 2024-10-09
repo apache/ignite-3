@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -127,7 +128,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
             }
         });
     }
@@ -144,7 +145,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
             }
         });
     }
