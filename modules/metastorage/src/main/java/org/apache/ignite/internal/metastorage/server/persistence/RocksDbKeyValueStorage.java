@@ -1721,20 +1721,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         });
     }
 
-    private void compactRevisionToChecksum(long compactionRevision) throws RocksDBException {
-        compactInBatches(revisionToChecksum, (it, batch) -> {
-            long revision = bytesToLong(it.key());
-
-            if (revision > compactionRevision) {
-                return false;
-            }
-
-            revisionToChecksum.delete(batch, it.key());
-
-            return true;
-        });
-    }
-
     @FunctionalInterface
     private interface CompactionAction {
         /**
