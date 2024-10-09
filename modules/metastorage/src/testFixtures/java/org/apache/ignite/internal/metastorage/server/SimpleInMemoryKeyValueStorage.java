@@ -418,7 +418,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
@@ -543,7 +543,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void compact(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         for (Map.Entry<byte[], List<Long>> entry : keysIdx.entrySet()) {
             synchronized (mux) {
@@ -726,7 +726,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0;
+        assert revUpperBound >= 0 : revUpperBound;
 
         long[] keyRevisions = toLongArray(keysIdx.get(key));
         int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
@@ -948,7 +948,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -959,7 +959,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertCompactionRevisionLessThanCurrent(revision, rev);

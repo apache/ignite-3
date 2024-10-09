@@ -959,7 +959,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void compact(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         try {
             compactKeys(revision);
@@ -1068,7 +1068,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0;
+        assert revUpperBound >= 0 : revUpperBound;
 
         long[] keyRevisions = getRevisionsForOperation(key);
         int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
@@ -1570,7 +1570,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 
@@ -1589,7 +1589,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 

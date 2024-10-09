@@ -37,14 +37,14 @@ public class CompactedException extends MetaStorageException {
      * Constructs an exception with a given message.
      *
      * @param requestedRevision Requested revision.
-     * @param latestCompatedRevision Latest compacted revision.
+     * @param latestCompactedRevision Latest compacted revision.
      */
-    public CompactedException(long requestedRevision, long latestCompatedRevision) {
+    public CompactedException(long requestedRevision, long latestCompactedRevision) {
         super(
                 COMPACTED_ERR,
                 String.format(
                         "Requested revision has already been compacted: [requested=%s, lastCompacted=%s]",
-                        requestedRevision, latestCompatedRevision
+                        requestedRevision, latestCompactedRevision
                 )
         );
     }
