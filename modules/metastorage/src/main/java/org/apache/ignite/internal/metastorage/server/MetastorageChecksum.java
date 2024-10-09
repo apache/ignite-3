@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.util.List;
-import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
+import org.apache.ignite.raft.jraft.util.CRC64;
 
 /**
  * Checksum calculation logic for the Metastorage.
@@ -37,15 +37,15 @@ import java.util.zip.Checksum;
  * per each operation that actually gets executed ({@link #appendPutAsPart(byte[], byte[])} and so on).
  *
  * <p>During a round (including its finish), only the current round checksum state is updated. To update the last revision checksum, call
- * {@link #commitRound(int)}.
+ * {@link #commitRound(long)}.
  */
 public class MetastorageChecksum {
-    private int lastChecksum;
+    private long lastChecksum;
 
-    private final Checksum checksum = new CRC32C();
+    private final Checksum checksum = new CRC64();
 
     /** Constructor. */
-    public MetastorageChecksum(int lastChecksum) {
+    public MetastorageChecksum(long lastChecksum) {
         this.lastChecksum = lastChecksum;
     }
 
@@ -55,7 +55,7 @@ public class MetastorageChecksum {
      * @param key Key.
      * @param value Value.
      */
-    public int wholePut(byte[] key, byte[] value) {
+    public long wholePut(byte[] key, byte[] value) {
         return checksumWholeOperation(Op.PUT, () -> updateForPut(key, value));
     }
 
@@ -64,7 +64,7 @@ public class MetastorageChecksum {
         updateWithBytes(value);
     }
 
-    private int checksumWholeOperation(Op operation, Updater updater) {
+    private long checksumWholeOperation(Op operation, Updater updater) {
         prepareRound(operation);
 
         updater.update();
@@ -74,7 +74,7 @@ public class MetastorageChecksum {
 
     private void prepareRound(Op operation) {
         checksum.reset();
-        updateWithInt(lastChecksum);
+        updateWithLong(lastChecksum);
         checksum.update(operation.code);
     }
 
@@ -85,7 +85,14 @@ public class MetastorageChecksum {
 
     private void updateWithInt(int value) {
         for (int i = 0; i < Integer.BYTES; i++) {
-            checksum.update((byte) (value >> 24));
+            checksum.update((byte) (value >> (Integer.SIZE - 8)));
+            value <<= 8;
+        }
+    }
+
+    private void updateWithLong(long value) {
+        for (int i = 0; i < Long.BYTES; i++) {
+            checksum.update((byte) (value >> (Long.SIZE - 8)));
             value <<= 8;
         }
     }
@@ -96,7 +103,7 @@ public class MetastorageChecksum {
      * @param keys Keys.
      * @param values Values.
      */
-    public int wholePutAll(List<byte[]> keys, List<byte[]> values) {
+    public long wholePutAll(List<byte[]> keys, List<byte[]> values) {
         return checksumWholeOperation(Op.PUT_ALL, () -> updateForPutAll(keys, values));
     }
 
@@ -112,7 +119,7 @@ public class MetastorageChecksum {
      *
      * @param key Key.
      */
-    public int wholeRemove(byte[] key) {
+    public long wholeRemove(byte[] key) {
         return checksumWholeOperation(Op.REMOVE, () -> updateForRemove(key));
     }
 
@@ -125,7 +132,7 @@ public class MetastorageChecksum {
      *
      * @param keys Keys.
      */
-    public int wholeRemoveAll(List<byte[]> keys) {
+    public long wholeRemoveAll(List<byte[]> keys) {
         return checksumWholeOperation(Op.REMOVE_ALL, () -> updateForRemoveAll(keys));
     }
 
@@ -178,16 +185,15 @@ public class MetastorageChecksum {
      *
      * @param newChecksum New checksum.
      */
-    public void commitRound(int newChecksum) {
+    public void commitRound(long newChecksum) {
         lastChecksum = newChecksum;
     }
 
     /**
      * Returns current round checksum value.
      */
-    public int roundValue() {
-        //noinspection NumericCastThatLosesPrecision
-        return (int) checksum.getValue();
+    public long roundValue() {
+        return checksum.getValue();
     }
 
     private enum Op {

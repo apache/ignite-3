@@ -381,5 +381,5 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param revision Revision.
      */
-    @Nullable Integer checksum(long revision);
+    @Nullable Long checksum(long revision);
 }

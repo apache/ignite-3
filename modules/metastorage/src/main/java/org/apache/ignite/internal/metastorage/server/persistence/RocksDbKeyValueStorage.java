@@ -45,8 +45,6 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
@@ -395,14 +393,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private int checksumByRevision(long revision) throws RocksDBException {
+    private long checksumByRevision(long revision) throws RocksDBException {
         byte[] bytes = revisionToChecksum.get(longToBytes(revision));
 
         if (bytes == null) {
             throw new CompactedException("Revision is compacted: " + revision);
         }
 
-        return bytesToInt(bytes);
+        return bytesToLong(bytes);
     }
 
     /**
@@ -501,7 +499,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            int newChecksum = checksum.wholePut(key, value);
+            long newChecksum = checksum.wholePut(key, value);
 
             long curRev = rev + 1;
 
@@ -545,7 +543,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param newChecksum Checksum corresponding to the revision.
      * @throws RocksDBException If failed.
      */
-    private void completeAndWriteBatch(WriteBatch batch, long newRev, HybridTimestamp ts, int newChecksum) throws RocksDBException {
+    private void completeAndWriteBatch(WriteBatch batch, long newRev, HybridTimestamp ts, long newChecksum) throws RocksDBException {
         byte[] revisionBytes = longToBytes(newRev);
 
         data.put(batch, REVISION_KEY, revisionBytes);
@@ -556,7 +554,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         revisionToTs.put(batch, revisionBytes, tsBytes);
 
         validateNoChecksumConflict(newRev, newChecksum);
-        revisionToChecksum.put(batch, revisionBytes, intToBytes(newChecksum));
+        revisionToChecksum.put(batch, revisionBytes, longToBytes(newChecksum));
 
         db.write(defaultWriteOptions, batch);
 
@@ -569,11 +567,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         notifyRevisionUpdate();
     }
 
-    private void validateNoChecksumConflict(long newRev, int newChecksum) throws RocksDBException {
+    private void validateNoChecksumConflict(long newRev, long newChecksum) throws RocksDBException {
         byte[] existingChecksumBytes = revisionToChecksum.get(longToBytes(newRev));
 
         if (existingChecksumBytes != null) {
-            int existingChecksum = bytesToInt(existingChecksumBytes);
+            long existingChecksum = bytesToLong(existingChecksumBytes);
             if (existingChecksum != newChecksum) {
                 throw new MetaStorageException(INTERNAL_ERR, "Metastorage revision checksum differs from a checksum for the same revision "
                         + "saved earlier. This probably means that the Metastorage has diverged. [revision="
@@ -597,7 +595,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            int newChecksum = checksum.wholePutAll(keys, values);
+            long newChecksum = checksum.wholePutAll(keys, values);
 
             long curRev = rev + 1;
 
@@ -675,7 +673,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            int newChecksum = checksum.wholeRemove(key);
+            long newChecksum = checksum.wholeRemove(key);
 
             long curRev = rev + 1;
 
@@ -696,7 +694,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            int newChecksum = checksum.wholeRemoveAll(keys);
+            long newChecksum = checksum.wholeRemoveAll(keys);
 
             long curRev = rev + 1;
 
@@ -1673,13 +1671,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public @Nullable Integer checksum(long revision) {
+    public @Nullable Long checksum(long revision) {
         rwLock.readLock().lock();
 
         try {
             byte[] checksumBytes = revisionToChecksum.get(longToBytes(revision));
 
-            return checksumBytes == null ? null : bytesToInt(checksumBytes);
+            return checksumBytes == null ? null : bytesToLong(checksumBytes);
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision " + revision, e);
         } finally {

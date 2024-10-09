@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type.NOT_EXISTS;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -30,7 +31,6 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.raft.jraft.util.CRC64;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -60,11 +61,11 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val = keyValue(1, 1);
 
         putToMs(key, val);
-        Integer checksum1 = storage.checksum(1);
+        Long checksum1 = storage.checksum(1);
 
         assertThat(checksum1, is(notNullValue()));
         assertThat(checksum1, is(checksum(
-                intToBytes(0), // prev checksum
+                longToBytes(0), // prev checksum
                 bytes(1), // PUT
                 intToBytes(key.length), key,
                 intToBytes(val.length), val
@@ -73,7 +74,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         // Repeating the same command, the checksum must be different.
         putToMs(key, val);
         assertThat(storage.checksum(2), is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(1),
                 intToBytes(key.length), key,
                 intToBytes(val.length), val
@@ -88,11 +89,11 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val2 = keyValue(2, 2);
 
         putAllToMs(List.of(key1, key2), List.of(val1, val2));
-        Integer checksum1 = storage.checksum(1);
+        Long checksum1 = storage.checksum(1);
 
         assertThat(checksum1, is(notNullValue()));
         assertThat(checksum1, is(checksum(
-                intToBytes(0), // prev checksum
+                longToBytes(0), // prev checksum
                 bytes(2), // PUT_ALL
                 intToBytes(2), // entry count
                 intToBytes(key1.length), key1,
@@ -104,7 +105,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         // Repeating the same command, the checksum must be different.
         putAllToMs(List.of(key1, key2), List.of(val1, val2));
         assertThat(storage.checksum(2), is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(2), // PUT_ALL
                 intToBytes(2), // entry count
                 intToBytes(key1.length), key1,
@@ -120,12 +121,12 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val = keyValue(1, 1);
 
         putToMs(key, val);
-        int checksum1 = storage.checksum(1);
+        long checksum1 = storage.checksum(1);
 
         removeFromMs(key);
-        int checksum2 = storage.checksum(2);
+        long checksum2 = storage.checksum(2);
         assertThat(checksum2, is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(3), // REMOVE
                 intToBytes(key.length), key
         )));
@@ -133,7 +134,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         // Repeating the same command, the checksum must be different.
         removeFromMs(key);
         assertThat(storage.checksum(3), is(checksum(
-                intToBytes(checksum2),
+                longToBytes(checksum2),
                 bytes(3), // REMOVE
                 intToBytes(key.length), key
         )));
@@ -147,12 +148,12 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val2 = keyValue(2, 2);
 
         putAllToMs(List.of(key1, key2), List.of(val1, val2));
-        int checksum1 = storage.checksum(1);
+        long checksum1 = storage.checksum(1);
 
         removeAllFromMs(List.of(key1, key2));
-        int checksum2 = storage.checksum(2);
+        long checksum2 = storage.checksum(2);
         assertThat(checksum2, is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(4), // REMOVE_ALL
                 intToBytes(2), // key count
                 intToBytes(key1.length), key1,
@@ -162,7 +163,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         // Repeating the same command, the checksum must be different.
         removeAllFromMs(List.of(key1, key2));
         assertThat(storage.checksum(3), is(checksum(
-                intToBytes(checksum2),
+                longToBytes(checksum2),
                 bytes(4), // REMOVE_ALL
                 intToBytes(2), // key count
                 intToBytes(key1.length), key1,
@@ -183,13 +184,13 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId1 = commandIdGenerator.newId();
         invokeOnMs(condition, successfulBranch, failureBranch, commandId1);
 
-        Integer checksum1 = storage.checksum(1);
+        Long checksum1 = storage.checksum(1);
         assertThat(checksum1, is(notNullValue()));
 
         byte[] idempotentCommandPutKey1 = idempotentCommandPutKey(commandId1);
         byte[] updateResult1 = KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
         assertThat(checksum1, is(checksum(
-                intToBytes(0), // prev checksum
+                longToBytes(0), // prev checksum
                 bytes(5), // SINGLE_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
@@ -205,13 +206,13 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId2 = commandIdGenerator.newId();
         invokeOnMs(condition, successfulBranch, failureBranch, commandId2);
 
-        Integer checksum2 = storage.checksum(2);
+        Long checksum2 = storage.checksum(2);
         assertThat(checksum2, is(notNullValue()));
 
         byte[] idempotentCommandPutKey2 = idempotentCommandPutKey(commandId2);
         byte[] updateResult2 = KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
         assertThat(checksum2, is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(5), // SINGLE_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
@@ -242,13 +243,13 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId1 = commandIdGenerator.newId();
         invokeOnMs(iif, commandId1);
 
-        Integer checksum1 = storage.checksum(1);
+        Long checksum1 = storage.checksum(1);
         assertThat(checksum1, is(notNullValue()));
 
         byte[] idempotentCommandPutKey1 = idempotentCommandPutKey(commandId1);
         byte[] updateResult1 = intToBytes(1);
         assertThat(checksum1, is(checksum(
-                intToBytes(0), // prev checksum
+                longToBytes(0), // prev checksum
                 bytes(6), // MULTI_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
@@ -264,13 +265,13 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId2 = commandIdGenerator.newId();
         invokeOnMs(iif, commandId2);
 
-        Integer checksum2 = storage.checksum(2);
+        Long checksum2 = storage.checksum(2);
         assertThat(checksum2, is(notNullValue()));
 
         byte[] idempotentCommandPutKey2 = idempotentCommandPutKey(commandId2);
         byte[] updateResult2 = intToBytes(2);
         assertThat(checksum2, is(checksum(
-                intToBytes(checksum1),
+                longToBytes(checksum1),
                 bytes(6), // MULTI_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
@@ -291,14 +292,13 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         return bytes;
     }
 
-    private static int checksum(byte[]... arrays) {
-        Checksum checksum = new CRC32C();
+    private static long checksum(byte[]... arrays) {
+        Checksum checksum = new CRC64();
 
         for (byte[] array : arrays) {
             checksum.update(array);
         }
 
-        //noinspection NumericCastThatLosesPrecision
-        return (int) checksum.getValue();
+        return checksum.getValue();
     }
 }
