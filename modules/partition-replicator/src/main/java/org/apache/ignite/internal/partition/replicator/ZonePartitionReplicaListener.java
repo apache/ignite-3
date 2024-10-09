@@ -132,4 +132,19 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     public Map<TablePartitionId, ReplicaListener> tableReplicaListeners() {
         return replicas;
     }
+
+    @Override
+    public void onShutdown() {
+        replicas.forEach((id, listener) -> {
+                    try {
+                        listener.onShutdown();
+                    } catch (Throwable th) {
+                        LOG.error("Error during table partition listener stop for [tableId="
+                                        + id.tableId() + ", partitionId=" + id.partitionId() + "].",
+                                th
+                        );
+                    }
+                }
+        );
+    }
 }

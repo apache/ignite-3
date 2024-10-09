@@ -20,7 +20,6 @@ package org.apache.ignite.internal.lowwatermark;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lowwatermark.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
-import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -323,72 +322,6 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         });
 
         assertThat(lowWatermark.updateAndNotify(newLwm), willCompleteSuccessfully());
-    }
-
-    @Test
-    void testSequenceEventsOfLowWatermarkChange() {
-        HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
-
-        EventListener<ChangeLowWatermarkEventParameters> beforeChangeListener = spy(new EventListener<ChangeLowWatermarkEventParameters>() {
-            @Override
-            public CompletableFuture<Boolean> notify(ChangeLowWatermarkEventParameters parameters) {
-                assertEquals(newLowWatermarkCandidate, parameters.newLowWatermark());
-
-                return trueCompletedFuture();
-            }
-        });
-
-        EventListener<ChangeLowWatermarkEventParameters> changedListener = spy(new EventListener<ChangeLowWatermarkEventParameters>() {
-            @Override
-            public CompletableFuture<Boolean> notify(ChangeLowWatermarkEventParameters parameters) {
-                assertEquals(newLowWatermarkCandidate, parameters.newLowWatermark());
-
-                return trueCompletedFuture();
-            }
-        });
-
-        lowWatermark.listen(LOW_WATERMARK_BEFORE_CHANGE, beforeChangeListener);
-        lowWatermark.listen(LOW_WATERMARK_CHANGED, changedListener);
-
-        InOrder inOrder = inOrder(beforeChangeListener, changedListener);
-
-        assertThat(lowWatermark.updateAndNotify(newLowWatermarkCandidate), willCompleteSuccessfully());
-
-        inOrder.verify(beforeChangeListener).notify(any());
-        inOrder.verify(changedListener).notify(any());
-    }
-
-    @Test
-    void testChangedEvenCalledOnlyAfterCompletionBeforeChange() {
-        var startBeforeChangeListenerFuture = new CompletableFuture<Void>();
-        var startChangedListenerFuture = new CompletableFuture<Void>();
-
-        var finishBeforeChangeListenerFuture = new CompletableFuture<Void>();
-
-        EventListener<ChangeLowWatermarkEventParameters> beforeChangeListener = parameters -> {
-            startBeforeChangeListenerFuture.complete(null);
-
-            return finishBeforeChangeListenerFuture.thenApply(unused -> true);
-        };
-
-        EventListener<ChangeLowWatermarkEventParameters> changedListener = parameters -> {
-            startChangedListenerFuture.complete(null);
-
-            return trueCompletedFuture();
-        };
-
-        lowWatermark.listen(LOW_WATERMARK_BEFORE_CHANGE, beforeChangeListener);
-        lowWatermark.listen(LOW_WATERMARK_CHANGED, changedListener);
-
-        CompletableFuture<Void> updateAndNotifyFuture = lowWatermark.updateAndNotify(lowWatermark.createNewLowWatermarkCandidate());
-
-        assertThat(startBeforeChangeListenerFuture, willCompleteSuccessfully());
-        assertThat(startChangedListenerFuture, willTimeoutFast());
-        assertFalse(updateAndNotifyFuture.isDone());
-
-        finishBeforeChangeListenerFuture.complete(null);
-        assertThat(startChangedListenerFuture, willCompleteSuccessfully());
-        assertThat(updateAndNotifyFuture, willCompleteSuccessfully());
     }
 
     private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {

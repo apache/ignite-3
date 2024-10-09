@@ -56,6 +56,10 @@ public class StorageException extends IgniteInternalException {
         super(Common.INTERNAL_ERR, cause);
     }
 
+    public StorageException(int code, @Nullable Throwable cause) {
+        super(code, cause);
+    }
+
     /**
      * Constructor.
      *

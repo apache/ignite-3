@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
+import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
@@ -47,32 +47,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
 import org.apache.ignite.internal.disaster.system.exception.MigrateException;
-import org.apache.ignite.internal.rest.RestManager;
-import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.recovery.system.MigrateRequest;
 import org.apache.ignite.internal.rest.api.recovery.system.ResetClusterRequest;
-import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 @MicronautTest
-@ExtendWith(ConfigurationExtension.class)
+@Property(name = "ignite.endpoints.filter-non-initialized", value = "false")
+@Property(name = "micronaut.security.enabled", value = "false")
 class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration
-    private SecurityConfiguration securityConfiguration;
-
     @Inject
     @Client("/management/v1/recovery/cluster/")
     private HttpClient client;
@@ -82,19 +72,6 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void resetMocks() {
         Mockito.reset(systemDisasterRecoveryManager);
-    }
-
-    @Factory
-    @Bean
-    @Replaces(RestManagerFactory.class)
-    RestManagerFactory restManagerProvider() {
-        return new RestManagerFactory(new RestManager());
-    }
-
-    @Bean
-    @Factory
-    AuthenticationManager authenticationManager() {
-        return new AuthenticationManagerImpl(securityConfiguration, ign -> {});
     }
 
     @Bean

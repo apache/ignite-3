@@ -103,7 +103,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * Creates a new exception with the given error code and cause.
      *
      * @param code Full error code.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      */
     public IgniteInternalCheckedException(int code, Throwable cause) {
         this(getOrCreateTraceId(cause), code, cause);
@@ -114,7 +114,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      *
      * @param traceId Unique identifier of this exception.
      * @param code Full error code.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      */
     public IgniteInternalCheckedException(UUID traceId, int code, Throwable cause) {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
@@ -129,9 +129,9 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      *
      * @param code Full error code.
      * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      */
-    public IgniteInternalCheckedException(int code, String message, Throwable cause) {
+    public IgniteInternalCheckedException(int code, String message, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, message, cause);
     }
 
@@ -141,9 +141,9 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param traceId Unique identifier of this exception.
      * @param code Full error code.
      * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      */
-    public IgniteInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteInternalCheckedException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(message, cause);
 
         this.traceId = traceId;
@@ -157,7 +157,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param traceId Unique identifier of this exception.
      * @param code Full error code.
      * @param message Error message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      * @param writableStackTrace Whether or not the stack trace should be writable.
      */
     public IgniteInternalCheckedException(
@@ -206,7 +206,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * Creates a new exception with the given error message and optional nested exception.
      *
      * @param msg                Error message.
-     * @param cause              Optional nested exception (can be {@code null}).
+     * @param cause              Optional nested exception.
      * @param writableStackTrace Whether or not the stack trace should be writable.
      */
     @Deprecated
@@ -218,7 +218,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * Creates a new exception with the given error message and optional nested exception.
      *
      * @param msg   Error message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @param cause Optional nested exception.
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {

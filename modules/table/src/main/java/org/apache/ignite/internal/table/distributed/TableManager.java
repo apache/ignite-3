@@ -138,7 +138,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
-import org.apache.ignite.internal.partition.replicator.PartitionReplicaEventParameters;
+import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -596,6 +596,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
                 this::onZoneReplicaCreated
         );
+
+        partitionReplicaLifecycleManager.listen(
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                this::onZoneReplicaStopped
+        );
+
     }
 
     @Override
@@ -661,7 +667,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
-    private CompletableFuture<Boolean> onZoneReplicaCreated(PartitionReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {
             return completedFuture(false);
         }
@@ -693,6 +699,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((unused) -> false);
         });
     }
+
+    private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
+        if (!PartitionReplicaLifecycleManager.ENABLED) {
+            return completedFuture(false);
+        }
+
+        return inBusyLockAsync(busyLock, () -> supplyAsync(() -> {
+            List<CompletableFuture<?>> futs = new ArrayList<>();
+
+            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+
+            zoneTables.forEach(table -> {
+                closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
+
+                TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
+
+                mvGc.removeStorage(tablePartitionId);
+
+                futs.add(destroyPartitionStorages(tablePartitionId, table));
+            });
+
+            return allOf(futs.toArray(new CompletableFuture[]{}));
+        }, ioExecutor).thenCompose(identity())).thenApply((unused) -> false);
+    }
+
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {
@@ -1754,7 +1785,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         InternalTable internalTable = table.internalTable();
         int partitions = internalTable.partitions();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22950 Move assigment manipulations to Distribution zones.
         Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
                 .collect(toSet());

@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.lowwatermark;
 
-import org.apache.ignite.internal.event.Event;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/**
- * Events produced by {@link PartitionReplicaLifecycleManager}.
- */
-public enum LocalPartitionReplicaEvent implements Event {
-    /**
-     * Fired when partition replica has started.
-     */
-    AFTER_REPLICA_STARTED,
+final class LowWatermarkLock {
+    private final HybridTimestamp timestamp;
 
-    /**
-     * Fired when partition replica has stopped.
-     */
-    AFTER_REPLICA_STOPPED
+    private final CompletableFuture<Void> future = new CompletableFuture<>();
+
+    LowWatermarkLock(HybridTimestamp timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public HybridTimestamp timestamp() {
+        return timestamp;
+    }
+
+    CompletableFuture<Void> future() {
+        return future;
+    }
 }

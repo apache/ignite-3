@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
@@ -621,7 +623,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     .orElse(null);
 
                             if (response == null) {
-                                return stopLeaseProlongation(groupId, redirectNodeId, endTime);
+                                // Schedule the retry with delay to increase possibility that leases would be refreshed by LeaseTracker
+                                // and new attempt will succeed.
+                                return supplyAsync(() -> null, delayedExecutor(50, TimeUnit.MILLISECONDS))
+                                        .thenComposeAsync(un -> stopLeaseProlongation(groupId, redirectNodeId, endTime), requestsExecutor);
                             } else {
                                 return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
                             }

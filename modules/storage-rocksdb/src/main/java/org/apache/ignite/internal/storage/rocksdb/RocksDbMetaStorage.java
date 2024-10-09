@@ -27,7 +27,6 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.RocksDBException;
@@ -94,10 +93,8 @@ public class RocksDbMetaStorage {
 
             return new RowId(partitionId, getRowIdUuid(ByteBuffer.wrap(lastBuiltRowIdBytes), 0));
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to read next row ID to build: [partitionId={}, indexId={}]",
-                    e,
-                    partitionId, indexId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to read next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
@@ -120,10 +117,8 @@ public class RocksDbMetaStorage {
                 writeBatch.put(metaColumnFamily.handle(), key, indexLastBuildRowId(rowId));
             }
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to save next row ID to build: [partitionId={}, indexId={}, rowId={}]",
-                    e,
-                    partitionId, indexId, rowId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to save next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
@@ -135,10 +130,8 @@ public class RocksDbMetaStorage {
         try {
             writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to remove next row ID to build: [partitionId={}, indexId={}]",
-                    e,
-                    partitionId, indexId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to remove next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
