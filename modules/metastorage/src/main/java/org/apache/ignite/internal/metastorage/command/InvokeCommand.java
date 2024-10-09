@@ -29,22 +29,16 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 public interface InvokeCommand extends IdempotentCommand {
     /**
      * Returns condition.
-     *
-     * @return Condition.
      */
     Condition condition();
 
     /**
      * Returns success operations.
-     *
-     * @return Success operations.
      */
     List<Operation> success();
 
     /**
      * Returns failure operations.
-     *
-     * @return Failure operations.
      */
     List<Operation> failure();
 }
