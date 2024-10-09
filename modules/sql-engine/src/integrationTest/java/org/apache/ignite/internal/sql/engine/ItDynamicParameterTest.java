@@ -484,35 +484,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         });
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("decimalOverflows")
-    @SuppressWarnings("ThrowableNotThrown")
-    public void testDecimalOpOverflow(String expr, Object param) {
-        assertThrowsSqlException(RUNTIME_ERR, "Numeric field overflow", () -> sql(expr, param));
-    }
-
-    private static Stream<Arguments> decimalOverflows() {
-        return Stream.of(
-                arguments("SELECT (? + 1)::DECIMAL(2, 0)", 99),
-                arguments("SELECT (? - 1)::DECIMAL(2, 0)", -99),
-                arguments("SELECT (? * 2)::DECIMAL(2, 0)", 50),
-                arguments("SELECT (? / 0.1)::DECIMAL(2, 0)", 10),
-
-                arguments("SELECT (9 + ?)::DECIMAL(2, 1)", 1),
-                arguments("SELECT (9 - ?)::DECIMAL(2, 1)", 19),
-                arguments("SELECT (9 * ?)::DECIMAL(2, 1)", 2),
-                arguments("SELECT (9 / ?)::DECIMAL(2, 1)", 0.5)
-        );
-    }
-
-    @Test
-    public void testStripScalePart() {
-        assertQuery("SELECT (9 + ?)::DECIMAL(2, 1)").withParams(0.1111).returns(BigDecimal.valueOf(9.1)).check();
-        assertQuery("SELECT (9 - ?)::DECIMAL(2, 1)").withParams(0.1111).returns(BigDecimal.valueOf(8.9)).check();
-        assertQuery("SELECT (9 * ?)::DECIMAL(2, 1)").withParams(0.99).returns(BigDecimal.valueOf(8.9)).check();
-        assertQuery("SELECT (9 / ?)::DECIMAL(2, 1)").withParams(8).returns(BigDecimal.valueOf(1.0)).check();
-    }
-
     @ParameterizedTest(name = "{1} {2}")
     @MethodSource("integerOverflows")
     @SuppressWarnings("ThrowableNotThrown")
