@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * AccumulatorWrapper interface.
  */
 public interface AccumulatorWrapper<RowT> {
 
-    /**
-     * Updates this accumulator using columns from the given row.
-     *
-     * @param state Accumulator state.
-     * @param row Row
-     */
-    void add(AccumulatorsState state, RowT row);
+    /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
+    boolean isDistinct();
+
+    /** Returns the accumulator function. */
+    Accumulator accumulator();
 
     /**
-     * Computes result of this accumulator.
-     *
-     * @param state Accumulator state.
-     * @param result Result holder.
+     * Creates accumulator arguments from the given row. If this method returns {@code null},
+     * then the accumulator function should not be applied to the given row.
      */
-    void end(AccumulatorsState state, AccumulatorsState result);
+    Object @Nullable [] getArguments(RowT row);
+
+    /** Converts accumulator result. */
+    Object convertResult(@Nullable Object result);
 }

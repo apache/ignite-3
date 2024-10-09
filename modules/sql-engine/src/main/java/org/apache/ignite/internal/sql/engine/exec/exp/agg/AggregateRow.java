@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 
@@ -34,11 +36,19 @@ public final class AggregateRow<RowT> {
 
     private final AccumulatorsState state;
 
+    private final Int2ObjectArrayMap<Set<Object>> distinctSets;
+
     /** Constructor. */
-    public AggregateRow(List<AccumulatorWrapper<RowT>> accs, AggregateType type, AccumulatorsState state) {
+    public AggregateRow(
+            List<AccumulatorWrapper<RowT>> accs,
+            AggregateType type,
+            AccumulatorsState state,
+            Int2ObjectArrayMap<Set<Object>> distinctSets
+    ) {
         this.type = type;
         this.accs = accs;
         this.state = state;
+        this.distinctSets = distinctSets;
     }
 
     /** Initialized an empty group if necessary. */
@@ -63,8 +73,19 @@ public final class AggregateRow<RowT> {
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> acc = accs.get(i);
 
+            Object[] args = acc.getArguments(row);
+            if (args == null) {
+                continue;
+            }
+
             state.setIndex(i);
-            acc.add(state, row);
+
+            if (acc.isDistinct()) {
+                Set<Object> distinctSet = distinctSets.get(i);
+                distinctSet.add(args[0]);
+            } else {
+                acc.accumulator().add(state, args);
+            }
 
             state.resetIndex();
         }
@@ -90,8 +111,17 @@ public final class AggregateRow<RowT> {
             state.setIndex(i);
             result.setIndex(i);
 
-            acc.end(state, result);
-            output[i + cardinality] = result.get();
+            if (acc.isDistinct()) {
+                Set<Object> distinctSet = distinctSets.get(i);
+
+                for (var arg : distinctSet) {
+                    acc.accumulator().add(state, new Object[]{arg});
+                }
+            }
+
+            acc.accumulator().end(state, result);
+
+            output[i + cardinality] = acc.convertResult(result.get());
 
             state.resetIndex();
             result.resetIndex();

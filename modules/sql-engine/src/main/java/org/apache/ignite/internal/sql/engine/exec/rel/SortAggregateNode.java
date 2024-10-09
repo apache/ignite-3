@@ -20,12 +20,15 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -251,7 +254,16 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
             AccumulatorsState state = new AccumulatorsState(wrappers.size());
-            aggRow = new AggregateRow<>(wrappers, type, state);
+
+            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            for (int i = 0; i < wrappers.size(); i++) {
+                AccumulatorWrapper<RowT> acc = wrappers.get(i);
+                if (acc.isDistinct()) {
+                    distinctSets.put(i, new HashSet<>());
+                }
+            }
+
+            aggRow = new AggregateRow<>(wrappers, type, state, distinctSets);
         }
 
         private void add(RowT row) {
