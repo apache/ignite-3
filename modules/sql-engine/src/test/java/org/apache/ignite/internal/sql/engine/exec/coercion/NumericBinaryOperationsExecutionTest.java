@@ -19,10 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.coercion;
 
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
-import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -61,8 +59,6 @@ public class NumericBinaryOperationsExecutionTest extends BaseTypeCheckExecution
     @EnumSource
     public void divOp(NumericPair typePair) throws Exception {
         String sql = "SELECT c1 / c2 FROM t";
-        Assumptions.assumeFalse(typePair.first() instanceof DecimalNativeType || typePair.second() instanceof DecimalNativeType,
-                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-23171");
 
         try (ClusterWrapper testCluster = testCluster(typePair, dataProviderStrict(typePair))) {
             testCluster.process(sql, checkReturnResult());
