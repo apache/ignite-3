@@ -3077,7 +3077,7 @@ public class RexImpTable {
         argValueList = FlatLists.append(argValueList, fieldComparator);
       }
 
-      if (type0 == BigDecimal.class && type1 == BigDecimal.class && op == DIVIDE) {
+      if (type0 == BigDecimal.class && type1 == BigDecimal.class && op == IgniteSqlOperatorTable.DIVIDE) {
         int precision = call.getType().getPrecision();
         int scale = call.getType().getScale();
 

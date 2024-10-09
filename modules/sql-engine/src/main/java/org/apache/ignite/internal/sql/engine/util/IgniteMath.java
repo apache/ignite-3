@@ -28,6 +28,7 @@ import java.math.RoundingMode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /** Math operations with overflow checking. */
 public class IgniteMath {
@@ -279,8 +280,17 @@ public class IgniteMath {
      * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
      * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
      */
-    public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, s, ROUNDING_MODE);
+    public static @Nullable BigDecimal decimalDivide(@Nullable BigDecimal x, @Nullable BigDecimal y, int p, int s) {
+        if (x == null || y == null) {
+            return null;
+        }
+        BigDecimal r = x.divide(y, s, ROUNDING_MODE);
+
+        System.err.println(x);
+        System.err.println(y);
+        System.err.println(r);
+
+        return r;
     }
 
     private static void throwDivisionByZero() {
