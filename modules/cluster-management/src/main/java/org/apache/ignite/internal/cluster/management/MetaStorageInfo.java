@@ -36,14 +36,21 @@ public interface MetaStorageInfo extends NetworkMessage, Serializable {
     Set<String> metaStorageNodes();
 
     /**
-     * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
-     * repair happened in the current cluster incarnation.
+     * ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
+     * happened in the current cluster incarnation.
+     *
+     * <p>This can only contain current cluster ID; if there were earlier MG repairs, they happened in other incarnations of the cluster,
+     * so they will not leave a trace here.
      */
     @Nullable UUID metastorageRepairClusterId();
 
     /**
-     * ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
-     * happened in the current cluster incarnation.
+     * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
+     * repair happened in the current cluster incarnation.
+     *
+     * <p>This can only contain index corresponding to a repair which happened in the current incarnation of the cluster (with the current
+     * cluster ID); if there were earlier MG repairs, they happened in other incarnations of the cluster, so they will not leave
+     * a trace here.
      */
     @Nullable Long metastorageRepairingConfigIndex();
 }
