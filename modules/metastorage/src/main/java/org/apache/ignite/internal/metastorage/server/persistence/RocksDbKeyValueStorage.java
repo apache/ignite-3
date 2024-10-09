@@ -1690,7 +1690,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return checksumByRevision(revision);
         } catch (RocksDBException e) {
-            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision " + revision, e);
+            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
         }
