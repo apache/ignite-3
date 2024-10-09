@@ -1671,13 +1671,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public @Nullable Long checksum(long revision) {
+    public long checksum(long revision) {
         rwLock.readLock().lock();
 
         try {
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
+
             byte[] checksumBytes = revisionToChecksum.get(longToBytes(revision));
 
-            return checksumBytes == null ? null : bytesToLong(checksumBytes);
+            if (checksumBytes == null) {
+                throw new CompactedException("Requested revision has already been compacted: " + revision);
+            }
+
+            return bytesToLong(checksumBytes);
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision " + revision, e);
         } finally {

@@ -971,7 +971,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public @Nullable Long checksum(long revision) {
+    public long checksum(long revision) {
         throw new UnsupportedOperationException();
     }
 

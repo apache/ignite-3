@@ -377,9 +377,10 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long getCompactionRevision();
 
     /**
-     * Returns checksum corresponding to the revision, or {@code null} if the revision does not exist yet or was compacted.
+     * Returns checksum corresponding to the revision.
      *
      * @param revision Revision.
+     * @throws CompactedException If the requested revision has been compacted.
      */
-    @Nullable Long checksum(long revision);
+    long checksum(long revision);
 }

@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,11 +47,6 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
-    }
-
-    @Test
-    public void noChecksumForNotExistingRevision() {
-        assertThat(storage.checksum(1), is(nullValue()));
     }
 
     @Test

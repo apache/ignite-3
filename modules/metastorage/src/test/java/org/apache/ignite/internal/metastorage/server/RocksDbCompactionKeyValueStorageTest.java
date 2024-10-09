@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.junit.jupiter.api.Test;
 
@@ -33,13 +34,13 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
 
     @Test
     void checksumsAreRemovedForCompactedRevisions() {
-        assertNotNull(storage.checksum(3));
+        assertDoesNotThrow(() -> storage.checksum(3));
 
         storage.compact(3);
 
-        assertNull(storage.checksum(1));
-        assertNull(storage.checksum(2));
-        assertNull(storage.checksum(3));
-        assertNotNull(storage.checksum(4));
+        assertThrows(CompactedException.class, () -> storage.checksum(1));
+        assertThrows(CompactedException.class, () -> storage.checksum(2));
+        assertThrows(CompactedException.class, () -> storage.checksum(3));
+        assertDoesNotThrow(() -> storage.checksum(4));
     }
 }
