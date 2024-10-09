@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
@@ -27,77 +26,24 @@ import org.junit.jupiter.api.Test;
  * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
 class ConditionTypeTest {
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testOrdinal() {
-        assertEquals(0, ConditionType.REV_EQUAL.ordinal());
-
-        assertEquals(1, ConditionType.REV_NOT_EQUAL.ordinal());
-
-        assertEquals(2, ConditionType.REV_GREATER.ordinal());
-
-        assertEquals(3, ConditionType.REV_LESS.ordinal());
-
-        assertEquals(4, ConditionType.REV_LESS_OR_EQUAL.ordinal());
-
-        assertEquals(5, ConditionType.REV_GREATER_OR_EQUAL.ordinal());
-
-        assertEquals(6, ConditionType.VAL_EQUAL.ordinal());
-
-        assertEquals(7, ConditionType.VAL_NOT_EQUAL.ordinal());
-
-        assertEquals(8, ConditionType.VAL_GREATER.ordinal());
-
-        assertEquals(9, ConditionType.VAL_LESS.ordinal());
-
-        assertEquals(10, ConditionType.VAL_LESS_OR_EQUAL.ordinal());
-
-        assertEquals(11, ConditionType.VAL_GREATER_OR_EQUAL.ordinal());
-
-        assertEquals(12, ConditionType.KEY_EXISTS.ordinal());
-
-        assertEquals(13, ConditionType.KEY_NOT_EXISTS.ordinal());
-
-        assertEquals(14, ConditionType.TOMBSTONE.ordinal());
-
-        assertEquals(15, ConditionType.NOT_TOMBSTONE.ordinal());
-    }
-
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
-    @Test
-    void testFromOrdinal() {
-        assertEquals(ConditionType.REV_EQUAL, ConditionType.fromOrdinal(0));
-
-        assertEquals(ConditionType.REV_NOT_EQUAL, ConditionType.fromOrdinal(1));
-
-        assertEquals(ConditionType.REV_GREATER, ConditionType.fromOrdinal(2));
-
-        assertEquals(ConditionType.REV_LESS, ConditionType.fromOrdinal(3));
-
-        assertEquals(ConditionType.REV_LESS_OR_EQUAL, ConditionType.fromOrdinal(4));
-
-        assertEquals(ConditionType.REV_GREATER_OR_EQUAL, ConditionType.fromOrdinal(5));
-
-        assertEquals(ConditionType.VAL_EQUAL, ConditionType.fromOrdinal(6));
-
-        assertEquals(ConditionType.VAL_NOT_EQUAL, ConditionType.fromOrdinal(7));
-
-        assertEquals(ConditionType.VAL_GREATER, ConditionType.fromOrdinal(8));
-
-        assertEquals(ConditionType.VAL_LESS, ConditionType.fromOrdinal(9));
-
-        assertEquals(ConditionType.VAL_LESS_OR_EQUAL, ConditionType.fromOrdinal(10));
-
-        assertEquals(ConditionType.VAL_GREATER_OR_EQUAL, ConditionType.fromOrdinal(11));
-
-        assertEquals(ConditionType.KEY_EXISTS, ConditionType.fromOrdinal(12));
-
-        assertEquals(ConditionType.KEY_NOT_EXISTS, ConditionType.fromOrdinal(13));
-
-        assertEquals(ConditionType.TOMBSTONE, ConditionType.fromOrdinal(14));
-
-        assertEquals(ConditionType.NOT_TOMBSTONE, ConditionType.fromOrdinal(15));
-
-        assertThrows(IllegalArgumentException.class, () -> ConditionType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> ConditionType.fromOrdinal(16));
+    void testTransferableId() {
+        assertEquals(0, ConditionType.REV_EQUAL.transferableId());
+        assertEquals(1, ConditionType.REV_NOT_EQUAL.transferableId());
+        assertEquals(2, ConditionType.REV_GREATER.transferableId());
+        assertEquals(3, ConditionType.REV_LESS.transferableId());
+        assertEquals(4, ConditionType.REV_LESS_OR_EQUAL.transferableId());
+        assertEquals(5, ConditionType.REV_GREATER_OR_EQUAL.transferableId());
+        assertEquals(6, ConditionType.VAL_EQUAL.transferableId());
+        assertEquals(7, ConditionType.VAL_NOT_EQUAL.transferableId());
+        assertEquals(8, ConditionType.VAL_GREATER.transferableId());
+        assertEquals(9, ConditionType.VAL_LESS.transferableId());
+        assertEquals(10, ConditionType.VAL_LESS_OR_EQUAL.transferableId());
+        assertEquals(11, ConditionType.VAL_GREATER_OR_EQUAL.transferableId());
+        assertEquals(12, ConditionType.KEY_EXISTS.transferableId());
+        assertEquals(13, ConditionType.KEY_NOT_EXISTS.transferableId());
+        assertEquals(14, ConditionType.TOMBSTONE.transferableId());
+        assertEquals(15, ConditionType.NOT_TOMBSTONE.transferableId());
     }
 }
