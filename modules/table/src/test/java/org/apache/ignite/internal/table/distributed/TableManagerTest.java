@@ -46,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
@@ -407,7 +408,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Boolean> invokeTimeoutFuture = new CompletableFuture<>();
         var innerExceptionMsg = "Inner future is interrupted";
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
+        when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
         writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
@@ -717,7 +718,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
+        when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));

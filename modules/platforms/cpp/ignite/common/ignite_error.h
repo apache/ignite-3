@@ -135,7 +135,7 @@ public:
 
 private:
     /** Status code. */
-    error::code m_status_code{error::code::GENERIC};
+    error::code m_status_code{error::code::INTERNAL};
 
     /** Message. */
     std::string m_message;

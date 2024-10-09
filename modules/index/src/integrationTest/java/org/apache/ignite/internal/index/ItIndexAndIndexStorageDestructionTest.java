@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.lang.ErrorGroups.Storage.ALREADY_DESTROYED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -142,7 +142,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
                 () -> cluster.query(0, "SELECT * FROM " + TABLE_NAME + " WHERE name = 'John'", rs -> null)
         );
 
-        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(ex.code(), is(Common.INTERNAL_ERR));
         assertThat(
                 ex.getMessage(),
                 startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")
@@ -159,7 +159,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             }
         });
 
-        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(ex.code(), is(Common.INTERNAL_ERR));
         assertThat(
                 ex.getMessage(),
                 startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")

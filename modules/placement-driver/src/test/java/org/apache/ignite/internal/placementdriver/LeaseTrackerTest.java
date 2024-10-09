@@ -67,14 +67,17 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 }
         ).when(msManager).registerExactWatch(any(), any());
 
-        Entry emptyEntry = EntryImpl.empty(PLACEMENTDRIVER_LEASES_KEY.bytes());
+        byte[] leasesKeyBytes = PLACEMENTDRIVER_LEASES_KEY.bytes();
+        Entry emptyEntry = EntryImpl.empty(leasesKeyBytes);
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
+
+        HybridClockImpl clock = new HybridClockImpl();
 
         LeaseTracker leaseTracker = new LeaseTracker(
                 msManager,
                 mock(ClusterNodeResolver.class),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(clock)
         );
         leaseTracker.startTrack(0L);
 
@@ -98,8 +101,8 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 .acceptLease(new HybridTimestamp(2000, 0));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
-        Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
-        Entry entry1 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0)).bytes(), 0, 1);
+        Entry entry0 = new EntryImpl(leasesKeyBytes, new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, clock.now());
+        Entry entry1 = new EntryImpl(leasesKeyBytes, new LeaseBatch(List.of(lease0)).bytes(), 0, clock.now());
         listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry0)));
 
         assertNull(parametersRef.get());

@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.metastorage.server.persistence;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
@@ -32,17 +35,19 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longsToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.revisionFromRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.timestampFromRocksValue;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
+import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_CHECKSUM;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
@@ -50,6 +55,7 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ER
 import static org.rocksdb.util.SizeUnit.MB;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,6 +87,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
@@ -91,6 +98,8 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
+import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
@@ -124,12 +133,12 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 /**
- * Key-value storage based on RocksDB. Keys are stored with revision. Values are stored in the default column family with an update counter
- * and a boolean flag which represents whether this record is a tombstone.
+ * Key-value storage based on RocksDB. Keys are stored with revision. Values are stored in the default column family with an operation
+ * timestamp and a boolean flag which represents whether this record is a tombstone.
  * <br>
  * Key: [8 bytes revision, N bytes key itself].
  * <br>
- * Value: [8 bytes update counter, 1 byte tombstone flag, N bytes value].
+ * Value: [8 bytes operation timestamp, 1 byte tombstone flag, N bytes value].
  * <br>
  * The mapping from the key to the set of the storage's revisions is stored in the "index" column family. A key represents the key of an
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
@@ -144,12 +153,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final byte[] REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_REVISION_KEY".getBytes(UTF_8)
-    );
-
-    /** Update counter key. */
-    private static final byte[] UPDATE_COUNTER_KEY = keyToRocksKey(
-            SYSTEM_REVISION_MARKER_VALUE,
-            "SYSTEM_UPDATE_COUNTER_KEY".getBytes(UTF_8)
     );
 
     /** Compaction revision key. */
@@ -195,6 +198,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Revision to timestamp mapping column family. */
     private volatile ColumnFamily revisionToTs;
 
+    /** Revision to checksum mapping column family. */
+    private volatile ColumnFamily revisionToChecksum;
+
     /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
 
@@ -212,14 +218,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private long rev;
 
     /**
-     * Update counter. Will be incremented for each update of any particular entry.
+     * Facility to work with checksums.
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    private long updCntr;
+    private MetastorageChecksum checksum;
 
     /**
-     * Last revision of a compact that was set or restored from a snapshot.
+     * Last compaction revision that was set or restored from a snapshot.
      *
      * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
      *
@@ -329,15 +335,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(baseOptions);
         this.rocksResources.add(revToTsFamilyOptions);
 
+        ColumnFamilyOptions revToChecksumFamilyOptions = new ColumnFamilyOptions(baseOptions);
+        this.rocksResources.add(revToChecksumFamilyOptions);
+
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
                 new ColumnFamilyDescriptor(INDEX.nameAsBytes(), indexFamilyOptions),
                 new ColumnFamilyDescriptor(TS_TO_REVISION.nameAsBytes(), tsToRevFamilyOptions),
-                new ColumnFamilyDescriptor(REVISION_TO_TS.nameAsBytes(), revToTsFamilyOptions)
+                new ColumnFamilyDescriptor(REVISION_TO_TS.nameAsBytes(), revToTsFamilyOptions),
+                new ColumnFamilyDescriptor(REVISION_TO_CHECKSUM.nameAsBytes(), revToChecksumFamilyOptions)
         );
     }
 
-    protected DBOptions createDbOptions() {
+    private DBOptions createDbOptions() {
         DBOptions options = new DBOptions()
                 .setCreateMissingColumnFamilies(true)
                 .setCreateIfMissing(true);
@@ -347,10 +357,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return options;
     }
 
-    protected void createDb() throws RocksDBException {
+    private void createDb() throws RocksDBException {
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
-        assert descriptors.size() == 4;
+        assert descriptors.size() == 5 : descriptors.size();
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
@@ -368,8 +378,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         revisionToTs = ColumnFamily.wrap(db, handles.get(3));
 
+        revisionToChecksum = ColumnFamily.wrap(db, handles.get(4));
+
         snapshotManager = new RocksSnapshotManager(db,
-                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs)),
+                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs), fullRange(revisionToChecksum)),
                 snapshotExecutor
         );
 
@@ -379,11 +391,23 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = ByteUtils.bytesToLong(revision);
         }
 
+        checksum = new MetastorageChecksum(revision == null ? 0 : checksumByRevision(rev));
+
         byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
 
         if (compactionRevisionBytes != null) {
             compactionRevision = ByteUtils.bytesToLong(compactionRevisionBytes);
         }
+    }
+
+    private long checksumByRevision(long revision) throws RocksDBException {
+        byte[] bytes = revisionToChecksum.get(longToBytes(revision));
+
+        if (bytes == null) {
+            throw new CompactedException(revision, compactionRevision);
+        }
+
+        return bytesToLong(bytes);
     }
 
     /**
@@ -452,8 +476,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             rev = bytesToLong(data.get(REVISION_KEY));
 
-            updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
-
             byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
 
             if (compactionRevisionBytes != null) {
@@ -480,30 +502,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public long updateCounter() {
-        rwLock.readLock().lock();
-
-        try {
-            return updCntr;
-        } finally {
-            rwLock.readLock().unlock();
-        }
-    }
-
-    @Override
     public void put(byte[] key, byte[] value, HybridTimestamp opTs) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
+            long newChecksum = checksum.wholePut(key, value);
+
             long curRev = rev + 1;
 
-            long cntr = updCntr + 1;
-
-            addDataToBatch(batch, key, value, curRev, cntr);
+            addDataToBatch(batch, key, value, curRev, opTs);
 
             updateKeysIndex(batch, key, curRev);
 
-            fillAndWriteBatch(batch, curRev, cntr, opTs);
+            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -531,37 +542,55 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Fills the batch with system values (the update counter and the revision) and writes it to the db.
+     * Fills the batch with system values and writes it to the db.
      *
-     * @param batch   Write batch.
-     * @param newRev  New revision.
-     * @param newCntr New update counter.
-     * @param ts      Operation's timestamp.
+     * @param batch Write batch.
+     * @param newRev New revision.
+     * @param ts Operation's timestamp.
+     * @param newChecksum Checksum corresponding to the revision.
      * @throws RocksDBException If failed.
      */
-    private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
+    private void completeAndWriteBatch(WriteBatch batch, long newRev, HybridTimestamp ts, long newChecksum) throws RocksDBException {
         byte[] revisionBytes = longToBytes(newRev);
 
-        data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
         data.put(batch, REVISION_KEY, revisionBytes);
 
-        if (ts != null) {
-            byte[] tsBytes = hybridTsToArray(ts);
+        byte[] tsBytes = hybridTsToArray(ts);
 
-            tsToRevision.put(batch, tsBytes, revisionBytes);
-            revisionToTs.put(batch, revisionBytes, tsBytes);
-        }
+        tsToRevision.put(batch, tsBytes, revisionBytes);
+        revisionToTs.put(batch, revisionBytes, tsBytes);
+
+        validateNoChecksumConflict(newRev, newChecksum);
+        revisionToChecksum.put(batch, revisionBytes, longToBytes(newChecksum));
 
         db.write(defaultWriteOptions, batch);
 
         rev = newRev;
-        updCntr = newCntr;
-
+        checksum.commitRound(newChecksum);
         updatedEntries.ts = ts;
 
         queueWatchEvent();
 
         notifyRevisionUpdate();
+    }
+
+    private void validateNoChecksumConflict(long newRev, long newChecksum) throws RocksDBException {
+        byte[] existingChecksumBytes = revisionToChecksum.get(longToBytes(newRev));
+
+        if (existingChecksumBytes != null) {
+            long existingChecksum = bytesToLong(existingChecksumBytes);
+            if (existingChecksum != newChecksum) {
+                throw new MetaStorageException(
+                        INTERNAL_ERR,
+                        String.format(
+                                "Metastorage revision checksum differs from a checksum for the same revision saved earlier. "
+                                        + "This probably means that the Metastorage has diverged. [revision=%d, existingChecksum=%d, "
+                                        + "newChecksum=%d]",
+                                newRev, existingChecksum, newChecksum
+                        )
+                );
+            }
+        }
     }
 
     private static byte[] hybridTsToArray(HybridTimestamp ts) {
@@ -570,8 +599,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     private static Entry entry(byte[] key, long revision, Value value) {
         return value.tombstone()
-                ? EntryImpl.tombstone(key, revision, value.updateCounter())
-                : new EntryImpl(key, value.bytes(), revision, value.updateCounter());
+                ? EntryImpl.tombstone(key, revision, value.operationTimestamp())
+                : new EntryImpl(key, value.bytes(), revision, value.operationTimestamp());
     }
 
     @Override
@@ -579,15 +608,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
+            long newChecksum = checksum.wholePutAll(keys, values);
+
             long curRev = rev + 1;
 
-            long counter = addAllToBatch(batch, keys, values, curRev);
+            addAllToBatch(batch, keys, values, curRev, opTs);
 
             for (byte[] key : keys) {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, counter, opTs);
+            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -629,7 +660,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys) {
+    public List<Entry> getAll(List<byte[]> keys) {
         rwLock.readLock().lock();
 
         try {
@@ -640,7 +671,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
@@ -655,14 +686,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
+            long newChecksum = checksum.wholeRemove(key);
+
             long curRev = rev + 1;
-            long counter = updCntr + 1;
 
-            if (addToBatchForRemoval(batch, key, curRev, counter)) {
+            if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                 updateKeysIndex(batch, key, curRev);
-
-                fillAndWriteBatch(batch, curRev, counter, opTs);
             }
+
+            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -675,17 +707,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
+            long newChecksum = checksum.wholeRemoveAll(keys);
+
             long curRev = rev + 1;
 
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
 
-            long counter = updCntr;
-
             for (byte[] key : keys) {
-                if (addToBatchForRemoval(batch, key, curRev, counter + 1)) {
+                if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                     existingKeys.add(key);
-
-                    counter++;
                 }
             }
 
@@ -693,7 +723,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            fillAndWriteBatch(batch, curRev, counter, opTs);
+            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -704,8 +734,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @Override
     public boolean invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure,
+            List<Operation> success,
+            List<Operation> failure,
             HybridTimestamp opTs,
             CommandId commandId
     ) {
@@ -715,15 +745,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             Entry[] entries = getAll(Arrays.asList(condition.keys())).toArray(new Entry[]{});
 
             boolean branch = condition.test(entries);
+            ByteBuffer updateResult = ByteBuffer.wrap(branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES);
 
-            Collection<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
+            List<Operation> ops = new ArrayList<>(branch ? success : failure);
 
             ops.add(Operations.put(
                     new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                    branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
-            );
+                    updateResult
+            ));
 
-            applyOperations(ops, opTs);
+            applyOperations(ops, opTs, false, updateResult);
 
             return branch;
         } catch (RocksDBException e) {
@@ -755,15 +786,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (branch.isTerminal()) {
                     Update update = branch.update();
+                    ByteBuffer updateResult = update.result().result();
 
-                    Collection<Operation> ops = new ArrayList<>(update.operations());
+                    List<Operation> ops = new ArrayList<>(update.operations());
 
                     ops.add(Operations.put(
                             new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                            update.result().result())
-                    );
+                            updateResult
+                    ));
 
-                    applyOperations(ops, opTs);
+                    applyOperations(ops, opTs, true, updateResult);
 
                     return update.result();
                 } else {
@@ -777,14 +809,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private void applyOperations(Collection<Operation> ops, HybridTimestamp opTs) throws RocksDBException {
+    private void applyOperations(List<Operation> ops, HybridTimestamp opTs, boolean multiInvoke, ByteBuffer updateResult)
+            throws RocksDBException {
         long curRev = rev + 1;
 
-        boolean modified = false;
-
-        long counter = updCntr;
-
         List<byte[]> updatedKeys = new ArrayList<>();
+
+        int nonDummyOps = (int) ops.stream()
+                .filter(op -> op.type() != OperationType.NO_OP)
+                .count();
+        checksum.prepareForInvoke(multiInvoke, nonDummyOps, toByteArray(updateResult));
 
         try (WriteBatch batch = new WriteBatch()) {
             for (Operation op : ops) {
@@ -792,28 +826,21 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 switch (op.type()) {
                     case PUT:
-                        counter++;
-
-                        addDataToBatch(batch, key, toByteArray(op.value()), curRev, counter);
+                        byte[] value = toByteArray(op.value());
+                        addDataToBatch(batch, key, value, curRev, opTs);
 
                         updatedKeys.add(key);
 
-                        modified = true;
+                        checksum.appendPutAsPart(key, value);
 
                         break;
 
                     case REMOVE:
-                        counter++;
-
-                        boolean removed = addToBatchForRemoval(batch, key, curRev, counter);
-
-                        if (!removed) {
-                            counter--;
-                        } else {
+                        if (addToBatchForRemoval(batch, key, curRev, opTs)) {
                             updatedKeys.add(key);
                         }
 
-                        modified |= removed;
+                        checksum.appendRemoveAsPart(key);
 
                         break;
 
@@ -825,13 +852,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified) {
-                for (byte[] key : updatedKeys) {
-                    updateKeysIndex(batch, key, curRev);
-                }
-
-                fillAndWriteBatch(batch, curRev, counter, opTs);
+            for (byte[] key : updatedKeys) {
+                updateKeysIndex(batch, key, curRev);
             }
+
+            completeAndWriteBatch(batch, curRev, opTs, checksum.roundValue());
         }
     }
 
@@ -1009,32 +1034,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void compact(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
-        try (RocksIterator iterator = index.newIterator()) {
-            iterator.seekToFirst();
+        try {
+            compactKeys(revision);
 
-            while (iterator.isValid()) {
-                rwLock.writeLock().lock();
-
-                try (WriteBatch batch = new WriteBatch()) {
-                    assertCompactionRevisionLessThanCurrent(revision, rev);
-
-                    for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
-                        if (stopCompaction.get()) {
-                            return;
-                        }
-
-                        compactForKey(batch, iterator.key(), getAsLongs(iterator.value()), revision);
-                    }
-
-                    db.write(defaultWriteOptions, batch);
-                } finally {
-                    rwLock.writeLock().unlock();
-                }
-            }
-
-            checkIterator(iterator);
+            compactAuxiliaryMappings(revision);
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1053,21 +1058,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Adds a key to a batch marking the value as a tombstone.
      *
-     * @param batch   Write batch.
-     * @param key     Target key.
-     * @param curRev  Revision.
-     * @param counter Update counter.
+     * @param batch Write batch.
+     * @param key Target key.
+     * @param curRev Revision.
+     * @param opTs Operation timestamp.
      * @return {@code true} if an entry can be deleted.
      * @throws RocksDBException If failed.
      */
-    private boolean addToBatchForRemoval(WriteBatch batch, byte[] key, long curRev, long counter) throws RocksDBException {
+    private boolean addToBatchForRemoval(
+            WriteBatch batch,
+            byte[] key,
+            long curRev,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
             return false;
         }
 
-        addDataToBatch(batch, key, TOMBSTONE, curRev, counter);
+        addDataToBatch(batch, key, TOMBSTONE, curRev, opTs);
 
         return true;
     }
@@ -1085,7 +1095,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
-            if (NOTHING_TO_COMPACT_INDEX == indexToCompact) {
+            if (NOT_FOUND == indexToCompact) {
                 return;
             }
 
@@ -1111,56 +1121,40 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /**
-     * Gets all entries with given keys and a revision.
-     *
-     * @param keys Target keys.
-     * @param rev  Target revision.
-     * @return Collection of entries.
-     */
-    private Collection<Entry> doGetAll(Collection<byte[]> keys, long rev) {
-        assert keys != null : "keys list can't be null.";
-        assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev >= 0;
+    private List<Entry> doGetAll(Collection<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
 
         var res = new ArrayList<Entry>(keys.size());
 
         for (byte[] key : keys) {
-            res.add(doGet(key, rev));
+            res.add(doGet(key, revUpperBound));
         }
 
         return res;
     }
 
-    /**
-     * Gets the value by key and revision.
-     *
-     * @param key            Target key.
-     * @param revUpperBound  Target upper bound of revision.
-     * @return Value.
-     */
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= 0 : revUpperBound;
 
-        long[] revs;
-        try {
-            revs = getRevisions(key);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
+        long[] keyRevisions = getRevisionsForOperation(key);
+        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
 
-        if (revs.length == 0) {
+        if (maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
             return EntryImpl.empty(key);
         }
 
-        long lastRev = maxRevision(revs, revUpperBound);
+        long revision = keyRevisions[maxRevisionIndex];
 
-        // lastRev can be -1 if maxRevision return -1.
-        if (lastRev == -1) {
-            return EntryImpl.empty(key);
+        Value value = getValueForOperation(key, revision);
+
+        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
+            throw new CompactedException(revUpperBound, compactionRevision);
         }
 
-        return doGetValue(key, lastRev);
+        return EntryImpl.toEntry(key, revision, value);
     }
 
     /**
@@ -1209,10 +1203,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Get a list of the revisions of the entry corresponding to the key.
+     * Returns array of revisions of the entry corresponding to the key.
      *
      * @param key Key.
-     * @return Array of revisions.
      * @throws RocksDBException If failed to perform {@link RocksDB#get(ColumnFamilyHandle, byte[])}.
      */
     private long[] getRevisions(byte[] key) throws RocksDBException {
@@ -1223,6 +1216,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         return getAsLongs(revisions);
+    }
+
+    /**
+     * Returns array of revisions of the entry corresponding to the key.
+     *
+     * @param key Key.
+     * @throws MetaStorageException If there was an error while getting the revisions for the key.
+     */
+    private long[] getRevisionsForOperation(byte[] key) {
+        try {
+            return getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, "Failed to get revisions for the key: " + toUtf8String(key), e);
+        }
     }
 
     /**
@@ -1312,66 +1319,61 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Value lastVal = bytesToValue(valueBytes);
 
         if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, revision, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, revision, lastVal.operationTimestamp());
         }
 
-        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.operationTimestamp());
     }
 
     /**
      * Adds an entry to the batch.
      *
-     * @param batch  Write batch.
-     * @param key    Key.
-     * @param value  Value.
+     * @param batch Write batch.
+     * @param key Key.
+     * @param value Value.
      * @param curRev Revision.
-     * @param cntr   Update counter.
+     * @param opTs Operation timestamp.
      * @throws RocksDBException If failed.
      */
-    private void addDataToBatch(WriteBatch batch, byte[] key, byte[] value, long curRev, long cntr) throws RocksDBException {
+    private void addDataToBatch(
+            WriteBatch batch,
+            byte[] key,
+            byte[] value,
+            long curRev,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(curRev, key);
 
-        byte[] rocksValue = valueToBytes(value, cntr);
+        byte[] rocksValue = valueToBytes(value, opTs);
 
         data.put(batch, rocksKey, rocksValue);
 
-        updatedEntries.add(entry(key, curRev, new Value(value, cntr)));
+        updatedEntries.add(entry(key, curRev, new Value(value, opTs)));
     }
 
     /**
      * Adds all entries to the batch.
      *
-     * @param batch  Write batch.
-     * @param keys   Keys.
+     * @param batch Write batch.
+     * @param keys Keys.
      * @param values Values.
      * @param curRev Revision.
-     * @return New update counter value.
+     * @param opTs Operation timestamp.
      * @throws RocksDBException If failed.
      */
-    private long addAllToBatch(WriteBatch batch, List<byte[]> keys, List<byte[]> values, long curRev) throws RocksDBException {
-        long counter = this.updCntr;
-
+    private void addAllToBatch(
+            WriteBatch batch,
+            List<byte[]> keys,
+            List<byte[]> values,
+            long curRev,
+            HybridTimestamp opTs
+    ) throws RocksDBException {
         for (int i = 0; i < keys.size(); i++) {
-            counter++;
-
             byte[] key = keys.get(i);
-
             byte[] bytes = values.get(i);
 
-            addDataToBatch(batch, key, bytes, curRev, counter);
+            addDataToBatch(batch, key, bytes, curRev, opTs);
         }
-
-        return counter;
-    }
-
-    /**
-     * Gets last revision from the list.
-     *
-     * @param revs Revisions.
-     * @return Last revision.
-     */
-    private static long lastRevision(long[] revs) {
-        return revs[revs.length - 1];
     }
 
     /**
@@ -1443,15 +1445,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (revision != lastSeenRevision) {
                     if (!updatedEntries.isEmpty()) {
-                        var updatedEntriesCopy = List.copyOf(updatedEntries);
+                        List<Entry> updatedEntriesCopy = List.copyOf(updatedEntries);
 
-                        assert ts != null;
+                        assert ts != null : revision;
 
                         watchProcessor.notifyWatches(updatedEntriesCopy, ts);
 
                         updatedEntries.clear();
 
-                        ts = timestampByRevision(revision);
+                        ts = hybridTimestamp(timestampFromRocksValue(rocksValue));
                     }
 
                     lastSeenRevision = revision;
@@ -1459,13 +1461,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (ts == null) {
                     // This will only execute on first iteration.
-                    ts = timestampByRevision(revision);
+                    ts = hybridTimestamp(timestampFromRocksValue(rocksValue));
                 }
 
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
             }
 
-            checkIterator(it);
+            try {
+                it.status();
+            } catch (RocksDBException e) {
+                throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            }
 
             // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
@@ -1480,34 +1486,46 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
+        rwLock.readLock().lock();
+
         try {
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
+
             byte[] tsBytes = revisionToTs.get(longToBytes(revision));
 
-            assert tsBytes != null;
+            if (tsBytes == null) {
+                throw new CompactedException("Requested revision has already been compacted: " + revision);
+            }
 
-            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
+            return hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, "Error reading revision timestamp: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        byte[] tsBytes = hybridTsToArray(timestamp);
+        rwLock.readLock().lock();
 
-        // Find a revision with timestamp lesser or equal to the watermark.
+        // Find a revision with timestamp lesser or equal to the timestamp.
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
-            rocksIterator.seekForPrev(tsBytes);
+            rocksIterator.seekForPrev(hybridTsToArray(timestamp));
 
-            checkIterator(rocksIterator);
+            rocksIterator.status();
 
             byte[] tsValue = rocksIterator.value();
 
             if (tsValue.length == 0) {
-                return -1;
+                throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
             return bytesToLong(tsValue);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -1555,7 +1573,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         @Nullable
         private HybridTimestamp ts;
 
-        public UpdatedEntries() {
+        private UpdatedEntries() {
             this.updatedEntries = new ArrayList<>();
         }
 
@@ -1619,7 +1637,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 
@@ -1638,7 +1656,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
 
@@ -1662,6 +1680,88 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    @Override
+    public long checksum(long revision) {
+        rwLock.readLock().lock();
+
+        try {
+            assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
+
+            return checksumByRevision(revision);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private void compactKeys(long compactionRevision) throws RocksDBException {
+        compactInBatches(index, (it, batch) -> {
+            compactForKey(batch, it.key(), getAsLongs(it.value()), compactionRevision);
+
+            return true;
+        });
+    }
+
+    private void compactAuxiliaryMappings(long compactionRevision) throws RocksDBException {
+        compactInBatches(revisionToTs, (it, batch) -> {
+            long revision = bytesToLong(it.key());
+
+            if (revision > compactionRevision) {
+                return false;
+            }
+
+            revisionToTs.delete(batch, it.key());
+            tsToRevision.delete(batch, it.value());
+
+            revisionToChecksum.delete(batch, it.key());
+
+            return true;
+        });
+    }
+
+    @FunctionalInterface
+    private interface CompactionAction {
+        /**
+         * Performs compaction on the storage at the current iterator pointer. Returns {@code true} if it is necessary to continue
+         * iterating, {@link false} if it is necessary to finish with writing the last batch.
+         */
+        boolean compact(RocksIterator it, WriteBatch batch) throws RocksDBException;
+    }
+
+    private void compactInBatches(ColumnFamily columnFamily, CompactionAction compactionAction) throws RocksDBException {
+        try (RocksIterator iterator = columnFamily.newIterator()) {
+            iterator.seekToFirst();
+
+            boolean continueIterating = true;
+
+            while (continueIterating && iterator.isValid()) {
+                rwLock.writeLock().lock();
+
+                try (WriteBatch batch = new WriteBatch()) {
+                    assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
+
+                    for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
+                        if (stopCompaction.get()) {
+                            return;
+                        }
+
+                        if (!compactionAction.compact(iterator, batch)) {
+                            continueIterating = false;
+
+                            break;
+                        }
+                    }
+
+                    db.write(defaultWriteOptions, batch);
+                } finally {
+                    rwLock.writeLock().unlock();
+                }
+            }
+
+            iterator.status();
+        }
+    }
 
     private boolean isTombstone(byte[] key, long revision) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(revision, key);
@@ -1683,6 +1783,22 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                             "Error getting key value by revision: [KeyBytes=%s, keyBytesToUtf8String=%s, revision=%s]",
                             Arrays.toString(key), toUtf8String(key), revision
                     ),
+                    e
+            );
+        }
+    }
+
+    private Value getValueForOperation(byte[] key, long revision) {
+        try {
+            byte[] valueBytes = data.get(keyToRocksKey(revision, key));
+
+            assert valueBytes != null && valueBytes.length != 0 : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+            return bytesToValue(valueBytes);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(
+                    OP_EXECUTION_ERR,
+                    String.format("Failed to get value: [key=%s, revision=%s]", toUtf8String(key), revision),
                     e
             );
         }

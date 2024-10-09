@@ -36,13 +36,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
@@ -366,7 +366,11 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             refreshAndPrepareRocksIteratorBusy();
 
             if (!it.isValid()) {
-                RocksUtils.checkIterator(it);
+                try {
+                    it.status();
+                } catch (RocksDBException e) {
+                    throw new IgniteRocksDbException(e);
+                }
 
                 peekedKey = null;
             } else {
@@ -391,7 +395,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             try {
                 it.refresh();
             } catch (RocksDBException e) {
-                throw new StorageException("Error refreshing an iterator", e);
+                throw new IgniteRocksDbException("Error refreshing an iterator", e);
             }
 
             if (key == null) {
@@ -402,7 +406,11 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
                 if (it.isValid()) {
                     it.next();
                 } else {
-                    RocksUtils.checkIterator(it);
+                    try {
+                        it.status();
+                    } catch (RocksDBException e) {
+                        throw new IgniteRocksDbException(e);
+                    }
 
                     it.seek(lowerBound);
                 }

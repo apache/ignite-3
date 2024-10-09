@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Exception that is be thrown when trying to access a closed storage.
@@ -38,6 +38,6 @@ public class StorageClosedException extends StorageException {
      * @param message Error message.
      */
     public StorageClosedException(String message) {
-        super(Storage.ALREADY_CLOSED_ERR, message);
+        super(Common.INTERNAL_ERR, message);
     }
 }

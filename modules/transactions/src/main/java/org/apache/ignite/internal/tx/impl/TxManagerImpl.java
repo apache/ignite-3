@@ -39,15 +39,11 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_O
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -56,7 +52,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -70,8 +65,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -138,17 +131,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** The local state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
-    /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
-    private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
-            Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
-    );
-
-    /**
-     * Low watermark value, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never
-     * been updated yet.
-     */
-    private final AtomicReference<HybridTimestamp> lowWatermarkValueReference = new AtomicReference<>();
-
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
@@ -200,8 +182,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaExpiredListener;
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
-
-    private final EventListener<ChangeLowWatermarkEventParameters> lowWatermarkChangedListener = this::onLwnChanged;
 
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
@@ -412,34 +392,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
                 : currentReadTimestamp(beginTimestamp);
 
-        TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
-
-        CompletableFuture<Void> txFuture = new CompletableFuture<>();
-
-        CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
-        assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
-
-        HybridTimestamp lowWatermark = this.lowWatermarkValueReference.get();
-
-        if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
-            // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
-            // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
-            // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
-            // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
-            readOnlyTxFutureById.remove(txIdAndTimestamp);
-
-            // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
-            txFuture.complete(null);
-
+        boolean lockAcquired = lowWatermark.tryLock(txId, readTimestamp);
+        if (!lockAcquired) {
             throw new IgniteInternalException(
                     TX_READ_ONLY_TOO_OLD_ERR,
                     "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
                     readTimestamp,
-                    lowWatermark
-            );
+                    lowWatermark.getLowWatermark());
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
+        try {
+            CompletableFuture<Void> txFuture = new CompletableFuture<>();
+            txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(txId));
+
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture);
+        } catch (Throwable t) {
+            lowWatermark.unlock(txId);
+            throw t;
+        }
     }
 
     /**
@@ -786,10 +756,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkChangedListener);
-
-            lowWatermarkValueReference.set(lowWatermark.getLowWatermark());
-
             return nullCompletedFuture();
         });
     }
@@ -814,8 +780,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
-
-        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkChangedListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
 
@@ -871,34 +835,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
+    void completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
         finishedTxs.add(1);
-
-        CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
-
-        assert readOnlyTxFuture != null : txIdAndTimestamp;
-
-        readOnlyTxFuture.complete(null);
 
         UUID txId = txIdAndTimestamp.getTxId();
 
         transactionInflights.markReadOnlyTxFinished(txId);
-
-        return readOnlyTxFuture;
-    }
-
-    private CompletableFuture<Boolean> onLwnChanged(ChangeLowWatermarkEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp newLowWatermark = parameters.newLowWatermark();
-
-            increaseLowWatermarkValueReferenceBusy(newLowWatermark);
-
-            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
-        });
     }
 
     @Override
@@ -1016,19 +958,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             localRwTxCounter.decrementRwTxCount(beginTimestamp(txId));
 
             return null;
-        });
-    }
-
-    private void increaseLowWatermarkValueReferenceBusy(HybridTimestamp newLowWatermark) {
-        lowWatermarkValueReference.updateAndGet(previousLowWatermark -> {
-            if (previousLowWatermark == null) {
-                return newLowWatermark;
-            }
-
-            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
-
-            return newLowWatermark;
         });
     }
 }

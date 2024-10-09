@@ -114,11 +114,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        HybridClockImpl clock = new HybridClockImpl();
+
         Entry entry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
                 Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(node.name())).toBytes(),
                 1,
-                0
+                clock.now()
         );
 
         when(mcEntriesCursor.iterator()).thenReturn(List.of(entry).iterator());
@@ -151,7 +153,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl()),
+                new TestClockService(clock),
                 new AssignmentsTracker(metaStorageManager),
                 replicationConfiguration
         );

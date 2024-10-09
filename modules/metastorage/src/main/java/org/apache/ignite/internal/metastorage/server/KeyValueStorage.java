@@ -56,26 +56,65 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long revision();
 
     /**
-     * Returns update counter.
+     * Returns the latest version of an entry by key.
      *
-     * @return Update counter.
-     */
-    long updateCounter();
-
-    /**
-     * Returns an entry by the given key.
+     * <p>Never throws {@link CompactedException}.</p>
      *
-     * @param key The key.
-     * @return Value corresponding to the given key.
+     * @param key Key.
      */
     Entry get(byte[] key);
 
     /**
      * Returns an entry by the given key and bounded by the given revision.
      *
-     * @param key The key.
+     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
+     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - will return an empty value.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>get("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3) - a {@link CompactedException} will be thrown.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
+     * @param key Key.
      * @param revUpperBound The upper bound of revision.
-     * @return Value corresponding to the given key.
+     * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
+     *      {@link #setCompactionRevision compacted} one.
      */
     Entry get(byte[] key, long revUpperBound);
 
@@ -92,21 +131,24 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
-     * Returns all entries corresponding to given keys.
+     * Returns the latest version of entries corresponding to the given keys.
      *
-     * @param keys Keys collection.
-     * @return Entries corresponding to given keys.
+     * <p>Never throws {@link CompactedException}.</p>
+     *
+     * @param keys Not empty keys.
      */
-    Collection<Entry> getAll(List<byte[]> keys);
+    List<Entry> getAll(List<byte[]> keys);
 
     /**
-     * Returns all entries corresponding to given keys and bounded by the given revision.
+     * Returns entries corresponding to the given keys and bounded by the given revision.
      *
-     * @param keys Keys collection.
+     * @param keys Not empty keys.
      * @param revUpperBound Upper bound of revision.
-     * @return Entries corresponding to given keys.
+     * @throws CompactedException If getting any of the individual entries would have thrown this exception as if
+     *      {@link #get(byte[], long)} was used.
+     * @see #get(byte[], long)
      */
-    Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /**
      * Inserts an entry with the given key and given value.
@@ -154,8 +196,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      */
     boolean invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure,
+            List<Operation> success,
+            List<Operation> failure,
             HybridTimestamp opTs,
             CommandId commandId
     );
@@ -290,6 +332,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Restores a state of the storage which was previously captured with a {@link #snapshot(Path)}.
      *
      * @param snapshotPath Path to the snapshot's directory.
+     * @throws MetaStorageException If there was an error while restoring from a snapshot.
      */
     void restoreSnapshot(Path snapshotPath);
 
@@ -302,19 +345,23 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Looks up a timestamp by a revision.
      *
+     * <p>Requested revision is expected to be less than or equal to the current storage revision.</p>
+     *
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
+     * @throws CompactedException If the requested revision has been compacted.
      */
-    // TODO: IGNITE-23307 Figure out what to do after compaction
     HybridTimestamp timestampByRevision(long revision);
 
     /**
      * Looks a revision lesser or equal to the timestamp.
      *
+     * <p>It is possible to get the revision timestamp using method {@link Entry#timestamp}.</p>
+     *
      * @param timestamp Timestamp by which to do a lookup.
-     * @return Revision lesser or equal to the timestamp or -1 if there is no such revision.
+     * @return Revision lesser or equal to the timestamp.
+     * @throws CompactedException If a revision could not be found by timestamp because it was already compacted.
      */
-    // TODO: IGNITE-23307 Figure out what to do after compaction
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**
@@ -377,4 +424,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see #saveCompactionRevision(long)
      */
     long getCompactionRevision();
+
+    /**
+     * Returns checksum corresponding to the revision.
+     *
+     * @param revision Revision.
+     * @throws CompactedException If the requested revision has been compacted.
+     */
+    long checksum(long revision);
 }

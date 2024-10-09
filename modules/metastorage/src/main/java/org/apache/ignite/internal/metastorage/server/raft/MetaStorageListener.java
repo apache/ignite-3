@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -121,7 +121,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
-                    Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
+                    List<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
                             ? storage.getAll(toByteArrayList(getAllCmd.keys()))
                             : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 

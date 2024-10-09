@@ -17,37 +17,30 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.Test;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", storageDir(), new NoOpFailureManager());
+        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
     }
 
-    @Override
-    boolean isPersistent() {
-        return true;
-    }
+    @Test
+    void checksumsAreRemovedForCompactedRevisions() {
+        assertDoesNotThrow(() -> storage.checksum(3));
 
-    @Override
-    void restartStorage(boolean clear) throws Exception {
-        storage.close();
+        storage.compact(3);
 
-        if (clear) {
-            IgniteUtils.deleteIfExists(storageDir());
-        }
-
-        storage = createStorage();
-
-        storage.start();
-    }
-
-    private Path storageDir() {
-        return workDir.resolve("storage");
+        assertThrows(CompactedException.class, () -> storage.checksum(1));
+        assertThrows(CompactedException.class, () -> storage.checksum(2));
+        assertThrows(CompactedException.class, () -> storage.checksum(3));
+        assertDoesNotThrow(() -> storage.checksum(4));
     }
 }
