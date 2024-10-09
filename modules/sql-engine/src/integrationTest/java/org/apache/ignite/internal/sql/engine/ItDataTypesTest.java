@@ -83,6 +83,15 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void test() {
+        sql("CREATE TABLE t(id INT PRIMARY KEY, int_col INT, decimal_col DECIMAL(3,1) )");
+
+        sql("INSERT INTO t VALUES (1, 2, 2.1)");
+
+        sql("SELECT int_col / decimal_col FROM t");
+    }
+
     @ParameterizedTest
     @CsvSource({
             "5, 1, 5, 1",
@@ -111,7 +120,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         BigDecimal a1 = IgniteTestUtils.randomBigDecimal(rnd, t1.getPrecision(), t1.getScale());
         BigDecimal a2 = IgniteTestUtils.randomBigDecimal(rnd, t2.getPrecision(), t2.getScale());
-        BigDecimal rs = a1.divide(a2, rt.getScale(), RoundingMode.HALF_EVEN);
+        BigDecimal rs = a1.divide(a2, rt.getScale(), RoundingMode.HALF_UP);
 
         String type1 = format("DECIMAL({}, {})", p1, s1);
         String type2 = format("DECIMAL({}, {})", p2, s2);
