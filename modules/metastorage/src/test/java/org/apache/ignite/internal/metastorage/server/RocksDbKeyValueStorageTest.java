@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.List;
 import java.util.UUID;
@@ -60,9 +59,8 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val = keyValue(1, 1);
 
         putToMs(key, val);
-        Long checksum1 = storage.checksum(1);
+        long checksum1 = storage.checksum(1);
 
-        assertThat(checksum1, is(notNullValue()));
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
                 bytes(1), // PUT
@@ -88,9 +86,8 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] val2 = keyValue(2, 2);
 
         putAllToMs(List.of(key1, key2), List.of(val1, val2));
-        Long checksum1 = storage.checksum(1);
+        long checksum1 = storage.checksum(1);
 
-        assertThat(checksum1, is(notNullValue()));
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
                 bytes(2), // PUT_ALL
@@ -183,8 +180,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId1 = commandIdGenerator.newId();
         invokeOnMs(condition, successfulBranch, failureBranch, commandId1);
 
-        Long checksum1 = storage.checksum(1);
-        assertThat(checksum1, is(notNullValue()));
+        long checksum1 = storage.checksum(1);
 
         byte[] idempotentCommandPutKey1 = idempotentCommandPutKey(commandId1);
         byte[] updateResult1 = KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
@@ -205,8 +201,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId2 = commandIdGenerator.newId();
         invokeOnMs(condition, successfulBranch, failureBranch, commandId2);
 
-        Long checksum2 = storage.checksum(2);
-        assertThat(checksum2, is(notNullValue()));
+        long checksum2 = storage.checksum(2);
 
         byte[] idempotentCommandPutKey2 = idempotentCommandPutKey(commandId2);
         byte[] updateResult2 = KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
@@ -242,8 +237,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId1 = commandIdGenerator.newId();
         invokeOnMs(iif, commandId1);
 
-        Long checksum1 = storage.checksum(1);
-        assertThat(checksum1, is(notNullValue()));
+        long checksum1 = storage.checksum(1);
 
         byte[] idempotentCommandPutKey1 = idempotentCommandPutKey(commandId1);
         byte[] updateResult1 = intToBytes(1);
@@ -264,8 +258,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         CommandId commandId2 = commandIdGenerator.newId();
         invokeOnMs(iif, commandId2);
 
-        Long checksum2 = storage.checksum(2);
-        assertThat(checksum2, is(notNullValue()));
+        long checksum2 = storage.checksum(2);
 
         byte[] idempotentCommandPutKey2 = idempotentCommandPutKey(commandId2);
         byte[] updateResult2 = intToBytes(2);
