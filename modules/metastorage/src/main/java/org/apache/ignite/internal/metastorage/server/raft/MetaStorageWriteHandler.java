@@ -352,9 +352,7 @@ public class MetaStorageWriteHandler {
         byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
         byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
-        Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
-
-        try (cursor) {
+        try (Cursor<Entry> cursor = storage.range(keyFrom, keyTo)) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
                     CommandId commandId = CommandId.fromString(
