@@ -229,9 +229,11 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public boolean onSnapshotLoad(Path path) {
+        // Startup snapshot should always be ignored.
+        // See "org.apache.ignite.internal.metastorage.impl.raft.StartupMetaStorageSnapshotReader.getPath"
         if (path.toString().isEmpty()) {
-            // Startup snapshot, should always be ignored.
-            // See "org.apache.ignite.internal.metastorage.impl.raft.StartupMetaStorageSnapshotReader.getPath"
+            // Restore internal state.
+            writeHandler.onSnapshotLoad();
             return true;
         }
 

@@ -230,7 +230,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         restartStorage();
 
-        assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(1, storage.getCompactionRevision());
     }
 
     @Test
