@@ -171,7 +171,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             + "  rest.port: {}\n"
             + "}";
 
-    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 50;
 
     /** Embedded nodes. */
     private static final List<IgniteServer> NODES = new ArrayList<>();
