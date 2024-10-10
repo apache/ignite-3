@@ -512,8 +512,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (err != null) {
                 handler.completeExceptionally(err);
             } else {
-                unpacker.retain();
-                handler.complete(new PayloadInputChannel(this, unpacker, null));
+                completeNotificationFuture(handler, unpacker);
             }
         } catch (Exception e) {
             log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
@@ -795,16 +794,30 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return cfg.getAddress().toString();
     }
 
-    private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker res) {
+    private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {
         // We jump to another thread - add reference count.
-        res.retain();
+        unpacker.retain();
 
         try {
-            if (!fut.complete(res)) {
-                res.close();
+            if (!fut.complete(unpacker)) {
+                unpacker.close();
             }
         } catch (Throwable t) {
-            res.close();
+            unpacker.close();
+            throw t;
+        }
+    }
+
+    private void completeNotificationFuture(CompletableFuture<PayloadInputChannel> fut, ClientMessageUnpacker unpacker) {
+        // We jump to another thread - add reference count.
+        unpacker.retain();
+
+        try {
+            if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                unpacker.close();
+            }
+        } catch (Throwable t) {
+            unpacker.close();
             throw t;
         }
     }
