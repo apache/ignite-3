@@ -122,7 +122,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf);
+        jmxExporter.start(metricsProvider, jmxExporterConf, , );
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
     }
@@ -132,7 +132,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
             throws ReflectionException, AttributeNotFoundException, MBeanException {
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(new HashMap<>(), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf);
+        jmxExporter.start(metricsProvider, jmxExporterConf, , );
 
         assertThrows(
                 InstanceNotFoundException.class,
@@ -151,7 +151,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf);
+        jmxExporter.start(metricsProvider, jmxExporterConf, , );
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
 
@@ -169,7 +169,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf);
+        jmxExporter.start(metricsProvider, jmxExporterConf, , );
 
         assertEquals(0, mbean().getAttribute(MTRC_NAME));
 
