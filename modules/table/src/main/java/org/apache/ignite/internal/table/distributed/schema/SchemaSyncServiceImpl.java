@@ -20,8 +20,11 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 
@@ -29,9 +32,14 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
  * A default implementation of {@link SchemaSyncService}.
  */
 public class SchemaSyncServiceImpl implements SchemaSyncService {
+    private static final IgniteLogger LOG = Loggers.forClass(SchemaSyncServiceImpl.class);
+
     private final ClusterTime clusterTime;
 
     private final LongSupplier delayDurationMs;
+
+    private final AtomicInteger noWait = new AtomicInteger();
+    private final AtomicInteger withWait = new AtomicInteger();
 
     /**
      * Constructor.
@@ -48,6 +56,13 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
         if (HybridTimestamp.MIN_VALUE.equals(clusterTime.currentSafeTime())) {
             return nullCompletedFuture();
         }
-        return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+        CompletableFuture<Void> future = clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+        if (!future.isDone()) {
+            withWait.incrementAndGet();
+            LOG.warn("Waiting on schema sync, no wait {}, with wait {}", noWait, withWait);
+        } else {
+            noWait.incrementAndGet();
+        }
+        return future;
     }
 }
