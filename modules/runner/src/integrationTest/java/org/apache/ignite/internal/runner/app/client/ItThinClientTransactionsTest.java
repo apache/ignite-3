@@ -284,6 +284,37 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void test() throws InterruptedException {
+        KeyValueView<Integer, String> kvView = kvView();
+
+        for (int i = 0; i < 100; i++) {
+            kvView.put(null, i, "v-" + i);
+        }
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("v-1", kvView.get(tx, 1));
+
+        Thread.sleep(300);
+
+        for (int i = 0; i < 100; i++) {
+            kvView.put(null, i, "NEW-" + i);
+        }
+
+        // Set to 2000 and the test works.
+        Thread.sleep(20_000);
+
+        for (int i = 0; i < 100; i++) {
+            assertEquals("NEW-" + i, kvView.get(null, i));
+        }
+
+        // This check fails because GC has collected the data.
+        // This works with 1 node (because TX manager locks LWM) but fails with 2 nodes (because second node does not lock LWM).
+        for (int i = 0; i < 100; i++) {
+            assertEquals("v-" + i, kvView.get(tx, i), "Failed for key: " + i);
+        }
+    }
+
+    @Test
     void testReadOnlyTxSeesOldDataAfterUpdate() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
