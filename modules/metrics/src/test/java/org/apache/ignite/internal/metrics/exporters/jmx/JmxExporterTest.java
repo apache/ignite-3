@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +27,7 @@ import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.UUID;
 import javax.management.AttributeNotFoundException;
 import javax.management.DynamicMBean;
 import javax.management.InstanceNotFoundException;
@@ -43,9 +44,24 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.DoubleAdderMetric;
+import org.apache.ignite.internal.metrics.DoubleGauge;
+import org.apache.ignite.internal.metrics.DoubleMetric;
+import org.apache.ignite.internal.metrics.HitRateMetric;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.IntMetric;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
-import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -122,7 +138,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, , );
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
     }
@@ -132,7 +148,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
             throws ReflectionException, AttributeNotFoundException, MBeanException {
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(new HashMap<>(), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, , );
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
 
         assertThrows(
                 InstanceNotFoundException.class,
@@ -151,7 +167,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, , );
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
 
@@ -169,7 +185,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, , );
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
 
         assertEquals(0, mbean().getAttribute(MTRC_NAME));
 

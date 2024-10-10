@@ -51,7 +51,6 @@ import org.apache.ignite.internal.network.ssl.KeystoreLoader;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Otlp(OpenTelemetry) metrics exporter.
