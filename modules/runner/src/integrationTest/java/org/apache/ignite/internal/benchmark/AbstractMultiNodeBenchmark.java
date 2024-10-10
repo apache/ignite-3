@@ -197,7 +197,8 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync
+                + "  raft.fsync = " + fsync() + ",\n"
+                + "  system.partitionsLogPath = \"" + logPath() + "\""
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -237,12 +238,20 @@ public class AbstractMultiNodeBenchmark {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
+    protected String logPath() {
+        return "";
+    }
+
+    protected boolean fsync() {
+        return fsync;
+    }
+
     protected int nodes() {
         return 3;
     }
 
     protected int partitionCount() {
-        return CatalogUtils.DEFAULT_PARTITION_COUNT;
+        return CatalogUtils.DEFAULT_PARTITION_COUNT; // TODO use CPU count
     }
 
     protected int replicaCount() {
