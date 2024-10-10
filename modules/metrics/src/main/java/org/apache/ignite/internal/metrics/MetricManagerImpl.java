@@ -86,13 +86,13 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+        assert this.metricConfiguration == null : "Metric manager must be configured only once, on the start of the node";
         assert this.clusterIdSupplier == null : "Metric manager must be configured only once, on the start of the node";
         assert this.nodeName == null : "Metric manager must be configured only once, on the start of the node";
-        assert this.metricConfiguration == null : "Metric manager must be configured only once, on the start of the node";
 
+        this.metricConfiguration = metricConfiguration;
         this.clusterIdSupplier = clusterIdSupplier;
         this.nodeName = nodeName;
-        this.metricConfiguration = metricConfiguration;
     }
 
     @Override

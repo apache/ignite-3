@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.metrics.exporters.validator.EndpointValidatorImpl;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by metrics-exporter-otlp.
  */
 @AutoService(ConfigurationModule.class)
 public class OtlpExporterConfigurationModule implements ConfigurationModule {

@@ -75,7 +75,7 @@ public interface MetricExporter<CfgT extends ExporterView> {
      * @param metricSet Named metric set.
      */
     default void addMetricSet(MetricSet metricSet) {
-        // No-op
+        // No-op.
     }
 
     /**
@@ -85,6 +85,6 @@ public interface MetricExporter<CfgT extends ExporterView> {
      * @param metricSetName Name of metric set to remove.
      */
     default void removeMetricSet(String metricSetName) {
-        // No-op
+        // No-op.
     }
 }
