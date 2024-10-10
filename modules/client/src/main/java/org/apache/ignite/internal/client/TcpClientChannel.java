@@ -443,7 +443,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            pendingReqs.remove(-1L).future().complete(unpacker.retain());
+            completeRequestFuture(pendingReqs.remove(-1L).future(), unpacker);
             return;
         }
 
@@ -474,16 +474,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            unpacker.retain();
-            try {
-                if (!pendingReq.future().complete(unpacker)) {
-                    unpacker.close();
-                }
-            } catch (Throwable t) {
-                unpacker.close();
-                throw t;
-            }
-
+            completeRequestFuture(pendingReq.future(), unpacker);
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
@@ -802,6 +793,20 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public String endpoint() {
         return cfg.getAddress().toString();
+    }
+
+    private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker res) {
+        // We jump to another thread - add reference count.
+        res.retain();
+
+        try {
+            if (!fut.complete(res)) {
+                res.close();
+            }
+        } catch (Throwable t) {
+            res.close();
+            throw t;
+        }
     }
 
     /**
