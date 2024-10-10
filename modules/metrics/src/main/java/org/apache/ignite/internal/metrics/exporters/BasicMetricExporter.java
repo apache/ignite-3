@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -31,14 +33,20 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
     /** Metrics provider. */
     private MetricProvider metricsProvider;
 
+    private Supplier<UUID> clusterIdSupplier;
+
+    private String nodeName;
+
     /** Exporter's configuration view. */
     private CfgT configuration;
 
     /** {@inheritDoc} */
     @Override
-    public void start(MetricProvider metricsProvider, CfgT configuration) {
+    public void start(MetricProvider metricsProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.metricsProvider = metricsProvider;
         this.configuration = configuration;
+        this.clusterIdSupplier = clusterIdSupplier;
+        this.nodeName = nodeName;
     }
 
     /** {@inheritDoc} */
@@ -63,5 +71,19 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
      */
     protected final IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
         return metricsProvider.metrics();
+    }
+
+    /**
+     * Returns current cluster ID.
+     */
+    protected final UUID clusterId() {
+        return clusterIdSupplier.get();
+    }
+
+    /**
+     * Returns the network alias of the node.
+     */
+    protected final String nodeName() {
+        return nodeName;
     }
 }

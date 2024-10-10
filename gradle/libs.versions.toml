@@ -83,6 +83,7 @@ tree-sitter = "0.23.0"
 tree-sitter-json = "0.21.0a"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
+otel = "1.42.1"
 
 #Tools
 pmdTool = "6.55.0"
@@ -267,3 +268,6 @@ tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sit
 tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
 tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }
 tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
+
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }
+opentelemetry-exporter-logging-otlp = { module = "io.opentelemetry:opentelemetry-exporter-logging-otlp", version.ref = "otel" }
