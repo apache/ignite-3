@@ -351,6 +351,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             CompletableFuture<String> threadNameFut = new CompletableFuture<>();
             execution.resultAsync().thenAccept(unused -> threadNameFut.complete(Thread.currentThread().getName()));
 
+            // Wait for the job to start on the server.
+            execution.idAsync().join();
+
+            // Complete job future to trigger server -> client notification.
             jobFut.complete("res");
             assertThat(threadNameFut.join(), startsWith("ForkJoinPool.commonPool-worker-"));
         }
