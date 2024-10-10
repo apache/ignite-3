@@ -785,7 +785,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {
-        // We jump to another thread - add reference count.
+        // Add reference count before jumping onto another thread (due to handleAsync() in send()).
         unpacker.retain();
 
         try {
