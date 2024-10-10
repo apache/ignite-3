@@ -474,7 +474,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            pendingReq.future().complete(unpacker.retain());
+            unpacker.retain();
+            try {
+                if (!pendingReq.future().complete(unpacker)) {
+                    unpacker.close();
+                }
+            } catch (Throwable t) {
+                unpacker.close();
+                throw t;
+            }
+
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
