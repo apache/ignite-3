@@ -223,7 +223,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         list.add(UUID.randomUUID());
 
-        // TODO Include ignored values to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        // TODO Include ignored values to test after https://issues.apache.org/jira/browse/IGNITE-17373
         //  list.add(Duration.of(11, ChronoUnit.HOURS));
         //  list.add(Period.of(5, 4, 3));
 

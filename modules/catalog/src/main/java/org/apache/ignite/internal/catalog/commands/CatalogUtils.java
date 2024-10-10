@@ -598,7 +598,7 @@ public class CatalogUtils {
     /**
      * Check if provided column type can be persisted, or fail otherwise.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     static void ensureTypeCanBeStored(String columnName, ColumnType columnType) {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
