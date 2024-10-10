@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -332,6 +333,26 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
+        }
+    }
+
+    @Test
+    void testRequestCompletesOnAsyncContinuationExecutorThread() {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            CompletableFuture<String> jobFut = new CompletableFuture<>();
+            FakeCompute.future = jobFut;
+
+            IgniteCompute igniteCompute = client.compute();
+            var jobTarget = getClusterNodes("s1");
+            JobExecution<String> execution = igniteCompute.submit(jobTarget, JobDescriptor.<Object, String>builder("job").build(), null);
+
+            CompletableFuture<String> threadNameFut = new CompletableFuture<>();
+            execution.resultAsync().thenAccept(unused -> threadNameFut.complete(Thread.currentThread().getName()));
+
+            jobFut.complete("res");
+            assertThat(threadNameFut.join(), startsWith("ForkJoinPool.commonPool-worker-"));
         }
     }
 
