@@ -387,7 +387,7 @@ public class IgniteSqlFunctions {
             throw numericOverflowError(precision, scale);
         }
 
-        return num.setScale(scale,IgniteMath.ROUNDING_MODE);
+        return num.setScale(scale, IgniteMath.ROUNDING_MODE);
     }
 
     private static BigDecimal convertToBigDecimal(Number value) {
