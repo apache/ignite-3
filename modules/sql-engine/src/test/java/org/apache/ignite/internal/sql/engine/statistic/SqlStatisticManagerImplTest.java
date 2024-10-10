@@ -189,6 +189,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @SuppressWarnings("PMD.UseNotifyAllInsteadOfNotify")
     @Test
     public void checkCleanupTableSizeCache() {
         int tableId = ThreadLocalRandom.current().nextInt();
@@ -228,6 +229,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals(DEFAULT_TABLE_SIZE, sqlStatisticManager.tableSize(tableId));
     }
 
+    @SuppressWarnings("PMD.UseNotifyAllInsteadOfNotify")
     @Test
     public void checkCacheForNewlyCreatedTable() {
         int tableId = ThreadLocalRandom.current().nextInt();
