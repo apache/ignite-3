@@ -207,6 +207,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             );
         }
 
+        getLeader = false;
+
         if (!getLeader) {
             return completedFuture(service);
         }

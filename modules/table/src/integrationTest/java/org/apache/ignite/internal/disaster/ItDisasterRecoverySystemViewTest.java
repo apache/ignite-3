@@ -26,8 +26,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -64,7 +71,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
     @Test
     void testGlobalPartitionStatesSystemView() {
-        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), 2);
+        int partitionsCount = 2;
+
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
+
+        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
         assertQuery(globalPartitionStatesSystemViewSql())
                 .returns(ZONE_NAME, TABLE_NAME, 0, AVAILABLE.name())
@@ -76,7 +87,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     void testLocalPartitionStatesSystemView() {
         assertEquals(2, initialNodes());
 
-        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), 2);
+        int partitionsCount = 2;
+
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
+
+        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
         List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
 
@@ -89,6 +104,31 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
                 .returns(nodeName1, ZONE_NAME, TABLE_NAME, 0, HEALTHY.name())
                 .returns(nodeName1, ZONE_NAME, TABLE_NAME, 1, HEALTHY.name())
                 .check();
+    }
+
+    /**
+     * waiting a leader for all partitions because later we expect that partitions will be in AVAILABLE state. Without it there won't be
+     * log updating (see {@link LocalPartitionStateEnumWithLogIndex#of}) and then in SYSTEM.*_PARTITION_STATES we will get UNAVAILABLE state
+     * instead of the desired one. That's why in {@link #testGlobalPartitionStatesSystemView()} and
+     * {@link #testLocalPartitionStatesSystemView()} we must manually trigger {@link RaftGroupService#refreshLeader()} that will lead
+     * partitions to the proper states.
+     *
+     * @param tableName A table whose partitions will do a leader refresh.
+     * @param partitionsCount Expected the table partitions count for iterating over them.
+     */
+    private static void waitLeaderOnAllPartitions(String tableName, int partitionsCount) {
+        IgniteImpl node = ((RestartProofIgnite) CLUSTER.node(0)).unwrap(IgniteImpl.class);
+
+        TableImpl table = ((PublicApiThreadingTable) node.tables().table(tableName)).unwrap(TableImpl.class);
+
+        int tableId = table.tableId();
+
+        IntStream.range(0, partitionsCount).forEach(partId -> assertThat(
+                node.replicaManager()
+                        .replica(new TablePartitionId(tableId, partId))
+                        .thenCompose(replica -> replica.raftClient().refreshLeader()),
+                willCompleteSuccessfully()
+        ));
     }
 
     private static String globalPartitionStatesSystemViewSql() {

@@ -129,7 +129,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     public void testTransferLeadership() {
         assertThat(nodes.get(0).raftGroupService, willCompleteSuccessfully());
 
-        Peer leader = nodes.get(0).raftGroupService.join().leader();
+        Peer leader = nodes.get(0).raftGroupService
+                .thenCompose(service -> service.refreshLeader().thenApply(v -> service.leader()))
+                .join();
 
         TestNode oldLeaderNode = nodes.stream()
                 .filter(node -> node.name().equals(leader.consistentId()))
