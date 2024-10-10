@@ -869,7 +869,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
                 // UUID literal doesn't exists.
                 ColumnType.UUID,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-15200
+                // TODO https://issues.apache.org/jira/browse/IGNITE-17373
                 ColumnType.DURATION,
                 ColumnType.PERIOD
         );

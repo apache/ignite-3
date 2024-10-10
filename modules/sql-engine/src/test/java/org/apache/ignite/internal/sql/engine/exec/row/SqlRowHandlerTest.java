@@ -336,7 +336,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     }
 
     private static Set<ColumnType> columnTypes() {
-        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-17373
         return EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION));
     }
 
