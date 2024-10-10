@@ -24,7 +24,10 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchExactKeyPredicate;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchRangeKeyPredicate;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToLong;
@@ -62,11 +65,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,7 +77,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -98,7 +98,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
@@ -160,9 +159,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
     );
-
-    /** Lexicographic order comparator. */
-    private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
     /** Batch size (number of keys) for storage compaction. The value is arbitrary. */
     private static final int COMPACT_BATCH_SIZE = 10;
@@ -865,7 +861,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            return range(keyFrom, keyTo, rev);
+            return doRange(keyFrom, keyTo, rev);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -876,86 +872,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            var readOpts = new ReadOptions();
-
-            var upperBound = keyTo == null ? null : new Slice(keyTo);
-
-            readOpts.setIterateUpperBound(upperBound);
-
-            RocksIterator iterator = index.newIterator(readOpts);
-
-            iterator.seek(keyFrom);
-
-            return new RocksIteratorAdapter<>(iterator) {
-                /** Cached entry used to filter "empty" values. */
-                @Nullable
-                private Entry next;
-
-                @Override
-                public boolean hasNext() {
-                    if (next != null) {
-                        return true;
-                    }
-
-                    while (next == null && super.hasNext()) {
-                        Entry nextCandidate = decodeEntry(it.key(), it.value());
-
-                        it.next();
-
-                        if (!nextCandidate.empty()) {
-                            next = nextCandidate;
-
-                            return true;
-                        }
-                    }
-
-                    return false;
-                }
-
-                @Override
-                public Entry next() {
-                    if (!hasNext()) {
-                        throw new NoSuchElementException();
-                    }
-
-                    Entry result = next;
-
-                    assert result != null;
-
-                    next = null;
-
-                    return result;
-                }
-
-                @Override
-                protected Entry decodeEntry(byte[] key, byte[] value) {
-                    long[] revisions = getAsLongs(value);
-
-                    long targetRevision = maxRevision(revisions, revUpperBound);
-
-                    if (targetRevision == -1) {
-                        return EntryImpl.empty(key);
-                    }
-
-                    // This is not a correct approach for using locks in terms of compaction correctness (we should block compaction for the
-                    // whole iteration duration). However, compaction is not fully implemented yet, so this lock is taken for consistency
-                    // sake. This part must be rewritten in the future.
-                    rwLock.readLock().lock();
-
-                    try {
-                        return doGetValue(key, targetRevision);
-                    } finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-
-                @Override
-                public void close() {
-                    super.close();
-
-                    RocksUtils.closeAll(readOpts, upperBound);
-                }
-            };
+            return doRange(keyFrom, keyTo, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -963,43 +880,29 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
-        assert keyFrom != null : "keyFrom couldn't be null.";
-        assert rev > 0 : "rev must be positive.";
+        assert rev > 0 : rev;
 
-        Predicate<byte[]> rangePredicate = keyTo == null
-                ? k -> CMP.compare(keyFrom, k) <= 0
-                : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
-
-        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, watchRangeKeyPredicate(keyFrom, keyTo)));
     }
 
     @Override
     public void watchExact(byte[] key, long rev, WatchListener listener) {
-        assert key != null : "key couldn't be null.";
-        assert rev > 0 : "rev must be positive.";
+        assert rev > 0 : rev;
 
-        Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
-
-        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(key)));
     }
 
     @Override
     public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
-        assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
-        assert rev > 0 : "rev must be positive.";
+        assert rev > 0 : rev;
+        assert !keys.isEmpty();
 
-        TreeSet<byte[]> keySet = new TreeSet<>(CMP);
-
-        keySet.addAll(keys);
-
-        Predicate<byte[]> inPredicate = keySet::contains;
-
-        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(keys)));
     }
 
     @Override
     public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
-        assert startRevision != 0 : "First meaningful revision is 1";
+        assert startRevision > 0 : startRevision;
 
         long currentRevision;
 
@@ -1138,7 +1041,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         assert revUpperBound >= 0 : revUpperBound;
 
         long[] keyRevisions = getRevisionsForOperation(key);
-        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
 
         if (maxRevisionIndex == NOT_FOUND) {
             CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
@@ -1189,7 +1092,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
 
         // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
-        if (firstRevIndex == -1 || lastRevIndex == -1) {
+        if (firstRevIndex == -1 || lastRevIndex == NOT_FOUND) {
             return Collections.emptyList();
         }
 
@@ -1233,26 +1136,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
-     * returned.
-     *
-     * @param revs          Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Maximum revision or {@code -1} if there is no such revision.
-     */
-    private static long maxRevision(long[] revs, long upperBoundRev) {
-        for (int i = revs.length - 1; i >= 0; i--) {
-            long rev = revs[i];
-
-            if (rev <= upperBoundRev) {
-                return rev;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
      * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
      * If there is no such revision then {@code -1} will be returned.
      *
@@ -1265,26 +1148,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             long rev = revs[i];
 
             if (rev >= lowerBoundRev) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
-     * If there is no such revision then {@code -1} will be returned.
-     *
-     * @param revs          Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Index of maximum revision or {@code -1} if there is no such revision.
-     */
-    private static int maxRevisionIndex(long[] revs, long upperBoundRev) {
-        for (int i = revs.length - 1; i >= 0; i--) {
-            long rev = revs[i];
-
-            if (rev <= upperBoundRev) {
                 return i;
             }
         }
@@ -1802,5 +1665,88 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     e
             );
         }
+    }
+
+    private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+        var readOpts = new ReadOptions();
+
+        Slice upperBound = keyTo == null ? null : new Slice(keyTo);
+
+        readOpts.setIterateUpperBound(upperBound);
+
+        RocksIterator iterator = index.newIterator(readOpts);
+
+        iterator.seek(keyFrom);
+
+        return new RocksIteratorAdapter<>(iterator) {
+            /** Cached entry used to filter "empty" values. */
+            private @Nullable Entry next;
+
+            @Override
+            public boolean hasNext() {
+                if (next != null) {
+                    return true;
+                }
+
+                while (next == null && super.hasNext()) {
+                    Entry nextCandidate = decodeEntry(it.key(), it.value());
+
+                    it.next();
+
+                    if (!nextCandidate.empty()) {
+                        next = nextCandidate;
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            @Override
+            public Entry next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                Entry result = next;
+
+                assert result != null;
+
+                next = null;
+
+                return result;
+            }
+
+            @Override
+            protected Entry decodeEntry(byte[] key, byte[] keyRevisionsBytes) {
+                long[] keyRevisions = getAsLongs(keyRevisionsBytes);
+
+                int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+                if (maxRevisionIndex == NOT_FOUND) {
+                    return EntryImpl.empty(key);
+                }
+
+                long revision = keyRevisions[maxRevisionIndex];
+
+                // According to the compaction algorithm, we will start it locally on a new compaction revision only when all cursors are
+                // completed strictly before it. Therefore, during normal operation, we should not get an error here.
+                Value value = getValueForOperation(key, revision);
+
+                return EntryImpl.toEntry(key, revision, value);
+            }
+
+            @Override
+            public void close() {
+                super.close();
+
+                RocksUtils.closeAll(readOpts, upperBound);
+            }
+        };
     }
 }

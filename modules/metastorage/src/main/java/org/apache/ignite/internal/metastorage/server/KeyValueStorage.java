@@ -112,7 +112,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * </ul>
      *
      * @param key Key.
-     * @param revUpperBound The upper bound of revision.
+     * @param revUpperBound Upper bound of revision (inclusive).
      * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
      *      {@link #setCompactionRevision compacted} one.
      */
@@ -121,11 +121,10 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns all entries corresponding to the given key and bounded by given revisions.
      * All these entries are ordered by revisions and have the same key.
-     * The lower bound and the upper bound are inclusive.
      *
-     * @param key The key.
-     * @param revLowerBound The lower bound of revision.
-     * @param revUpperBound The upper bound of revision.
+     * @param key Key.
+     * @param revLowerBound The lower bound of revision (inclusive).
+     * @param revUpperBound The upper bound of revision (inclusive).
      * @return Entries corresponding to the given key.
      */
     List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
@@ -143,7 +142,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Returns entries corresponding to the given keys and bounded by the given revision.
      *
      * @param keys Not empty keys.
-     * @param revUpperBound Upper bound of revision.
+     * @param revUpperBound Upper bound of revision (inclusive).
      * @throws CompactedException If getting any of the individual entries would have thrown this exception as if
      *      {@link #get(byte[], long)} was used.
      * @see #get(byte[], long)
@@ -215,21 +214,28 @@ public interface KeyValueStorage extends ManuallyCloseable {
     StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
 
     /**
-     * Returns cursor by entries which correspond to the given keys range.
+     * Returns cursor by latest entries which correspond to the given keys range.
+     *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     *
+     * <p>Never throws {@link CompactedException} as well as cursor methods.</p>
      *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
-     * @return Cursor by entries which correspond to the given keys range.
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      */
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
 
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
      *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     *
+     * <p>Cursor methods never throw {@link CompactedException}.</p>
+     *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
-     * @param revUpperBound Upper bound of revision.
-     * @return Cursor by entries which correspond to the given keys range.
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
+     * @throws CompactedException If the revision is less than or equal to the last {@link #setCompactionRevision compacted} one.
      */
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound);
 
@@ -237,7 +243,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.
      *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      * @param rev Start revision number.
      */
     void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener);
@@ -245,8 +251,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Registers a watch listener for the provided key.
      *
-     * @param key Meta Storage key.
-     * @param rev Starting Meta Storage revision.
+     * @param key Key.
+     * @param rev Start revision number.
      * @param listener Listener which will be notified for each update.
      */
     void watchExact(byte[] key, long rev, WatchListener listener);
@@ -254,8 +260,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Registers a watch listener for the provided keys.
      *
-     * @param keys Meta Storage keys.
-     * @param rev Starting Meta Storage revision.
+     * @param keys Not empty keys.
+     * @param rev Start revision number.
      * @param listener Listener which will be notified for each update.
      */
     void watchExact(Collection<byte[]> keys, long rev, WatchListener listener);
@@ -263,7 +269,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Starts all registered watches.
      *
-     * <p>Before calling this method, watches will not receive any updates.
+     * <p>Before calling this method, watches will not receive any updates.</p>
      *
      * @param startRevision Revision to start processing updates from.
      * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
