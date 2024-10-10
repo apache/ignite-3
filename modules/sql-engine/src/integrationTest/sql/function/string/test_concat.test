@@ -58,13 +58,13 @@ hello
 
 # varargs concat
 query T
-SELECT CONCAT('hello', 33, 22)
+SELECT CONCAT('hello', 33::varchar, 22::varchar)
 ----
 hello3322
 
 # CONCAT with null
 query T
-SELECT CONCAT('hello', 33, NULL, 22, NULL)
+SELECT CONCAT('hello', 33::varchar, NULL, 22::varchar, NULL)
 ----
 NULL
 

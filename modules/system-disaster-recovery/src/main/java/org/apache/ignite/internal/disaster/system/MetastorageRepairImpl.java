@@ -36,8 +36,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermRequestMessage;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -77,7 +77,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
         LOG.info("Starting MG repair [participatingNodes={}, replicationFactor={}].", participatingNodeNames, metastorageReplicationFactor);
 
         return waitTillValidatedNodesContain(participatingNodeNames)
-                .thenCompose(unused -> collectMetastorageIndexes(participatingNodeNames))
+                .thenCompose(unused -> startMetastorageRepair(participatingNodeNames))
                 .thenCompose(indexes -> {
                     LOG.info("Collected metastorage indexes [indexes={}].", indexes);
 
@@ -87,7 +87,8 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                     String bestNodeName = chooseNodeWithBestIndex(indexes, newMgNodes);
                     LOG.info("Chose best MG node [node={}].", bestNodeName);
 
-                    return cmgManager.changeMetastorageNodes(newMgNodes)
+                    long bestIndex = indexes.get(bestNodeName).index();
+                    return cmgManager.changeMetastorageNodes(newMgNodes, bestIndex + 1)
                             .thenCompose(unused -> appointLeader(bestNodeName, indexes.get(bestNodeName).term(), newMgNodes))
                             .thenRun(() -> LOG.info("Appointed MG leader forcefully [leader={}].", bestNodeName));
                 });
@@ -142,15 +143,15 @@ public class MetastorageRepairImpl implements MetastorageRepair {
         return difference(containee, container).isEmpty();
     }
 
-    private CompletableFuture<Map<String, IndexWithTerm>> collectMetastorageIndexes(Set<String> participatingNodeNames) {
-        MetastorageIndexTermRequestMessage request = messagesFactory.metastorageIndexTermRequestMessage().build();
+    private CompletableFuture<Map<String, IndexWithTerm>> startMetastorageRepair(Set<String> participatingNodeNames) {
+        StartMetastorageRepairRequest request = messagesFactory.startMetastorageRepairRequest().build();
 
-        Map<String, CompletableFuture<MetastorageIndexTermResponseMessage>> responses = new HashMap<>();
+        Map<String, CompletableFuture<StartMetastorageRepairResponse>> responses = new HashMap<>();
 
         for (String nodeName : participatingNodeNames) {
             responses.put(
                     nodeName,
-                    messagingService.invoke(nodeName, request, 10_000).thenApply(MetastorageIndexTermResponseMessage.class::cast)
+                    messagingService.invoke(nodeName, request, 10_000).thenApply(StartMetastorageRepairResponse.class::cast)
             );
         }
 
@@ -160,7 +161,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
         });
     }
 
-    private static IndexWithTerm indexWithTerm(MetastorageIndexTermResponseMessage message) {
+    private static IndexWithTerm indexWithTerm(StartMetastorageRepairResponse message) {
         return new IndexWithTerm(message.raftIndex(), message.raftTerm());
     }
 

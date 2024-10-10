@@ -147,6 +147,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
 
+    static final UUID LOCAL_NODE_ID = new UUID(0, 0);
+
     private static SchemaDescriptor schemaDescriptor;
     private static KvMarshaller<Integer, Integer> kvMarshaller;
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
@@ -375,7 +377,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
 
         await(fut);
 
@@ -464,7 +466,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
 
         await(fut);
 

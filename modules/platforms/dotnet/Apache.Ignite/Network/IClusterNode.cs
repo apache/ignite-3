@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Network
 {
+    using System;
     using System.Net;
 
     /// <summary>
@@ -27,7 +28,7 @@ namespace Apache.Ignite.Network
         /// <summary>
         /// Gets the local node id. Changes after node restart.
         /// </summary>
-        string Id { get; }
+        Guid Id { get; }
 
         /// <summary>
         /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.

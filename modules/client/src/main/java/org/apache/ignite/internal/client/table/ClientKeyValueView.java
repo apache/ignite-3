@@ -181,7 +181,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        Objects.requireNonNull(keys, "keys");
+        checkKeysForNulls(keys);
 
         if (keys.isEmpty()) {
             return emptyMapCompletedFuture();
@@ -329,7 +329,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
-        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPutAsync");
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPut");
         validateNullableValue(val, valSer.mapper().targetType());
 
         return sync(doGetNullableAndPut(tx, key, val));
@@ -407,6 +407,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
@@ -424,7 +426,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        Objects.requireNonNull(keys, "keys");
+        checkKeysForNulls(keys);
 
         if (keys.isEmpty()) {
             return emptyCollectionCompletedFuture();
@@ -470,7 +472,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key, "key");
 
-        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemoveAsync");
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemove");
 
         return sync(doGetNullableAndRemove(tx, key));
     }

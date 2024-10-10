@@ -85,8 +85,8 @@ namespace Apache.Ignite.Tests
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
-            PartitionAssignment = new[] { Node.Id };
+            Node = new ClusterNode(Guid.NewGuid(), nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
+            PartitionAssignment = new[] { nodeName };
             ClusterNodes = new[] { Node };
 
             if (!disableOpsTracking)
@@ -400,7 +400,7 @@ namespace Apache.Ignite.Tests
 
                             writer.Write(index); // Partition id.
                             writer.Write(4); // Prop count.
-                            writer.Write(nodeId); // Id.
+                            writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.
                             writer.Write("localhost"); // Host.
                             writer.Write(10900 + index); // Port.

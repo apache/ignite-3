@@ -44,7 +44,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.sources.RaftMetricSource;import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
@@ -66,8 +67,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType
-;import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -334,6 +335,7 @@ public class NodeImpl implements Node, RaftServerService {
         List<PeerId> newLearners = new ArrayList<>();
         List<PeerId> oldLearners = new ArrayList<>();
         Closure done;
+        boolean async;
 
         ConfigurationCtx(final NodeImpl node) {
             super();
@@ -361,6 +363,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.done = done;
             this.stage = Stage.STAGE_CATCHING_UP;
+            this.async = async;
             if (async) {
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, Status.OK());
             }
@@ -473,10 +476,12 @@ public class NodeImpl implements Node, RaftServerService {
                         }
                     }
 
-                    oldDoneClosure.run(status);
+                    if (!this.async) {
+                      oldDoneClosure.run(status);
+                    }
                 };
 
-                // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
+                // In case of changePeerAsync this invocation is used in order to trigger listener callbacks.
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
                 this.done = null;
             }
@@ -794,6 +799,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             final ConfigurationEntry prevConf = this.conf;
             this.conf = this.logManager.checkAndSetConfiguration(prevConf);
+            refreshLeadershipAbstaining();
 
             if (this.conf != prevConf) {
                 // Update target priority value
@@ -1123,6 +1129,49 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
         return true;
+    }
+
+    /**
+     * If there is an externally enforced config index (in the {@link #options}), then the node abstains from becoming a leader
+     * in configurations whose index precedes the externally enforced index.
+     *
+     * <p>The idea is that, if a Raft group was forcefully repaired (because it lost majority) using {@link #resetPeers( Configuration)},
+     * the old majority nodes might come back online. If this happens and we do nothing, they might elect a leader from the old majority
+     * that could hijack leadership and cause havoc in the repaired group.
+     *
+     * <p>To prevent this, on a starup or subsequent config changes, current voting set (aka peers) of the repaired group may be 'broken'
+     * to make it impossible for the current node to become a leader. This is enabled by setting a non-null value to
+     * {@link NodeOptions#getExternallyEnforcedConfigIndex ()}. When it's set, on each change of configuration (happening to this.conf),
+     * including the one at startup (in {@link #init( NodeOptions)}), we check whether the applied config precedes the externally enforced
+     * config (in which case this.conf.peers will be 'broken' to make sure current node does not become a leader) or not (in which case
+     * the applied config will be used as is).
+     */
+    private void refreshLeadershipAbstaining() {
+        Long externallyEnforcedConfigIndex = options.getExternallyEnforcedConfigIndex();
+        if (externallyEnforcedConfigIndex == null) {
+            return;
+        }
+        if (this.conf.getId().getIndex() >= externallyEnforcedConfigIndex) {
+            // Already applied the externally enforced config, no need to abstain anymore.
+            return;
+        }
+
+        LOG.info(
+                "Will abstain from becoming a leader until a configuration with target index gets applied "
+                        + "[nodeId={}, externallyEnforcedConfigIndex={}].",
+                this.nodeId, externallyEnforcedConfigIndex
+        );
+
+        Configuration newConf = pseudoConfigToAbstainFromBecomingLeader();
+        LOG.info("Node {} set config from {} to {} to abstain from becoming a leader.", getNodeId(), this.conf.getConf(), newConf);
+        this.conf.setConf(newConf);
+        this.conf.getOldConf().reset();
+    }
+
+    private Configuration pseudoConfigToAbstainFromBecomingLeader() {
+        List<PeerId> peersWithoutThisNode = List.of(new PeerId("not-me-" + this.serverId.getConsistentId()));
+        List<PeerId> learnersWithThisNode = List.of(this.serverId);
+        return new Configuration(peersWithoutThisNode, learnersWithThisNode);
     }
 
     private boolean initBallotBox() {
@@ -1584,15 +1633,16 @@ public class NodeImpl implements Node, RaftServerService {
 
     private void executeApplyingTasks(final List<LogEntryAndClosure> tasks) {
         if (!this.logManager.hasAvailableCapacityToAppendEntries(1)) {
-        	// It's overload, fail-fast
-        	final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
-        			.collect(Collectors.toList());
-        	Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
-        		for (final Closure done : dones) {
-        			done.run(new Status(RaftError.EBUSY, "Node %s log manager is busy.", this.getNodeId()));
-        		}
-        	});
-        	return;
+            // It's overload, fail-fast
+            final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
+                     .collect(Collectors.toList());
+            Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
+                for (final Closure done : dones) {
+                    done.run(new Status(RaftError.EBUSY, "Node %s log manager is busy.", this.getNodeId()));
+                }
+            });
+
+            return;
         }
 
         this.writeLock.lock();
@@ -3462,6 +3512,11 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public Status resetPeers(final Configuration newPeers) {
+        if (options.getExternallyEnforcedConfigIndex() != null) {
+            throw new IllegalStateException("Using both externallyEnforcedConfigIndex and resetPeers() is not supported "
+                    + "[externallyEnforcedConfigIndex=" + options.getExternallyEnforcedConfigIndex() + "]");
+        }
+
         Requires.requireNonNull(newPeers, "Null new peers");
         Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
         Requires.requireTrue(newPeers.isValid(), "Invalid new peers: %s", newPeers);

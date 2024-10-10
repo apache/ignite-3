@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -39,7 +40,7 @@ public class VaultStaleIds implements StaleIds {
 
     private final int maxIdsToRemember;
 
-    private Set<String> staleIds;
+    private Set<UUID> staleIds;
 
     public VaultStaleIds(VaultManager vaultManager) {
         this(vaultManager, DEFAULT_MAX_IDS_TO_REMEMBER);
@@ -51,7 +52,7 @@ public class VaultStaleIds implements StaleIds {
     }
 
     @Override
-    public synchronized boolean isIdStale(String nodeId) {
+    public synchronized boolean isIdStale(UUID nodeId) {
         loadFromVaultIfFirstOperation();
 
         return staleIds.contains(nodeId);
@@ -63,7 +64,7 @@ public class VaultStaleIds implements StaleIds {
         }
     }
 
-    private Set<String> loadStaleIdsFromVault() {
+    private Set<UUID> loadStaleIdsFromVault() {
         VaultEntry entry = vaultManager.get(STALE_IDS_KEY);
 
         if (entry == null) {
@@ -72,22 +73,24 @@ public class VaultStaleIds implements StaleIds {
 
         String[] idsArray = new String(entry.value(), UTF_8).split("\n");
 
-        Set<String> result = new LinkedHashSet<>();
+        Set<UUID> result = new LinkedHashSet<>();
 
-        Collections.addAll(result, idsArray);
+        for (String id : idsArray) {
+            result.add(UUID.fromString(id));
+        }
 
         return result;
     }
 
     @Override
-    public synchronized void markAsStale(String nodeId) {
+    public synchronized void markAsStale(UUID nodeId) {
         loadFromVaultIfFirstOperation();
 
         staleIds.add(nodeId);
 
         int idsToRemove = staleIds.size() - maxIdsToRemember;
 
-        Iterator<String> iterator = staleIds.iterator();
+        Iterator<UUID> iterator = staleIds.iterator();
         for (int i = 0; i < idsToRemove; i++) {
             iterator.next();
             iterator.remove();
@@ -97,7 +100,7 @@ public class VaultStaleIds implements StaleIds {
     }
 
     private void saveIdsToVault() {
-        String joinedIds = String.join("\n", staleIds);
+        String joinedIds = staleIds.stream().map(UUID::toString).collect(joining("\n"));
 
         vaultManager.put(STALE_IDS_KEY, joinedIds.getBytes(UTF_8));
     }

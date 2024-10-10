@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -45,8 +46,9 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 txManager,
                 new HybridTimestampTracker(),
                 txId,
-                "localId",
-                readTimestamp
+                new UUID(1, 2),
+                readTimestamp,
+                new CompletableFuture<>()
         );
 
         assertThat(tx.startTimestamp(), is(readTimestamp));

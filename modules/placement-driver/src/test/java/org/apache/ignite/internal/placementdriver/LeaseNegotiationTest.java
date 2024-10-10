@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -82,11 +83,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final TablePartitionId GROUP_ID = new TablePartitionId(0, 0);
 
     private static final String NODE_0_NAME = "node0";
-    private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID().toString(), NODE_0_NAME, mock(NetworkAddress.class));
+    private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID(), NODE_0_NAME, mock(NetworkAddress.class));
 
     private static final String NODE_1_NAME = "node1";
 
-    private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID().toString(), NODE_1_NAME, mock(NetworkAddress.class));
+    private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID(), NODE_1_NAME, mock(NetworkAddress.class));
 
     private LeaseUpdater leaseUpdater;
 
@@ -136,7 +137,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private LeaseUpdater createLeaseUpdater() {
         TopologyService pdTopologyService = mock(TopologyService.class);
-        when(pdTopologyService.getById(anyString())).thenAnswer(inv -> CLUSTER_NODE_0);
+        when(pdTopologyService.getById(any(UUID.class))).thenAnswer(inv -> CLUSTER_NODE_0);
 
         pdMessagingService = mock(MessagingService.class);
         when(pdMessagingService.invoke(anyString(), any(), anyLong())).thenAnswer(inv -> {
@@ -302,7 +303,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         }, 10_000));
     }
 
-    private void assertLeaseCorrect(String leaseholderId) {
+    private void assertLeaseCorrect(UUID leaseholderId) {
         Lease lease = getLeaseFromMs();
 
         assertTrue(lease.isAccepted());

@@ -69,20 +69,6 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("literalsWithExpectedResult")
-    void implicitCastOfLiteralsOnInsert(String literal, int zoneOffset, Object expectedResult) {
-        ZoneId zone = ZoneOffset.ofHours(zoneOffset);
-
-        assertQuery(format("INSERT INTO test VALUES ({})", literal))
-                .withTimeZoneId(zone)
-                .check();
-
-        assertQuery("SELECT * FROM test")
-                .returns(expectedResult)
-                .check();
-    }
-
-    @ParameterizedTest
-    @MethodSource("literalsWithExpectedResult")
     void explicitCastOfLiteralsOnInsert(String literal, int zoneOffset, Object expectedResult) {
         ZoneId zone = ZoneOffset.ofHours(zoneOffset);
 
@@ -142,21 +128,6 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
         expectedResults.forEach(checker::returns);
 
         checker.check();
-    }
-
-    @ParameterizedTest
-    @MethodSource("valuesWithExpectedResult")
-    void implicitCastOfDynParamsOnInsert(Object param, int zoneOffset, Object expectedResult) {
-        ZoneId zone = ZoneOffset.ofHours(zoneOffset);
-
-        assertQuery("INSERT INTO test VALUES (?)")
-                .withTimeZoneId(zone)
-                .withParam(param)
-                .check();
-
-        assertQuery("SELECT * FROM test")
-                .returns(expectedResult)
-                .check();
     }
 
     @ParameterizedTest
@@ -233,67 +204,6 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void implicitCastOfSourceTableOnInsert() {
-        sql("INSERT INTO src VALUES "
-                + "(1, '1970-01-01 12:00:00', timestamp '1970-01-01 13:00:00', date '1970-01-01', time '12:00:00'),"
-                + "(2, NULL, NULL, NULL, NULL)"
-        );
-
-        {
-            ZoneId zone = ZoneOffset.ofHours(4);
-
-            assertQuery("INSERT INTO test SELECT s FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT ts FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT d FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT t FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-        }
-
-        {
-            ZoneId zone = ZoneOffset.ofHours(8);
-
-            assertQuery("INSERT INTO test SELECT s FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT ts FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT d FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-            assertQuery("INSERT INTO test SELECT t FROM src")
-                    .withTimeZoneId(zone)
-                    .check();
-        }
-
-        assertQuery("SELECT * FROM test")
-                .returns(Instant.parse("1970-01-01T08:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(Instant.parse("1970-01-01T09:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(localDateAndProvidedTimeAtOffset(LocalTime.parse("12:00:00"), 4))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(Instant.parse("1970-01-01T04:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(Instant.parse("1970-01-01T05:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .returns(localDateAndProvidedTimeAtOffset(LocalTime.parse("12:00:00"), 8))
-                .returns(QueryChecker.NULL_AS_VARARG)
-                .check();
-    }
-
-    @Test
     void explicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
                 + "(1, '1970-01-01 12:00:00', timestamp '1970-01-01 13:00:00', date '1970-01-01', time '12:00:00'),"
@@ -320,16 +230,16 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
         {
             ZoneId zone = ZoneOffset.ofHours(8);
 
-            assertQuery("INSERT INTO test SELECT s FROM src")
+            assertQuery("INSERT INTO test SELECT CAST(s as TIMESTAMP WITH LOCAL TIME ZONE) FROM src")
                     .withTimeZoneId(zone)
                     .check();
-            assertQuery("INSERT INTO test SELECT ts FROM src")
+            assertQuery("INSERT INTO test SELECT CAST(ts as TIMESTAMP WITH LOCAL TIME ZONE) FROM src")
                     .withTimeZoneId(zone)
                     .check();
-            assertQuery("INSERT INTO test SELECT d FROM src")
+            assertQuery("INSERT INTO test SELECT CAST(d as TIMESTAMP WITH LOCAL TIME ZONE) FROM src")
                     .withTimeZoneId(zone)
                     .check();
-            assertQuery("INSERT INTO test SELECT t FROM src")
+            assertQuery("INSERT INTO test SELECT CAST(t as TIMESTAMP WITH LOCAL TIME ZONE) FROM src")
                     .withTimeZoneId(zone)
                     .check();
         }

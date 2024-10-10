@@ -342,8 +342,11 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testNullIf() {
         assertExpression("NULLIF(1, 2)").returns(1).check();
         assertExpression("NULLIF(1, 1)").returns(null).check();
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "Character b is neither a decimal digit number, "
-                        + "decimal point, nor \"e\" notation exponential mark", () -> sql("SELECT NULLIF(12.2, 'b')"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Cannot apply '=' to arguments of type '<DECIMAL(3, 1)> = <CHAR(1)>'",
+                () -> sql("SELECT NULLIF(12.2, 'b')")
+        );
     }
 
     @Test

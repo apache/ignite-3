@@ -25,6 +25,7 @@ import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MIL
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -73,6 +74,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -89,6 +91,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -3097,10 +3100,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newPeer)),
                 leader.getCurrentTerm(), done);
-        assertEquals(done.await(), Status.OK());
+        assertEquals(Status.OK(), done.await());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
                 .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong());
+
+        // Verify that initial close state wasn't reinitialized.
+        assertEquals(Status.OK(), done.await());
     }
 
     @Test
@@ -3879,6 +3885,135 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(appendEntriesResponse.get());
     }
 
+    @Test
+    public void exLeaderDoesntBecomeLeaderIfExternallyEnforcedConfigDoesNotContainIt() throws Exception {
+        final long configFromResetIndex = 2L;
+
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
+        TestPeer originalLeaderPeer = peers.get(0);
+        TestPeer forcedLeaderPeer = peers.get(1);
+
+        cluster = new TestCluster(
+                "unitest",
+                dataPath,
+                List.of(originalLeaderPeer),
+                new LinkedHashSet<>(Set.of(forcedLeaderPeer)),
+                3_000,
+                testInfo
+        );
+
+        DefaultLogStorageFactory persistentLogStorageFactory = startPersistentLogStorageFactory();
+
+        try {
+            cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+
+            for (TestPeer peer : peers) {
+                assertTrue(cluster.start(peer));
+            }
+
+            waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
+
+            // This makes majority go.
+            cluster.stop(originalLeaderPeer.getPeerId());
+
+            cluster.getNode(forcedLeaderPeer.getPeerId()).resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+            assertThat(cluster.waitAndGetLeader().getLeaderId(), is(forcedLeaderPeer.getPeerId()));
+
+            assertThat(lastLogIndexAt(forcedLeaderPeer), is(configFromResetIndex));
+
+            Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
+            cluster.setNodeOptionsCustomizer(installExternalIndex);
+
+            assertTrue(cluster.start(originalLeaderPeer));
+
+            assertFalse(
+                    waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(5)),
+                    "Ex-leader has become a leader again"
+            );
+
+            assertTrue(cluster.getNode(forcedLeaderPeer.getPeerId()).isLeader(), "Forced leader must remain a leader");
+        } finally {
+            persistentLogStorageFactory.stopAsync();
+        }
+    }
+
+    private DefaultLogStorageFactory startPersistentLogStorageFactory() {
+        DefaultLogStorageFactory persistentLogStorageFactory = new DefaultLogStorageFactory(Path.of(dataPath).resolve("logs"));
+
+        assertThat(persistentLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        return persistentLogStorageFactory;
+    }
+
+    private void waitTillFirstConfigLogEntryIsReplicated(TestPeer forcedLeaderPeer) {
+        final long firstConfigLogEntryIndex = 1L;
+        assertTrue(waitForCondition(() -> lastLogIndexAt(forcedLeaderPeer) == firstConfigLogEntryIndex, TimeUnit.SECONDS.toMillis(10)));
+    }
+
+    private long lastLogIndexAt(TestPeer forcedLeaderPeer) {
+        return cluster.getNode(forcedLeaderPeer.getPeerId()).lastLogIndex();
+    }
+
+    @Test
+    public void votingMemberReturningAfterResetAndConfigChangeCanBecomeLeader() throws Exception {
+        final long configFromResetIndex = 2L;
+
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
+        TestPeer originalLeaderPeer = peers.get(0);
+        TestPeer forcedLeaderPeer = peers.get(1);
+
+        cluster = new TestCluster(
+                "unitest",
+                dataPath,
+                List.of(originalLeaderPeer),
+                new LinkedHashSet<>(Set.of(forcedLeaderPeer)),
+                3_000,
+                testInfo
+        );
+
+        DefaultLogStorageFactory persistentLogStorageFactory = startPersistentLogStorageFactory();
+
+        try {
+            cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+
+            for (TestPeer peer : peers) {
+                assertTrue(cluster.start(peer));
+            }
+
+            waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
+
+            // This makes majority go.
+            cluster.stop(originalLeaderPeer.getPeerId());
+
+            Node forcedLeaderNode = cluster.getNode(forcedLeaderPeer.getPeerId());
+            forcedLeaderNode.resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+            Node node = cluster.waitAndGetLeader();
+            assertThat(node.getLeaderId(), is(forcedLeaderPeer.getPeerId()));
+
+            Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
+            cluster.setNodeOptionsCustomizer(installExternalIndex);
+
+            assertTrue(cluster.start(originalLeaderPeer));
+
+            CompletableFuture<Void> configChanged = new CompletableFuture<>();
+            forcedLeaderNode.changePeersAndLearners(
+                    new Configuration(Set.of(forcedLeaderPeer.getPeerId(), originalLeaderPeer.getPeerId())),
+                    node.getCurrentTerm(),
+                    completeFutureClosure(configChanged)
+            );
+            assertThat(configChanged, willCompleteSuccessfully());
+
+            forcedLeaderNode.transferLeadershipTo(originalLeaderPeer.getPeerId());
+
+            assertTrue(
+                    waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)),
+                    "Original leader was not able to become a leader after reset"
+            );
+        } finally {
+            persistentLogStorageFactory.stopAsync();
+        }
+    }
+
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
@@ -3889,6 +4024,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         options.setLogUri("test");
 
         return options;
+    }
+
+    private static Closure completeFutureClosure(CompletableFuture<Void> configChanged) {
+        return status -> {
+            if (status.isOk()) {
+                configChanged.complete(null);
+            } else {
+                configChanged.completeExceptionally(new RuntimeException("Non-successful status " + status));
+            }
+        };
     }
 
     /**

@@ -50,9 +50,11 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -66,6 +68,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -156,6 +159,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private static final ThreadLocal<ByteBuffer> TX_STATE_BUFFER =
             withInitial(() -> allocate(DATA_ID_WITH_TX_STATE_SIZE).order(KEY_BYTE_ORDER));
 
+    private static final int UUID_LENGTH_IN_BYTES = 2 * Long.BYTES;
+
     /** Table storage instance. */
     private final RocksDbTableStorage tableStorage;
 
@@ -204,7 +209,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private volatile long leaseStartTime;
 
     /** On-heap-cached lease node id. */
-    private volatile String primaryReplicaNodeId;
+    private volatile UUID primaryReplicaNodeId;
 
     /** On-heap-cached lease node name. */
     private volatile String primaryReplicaNodeName;
@@ -259,18 +264,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             } else {
                 leaseStartTime = bytesToLong(leaseBytes);
 
-                int primaryReplicaNodeIdLength = bytesToInt(leaseBytes, Long.BYTES);
-                primaryReplicaNodeId = new String(
-                        leaseBytes,
-                        Long.BYTES + Integer.BYTES,
-                        primaryReplicaNodeIdLength,
-                        StandardCharsets.UTF_8
-                );
+                primaryReplicaNodeId = bytesToUuid(leaseBytes, Long.BYTES);
 
-                int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength);
+                int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + UUID_LENGTH_IN_BYTES);
                 primaryReplicaNodeName = new String(
                         leaseBytes,
-                        Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength + Integer.BYTES,
+                        Long.BYTES + UUID_LENGTH_IN_BYTES + Integer.BYTES,
                         primaryReplicaNodeNameLength,
                         StandardCharsets.UTF_8
                 );
@@ -280,7 +279,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             estimatedSize = estimatedSizeBytes == null ? 0 : bytesToLong(estimatedSizeBytes);
         } catch (RocksDBException e) {
-            throw new StorageException(e);
+            throw new IgniteRocksDbException(e);
         }
     }
 
@@ -342,7 +341,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         return res;
                     } catch (RocksDBException e) {
-                        throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
+                        throw new IgniteRocksDbException("Unable to apply a write batch to RocksDB instance.", e);
                     } finally {
                         locker.unlockAll();
                     }
@@ -393,7 +392,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException(e);
+                throw new IgniteRocksDbException(e);
             }
         });
     }
@@ -444,7 +443,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException(e);
+                throw new IgniteRocksDbException(e);
             }
         });
     }
@@ -522,7 +521,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to update a row in storage: " + createStorageInfo(), e);
+                throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
             }
         });
     }
@@ -620,7 +619,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return row;
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to roll back insert/update", e);
+                throw new IgniteRocksDbException("Failed to roll back insert/update", e);
             }
         });
     }
@@ -673,7 +672,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to commit row into storage", e);
+                throw new IgniteRocksDbException("Failed to commit row into storage", e);
             }
         });
     }
@@ -711,7 +710,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to update a row in storage: " + createStorageInfo(), e);
+                throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
             }
         });
     }
@@ -989,7 +988,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return busy(() -> {
                         assert rowIsLocked(rowId) : "rowId=" + rowId + ", " + createStorageInfo();
 
-                        return super.hasNext();
+                        try {
+                            return super.hasNext();
+                        } catch (IgniteInternalException e) {
+                            if (e.getCause() instanceof RocksDBException) {
+                                throw new IgniteRocksDbException("Failed to read entry", (RocksDBException) e.getCause());
+                            } else {
+                                throw e;
+                            }
+                        }
                     });
                 }
 
@@ -1053,7 +1060,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 it.seek(keyBuf);
 
                 if (!it.isValid()) {
-                    RocksUtils.checkIterator(it);
+                    it.status();
 
                     return null;
                 }
@@ -1063,6 +1070,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 it.key(keyBuf);
 
                 return getRowId(keyBuf);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding closest Row ID", e);
             }
         });
     }
@@ -1100,7 +1109,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     ) {
         busy(() -> {
@@ -1114,8 +1123,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 outputStream.write(longToBytes(leaseStartTime));
 
-                byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
-                outputStream.write(intToBytes(primaryReplicaNodeIdBytes.length));
+                byte[] primaryReplicaNodeIdBytes = uuidToBytes(primaryReplicaNodeId);
                 outputStream.write(primaryReplicaNodeIdBytes);
 
                 byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
@@ -1127,8 +1135,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 this.leaseStartTime = leaseStartTime;
                 this.primaryReplicaNodeId = primaryReplicaNodeId;
                 this.primaryReplicaNodeName = primaryReplicaNodeName;
-            } catch (RocksDBException | IOException e) {
+            } catch (IOException e) {
                 throw new StorageException(e);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException(e);
             }
 
             return null;
@@ -1141,7 +1151,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable String primaryReplicaNodeId() {
+    public @Nullable UUID primaryReplicaNodeId() {
         return busy(() -> primaryReplicaNodeId);
     }
 
@@ -1184,7 +1194,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         try {
             return gc.vacuum(batch, entry);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
+            throw new IgniteRocksDbException("Failed to collect garbage: " + createStorageInfo(), e);
         }
     }
 
@@ -1275,7 +1285,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             try {
                 it.status();
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to read data from storage", e);
+                throw new IgniteRocksDbException("Failed to read data from storage", e);
             }
         }
 
@@ -1334,7 +1344,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             return rowBytes == null ? null : deserializeRow(rowBytes);
         } catch (RocksDBException e) {
-            throw new StorageException(e);
+            throw new IgniteRocksDbException(e);
         }
     }
 

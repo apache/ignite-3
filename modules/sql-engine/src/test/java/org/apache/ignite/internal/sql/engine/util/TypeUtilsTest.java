@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -331,10 +332,15 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     public Stream<DynamicTest> testTypesFromDifferentFamiliesAreNotCompatible() {
         RelDataType type1 = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR);
         RelDataType type2 = TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER);
+        RelDataType nullType = TYPE_FACTORY.createSqlType(SqlTypeName.NULL);
 
         return Stream.of(
                 expectIncompatible(type2, type1),
-                expectIncompatible(type1, type2)
+                expectIncompatible(type1, type2),
+
+                expectIncompatible(nullType, type1, type2),
+                expectIncompatible(type1, nullType, type2),
+                expectIncompatible(type1, type2, nullType)
         );
     }
 
@@ -351,6 +357,14 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
             boolean compatible = TypeUtils.typeFamiliesAreCompatible(TYPE_FACTORY, target, from);
 
             assertFalse(compatible, format("{} {} should not be compatible", from, target));
+        });
+    }
+
+    private static DynamicTest expectIncompatible(RelDataType... types) {
+        return DynamicTest.dynamicTest("Incompatible types: " + Arrays.toString(types), () -> {
+            boolean compatible = TypeUtils.typeFamiliesAreCompatible(TYPE_FACTORY, types);
+
+            assertFalse(compatible, format("Types {} should not be compatible", Arrays.toString(types)));
         });
     }
 

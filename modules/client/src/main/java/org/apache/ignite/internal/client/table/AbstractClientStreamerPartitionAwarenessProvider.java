@@ -50,6 +50,10 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     public CompletableFuture<Void> refreshAsync() {
         var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
 
+        if (partitions < 0) {
+            partitions = tbl.tryGetPartitionCount();
+        }
+
         if (partitions > 0) {
             // Partition count can't change.
             return schemaFut;

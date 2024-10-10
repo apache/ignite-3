@@ -35,16 +35,20 @@ public class TaskDescriptor<T, R> {
 
     private final Marshaller<R, byte[]> reduceJobResultMarshaller;
 
+    private final Class<R> reduceJobResultClass;
+
     private TaskDescriptor(
             String taskClassName,
             List<DeploymentUnit> units,
             Marshaller<T, byte[]> splitJobArgumentMarshaller,
-            Marshaller<R, byte[]> reduceJobResultMarshaller
+            Marshaller<R, byte[]> reduceJobResultMarshaller,
+            Class<R> reduceJobResultClass
     ) {
         this.taskClassName = taskClassName;
         this.units = units;
         this.splitJobArgumentMarshaller = splitJobArgumentMarshaller;
         this.reduceJobResultMarshaller = reduceJobResultMarshaller;
+        this.reduceJobResultClass = reduceJobResultClass;
     }
 
     /**
@@ -84,6 +88,15 @@ public class TaskDescriptor<T, R> {
     }
 
     /**
+     * Reduce job result class.
+     *
+     * @return Reduce job result class.
+     */
+    public Class<R> reduceJobResultClass() {
+        return reduceJobResultClass;
+    }
+
+    /**
      * Create a new builder.
      *
      * @return Task descriptor builder.
@@ -113,6 +126,7 @@ public class TaskDescriptor<T, R> {
         private List<DeploymentUnit> units;
         private Marshaller<T, byte[]> splitJobArgumentMarshaller;
         private Marshaller<R, byte[]> reduceJobResultMarshaller;
+        private Class<R> reduceJobResultClass;
 
         private Builder(String taskClassName) {
             Objects.requireNonNull(taskClassName);
@@ -159,8 +173,20 @@ public class TaskDescriptor<T, R> {
          * @param reduceJobResultMarshaller Marshaller for reduce job result.
          * @return This builder.
          */
-        public Builder<T, R> reduceJobArgumentMarshaller(Marshaller<R, byte[]> reduceJobResultMarshaller) {
+        public Builder<T, R> reduceJobResultMarshaller(Marshaller<R, byte[]> reduceJobResultMarshaller) {
             this.reduceJobResultMarshaller = reduceJobResultMarshaller;
+            return this;
+        }
+
+        /**
+         * Sets the reduce job result class.
+         *
+         * @param reduceJobResultClass Reduce job result class.
+         *
+         * @return This builder.
+         */
+        public Builder<T, R> reduceJobResultClass(Class<R> reduceJobResultClass) {
+            this.reduceJobResultClass = reduceJobResultClass;
             return this;
         }
 
@@ -174,7 +200,8 @@ public class TaskDescriptor<T, R> {
                     taskClassName,
                     units == null ? List.of() : units,
                     splitJobArgumentMarshaller,
-                    reduceJobResultMarshaller
+                    reduceJobResultMarshaller,
+                    reduceJobResultClass
             );
         }
 

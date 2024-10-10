@@ -383,7 +383,7 @@ namespace Apache.Ignite.Internal
             }
 
             var idleTimeoutMs = reader.ReadInt64();
-            var clusterNodeId = reader.ReadString();
+            var clusterNodeId = reader.ReadGuid();
             var clusterNodeName = reader.ReadString();
 
             var clusterIdsCount = reader.ReadInt32();

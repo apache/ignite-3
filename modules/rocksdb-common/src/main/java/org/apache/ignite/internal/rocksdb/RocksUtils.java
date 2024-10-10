@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rocksdb;
 
 import java.util.Arrays;
 import java.util.Collection;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.RocksDBException;
@@ -41,23 +40,7 @@ public class RocksUtils {
             consumer.accept(iterator.key(), iterator.value());
         }
 
-        checkIterator(iterator);
-    }
-
-    /**
-     * Checks the status of the iterator and throws an exception if it is not correct.
-     *
-     * <p>This operation is guaranteed to throw if an internal error has occurred during the iteration.
-     *
-     * @param it RocksDB iterator.
-     * @throws IgniteInternalException if the iterator has an incorrect status.
-     */
-    public static void checkIterator(RocksIterator it) {
-        try {
-            it.status();
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
+        iterator.status();
     }
 
     /**

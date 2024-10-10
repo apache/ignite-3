@@ -25,10 +25,14 @@ import org.apache.ignite.lang.IgniteException;
 public class UnmarshallingException extends IgniteException {
     private static final long serialVersionUID = -8131613381875542450L;
 
-
     /** Constructor. */
     public UnmarshallingException(String msg) {
         super(Marshalling.UNMARSHALLING_ERR, msg);
+    }
+
+    /** Constructor. */
+    public UnmarshallingException(String msg, Throwable cause) {
+        super(Marshalling.UNMARSHALLING_ERR, msg, cause);
     }
 
     /**

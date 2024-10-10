@@ -29,13 +29,13 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class ReplaceCandidate {
     /** Partition generation saved in map, too old value means page may be safely cleared. */
-    private int gen;
+    private final int gen;
 
     @IgniteToStringInclude
-    private long relPtr;
+    private final long relPtr;
 
     @IgniteToStringInclude
-    private FullPageId fullId;
+    private final FullPageId fullId;
 
     /**
      * Constructor.

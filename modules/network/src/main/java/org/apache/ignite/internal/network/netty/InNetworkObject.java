@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
@@ -63,7 +64,7 @@ public class InNetworkObject {
     /**
      * Returns node ID of the sender that does not survive node restart (aka launch ID).
      */
-    public String launchId() {
+    public UUID launchId() {
         return sender.id();
     }
 

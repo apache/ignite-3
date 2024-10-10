@@ -30,7 +30,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -46,7 +45,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -59,7 +57,6 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -74,7 +71,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * corresponding job class to the jobs source set. The integration tests depend on this source set so the job class will be visible and it
  * will be automatically compiled and packed into the ignite-integration-test-jobs-1.0-SNAPSHOT.jar.
  */
-@SuppressWarnings("resource")
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 
@@ -469,26 +465,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(result, is(sumOfNodeNamesLengths));
     }
 
-    @Test
-    void pojoJobArgumentSerialization() {
-        Ignite entryNode = node(0);
-        String address = "127.0.0.1:" + unwrapIgniteImpl(entryNode).clientAddress().port();
-        try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
-            var argumentPojo = new Pojo("Hey");
-
-            String resultString = client.compute().execute(
-                    JobTarget.node(clusterNode(node(1))),
-                    JobDescriptor.builder(pojoJobClass())
-                            .argumentMarshaller(ByteArrayMarshaller.create())
-                            .build(),
-                    argumentPojo
-            );
-
-            assertThat(resultString, equalTo(argumentPojo.getName()));
-        }
-
-    }
-
     static Ignite node(int i) {
         return CLUSTER.node(i);
     }
@@ -501,17 +477,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         return ConcatJob.class.getName();
     }
 
-    static Class<ConcatJob> concatJobClass() {
+    private static Class<ConcatJob> concatJobClass() {
         return ConcatJob.class;
-    }
-
-    static String pojoJobClassName() {
-        return PojoJob.class.getName();
-    }
-
-
-    static Class<PojoJob> pojoJobClass() {
-        return PojoJob.class;
     }
 
     private static String getNodeNameJobClassName() {

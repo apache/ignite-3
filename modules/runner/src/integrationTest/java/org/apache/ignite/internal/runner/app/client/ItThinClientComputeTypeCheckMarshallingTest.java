@@ -18,28 +18,24 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
@@ -48,7 +44,6 @@ import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -67,7 +62,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 "Input"
         );
 
-        await().untilAsserted(() -> assertStatusFailed(result));
+        await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
         assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
@@ -81,10 +76,8 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 "Input"
         );
 
-        await().untilAsserted(() -> assertStatusCompleted(result));
-        assertThrows(UnmarshallingException.class, () -> {
-            String str = getSafe(result.resultAsync());
-        });
+        await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(result.resultAsync(), willThrow(UnmarshallingException.class));
     }
 
     @Test
@@ -100,14 +93,14 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 1
         );
 
-        await().untilAsserted(() -> assertStatusFailed(result));
+        await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
         assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
     @Test
     void resultMarshallerDoesNotMatch() {
-        // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the result marshaller.
+        // When submit job with custom marshaller that is defined in job but the client JobDescriptor
+        // declares the result marshaller which is not compatible with the marshaller in the job.
         JobExecution<Integer> result = client().compute().submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual result.
@@ -117,9 +110,11 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 "Input"
         );
 
-        await().untilAsserted(() -> assertStatusCompleted(result));
+        await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+        // The job has completed successfully, but result was not unmarshaled
+        assertThat(result.resultAsync(), willBe(instanceOf(byte[].class)));
         assertThrows(ClassCastException.class, () -> {
-            Integer i = getSafe(result.resultAsync());
+            Integer i = result.resultAsync().join();
         });
     }
 
@@ -166,44 +161,5 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         var ex = assertThrows(CompletionException.class, () -> result.resultAsync().join());
         assertThat(ex.getCause(), instanceOf(ComputeException.class));
         assertThat(((ComputeException) ex.getCause()).code(), equalTo(errCode));
-    }
-
-    private static void assertStatusFailed(JobExecution<?> result) {
-        var state = getSafe(result.stateAsync());
-        assertThat(state, is(notNullValue()));
-        assertThat(state.status(), equalTo(JobStatus.FAILED));
-    }
-
-    private static void assertStatusCompleted(JobExecution<?> result) {
-        var state = getSafe(result.stateAsync());
-        assertThat(state, is(notNullValue()));
-        assertThat(state.status(), equalTo(JobStatus.COMPLETED));
-    }
-
-    private static <T> T getSafe(@Nullable CompletableFuture<T> fut) {
-        assertThat(fut, is(notNullValue()));
-
-        try {
-            int waitSec = 5;
-            return fut.get(waitSec, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            var cause = e.getCause();
-            if (cause instanceof UnmarshallingException) {
-                throw (UnmarshallingException) cause;
-            }
-            throw new RuntimeException(e);
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
     }
 }

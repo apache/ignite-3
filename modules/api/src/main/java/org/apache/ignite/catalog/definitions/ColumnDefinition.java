@@ -100,4 +100,23 @@ public class ColumnDefinition {
     public @Nullable String definition() {
         return definition;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnDefinition that = (ColumnDefinition) o;
+        return Objects.equals(name, that.name)
+                && Objects.equals(type, that.type)
+                && Objects.equals(definition, that.definition);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, type, definition);
+    }
 }

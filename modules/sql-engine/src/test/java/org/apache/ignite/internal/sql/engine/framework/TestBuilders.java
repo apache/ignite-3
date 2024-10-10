@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
@@ -691,7 +692,7 @@ public class TestBuilders {
                     .map(name -> {
                         List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
                         NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                        LogicalNode logicalNode = new LogicalNode(name, name, addr);
+                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
 
                         if (systemViewForNode.isEmpty()) {
                             return logicalNode;

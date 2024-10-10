@@ -159,7 +159,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, LogicalNode> mapById = snapshot.nodes().stream()
+        Map<UUID, LogicalNode> mapById = snapshot.nodes().stream()
                 .collect(toMap(LogicalNode::id, identity()));
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.

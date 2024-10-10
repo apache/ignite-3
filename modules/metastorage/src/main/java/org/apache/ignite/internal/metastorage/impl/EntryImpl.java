@@ -20,57 +20,30 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.util.Arrays;
+import java.util.Objects;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.server.Value;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Represents a storage unit as entry with key, value and revision.
- *
- * <p>Where:
- * <ul>
- *     <li>key - an unique entry's key represented by an array of bytes. Keys are comparable in lexicographic manner.</li>
- *     <li>value - a data which is associated with a key and represented as an array of bytes.</li>
- *     <li>revision - a number which denotes a version of whole meta storage.
- *     Each change (which could include multiple entries) increments the revision. </li>
- *     <li>updateCounter - a number which increments on every update in the change under one revision.</li>
- * </ul>
- *
- * <p>Instance of {@link #EntryImpl} could represent:
- * <ul>
- *     <li>A regular entry which stores a particular key, a value and a revision number.</li>
- *     <li>An empty entry which denotes absence of a regular entry in the meta storage for a given key.
- *     A revision is 0 for such kind of entry.</li>
- *     <li>A tombstone entry which denotes that a regular entry for a given key was removed from the storage at some revision.</li>
- * </ul>
- */
+/** Implementation of the {@link Entry}. */
 public final class EntryImpl implements Entry {
     private static final long serialVersionUID = 3636551347117181271L;
 
-    /** Key. */
     private final byte[] key;
 
-    /** Value. */
-    private final byte @Nullable [] val;
+    private final byte @Nullable [] value;
 
-    /** Revision. */
-    private final long rev;
+    private final long revision;
 
-    /** Update counter. */
-    private final long updCntr;
+    private final @Nullable HybridTimestamp timestamp;
 
-    /**
-     * Construct entry with given parameters.
-     *
-     * @param key Key.
-     * @param val Value.
-     * @param rev Revision.
-     * @param updCntr Update counter.
-     */
-    public EntryImpl(byte[] key, byte @Nullable [] val, long rev, long updCntr) {
+    /** Constructor. */
+    public EntryImpl(byte[] key, byte @Nullable [] value, long revision, @Nullable HybridTimestamp timestamp) {
         this.key = key;
-        this.val = val;
-        this.rev = rev;
-        this.updCntr = updCntr;
+        this.value = value;
+        this.revision = revision;
+        this.timestamp = timestamp;
     }
 
     @Override
@@ -80,49 +53,37 @@ public final class EntryImpl implements Entry {
 
     @Override
     public byte @Nullable [] value() {
-        return val;
+        return value;
     }
 
     @Override
     public long revision() {
-        return rev;
+        return revision;
     }
 
     @Override
-    public long updateCounter() {
-        return updCntr;
-    }
-
-    /**
-     * Creates an instance of tombstone entry for a given key and a revision.
-     *
-     * @param key Key bytes. Couldn't be {@code null}.
-     * @param rev Revision.
-     * @param updCntr Update counter.
-     * @return Empty entry.
-     */
-    public static Entry tombstone(byte[] key, long rev, long updCntr) {
-        return new EntryImpl(key, null, rev, updCntr);
+    public @Nullable HybridTimestamp timestamp() {
+        return timestamp;
     }
 
     @Override
     public boolean tombstone() {
-        return val == null && rev > 0 && updCntr > 0;
+        return value == null && timestamp != null;
     }
 
-    /**
-     * Creates an instance of empty entry for a given key.
-     *
-     * @param key Key bytes. Couldn't be {@code null}.
-     * @return Empty entry.
-     */
-    public static Entry empty(byte[] key) {
-        return new EntryImpl(key, null, 0, 0);
+    /** Creates an instance of tombstone entry. */
+    public static Entry tombstone(byte[] key, long revision, HybridTimestamp timestamp) {
+        return new EntryImpl(key, null, revision, timestamp);
     }
 
     @Override
     public boolean empty() {
-        return val == null && rev == 0 && updCntr == 0;
+        return timestamp == null;
+    }
+
+    /** Creates an instance of empty entry for a given key. */
+    public static Entry empty(byte[] key) {
+        return new EntryImpl(key, null, 0, null);
     }
 
     @Override
@@ -137,11 +98,11 @@ public final class EntryImpl implements Entry {
 
         EntryImpl entry = (EntryImpl) o;
 
-        if (rev != entry.rev) {
+        if (revision != entry.revision) {
             return false;
         }
 
-        if (updCntr != entry.updCntr) {
+        if (!Objects.equals(timestamp, entry.timestamp)) {
             return false;
         }
 
@@ -149,18 +110,18 @@ public final class EntryImpl implements Entry {
             return false;
         }
 
-        return Arrays.equals(val, entry.val);
+        return Arrays.equals(value, entry.value);
     }
 
     @Override
     public int hashCode() {
         int res = Arrays.hashCode(key);
 
-        res = 31 * res + Arrays.hashCode(val);
+        res = 31 * res + Arrays.hashCode(value);
 
-        res = 31 * res + (int) (rev ^ (rev >>> 32));
+        res = 31 * res + (int) (revision ^ (revision >>> 32));
 
-        res = 31 * res + (int) (updCntr ^ (updCntr >>> 32));
+        res = 31 * res + Objects.hashCode(timestamp);
 
         return res;
     }
@@ -169,9 +130,18 @@ public final class EntryImpl implements Entry {
     public String toString() {
         return "EntryImpl{"
                 + "key=" + new String(key, UTF_8)
-                + ", val=" + Arrays.toString(val)
-                + ", rev=" + rev
-                + ", updCntr=" + updCntr
+                + ", value=" + Arrays.toString(value)
+                + ", revision=" + revision
+                + ", timestamp=" + timestamp
                 + '}';
+    }
+
+    /** Converts to {@link EntryImpl}. */
+    public static Entry toEntry(byte[] key, long revision, Value value) {
+        if (value.tombstone()) {
+            return tombstone(key, revision, value.operationTimestamp());
+        }
+
+        return new EntryImpl(key, value.bytes(), revision, value.operationTimestamp());
     }
 }

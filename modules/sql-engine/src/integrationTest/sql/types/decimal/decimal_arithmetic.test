@@ -104,7 +104,7 @@ statement ok
 CREATE TABLE decimals(d DECIMAL(3, 2));
 
 statement ok
-INSERT INTO decimals VALUES ('0.1'), ('0.2');
+INSERT INTO decimals VALUES (decimal '0.1'), (decimal '0.2');
 
 query II
 SELECT d + '0.1'::DECIMAL, d + 10000 FROM decimals ORDER BY d;

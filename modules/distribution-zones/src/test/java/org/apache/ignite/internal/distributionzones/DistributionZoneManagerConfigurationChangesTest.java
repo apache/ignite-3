@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
@@ -39,7 +40,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 123));
 
     private static final Set<LogicalNode> nodes = Set.of(NODE_1);
 

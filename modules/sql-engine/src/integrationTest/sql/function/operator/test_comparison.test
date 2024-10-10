@@ -25,7 +25,7 @@ select 20.0 = 'abc'
 
 # 1000 > 20
 query T
-select '1000' > 20
+select 1000 > 20
 ----
 true
 

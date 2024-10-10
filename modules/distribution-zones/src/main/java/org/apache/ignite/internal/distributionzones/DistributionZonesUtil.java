@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
@@ -582,7 +583,7 @@ public class DistributionZonesUtil {
     public static Set<String> filterDataNodes(
             Set<Node> dataNodes,
             CatalogZoneDescriptor zoneDescriptor,
-            Map<String, NodeWithAttributes> nodesAttributes
+            Map<UUID, NodeWithAttributes> nodesAttributes
     ) {
 
         return dataNodes.stream()

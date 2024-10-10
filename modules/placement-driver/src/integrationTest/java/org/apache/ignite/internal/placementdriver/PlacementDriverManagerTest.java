@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -55,6 +57,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -183,7 +186,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
+        Set<String> metastorageNodes = Set.of(clusterService.nodeName());
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(metastorageNodes));
+        when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metastorageNodes).build()
+        ));
 
         RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -396,8 +403,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
-        ConcurrentHashMap<String, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
-        ConcurrentHashMap<String, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, evt -> {
             log.info("Primary replica is elected [grp={}]", evt.groupId());
@@ -591,27 +598,31 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testRedirectionAcceptance() throws Exception {
         AtomicReference<String> redirect = new AtomicReference<>();
+        AtomicBoolean forceDetected = new AtomicBoolean(false);
 
         leaseGrantHandler = (req, handler) -> {
+            if (req.force()) {
+                forceDetected.set(true);
+            }
+
             if (redirect.get() == null) {
                 redirect.set(handler.equals(nodeName) ? anotherNodeName : nodeName);
-
-                return PLACEMENT_DRIVER_MESSAGES_FACTORY
-                        .leaseGrantedMessageResponse()
-                        .accepted(false)
-                        .redirectProposal(redirect.get())
-                        .build();
-            } else {
-                return PLACEMENT_DRIVER_MESSAGES_FACTORY
-                        .leaseGrantedMessageResponse()
-                        .accepted(redirect.get().equals(handler))
-                        .build();
             }
+
+            return PLACEMENT_DRIVER_MESSAGES_FACTORY
+                    .leaseGrantedMessageResponse()
+                    .accepted(redirect.get().equals(handler))
+                    .redirectProposal(redirect.get().equals(handler) ? null : redirect.get())
+                    .build();
         };
 
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
+
+        if (forceDetected.get()) {
+            fail("Unexpected force leaseGrantedMessage detected");
+        }
     }
 
     @Test

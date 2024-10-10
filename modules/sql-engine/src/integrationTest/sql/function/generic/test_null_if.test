@@ -38,12 +38,8 @@ CREATE TABLE test3 (a INTEGER, b INTEGER);
 statement ok
 INSERT INTO test3 VALUES (11, 22), (12, 21), (13, 22)
 
-query T
+statement error: Cannot apply '=' to arguments of type '<VARCHAR> = <INTEGER>'
 SELECT NULLIF(CAST(a AS VARCHAR), 11) FROM test3 ORDER BY a;
-----
-NULL
-12
-13
 
 query IT
 SELECT a, CASE WHEN a>11 THEN CAST(a AS VARCHAR) ELSE CAST(b AS VARCHAR) END FROM test3 ORDER BY 1;

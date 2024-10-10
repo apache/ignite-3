@@ -363,11 +363,10 @@ public class LogitLogStorage implements LogStorage {
         this.readLock.lock();
         try {
             final long logIndex = entry.getId().getIndex();
-            final byte[] logData = this.logEntryEncoder.encode(entry);
             if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
-                return doAppendEntry(logIndex, logData, this.confDB, IndexType.IndexConf, true);
+                return doAppendEntry(logIndex, entry, this.confDB, IndexType.IndexConf, true);
             } else {
-                return doAppendEntry(logIndex, logData, this.segmentLogDB, IndexType.IndexSegment, true);
+                return doAppendEntry(logIndex, entry, this.segmentLogDB, IndexType.IndexSegment, true);
             }
         } finally {
             this.readLock.unlock();
@@ -401,13 +400,12 @@ public class LogitLogStorage implements LogStorage {
                 final boolean isWaitingFlush = (i == lastLogIndex || i == lastConfIndex);
                 final LogEntry entry = entries.get(i);
                 final long logIndex = entry.getId().getIndex();
-                final byte[] logData = this.logEntryEncoder.encode(entry);
                 if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
-                    if (doAppendEntry(logIndex, logData, this.confDB, IndexType.IndexConf, isWaitingFlush)) {
+                    if (doAppendEntry(logIndex, entry, this.confDB, IndexType.IndexConf, isWaitingFlush)) {
                         appendCount++;
                     }
                 } else {
-                    if (doAppendEntry(logIndex, logData, this.segmentLogDB, IndexType.IndexSegment, isWaitingFlush)) {
+                    if (doAppendEntry(logIndex, entry, this.segmentLogDB, IndexType.IndexSegment, isWaitingFlush)) {
                         appendCount++;
                     }
                 }
@@ -419,7 +417,7 @@ public class LogitLogStorage implements LogStorage {
         }
     }
 
-    private boolean doAppendEntry(final long logIndex, final byte[] data, final AbstractDB logDB,
+    private boolean doAppendEntry(final long logIndex, final LogEntry entry, final AbstractDB logDB,
                                   final IndexType indexType, final boolean isWaitingFlush) {
         this.readLock.lock();
         try {
@@ -428,7 +426,7 @@ public class LogitLogStorage implements LogStorage {
             }
 
             // Append log async , get position infos
-            final Pair<Integer, Long> logPair = logDB.appendLogAsync(logIndex, data);
+            final Pair<Integer, Long> logPair = logDB.appendLogAsync(logIndex, logEntryEncoder, entry);
             if (logPair.getFirst() < 0 || logPair.getSecond() < 0) {
                 return false;
             }

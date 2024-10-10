@@ -118,6 +118,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
     testFixturesImplementation(testFixtures(project(':ignite-raft')))
     testFixturesImplementation(testFixtures(project(':ignite-replicator')))
+    testFixturesImplementation(testFixtures(project(':ignite-marshaller-common')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -172,6 +173,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-metrics')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation(testFixtures(project(':ignite-replicator')))
+    integrationTestImplementation(testFixtures(project(':ignite-marshaller-common')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core

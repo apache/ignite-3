@@ -21,9 +21,13 @@ package org.apache.ignite.internal.metastorage.server;
  * Tests for in-memory key-value storage implementation.
  */
 class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
-    /** {@inheritDoc} */
     @Override
     public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
+    }
+
+    @Override
+    protected boolean supportsChecksums() {
+        return false;
     }
 }

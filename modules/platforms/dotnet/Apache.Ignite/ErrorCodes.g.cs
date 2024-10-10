@@ -229,6 +229,9 @@ namespace Apache.Ignite
 
             /// <summary> OpExecutionTimeout error. </summary>
             public const int OpExecutionTimeout = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> Compacted error. </summary>
+            public const int Compacted = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Index errors. </summary>
@@ -351,23 +354,11 @@ namespace Apache.Ignite
             /// <summary> Storage group name. </summary>
             public const String GroupName = "STORAGE";
 
-            /// <summary> Generic error. </summary>
-            public const int Generic = (GroupCode << 16) | (1 & 0xFFFF);
-
-            /// <summary> DirectoryCreation error. </summary>
-            public const int DirectoryCreation = (GroupCode << 16) | (2 & 0xFFFF);
-
-            /// <summary> AlreadyClosed error. </summary>
-            public const int AlreadyClosed = (GroupCode << 16) | (3 & 0xFFFF);
-
-            /// <summary> StorageRebalance error. </summary>
-            public const int StorageRebalance = (GroupCode << 16) | (4 & 0xFFFF);
-
-            /// <summary> AlreadyDestroyed error. </summary>
-            public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
-
             /// <summary> IndexNotBuilt error. </summary>
-            public const int IndexNotBuilt = (GroupCode << 16) | (6 & 0xFFFF);
+            public const int IndexNotBuilt = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> StorageCorrupted error. </summary>
+            public const int StorageCorrupted = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
@@ -397,6 +388,12 @@ namespace Apache.Ignite
 
             /// <summary> PortInUse error. </summary>
             public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> FileTransfer error. </summary>
+            public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> FileValidation error. </summary>
+            public const int FileValidation = (GroupCode << 16) | (4 & 0xFFFF);
 
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
