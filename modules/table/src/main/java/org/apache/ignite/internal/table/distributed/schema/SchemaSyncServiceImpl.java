@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -36,6 +37,9 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
     private final ClusterTime clusterTime;
 
     private final LongSupplier delayDurationMs;
+
+    private final AtomicInteger noWait = new AtomicInteger();
+    private final AtomicInteger withWait = new AtomicInteger();
 
     /**
      * Constructor.
@@ -54,7 +58,10 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
         }
         CompletableFuture<Void> future = clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
         if (!future.isDone()) {
-            LOG.warn("Waiting on schema sync...");
+            withWait.incrementAndGet();
+            LOG.warn("Waiting on schema sync, no wait {}, with wait {}", noWait, withWait);
+        } else {
+            noWait.incrementAndGet();
         }
         return future;
     }
