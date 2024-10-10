@@ -508,17 +508,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
         }
 
-        try {
-            if (err != null) {
-                handler.completeExceptionally(err);
-            } else {
-                completeNotificationFuture(handler, unpacker);
-            }
-        } catch (Exception e) {
-            log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-
-            throw new IgniteException(PROTOCOL_ERR, "Failed to to server notification: " + e.getMessage(), e);
-        }
+        completeNotificationFuture(handler, unpacker, err);
     }
 
     /**
@@ -808,18 +798,29 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
-    private void completeNotificationFuture(CompletableFuture<PayloadInputChannel> fut, ClientMessageUnpacker unpacker) {
-        // We jump to another thread - add reference count.
+    private void completeNotificationFuture(
+            CompletableFuture<PayloadInputChannel> fut,
+            ClientMessageUnpacker unpacker,
+            @Nullable Throwable err) {
+        if (err != null) {
+            asyncContinuationExecutor.execute(() -> fut.completeExceptionally(err));
+            return;
+        }
+
+        // Add reference count before jumping onto another thread.
         unpacker.retain();
 
-        try {
-            if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+        asyncContinuationExecutor.execute(() -> {
+            try {
+                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                    unpacker.close();
+                }
+            } catch (Throwable e) {
                 unpacker.close();
+
+                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
-        } catch (Throwable t) {
-            unpacker.close();
-            throw t;
-        }
+        });
     }
 
     /**
