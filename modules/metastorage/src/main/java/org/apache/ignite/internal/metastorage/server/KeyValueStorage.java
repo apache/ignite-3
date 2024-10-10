@@ -67,8 +67,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns an entry by the given key and bounded by the given revision.
      *
-     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
-     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <p>Let's consider examples of the work of the method and compaction of the metastorage. Let's assume that we have keys with
+     * revisions "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastorage.</p>
      * <ul>
      *     <li>Compaction revision is {@code 1}.
      *     <ul>
@@ -235,7 +235,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keyFrom Start key of range (inclusive).
      * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      * @param revUpperBound Upper bound of revision (inclusive) for each key.
-     * @throws CompactedException If the revision is less than or equal to the last {@link #setCompactionRevision compacted} one.
+     * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last {@link #setCompactionRevision compacted}
+     *      one.
      */
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound);
 
