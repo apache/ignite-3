@@ -24,7 +24,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to validate active key provider.
+ * Annotation to validate endpoint.
  */
 @Target(FIELD)
 @Retention(RUNTIME)
