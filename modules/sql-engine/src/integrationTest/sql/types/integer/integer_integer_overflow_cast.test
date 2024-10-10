@@ -1,0 +1,78 @@
+# name: test/sql/types/integer/integer_integer_overflow_cast.test
+# description: Test casting from integer to integer
+# group: [integer]
+
+statement ok
+PRAGMA enable_verification
+
+statement error: INTEGER out of range
+SELECT CAST (-2147483648 AS INTEGER)/-1::INTEGER
+
+statement error: INTEGER out of range
+SELECT CAST(CAST(2147483648 AS BIGINT) AS INTEGER)
+
+statement error: INTEGER out of range
+SELECT -CAST(-2147483648 AS INTEGER)
+
+statement error: INTEGER out of range
+SELECT CAST(9223372036854775807.5 + 9223372036854775807.5 AS INTEGER)
+
+statement error: INTEGER out of range
+SELECT CAST(CAST(2147483647 + 1 AS FLOAT) AS INTEGER)
+
+
+statement error: SMALLINT out of range
+SELECT CAST (-32768 AS SMALLINT)/-1::SMALLINT
+
+statement error: SMALLINT out of range
+SELECT (CAST (-32768 AS SMALLINT)/-1::SMALLINT)::SMALLINT
+
+statement error: SMALLINT out of range
+SELECT CAST(9223372036854775807.5 + 9223372036854775807.5 AS SMALLINT)
+
+statement error: SMALLINT out of range
+SELECT CAST(CAST(33000 AS BIGINT) AS SMALLINT)
+
+statement error: SMALLINT out of range
+SELECT CAST(CAST(33000 AS FLOAT) AS SMALLINT)
+
+statement error: SMALLINT out of range
+SELECT CAST(CAST(33000 + 1 AS FLOAT) AS SMALLINT)
+
+statement error: SMALLINT out of range
+SELECT -CAST(-32768 AS SMALLINT)
+
+statement error: SMALLINT out of range
+SELECT CAST(CAST(32767 + 1 AS FLOAT) AS SMALLINT)
+
+
+statement error: TINYINT out of range
+SELECT CAST(-128 AS TINYINT)/-1::TINYINT
+
+statement error: TINYINT out of range
+SELECT CAST(9223372036854775807.5 + 9223372036854775807.5 AS TINYINT)
+
+statement error: TINYINT out of range
+SELECT CAST(CAST(200 AS BIGINT) AS TINYINT)
+
+statement error: TINYINT out of range
+SELECT CAST(CAST(200 AS FLOAT) AS TINYINT)
+
+statement error: TINYINT out of range
+SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)
+
+statement error: TINYINT out of range
+SELECT -CAST(-128 AS TINYINT)
+
+statement error: TINYINT out of range
+SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)
+
+
+statement error: BIGINT out of range
+SELECT CAST(-9223372036854775808 AS BIGINT)/-1::BIGINT
+
+statement error: BIGINT out of range
+SELECT -CAST(-9223372036854775808 AS BIGINT)
+
+
+
