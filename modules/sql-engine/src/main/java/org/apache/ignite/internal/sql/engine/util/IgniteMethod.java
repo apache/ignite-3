@@ -117,10 +117,10 @@ public enum IgniteMethod {
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
 
     /**
-     * Division operator used by REDUCE phase of AVG aggregate.
-     * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
+     * Decimal division as well as division operator used by REDUCE phase of AVG aggregate.
+     * See {@link IgniteMath#decimalDivide(BigDecimal, BigDecimal, int, int)}.
      */
-    DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+    DECIMAL_DIVIDE(IgniteMath.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
 
     /**
      * Conversion of timestamp to string (precision aware).

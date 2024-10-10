@@ -183,8 +183,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             SqlFunctionCategory.NUMERIC);
 
     /**
-     * Division operator used by REDUCE phase of AVG aggregate.
-     * Uses provided values of {@code scale} and {@code precision} to return inferred type.
+     * Division operator for decimal type. Uses provided values of {@code scale} and {@code precision} to return inferred type.
      */
     public static final SqlFunction DECIMAL_DIVIDE = SqlBasicFunction.create("DECIMAL_DIVIDE",
             new SqlReturnTypeInference() {

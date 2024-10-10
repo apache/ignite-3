@@ -35,6 +35,7 @@ import java.util.TimeZone;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -535,10 +536,10 @@ public class IgniteSqlFunctionsTest {
         BigDecimal denum = new BigDecimal(b);
 
         if (expected != null) {
-            BigDecimal actual = IgniteSqlFunctions.decimalDivide(num, denum, 4, 2);
+            BigDecimal actual = IgniteMath.decimalDivide(num, denum, 4, 2);
             assertEquals(new BigDecimal(expected), actual);
         } else {
-            assertThrows(ArithmeticException.class, () -> IgniteSqlFunctions.decimalDivide(num, denum, 4, 2));
+            assertThrows(ArithmeticException.class, () -> IgniteMath.decimalDivide(num, denum, 4, 2));
         }
     }
 
