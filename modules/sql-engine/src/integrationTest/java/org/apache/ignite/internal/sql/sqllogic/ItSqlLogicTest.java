@@ -171,6 +171,8 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             + "  rest.port: {}\n"
             + "}";
 
+    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+
     /** Embedded nodes. */
     private static final List<IgniteServer> NODES = new ArrayList<>();
 
@@ -338,6 +340,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
+                        + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
                         + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
                         + "gc.lowWatermark.updateInterval: 3000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
