@@ -17,32 +17,35 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.LongCount;
+import org.junit.jupiter.api.Test;
 
 /**
- * Accumulator interface.
+ * Tests for {@code COUNT(BIGINT)} accumulator function.
  */
-public interface Accumulator {
+public class LongCountAccumulatorTest {
 
-    /**
-     * Updates this accumulator.
-     *
-     * @param state state of the accumulator.
-     * @param args arguments.
-     */
-    void add(AccumulatorsState state, Object[] args);
+    @Test
+    public void test() {
+        StatefulAccumulator acc = newCall();
 
-    /**
-     * Computes result of this accumulator.
-     *
-     * @param state Accumulator state.
-     * @param result Result holder.
-     */
-    void end(AccumulatorsState state, AccumulatorsState result);
+        acc.add(1L);
+        acc.add(new Object[]{null});
+        acc.add(2L);
 
-    List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
+        assertEquals(2L, acc.end());
+    }
 
-    RelDataType returnType(IgniteTypeFactory typeFactory);
+    @Test
+    public void empty() {
+        StatefulAccumulator acc = newCall();
+
+        assertEquals(0L, acc.end());
+    }
+
+    private StatefulAccumulator newCall() {
+        return new StatefulAccumulator(LongCount.FACTORY);
+    }
 }

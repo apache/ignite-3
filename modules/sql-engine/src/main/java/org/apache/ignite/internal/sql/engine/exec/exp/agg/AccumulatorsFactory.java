@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * AccumulatorsFactory.
@@ -274,7 +275,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
-            distinct = call.isDistinct();
+            this.distinct = call.isDistinct();
 
             // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
@@ -285,11 +286,20 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             handler = ctx.rowHandler();
         }
 
-        /** {@inheritDoc} */
         @Override
-        public void add(RowT row) {
+        public boolean isDistinct() {
+            return distinct;
+        }
+
+        @Override
+        public Accumulator accumulator() {
+            return accumulator;
+        }
+
+        @Override
+        public Object @Nullable [] getArguments(RowT row) {
             if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
-                return;
+                return null;
             }
 
             int params = argList.size();
@@ -309,18 +319,16 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
-                    return;
+                    return null;
                 }
             }
 
-            accumulator.add(inAdapter.apply(args));
+            return inAdapter.apply(args);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return outAdapter.apply(accumulator.end());
+        public Object convertResult(Object result) {
+            return outAdapter.apply(result);
         }
-
     }
 }

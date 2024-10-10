@@ -17,32 +17,34 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Accumulator interface.
+ * A helper class for testing accumulator functions.
  */
-public interface Accumulator {
+public final class StatefulAccumulator {
 
-    /**
-     * Updates this accumulator.
-     *
-     * @param state state of the accumulator.
-     * @param args arguments.
-     */
-    void add(AccumulatorsState state, Object[] args);
+    private final Accumulator accumulator;
 
-    /**
-     * Computes result of this accumulator.
-     *
-     * @param state Accumulator state.
-     * @param result Result holder.
-     */
-    void end(AccumulatorsState state, AccumulatorsState result);
+    private final AccumulatorsState state = new AccumulatorsState(1);
 
-    List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
+    private final AccumulatorsState result = new AccumulatorsState(1);
 
-    RelDataType returnType(IgniteTypeFactory typeFactory);
+    public StatefulAccumulator(Supplier<? extends Accumulator> supplier) {
+        this(supplier.get());
+    }
+
+    public StatefulAccumulator(Accumulator accumulator) {
+        this.accumulator = accumulator;
+    }
+
+    public void add(Object... args) {
+        accumulator.add(state, args);
+    }
+
+    public @Nullable Object end() {
+        accumulator.end(state, result);
+        return result.get();
+    }
 }

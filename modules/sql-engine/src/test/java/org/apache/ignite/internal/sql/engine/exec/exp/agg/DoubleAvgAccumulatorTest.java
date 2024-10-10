@@ -17,32 +17,36 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.DoubleAvg;
+import org.junit.jupiter.api.Test;
 
 /**
- * Accumulator interface.
+ * Tests for {@code AVG(DOUBLE)} accumulator function.
  */
-public interface Accumulator {
+public class DoubleAvgAccumulatorTest {
 
-    /**
-     * Updates this accumulator.
-     *
-     * @param state state of the accumulator.
-     * @param args arguments.
-     */
-    void add(AccumulatorsState state, Object[] args);
+    @Test
+    public void test() {
+        StatefulAccumulator acc = newCall();
 
-    /**
-     * Computes result of this accumulator.
-     *
-     * @param state Accumulator state.
-     * @param result Result holder.
-     */
-    void end(AccumulatorsState state, AccumulatorsState result);
+        acc.add(3.0d);
+        acc.add(new Object[]{null});
+        acc.add(1.0d);
 
-    List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
+        assertEquals(2.0d, acc.end());
+    }
 
-    RelDataType returnType(IgniteTypeFactory typeFactory);
+    @Test
+    public void empty() {
+        StatefulAccumulator acc = newCall();
+
+        assertNull(acc.end());
+    }
+
+    private StatefulAccumulator newCall() {
+        return new StatefulAccumulator(DoubleAvg.FACTORY);
+    }
 }
