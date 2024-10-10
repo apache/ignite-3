@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -72,7 +73,9 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         RaftManager raftManager = mock(RaftManager.class);
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
 
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
+        when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
+        ));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(completedFuture(raftGroupService));

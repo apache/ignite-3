@@ -37,6 +37,11 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
         return testRocksDbKeyValueStorage;
     }
 
+    @Override
+    protected boolean supportsChecksums() {
+        return true;
+    }
+
     @Test
     void testRestoreAfterRestart() throws Exception {
         byte[] key = key(1);

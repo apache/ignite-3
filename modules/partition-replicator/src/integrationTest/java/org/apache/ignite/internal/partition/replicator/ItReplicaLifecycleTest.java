@@ -280,7 +280,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     );
 
     /**
-     * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
+     * Interceptor of {@link MetaStorageManager#invoke(Condition, List, List)}.
      */
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
@@ -1114,8 +1114,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 @Override
                 public CompletableFuture<Boolean> invoke(
                         Condition condition,
-                        Collection<Operation> success,
-                        Collection<Operation> failure
+                        List<Operation> success,
+                        List<Operation> failure
                 ) {
                     InvokeInterceptor invokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 

@@ -22,18 +22,31 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.junit.jupiter.api.Test;
 
 class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -190,5 +203,54 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillMgHasMajority(restartedIgniteImpl2);
+    }
+
+    @Test
+    void oldMgLeaderDoesNotHijackLeadership() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(0);
+
+        // This makes the MG majority go away.
+        cluster.stopNode(1);
+
+        IgniteImpl igniteImpl0BeforeRestart = igniteImpl(0);
+
+        assertThatMgHasNoMajority(igniteImpl0BeforeRestart);
+
+        initiateMgRepairVia(igniteImpl0BeforeRestart, 1, 0);
+
+        IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
+        waitTillMgHasMajority(restartedIgniteImpl0);
+
+        // Make sure the new leader will not tell the old leader about new configuration (to give the old leader timing for a hijack).
+        ((MetaStorageManagerImpl) restartedIgniteImpl0.metaStorageManager()).disableLearnersAddition();
+
+        initiateMigration(1, 0);
+        CompletableFuture<Void> ignite1RestartFuture = waitForRestartOrShutdownFuture(1);
+
+        // It should not be able to start: it should abstain from becoming a leader and node 1 (the new leader) does not add it as
+        // a learner.
+        assertThat(ignite1RestartFuture, willTimeoutIn(5, SECONDS));
+
+        // Make sure the new leader is still a leader.
+        RaftGroupService mgClient0 = metastorageGroupClient(restartedIgniteImpl0);
+        assertThat(leaderName(mgClient0), is(cluster.nodeName(0)));
+    }
+
+    private static RaftGroupService metastorageGroupClient(IgniteImpl ignite)
+            throws NodeStoppingException, ExecutionException, InterruptedException, TimeoutException {
+        PeersAndLearners config = PeersAndLearners.fromConsistentIds(Set.of(ignite.name()));
+        CompletableFuture<RaftGroupService> future = ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config);
+        return future.get(10, SECONDS);
+    }
+
+    private static String leaderName(RaftGroupService mgClient0) {
+        CompletableFuture<LeaderWithTerm> future = mgClient0.refreshAndGetLeaderWithTerm();
+        assertThat(future, willSucceedIn(10, SECONDS));
+
+        Peer leader = future.join().leader();
+        assertThat(leader, is(notNullValue()));
+
+        return leader.consistentId();
     }
 }

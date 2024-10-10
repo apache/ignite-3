@@ -21,7 +21,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 
 /**
  * Root building block for the compound meta storage invoke command.
- * Contains of boolean condition and 2 branches of execution, like usual programming language's if.
+ * Consists of boolean condition and 2 branches of execution, like usual programming language's if.
  * Every branch can be either a new {@link If} statement (non-terminal) or a result terminal statement {@link Update}.
  */
 public class If {
