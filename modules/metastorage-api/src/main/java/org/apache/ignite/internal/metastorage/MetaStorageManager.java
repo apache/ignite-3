@@ -255,7 +255,8 @@ public interface MetaStorageManager extends IgniteComponent {
      * <ul>
      *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
      *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
-     *     <li>{@link CompactedException} - if the {@code revUpperBound} is less than or equal to the last compacted one.</li>
+     *     <li>{@link CompactedException} - if the {@code revUpperBound} is less than or equal to the last compacted one on metastorage
+     *     leader, can occur while processing any batch of entries.</li>
      * </ul>
      *
      * @param keyPrefix Key prefix.
