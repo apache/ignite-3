@@ -284,7 +284,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void test() throws InterruptedException {
+    void testRoTxDataLoss() throws InterruptedException {
         KeyValueView<Integer, String> kvView = kvView();
 
         for (int i = 0; i < 100; i++) {
