@@ -791,7 +791,10 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor()
         );
 
-        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(), () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()), name
+        metricManager.configure(
+                clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(),
+                () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()),
+                name
         );
 
         DataStorageModules dataStorageModules = new DataStorageModules(

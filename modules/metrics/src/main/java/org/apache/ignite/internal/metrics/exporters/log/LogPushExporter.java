@@ -44,7 +44,8 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
     private long period;
 
     @Override
-    public void start(MetricProvider metricsProvider, LogPushExporterView configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public synchronized void start(MetricProvider metricsProvider, LogPushExporterView configuration, Supplier<UUID> clusterIdSupplier,
+            String nodeName) {
         period = configuration.period();
         log = Loggers.forClass(LogPushExporter.class);
 
