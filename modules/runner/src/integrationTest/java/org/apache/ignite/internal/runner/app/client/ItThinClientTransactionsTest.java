@@ -310,6 +310,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // This check fails because GC has collected the data.
         // This works with 1 node (because TX manager locks LWM) but fails with 2 nodes (because second node does not lock LWM).
         for (int i = 0; i < 100; i++) {
+            // Expected :v-0 Actual   :null
+            // 1. We should lock LWM globally, not only on tx coordinator (IGNITE-23401)
+            // 2. If the data loss occurs, we should throw an exception, not return null (IGNITE-23400)
             assertEquals("v-" + i, kvView.get(tx, i), "Failed for key: " + i);
         }
     }
