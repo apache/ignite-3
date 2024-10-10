@@ -70,7 +70,7 @@ public interface MetaStorageManager extends IgniteComponent {
      * <p>Future may complete with exceptions:</p>
      * <ul>
      *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
-     *     <li>{@link CompactedException} - If the requested entry was not found and the {@code revUpperBound} is less than or equal to the
+     *     <li>{@link CompactedException} - if the requested entry was not found and the {@code revUpperBound} is less than or equal to the
      *     last compacted one. For examples see {@link #getLocally(ByteArray, long)}.</li>
      * </ul>
      *
@@ -233,51 +233,49 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
-    // TODO: IGNITE-23288 ниже править документацию и код немного
-
     /**
-     * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
-     * {@code revUpperBound = LATEST_REVISION}.
+     * Returns a publisher for getting the latest version of an entries for the given key prefix from the metastorage leader.
      *
-     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Publisher that will provide entries corresponding to the given prefix. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Never fail with a {@link CompactedException}.</p>
+     *
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     * </ul>
+     *
+     * @param keyPrefix Key prefix.
      */
     Publisher<Entry> prefix(ByteArray keyPrefix);
 
     /**
-     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
-     * number.
+     * Returns a publisher for getting an entries for the given key prefix and the revision upper bound from the metastorage leader.
      *
-     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @param revUpperBound The upper bound for entry revision or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
-     * @return Publisher that will provide entries corresponding to the given prefix and revision. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     *     <li>{@link CompactedException} - if the {@code revUpperBound} is less than or equal to the last compacted one.</li>
+     * </ul>
+     *
+     * @param keyPrefix Key prefix.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
      */
     Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound);
 
     /**
-     * Retrieves entries for the given key range in lexicographic order.
+     * Returns a publisher for getting the latest version of an entries for the given keys range from the metastorage leader.
      *
-     * @param keyFrom Range lower bound (inclusive).
-     * @param keyTo Range upper bound (exclusive), {@code null} represents an unbound range.
-     * @return Publisher that will provide entries corresponding to the given range. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Never fail with a {@link CompactedException}.</p>
+     *
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     * </ul>
+     *
+     * @param keyFrom Start key of range (inclusive).
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      */
     Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
