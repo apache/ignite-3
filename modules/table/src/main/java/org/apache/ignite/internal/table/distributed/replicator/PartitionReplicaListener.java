@@ -1266,25 +1266,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
-        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
-                    .thenCompose(tblLock -> {
-                        return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
-                                .thenCompose(indRowLock -> { // Hash index bucket S lock
+        return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
+                .thenCompose(indRowLock -> { // Hash index bucket S lock
+                    Cursor<RowId> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, txCoordinatorId,
+                            () -> new CursorResource(indexStorage.get(exactKey))).cursor();
 
-                                    Cursor<RowId> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
-                                            cursorId,
-                                            txCoordinatorId,
-                                            () -> new CursorResource(indexStorage.get(exactKey))
-                                    ).cursor();
+                    var result = new ArrayList<BinaryRow>(batchCount);
 
-                                    var result = new ArrayList<BinaryRow>(batchCount);
-
-                                    return continueIndexLookup(txId, cursor, batchCount, result)
-                                            .thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
-                                });
-                    });
-        });
+                    return continueIndexLookup(txId, cursor, batchCount, result).thenApply(
+                            ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+                });
     }
 
     /**
@@ -1314,61 +1305,56 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
-                    .thenCompose(tblLock -> {
-                        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
+        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
 
-                        Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
-                            if (indexRow == null) {
-                                return true;
-                            }
+        Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
+            if (indexRow == null) {
+                return true;
+            }
 
-                            if (upperBound == null) {
-                                return false;
-                            }
+            if (upperBound == null) {
+                return false;
+            }
 
-                            ByteBuffer buffer = upperBound.byteBuffer();
+            ByteBuffer buffer = upperBound.byteBuffer();
 
-                            if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
-                                byte boundFlags = buffer.get(0);
+            if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
+                byte boundFlags = buffer.get(0);
 
-                                buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
-                            }
+                buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
+            }
 
-                            return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
-                        };
+            return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
+        };
 
-                        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
-                                cursorId,
-                                request.coordinatorId(),
-                                () -> new CursorResource(indexStorage.scan(
-                                        lowerBound,
-                                        // We have to handle upperBound on a level of replication listener,
-                                        // for correctness of taking of a range lock.
-                                        null,
-                                        flags
-                                ))
-                        ).cursor();
+        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(
+                cursorId,
+                request.coordinatorId(),
+                () -> new CursorResource(indexStorage.scan(
+                        lowerBound,
+                        // We have to handle upperBound on a level of replication listener,
+                        // for correctness of taking of a range lock.
+                        null,
+                        flags
+                ))
+        ).cursor();
 
-                        SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
+        SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
-                        int batchCount = request.batchSize();
+        int batchCount = request.batchSize();
 
-                        var result = new ArrayList<BinaryRow>(batchCount);
+        var result = new ArrayList<BinaryRow>(batchCount);
 
-                        return continueIndexScan(
-                                txId,
-                                schemaAwareIndexStorage,
-                                indexLocker,
-                                cursor,
-                                batchCount,
-                                result,
-                                isUpperBoundAchieved,
-                                tableVersionByTs(beginTimestamp(txId))
-                        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
-                    });
-        });
+        return continueIndexScan(
+                txId,
+                schemaAwareIndexStorage,
+                indexLocker,
+                cursor,
+                batchCount,
+                result,
+                isUpperBoundAchieved,
+                tableVersionByTs(beginTimestamp(txId))
+        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
     }
 
     /**
@@ -3428,8 +3414,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // IS lock on table
-                .thenCompose(tblLock -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)) // S lock on RowId
+        return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S) // S lock on RowId
                 .thenApply(ignored -> rowId);
     }
 

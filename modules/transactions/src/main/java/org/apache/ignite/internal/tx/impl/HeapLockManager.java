@@ -513,8 +513,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 case IX:
                     int idx = Math.abs(txId.hashCode()) % stripes.length;
 
+                    // Attempt to find a holder candidate.
                     while(true) {
-                        boolean locked = stripes[idx].readLock().tryLock(); // reads never block writes, so deadlock is not possible here.
+                        // This will prevent IX to block S, giving deadlock avoidance.
+                        boolean locked = stripes[idx].readLock().tryLock();
 
                         if (!locked) {
                             // Try to get report tx holder.
@@ -536,7 +538,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     try {
                         if (!sLocksOwners.isEmpty()) {
-                            UUID holderTx = sLocksWaiters.keySet().iterator().next();
+                            UUID holderTx = sLocksOwners.keySet().iterator().next();
                             CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
                             if (eventResult.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));

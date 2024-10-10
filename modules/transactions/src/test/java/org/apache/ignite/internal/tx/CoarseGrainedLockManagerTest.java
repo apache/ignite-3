@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,38 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
 
 public class CoarseGrainedLockManagerTest {
-    private HeapLockManager lockManager = new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+    private final HeapLockManager lockManager = new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+
+    @Test
+    public void testSimple() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertFalse(fut2.isDone());
+
+        lockManager.releaseAll(txId1);
+        fut2.join();
+    }
+
+    @Test
+    public void testSimpleInverse() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut1.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey(), LockMode.IX);
+
+        assertThrowsWithCause(fut2::join, LockException.class);
+
+        lockManager.releaseAll(txId1);
+
+        fut2 = lockManager.acquire(txId2, lockKey(), LockMode.IX);
+        assertTrue(fut2.isDone());
+    }
 
     @Test
     public void testComplex() {
@@ -44,19 +76,58 @@ public class CoarseGrainedLockManagerTest {
         CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, lockKey(), LockMode.IX);
         assertTrue(fut3.isDone());
 
-        UUID txIdS = TestTransactionIds.newTransactionId();
+        UUID txId4 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut4 = lockManager.acquire(txId4, lockKey(), LockMode.S);
+        assertFalse(fut4.isDone());
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txIdS, lockKey(), LockMode.S);
-        assertFalse(fut.isDone());
+        UUID txId5 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut5 = lockManager.acquire(txId5, lockKey(), LockMode.S);
+        assertFalse(fut5.isDone());
 
         lockManager.releaseAll(txId1);
-        assertFalse(fut.isDone());
+        assertFalse(fut4.isDone());
+        assertFalse(fut5.isDone());
 
         lockManager.releaseAll(txId2);
-        assertFalse(fut.isDone());
+        assertFalse(fut4.isDone());
+        assertFalse(fut5.isDone());
 
         lockManager.releaseAll(txId3);
-        fut.join();
+        fut4.join();
+        fut5.join();
+    }
+
+    @Test
+    public void testComplexInverse() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut1.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertTrue(fut2.isDone());
+
+        UUID txId3 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, lockKey(), LockMode.S);
+        assertTrue(fut3.isDone());
+
+        UUID txId4 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut4 = lockManager.acquire(txId4, lockKey(), LockMode.IX);
+        assertThrowsWithCause(fut4::join, LockException.class);
+
+        UUID txId5 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut5 = lockManager.acquire(txId5, lockKey(), LockMode.IX);
+        assertThrowsWithCause(fut5::join, LockException.class);
+
+        lockManager.releaseAll(txId1);
+        lockManager.releaseAll(txId2);
+        lockManager.releaseAll(txId3);
+
+        fut4 = lockManager.acquire(txId4, lockKey(), LockMode.IX);
+        fut4.join();
+
+        fut5 = lockManager.acquire(txId4, lockKey(), LockMode.IX);
+        fut5.join();
     }
 
     private static LockKey lockKey() {
