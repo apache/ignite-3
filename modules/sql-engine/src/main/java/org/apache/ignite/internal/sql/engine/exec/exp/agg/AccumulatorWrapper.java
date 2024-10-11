@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * AccumulatorWrapper interface.
+ * Adapter that provides means to convert accumulator arguments and return types.
  */
 public interface AccumulatorWrapper<RowT> {
 
