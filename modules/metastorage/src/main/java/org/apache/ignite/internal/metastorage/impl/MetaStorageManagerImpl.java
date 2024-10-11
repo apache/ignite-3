@@ -281,6 +281,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 assert targetRevision != null;
 
                 listenForRecovery(targetRevision);
+            }).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.info("Recovery failed", ex);
+
+                    recoveryFinishedFuture.completeExceptionally(ex);
+                }
             });
 
             return recoveryFinishedFuture;
@@ -304,10 +310,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -326,13 +329,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             if (storageRevision >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             }
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private void finishRecovery(long targetRevision) {
+        appliedRevision = targetRevision;
+
+        if (targetRevision > 0) {
+            clusterTime.updateSafeTime(storage.timestampByRevision(targetRevision));
+        }
+
+        if (recoveryFinishedFuture.complete(targetRevision)) {
+            LOG.info("Finished MetaStorage recovery");
         }
     }
 
