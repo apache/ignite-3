@@ -225,7 +225,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testSaveCompactionRevisionAndRestart() throws Exception {
+    public void testSaveCompactionRevisionAndRestart() throws Exception {
         storage.saveCompactionRevision(1);
 
         restartStorage();
