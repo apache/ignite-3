@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
@@ -46,7 +47,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher,
-            Matcher<Object> resultsMatcher
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
@@ -63,7 +64,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher,
-            Matcher<Object> resultsMatcher
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
@@ -80,7 +81,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher,
-            Matcher<Object> resultsMatcher
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
@@ -96,7 +97,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher,
-            Matcher<Object> resultsMatcher
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
@@ -116,7 +117,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher,
-            Matcher<Object> resultsMatcher
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 

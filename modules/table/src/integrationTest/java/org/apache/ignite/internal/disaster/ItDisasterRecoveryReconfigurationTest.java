@@ -51,7 +51,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -448,7 +447,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
                 if (andThen instanceof UpdateStatement) {
                     UpdateStatement updateStatement = (UpdateStatement) andThen;
-                    Collection<Operation> operations = updateStatement.update().operations();
+                    List<Operation> operations = updateStatement.update().operations();
 
                     ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, partId));
 

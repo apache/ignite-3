@@ -33,14 +33,16 @@ import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
@@ -128,6 +130,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 clo.result(new LogicalTopologyResponse(logicalTopology.getLogicalTopology()));
             } else if (command instanceof ReadValidatedNodesCommand) {
                 clo.result(getValidatedNodes());
+            } else if (command instanceof ReadMetaStorageInfoCommand) {
+                clo.result(getMetaStorageInfo());
             }
         }
     }
@@ -142,6 +146,19 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         result.addAll(logicalTopologyNodes);
 
         return result;
+    }
+
+    private @Nullable MetaStorageInfo getMetaStorageInfo() {
+        ClusterState clusterState = storageManager.getClusterState();
+        if (clusterState == null) {
+            return null;
+        }
+
+        return cmgMessagesFactory.metaStorageInfo()
+                .metaStorageNodes(clusterState.metaStorageNodes())
+                .metastorageRepairClusterId(storageManager.getMetastorageRepairClusterId())
+                .metastorageRepairingConfigIndex(storageManager.getMetastorageRepairingConfigIndex())
+                .build();
     }
 
     @Override
@@ -190,8 +207,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 onLogicalTopologyChanged.accept(clo.term());
 
                 clo.result(null);
-            } else if (command instanceof ChangeMetastorageNodesCommand) {
-                changeMetastorageNodes((ChangeMetastorageNodesCommand) command);
+            } else if (command instanceof ChangeMetaStorageInfoCommand) {
+                changeMetastorageNodes((ChangeMetaStorageInfoCommand) command);
 
                 clo.result(null);
             }
@@ -287,7 +304,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         }
     }
 
-    private void changeMetastorageNodes(ChangeMetastorageNodesCommand command) {
+    private void changeMetastorageNodes(ChangeMetaStorageInfoCommand command) {
         ClusterState existingState = storageManager.getClusterState();
 
         assert existingState != null : "Cluster state was not initialized when got " + command;
@@ -302,6 +319,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 .build();
 
         storageManager.putClusterState(newState);
+
+        assert (command.metastorageRepairClusterId() == null) == (command.metastorageRepairingConfigIndex() == null)
+                : "Repair-related properties must either all be present or all be absent [command=" + command + "]";
+        if (command.metastorageRepairClusterId() != null) {
+            storageManager.saveMetastorageRepairInfo(command.metastorageRepairClusterId(), command.metastorageRepairingConfigIndex());
+        }
     }
 
     @Override

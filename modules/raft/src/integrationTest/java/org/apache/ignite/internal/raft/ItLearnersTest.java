@@ -231,6 +231,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftGroupService service1 =
                 startRaftGroup(follower, configuration.peer(follower.consistentId()), configuration, new TestRaftGroupListener());
 
+        assertThat(service1.refreshLeader(), willCompleteSuccessfully());
+
         assertThat(service1.leader(), is(follower.asPeer()));
         assertThat(service1.learners(), is(empty()));
 
@@ -330,8 +332,11 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftGroupService peerService = startRaftGroup(node, peer, configuration, peerListener);
         RaftGroupService learnerService = startRaftGroup(node, learner, configuration, learnerListener);
 
+        assertThat(peerService.refreshLeader(), willCompleteSuccessfully());
         assertThat(peerService.leader(), is(peer));
         assertThat(peerService.leader(), is(not(learner)));
+
+        assertThat(learnerService.refreshLeader(), willCompleteSuccessfully());
         assertThat(learnerService.leader(), is(peer));
         assertThat(learnerService.leader(), is(not(learner)));
 

@@ -396,7 +396,7 @@ public class DdlSqlToCommandConverter {
         String name = col.name.getSimple();
         RelDataType relType = planner.convert(col.dataType, nullable);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
         //  Remove this after interval type support is added.
         if (SqlTypeUtil.isInterval(relType)) {
             String error = format(

@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.disaster.system.message;
+package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.ReadCommand;
 
 /**
- * Message for retrieving index+term of the Metastorage Raft group on the recipient node.
+ * Command for retrieving the current {@link MetaStorageInfo}.
  */
-@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_REQUEST)
-public interface MetastorageIndexTermRequestMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.Commands.READ_METASTORAGE_INFO)
+public interface ReadMetaStorageInfoCommand extends ReadCommand {
 }

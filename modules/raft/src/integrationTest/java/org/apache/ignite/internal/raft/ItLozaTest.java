@@ -193,7 +193,13 @@ public class ItLozaTest extends IgniteAbstractTest {
                     .doCallRealMethod()
                     .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
 
-            startClient(new TestReplicationGroupId(Integer.toString(i)), spyService.topologyService().localMember(), partitionsConfigurer);
+            RaftGroupService client = startClient(
+                    new TestReplicationGroupId(Integer.toString(i)),
+                    spyService.topologyService().localMember(),
+                    partitionsConfigurer
+            );
+
+            assertThat(client.refreshLeader(), willCompleteSuccessfully());
 
             verify(messagingServiceMock, times(3 * (i + 1)))
                     .invoke(any(ClusterNode.class), any(), anyLong());

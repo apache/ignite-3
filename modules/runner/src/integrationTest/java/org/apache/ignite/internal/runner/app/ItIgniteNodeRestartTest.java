@@ -298,7 +298,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private ReplicationConfiguration replicationConfiguration;
 
     /**
-     * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
+     * Interceptor of {@link MetaStorageManager#invoke(Condition, List, List)}.
      */
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
@@ -502,7 +502,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 msRaftConfigurer
         ) {
             @Override
-            public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+            public CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure) {
                 if (metaStorageInvokeInterceptor != null) {
                     var res = metaStorageInvokeInterceptor.invoke(condition, success, failure);
 
@@ -765,6 +765,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
 

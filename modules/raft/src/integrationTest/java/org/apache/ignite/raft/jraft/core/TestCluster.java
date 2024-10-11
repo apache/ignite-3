@@ -44,6 +44,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -95,14 +96,14 @@ public class TestCluster {
     private final ConcurrentMap<PeerId, RaftGroupService> serverMap = new ConcurrentHashMap<>();
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
-    private final Consumer<NodeOptions> optsClo;
+    private @Nullable Consumer<NodeOptions> optsClo;
 
     /** Test info. */
     private final TestInfo testInfo;
 
     private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
-    private LinkedHashSet<PeerId> learners;
+    private LinkedHashSet<TestPeer> learners;
 
     private JraftGroupEventsListener raftGrpEvtsLsnr;
 
@@ -115,11 +116,11 @@ public class TestCluster {
     }
 
     public LinkedHashSet<PeerId> getLearners() {
-        return this.learners;
+        return this.learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     public void setLearners(LinkedHashSet<TestPeer> learners) {
-        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
+        this.learners = new LinkedHashSet<>(learners);
     }
 
     public TestCluster(String name, String dataPath, List<TestPeer> peers, TestInfo testInfo) {
@@ -162,7 +163,7 @@ public class TestCluster {
         this.nodes = new ArrayList<>(this.peers.size());
         this.fsms = new LinkedHashMap<>(this.peers.size());
         this.electionTimeoutMs = electionTimeoutMs;
-        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
+        this.learners = learners;
         this.optsClo = optsClo;
         this.testInfo = testInfo;
     }
@@ -172,7 +173,7 @@ public class TestCluster {
     }
 
     public boolean startLearner(TestPeer peer) throws Exception {
-        this.learners.add(peer.getPeerId());
+        this.learners.add(peer);
         return this.start(peer, false, 300);
     }
 
@@ -250,13 +251,13 @@ public class TestCluster {
             List<NetworkAddress> addressList = List.of();
 
             if (!emptyPeers) {
-                addressList = peers.stream()
+                addressList = Stream.concat(peers.stream(), learners.stream())
                         .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
                         .collect(toList());
 
                 nodeOptions.setInitialConf(new Configuration(
                         peers.stream().map(TestPeer::getPeerId).collect(toList()),
-                        learners
+                        getLearners()
                 ));
             }
 
@@ -443,7 +444,7 @@ public class TestCluster {
         this.lock.lock();
         try {
             for (NodeImpl node : this.nodes) {
-                if (!node.isLeader() && !this.learners.contains(node.getServerId())) {
+                if (!node.isLeader() && this.learners.stream().noneMatch(learner -> learner.getPeerId().equals(node.getServerId()))) {
                     ret.add(node);
                 }
             }
@@ -606,5 +607,9 @@ public class TestCluster {
 
             assertSame(leader, leader1, "Leader shouldn't change while comparing fsms");
         }
+    }
+
+    public void setNodeOptionsCustomizer(Consumer<NodeOptions> customizer) {
+        this.optsClo = customizer;
     }
 }

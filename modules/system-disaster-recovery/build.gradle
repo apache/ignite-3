@@ -37,6 +37,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation testFixtures(project(":ignite-core"))
     testImplementation testFixtures(project(":ignite-cluster-management"))
+    testImplementation testFixtures(project(":ignite-network"))
     testImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-system-disaster-recovery-api')
@@ -46,8 +47,11 @@ dependencies {
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-cli')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))

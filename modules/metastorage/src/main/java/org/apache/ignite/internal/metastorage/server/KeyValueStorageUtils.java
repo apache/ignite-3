@@ -24,11 +24,11 @@ import java.util.function.LongPredicate;
 
 /** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
 public class KeyValueStorageUtils {
-    /** Special value indicating that there are no key revisions that need to be compacted. */
-    public static final int NOTHING_TO_COMPACT_INDEX = -1;
+    /** Constant meaning something could not be found. */
+    public static final int NOT_FOUND = -1;
 
     /**
-     * Calculates the revision index in key revisions up to which compaction is needed or {@link #NOTHING_TO_COMPACT_INDEX} if nothing
+     * Calculates the revision index in key revisions up to which compaction is needed or {@link #NOT_FOUND} if nothing
      * needs to be compacted.
      *
      * <p>If the returned index points to the last revision and if the last revision is <b>not</b> a tombstone, then the returned index is
@@ -43,17 +43,66 @@ public class KeyValueStorageUtils {
 
         if (i < 0) {
             if (i == -1) {
-                return NOTHING_TO_COMPACT_INDEX;
+                return NOT_FOUND;
             }
 
             i = -(i + 2);
         }
 
         if (i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
-            i = i == 0 ? NOTHING_TO_COMPACT_INDEX : i - 1;
+            i = i == 0 ? NOT_FOUND : i - 1;
         }
 
         return i;
+    }
+
+    /**
+     * Returns index of maximum revision which is less or equal to {@code upperBoundRevision}. If there is no such revision then
+     * {@link #NOT_FOUND} will be returned.
+     *
+     * @param keyRevisions Metastorage key revisions in ascending order.
+     * @param upperBoundRevision Revision upper bound.
+     */
+    public static int maxRevisionIndex(long[] keyRevisions, long upperBoundRevision) {
+        int i = binarySearch(keyRevisions, upperBoundRevision);
+
+        if (i < 0) {
+            if (i == -1) {
+                return NOT_FOUND;
+            }
+
+            i = -(i + 2);
+        }
+
+        return i;
+    }
+
+    /**
+     * Returns index of minimum revision which is greater or equal to {@code lowerBoundRevision}. If there is no such revision then
+     * {@link #NOT_FOUND} will be returned.
+     *
+     * @param keyRevisions Metastorage key revisions in ascending order.
+     * @param lowerBoundRevision Revision lower bound.
+     */
+    public static int minRevisionIndex(long[] keyRevisions, long lowerBoundRevision) {
+        int i = binarySearch(keyRevisions, lowerBoundRevision);
+
+        if (i < 0) {
+            if (i == -(keyRevisions.length + 1)) {
+                return NOT_FOUND;
+            }
+
+            i = -(i + 1);
+        }
+
+        return i;
+    }
+
+    /** Returns {@link true} if the requested index is the last index of the array. */
+    public static boolean isLastIndex(long[] arr, int index) {
+        assert index >= 0 && index < arr.length : "index=" + index + ", arr.length=" + arr.length;
+
+        return arr.length - 1 == index;
     }
 
     /**

@@ -57,6 +57,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -185,7 +186,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(clusterService.nodeName())));
+        Set<String> metastorageNodes = Set.of(clusterService.nodeName());
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(metastorageNodes));
+        when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metastorageNodes).build()
+        ));
 
         RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 

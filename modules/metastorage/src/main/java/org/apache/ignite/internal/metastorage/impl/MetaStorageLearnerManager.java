@@ -34,6 +34,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta Storage learner manager.
@@ -46,6 +47,8 @@ class MetaStorageLearnerManager {
     private final LogicalTopologyService logicalTopologyService;
 
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
+
+    private volatile boolean learnersAdditionEnabled = true;
 
     MetaStorageLearnerManager(
             IgniteSpinBusyLock busyLock,
@@ -62,6 +65,10 @@ class MetaStorageLearnerManager {
     }
 
     CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
+        if (!learnersAdditionEnabled) {
+            return nullCompletedFuture();
+        }
+
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
                 ? nullCompletedFuture()
                 : raftService.addLearners(List.of(new Peer(learner.name()))));
@@ -122,5 +129,17 @@ class MetaStorageLearnerManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Disables addition of learners one by one (as a reaction to nodes joining the validated nodes set).
+     *
+     * <p>This does NOT affect other ways of changing the learners.
+     *
+     * <p>This is only used by test code, and there is no method for enabling learners addition back as this is not needed in our tests.
+     */
+    @TestOnly
+    void disableLearnersAddition() {
+        learnersAdditionEnabled = false;
     }
 }

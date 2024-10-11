@@ -123,6 +123,8 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     @Test
     @Timeout(20)
     public void testTransferLeadership() {
+        assertThat(nodes.get(0).raftGroupService.refreshLeader(), willCompleteSuccessfully());
+
         Peer leader = nodes.get(0).raftGroupService.leader();
 
         TestNode oldLeaderNode = nodes.stream()
