@@ -457,13 +457,14 @@ public class Accumulators {
             assert nullOrEmpty(args) || args.length == 1;
 
             if (nullOrEmpty(args) || args[0] != null) {
-                Long cnt = (Long) state.get();
+                MutableLong cnt = (MutableLong) state.get();
 
                 if (cnt == null) {
-                    state.set(1L);
-                } else {
-                    state.set(cnt + 1L);
+                    cnt = new MutableLong();
+                    state.set(cnt);
                 }
+
+                cnt.add(1);
             }
         }
 
@@ -473,7 +474,8 @@ public class Accumulators {
             if (state.get() == null) {
                 result.set(0L);
             } else {
-                result.set(state.get());
+                MutableLong cnt = (MutableLong) state.get();
+                result.set(cnt.longValue());
             }
         }
 
@@ -492,7 +494,7 @@ public class Accumulators {
 
     /** Wraps another sum accumulator and returns {@code null} if there was updates. */
     public static class Sum implements Accumulator {
-        private Accumulator acc;
+        private final Accumulator acc;
 
         public Sum(Accumulator acc) {
             this.acc = acc;
@@ -514,7 +516,7 @@ public class Accumulators {
             if (!state.hasValue()) {
                 result.set(null);
             } else {
-                result.set(state.get());
+                acc.end(state, result);
             }
         }
 
@@ -544,12 +546,12 @@ public class Accumulators {
                 return;
             }
 
-            Double sum = (Double) state.get();
+            MutableDouble sum = (MutableDouble) state.get();
             if (sum == null) {
-                state.set(in);
-            } else {
-                state.set(sum + in);
+                sum = new MutableDouble();
+                state.set(sum);
             }
+            sum.add(in);
         }
 
         /** {@inheritDoc} */
@@ -558,7 +560,8 @@ public class Accumulators {
             if (!state.hasValue()) {
                 result.set(0.0d);
             } else {
-                result.set(state.get());
+                MutableDouble sum = (MutableDouble) state.get();
+                result.set(sum.doubleValue());
             }
         }
 
@@ -588,12 +591,12 @@ public class Accumulators {
                 return;
             }
 
-            Long sum = (Long) state.get();
+            MutableLong sum = (MutableLong) state.get();
             if (sum == null) {
-                state.set(in);
-            } else {
-                state.set(sum + in);
+                sum = new MutableLong();
+                state.set(sum);
             }
+            sum.add(in);
         }
 
         /** {@inheritDoc} */
@@ -602,7 +605,8 @@ public class Accumulators {
             if (!state.hasValue()) {
                 result.set(0L);
             } else {
-                result.set(state.get());
+                MutableLong sum = (MutableLong) state.get();
+                result.set(sum.longValue());
             }
         }
 

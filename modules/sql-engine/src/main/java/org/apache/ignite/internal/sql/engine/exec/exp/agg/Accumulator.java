@@ -42,7 +42,19 @@ public interface Accumulator {
      */
     void end(AccumulatorsState state, AccumulatorsState result);
 
+    /**
+     * Returns types of arguments for this accumulator.
+     *
+     * @param typeFactory Type factory.
+     * @return List of argument types.
+     */
     List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
 
+    /**
+     * Returns a result type for this accumulator.
+     *
+     * @param typeFactory Type factory.
+     * @return A result type.
+     */
     RelDataType returnType(IgniteTypeFactory typeFactory);
 }
