@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -215,8 +216,10 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void changeMetastorageNodesChangesMsNodes() {
-        initCmgAndChangeMgNodes();
+    void changeMetastorageInfoChangesMsInfo() {
+        UUID metastorageRepairClusterId = randomUUID();
+
+        initCmgAndChangeMgInfo(metastorageRepairClusterId);
 
         ClusterState updatedState = listener.storageManager().getClusterState();
         assertThat(updatedState, is(notNullValue()));
@@ -227,9 +230,12 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         assertThat(updatedState.version(), is(state.version()));
         assertThat(updatedState.initialClusterConfiguration(), is(state.initialClusterConfiguration()));
         assertThat(updatedState.formerClusterIds(), is(state.formerClusterIds()));
+
+        assertThat(listener.storageManager().getMetastorageRepairClusterId(), is(metastorageRepairClusterId));
+        assertThat(listener.storageManager().getMetastorageRepairingConfigIndex(), is(123L));
     }
 
-    private void initCmgAndChangeMgNodes() {
+    private void initCmgAndChangeMgInfo(UUID metastorageRepairClusterId) {
         listener.onWrite(iterator(
                 msgFactory.initCmgStateCommand()
                         .clusterState(state)
@@ -238,8 +244,10 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         ));
 
         listener.onWrite(iterator(
-                msgFactory.changeMetastorageNodesCommand()
+                msgFactory.changeMetaStorageInfoCommand()
                         .metaStorageNodes(Set.of("new-ms-1", "new-ms-2"))
+                        .metastorageRepairClusterId(metastorageRepairClusterId)
+                        .metastorageRepairingConfigIndex(123L)
                         .build()
         ));
     }

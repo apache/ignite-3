@@ -228,8 +228,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      */
     boolean invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure,
+            List<Operation> success,
+            List<Operation> failure,
             KeyValueUpdateContext context,
             CommandId commandId
     );
@@ -456,4 +456,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see #saveCompactionRevision(long)
      */
     long getCompactionRevision();
+
+    /**
+     * Returns checksum corresponding to the revision.
+     *
+     * @param revision Revision.
+     * @throws CompactedException If the requested revision has been compacted.
+     */
+    long checksum(long revision);
 }

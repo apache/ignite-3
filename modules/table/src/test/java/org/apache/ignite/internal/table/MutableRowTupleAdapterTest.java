@@ -478,7 +478,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
             }
 
             if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-15200: Not supported yet.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-17373: Not supported yet.
                 continue;
             }
 

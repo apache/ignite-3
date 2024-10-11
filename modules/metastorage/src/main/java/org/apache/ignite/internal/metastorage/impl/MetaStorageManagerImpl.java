@@ -26,10 +26,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -40,10 +41,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
+import org.apache.ignite.internal.disaster.system.storage.NoOpMetastorageRepairStorage;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -249,7 +252,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                () -> null,
+                new NoOpMetastorageRepairStorage(),
                 (nodes, mgReplicationFactor) -> nullCompletedFuture(),
                 raftGroupOptionsConfigurer
         );
@@ -318,60 +321,98 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         listener.accept(storage.revision());
     }
 
-    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
+    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(MetaStorageInfo metaStorageInfo) {
         try {
-            String thisNodeName = clusterService.nodeName();
-
-            var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
-
-            CompletableFuture<? extends RaftGroupService> localRaftServiceFuture = metaStorageNodes.contains(thisNodeName)
-                    ? startFollowerNode(metaStorageNodes, disruptorConfig)
-                    : startLearnerNode(metaStorageNodes, disruptorConfig);
-
-            raftNodeStarted.complete(null);
-
-            return localRaftServiceFuture
-                    .thenApply(raftService -> {
-                        raftServiceFuture.complete(raftService);
-
-                        return new MetaStorageServiceImpl(
-                                thisNodeName,
-                                raftService,
-                                busyLock,
-                                clusterTime,
-                                () -> clusterService.topologyService().localMember().id());
-                    });
+            if (thisNodeDidNotWitnessMetaStorageRepair(metaStorageInfo)) {
+                prepareMetaStorageReentry(metaStorageInfo);
+            }
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
+
+        String thisNodeName = clusterService.nodeName();
+        var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
+
+        CompletableFuture<? extends RaftGroupService> localRaftServiceFuture;
+        try {
+            localRaftServiceFuture = metaStorageInfo.metaStorageNodes().contains(thisNodeName)
+                    ? startVotingNode(metaStorageInfo, disruptorConfig)
+                    : startLearnerNode(metaStorageInfo, disruptorConfig);
+        } catch (NodeStoppingException e) {
+            return failedFuture(e);
+        }
+
+        raftNodeStarted.complete(null);
+
+        return localRaftServiceFuture
+                .thenApply(raftService -> {
+                    raftServiceFuture.complete(raftService);
+
+                    return new MetaStorageServiceImpl(
+                            thisNodeName,
+                            raftService,
+                            busyLock,
+                            clusterTime,
+                            () -> clusterService.topologyService().localMember().id());
+                });
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startFollowerNode(
-            Set<String> metaStorageNodes,
+    private boolean thisNodeDidNotWitnessMetaStorageRepair(MetaStorageInfo metaStorageInfo) {
+        UUID repairClusterIdInCmg = metaStorageInfo.metastorageRepairClusterId();
+        UUID locallyWitnessedRepairClusterId = metastorageRepairStorage.readWitnessedMetastorageRepairClusterId();
+
+        return repairClusterIdInCmg != null && !Objects.equals(locallyWitnessedRepairClusterId, repairClusterIdInCmg);
+    }
+
+    private void prepareMetaStorageReentry(MetaStorageInfo metaStorageInfo) throws NodeStoppingException {
+        destroyRaftAndStateMachineStorages();
+        saveWitnessedMetastorageRepairClusterIdLocally(metaStorageInfo);
+    }
+
+    private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
+        raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
+
+        // Here, we must destroy the storage, but it's already destroyed in the beginning of the startAsync() method (in its own #start()).
+        // Just to make sure this is maintained, we add an assertion.
+        assert storage.revision() == 0 : "It's expected that the storage is destroyed at startup, but now it's not (revision is "
+                + storage.revision() + "; if the flow has changed, this assertion has to be changed to actual storage destruction.";
+    }
+
+    private void saveWitnessedMetastorageRepairClusterIdLocally(MetaStorageInfo metaStorageInfo) {
+        UUID repairClusterId = metaStorageInfo.metastorageRepairClusterId();
+
+        assert repairClusterId != null;
+
+        metastorageRepairStorage.saveWitnessedMetastorageRepairClusterId(repairClusterId);
+    }
+
+    private CompletableFuture<? extends RaftGroupService> startVotingNode(
+            MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes());
         Peer localPeer = configuration.peer(clusterService.nodeName());
         assert localPeer != null;
 
-        return startRaftNode(configuration, localPeer, disruptorConfig);
+        return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startLearnerNode(
-            Set<String> metaStorageNodes,
+    private CompletableFuture<? extends RaftGroupService> startLearnerNode(
+            MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
         String thisNodeName = clusterService.nodeName();
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes(), Set.of(thisNodeName));
         Peer localPeer = configuration.learner(thisNodeName);
         assert localPeer != null;
 
-        return startRaftNode(configuration, localPeer, disruptorConfig);
+        return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> startRaftNode(
+    private CompletableFuture<? extends RaftGroupService> startRaftNode(
             PeersAndLearners configuration,
             Peer localPeer,
+            MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
         MetaStorageConfiguration localMetaStorageConfiguration = metaStorageConfiguration;
@@ -390,7 +431,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 options -> {
                     raftGroupOptionsConfigurer.configure(options);
 
-                    ((RaftGroupOptions) options).snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
+                    RaftGroupOptions groupOptions = (RaftGroupOptions) options;
+                    groupOptions.externallyEnforcedConfigIndex(metaStorageInfo.metastorageRepairingConfigIndex());
+                    groupOptions.snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
                 }
         );
 
@@ -536,16 +579,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         storage.start();
 
-        cmgMgr.metaStorageNodes()
-                .thenCompose(metaStorageNodes -> {
-                    LOG.info("Metastorage nodes on start are {}", metaStorageNodes);
+        cmgMgr.metaStorageInfo()
+                .thenCompose(metaStorageInfo -> {
+                    LOG.info("Metastorage info on start is {}", metaStorageInfo);
 
                     if (!busyLock.enterBusy()) {
                         return failedFuture(new NodeStoppingException());
                     }
 
                     try {
-                        return initializeMetaStorage(metaStorageNodes);
+                        return initializeMetaStorage(metaStorageInfo);
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -811,7 +854,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public CompletableFuture<Boolean> invoke(Condition cond, Collection<Operation> success, Collection<Operation> failure) {
+    public CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -1050,6 +1093,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Disables addition of learners one by one (as a reaction to nodes joining the validated nodes set).
+     *
+     * <p>This does NOT affect other ways of changing the learners.
+     */
+    @TestOnly
+    public void disableLearnersAddition() {
+        learnerManager.disableLearnersAddition();
     }
 
     private static class PeersChangeState {

@@ -332,8 +332,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public boolean invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure,
+            List<Operation> success,
+            List<Operation> failure,
             KeyValueUpdateContext context,
             CommandId commandId
     ) {
@@ -344,7 +344,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             boolean branch = condition.test(e.toArray(new Entry[]{}));
 
-            Collection<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
+            List<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
 
             // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
             // were added in order to have matching revisions count through all storages.
@@ -395,7 +395,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 if (branch.isTerminal()) {
                     long curRev = rev + 1;
 
-                    Collection<Operation> ops = new ArrayList<>(branch.update().operations());
+                    List<Operation> ops = new ArrayList<>(branch.update().operations());
 
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
                     // operations were added in order to have matching revisions count through all storages.
@@ -1021,6 +1021,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             return compactionRevision;
         }
+    }
+
+    @Override
+    public long checksum(long revision) {
+        throw new UnsupportedOperationException();
     }
 
     private static long[] toLongArray(@Nullable List<Long> list) {

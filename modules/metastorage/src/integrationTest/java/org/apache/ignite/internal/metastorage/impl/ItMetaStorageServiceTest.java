@@ -57,7 +57,6 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -733,18 +732,18 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
-        ArgumentCaptor<Collection<Operation>> successCaptor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<List<Operation>> successCaptor = ArgumentCaptor.forClass(List.class);
 
-        ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<List<Operation>> failureCaptor = ArgumentCaptor.forClass(List.class);
 
         verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any(), any());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 
-        assertArrayEquals(expKey.bytes(), toByteArray(successCaptor.getValue().iterator().next().key()));
-        assertArrayEquals(expVal, toByteArray(successCaptor.getValue().iterator().next().value()));
+        assertArrayEquals(expKey.bytes(), toByteArray(successCaptor.getValue().get(0).key()));
+        assertArrayEquals(expVal, toByteArray(successCaptor.getValue().get(0).value()));
 
-        assertEquals(OperationType.NO_OP, failureCaptor.getValue().iterator().next().type());
+        assertEquals(OperationType.NO_OP, failureCaptor.getValue().get(0).type());
     }
 
     // TODO: IGNITE-14693 Add tests for exception handling logic: onError,
