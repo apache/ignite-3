@@ -215,7 +215,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         assertNotNull(raftClient);
 
-        raftClient.refreshLeader().get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        raftClient.refreshLeader().get();
 
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;

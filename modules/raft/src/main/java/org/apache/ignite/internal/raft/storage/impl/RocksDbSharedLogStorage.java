@@ -380,7 +380,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     }
 
     protected byte[] getValueFromRocksDb(byte[] keyBytes) throws RocksDBException {
-        assert !db.isClosed();
+        assert !db.isClosed() : "RocksDB is already closed";
 
         return this.db.get(this.dataHandle, keyBytes);
     }
