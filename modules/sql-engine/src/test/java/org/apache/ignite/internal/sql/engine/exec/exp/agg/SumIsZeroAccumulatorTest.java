@@ -20,11 +20,13 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.DecimalSumEmptyIsZero;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.DoubleSumEmptyIsZero;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.LongSumEmptyIsZero;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,9 +52,9 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> testArgs() {
         return Stream.of(
-                Arguments.of(DoubleSumEmptyIsZero.FACTORY.get(), 4.0d, new Object[]{3.0d, 1.0d}),
-                Arguments.of(LongSumEmptyIsZero.FACTORY.get(), 4L, new Object[]{3L, 1L}),
-                Arguments.of(DecimalSumEmptyIsZero.FACTORY.get(), new BigDecimal("3.4"),
+                Arguments.of(namedAccumulator(DoubleSumEmptyIsZero.FACTORY), 4.0d, new Object[]{3.0d, 1.0d}),
+                Arguments.of(namedAccumulator(LongSumEmptyIsZero.FACTORY), 4L, new Object[]{3L, 1L}),
+                Arguments.of(namedAccumulator(DecimalSumEmptyIsZero.FACTORY), new BigDecimal("3.4"),
                         new Object[]{new BigDecimal("1.3"), new BigDecimal("2.1")})
         );
     }
@@ -67,13 +69,18 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> zeroArgs() {
         return Stream.of(
-                Arguments.of(DoubleSumEmptyIsZero.FACTORY.get(), 0.0d),
-                Arguments.of(LongSumEmptyIsZero.FACTORY.get(), 0L),
-                Arguments.of(DecimalSumEmptyIsZero.FACTORY.get(), BigDecimal.ZERO)
+                Arguments.of(namedAccumulator(DoubleSumEmptyIsZero.FACTORY), 0.0d),
+                Arguments.of(namedAccumulator(LongSumEmptyIsZero.FACTORY), 0L),
+                Arguments.of(namedAccumulator(DecimalSumEmptyIsZero.FACTORY), BigDecimal.ZERO)
         );
     }
 
     private static StatefulAccumulator newCall(Accumulator sum) {
         return new StatefulAccumulator(sum);
+    }
+
+    private static Named<Accumulator> namedAccumulator(Supplier<Accumulator> supplier) {
+        Accumulator accumulator = supplier.get();
+        return Named.of(accumulator.getClass().getName(), accumulator);
     }
 }
