@@ -93,7 +93,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -743,15 +742,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.get(key, revLowerBound, revUpperBound);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
     }
 
     @Override
