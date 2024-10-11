@@ -125,7 +125,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     private static final TestReplicaMessagesFactory TEST_REPLICA_MESSAGES_FACTORY = new TestReplicaMessagesFactory();
 
-    @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
+    @InjectConfiguration("mock {retryTimeout=4000, responseTimeout=1000}")
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
@@ -152,6 +152,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     /** List of services to have to close before the test will be completed. */
     private final List<Closeable> servicesToClose = new ArrayList<>();
+
+    private Set<String> grpNodes = null;
 
     private BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>> replicaListener = null;
 
@@ -257,13 +259,19 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
             ));
         }
+
+        grpNodes = chooseRandomNodes(3);
     }
 
     @AfterEach
     public void afterTest() throws Exception {
+        stopReplicationGroup(GROUP_ID, grpNodes);
+
         closeAll(servicesToClose);
 
         replicaListener = null;
+
+        grpNodes = null;
     }
 
     /**
@@ -316,8 +324,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @Test
     public void testNotificationToPlacementDriverAboutConnectivityProblem() throws Exception {
-        Set<String> grpNodes = chooseRandomNodes(3);
-
         log.info("Replication group is based on {}", grpNodes);
 
         var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
@@ -367,8 +373,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @Test
     public void testNotificationToPlacementDriverAboutMajorityLoss() throws Exception {
-        Set<String> grpNodes = chooseRandomNodes(3);
-
         log.info("Replication group is based on {}", grpNodes);
 
         var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
@@ -429,8 +433,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             assertTrue(placementDriverNodeNames.contains(nodeName));
         }
-
-        stopReplicationGroup(GROUP_ID, grpNodes);
     }
 
     /**

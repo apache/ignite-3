@@ -57,7 +57,7 @@ public class KeyValueStorageUtils {
     }
 
     /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRevision}. If there is no such revision then
+     * Returns index of maximum revision which is less or equal to {@code upperBoundRevision}. If there is no such revision then
      * {@link #NOT_FOUND} will be returned.
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
@@ -72,6 +72,27 @@ public class KeyValueStorageUtils {
             }
 
             i = -(i + 2);
+        }
+
+        return i;
+    }
+
+    /**
+     * Returns index of minimum revision which is greater or equal to {@code lowerBoundRevision}. If there is no such revision then
+     * {@link #NOT_FOUND} will be returned.
+     *
+     * @param keyRevisions Metastorage key revisions in ascending order.
+     * @param lowerBoundRevision Revision lower bound.
+     */
+    public static int minRevisionIndex(long[] keyRevisions, long lowerBoundRevision) {
+        int i = binarySearch(keyRevisions, lowerBoundRevision);
+
+        if (i < 0) {
+            if (i == -(keyRevisions.length + 1)) {
+                return NOT_FOUND;
+            }
+
+            i = -(i + 1);
         }
 
         return i;
