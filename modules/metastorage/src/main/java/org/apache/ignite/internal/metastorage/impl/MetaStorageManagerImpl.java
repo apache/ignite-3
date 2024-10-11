@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
@@ -478,7 +479,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 this::peersChangeStateExists
         );
 
-        return service.subscribeLeader(leaderElectionListener)
+        return completedFuture(service)
+                .thenAccept(s -> s.subscribeLeader(leaderElectionListener))
                 .handle((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to register MetaStorageLeaderElectionListener", e);
