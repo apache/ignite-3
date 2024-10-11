@@ -22,10 +22,11 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOTHING_TO_COMPACT_INDEX;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
@@ -232,14 +233,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys) {
+    public List<Entry> getAll(List<byte[]> keys) {
         synchronized (mux) {
             return doGetAll(keys, rev);
         }
     }
 
     @Override
-    public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         synchronized (mux) {
             return doGetAll(keys, revUpperBound);
         }
@@ -250,9 +251,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             long curRev = rev + 1;
 
-            if (doRemove(key, curRev, opTs)) {
-                updateRevision(curRev, opTs);
-            }
+            doRemove(key, curRev, opTs);
+            updateRevision(curRev, opTs);
         }
     }
 
@@ -284,8 +284,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public boolean invoke(
             Condition condition,
-            Collection<Operation> success,
-            Collection<Operation> failure,
+            List<Operation> success,
+            List<Operation> failure,
             HybridTimestamp opTs,
             CommandId commandId
     ) {
@@ -294,7 +294,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             boolean branch = condition.test(e.toArray(new Entry[]{}));
 
-            Collection<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
+            List<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
 
             // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
             // were added in order to have matching revisions count through all storages.
@@ -305,19 +305,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             long curRev = rev + 1;
 
-            boolean modified = false;
-
             for (Operation op : ops) {
                 switch (op.type()) {
                     case PUT:
                         doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
-                        modified = true;
-
                         break;
 
                     case REMOVE:
-                        modified |= doRemove(toByteArray(op.key()), curRev, opTs);
+                        doRemove(toByteArray(op.key()), curRev, opTs);
 
                         break;
 
@@ -329,9 +325,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified) {
-                updateRevision(curRev, opTs);
-            }
+            updateRevision(curRev, opTs);
 
             return branch;
         }
@@ -349,9 +343,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 if (branch.isTerminal()) {
                     long curRev = rev + 1;
 
-                    boolean modified = false;
-
-                    Collection<Operation> ops = new ArrayList<>(branch.update().operations());
+                    List<Operation> ops = new ArrayList<>(branch.update().operations());
 
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
                     // operations were added in order to have matching revisions count through all storages.
@@ -365,12 +357,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                             case PUT:
                                 doPut(toByteArray(op.key()), toByteArray(op.value()), curRev, opTs);
 
-                                modified = true;
-
                                 break;
 
                             case REMOVE:
-                                modified |= doRemove(toByteArray(op.key()), curRev, opTs);
+                                doRemove(toByteArray(op.key()), curRev, opTs);
 
                                 break;
 
@@ -382,9 +372,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         }
                     }
 
-                    if (modified) {
-                        updateRevision(curRev, opTs);
-                    }
+                    updateRevision(curRev, opTs);
 
                     return branch.update().result();
                 } else {
@@ -430,7 +418,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
@@ -555,7 +543,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void compact(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         for (Map.Entry<byte[], List<Long>> entry : keysIdx.entrySet()) {
             synchronized (mux) {
@@ -673,16 +661,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private boolean doRemove(byte[] key, long curRev, HybridTimestamp opTs) {
+    private void doRemove(byte[] key, long curRev, HybridTimestamp opTs) {
         Entry e = doGet(key, curRev);
 
         if (e.empty() || e.tombstone()) {
-            return false;
+            return;
         }
 
         doPut(key, TOMBSTONE, curRev, opTs);
-
-        return true;
     }
 
     /**
@@ -696,7 +682,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void compactForKey(byte[] key, long[] revs, long compactionRevision) {
         int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
-        if (indexToCompact == NOTHING_TO_COMPACT_INDEX) {
+        if (indexToCompact == NOT_FOUND) {
             return;
         }
 
@@ -725,37 +711,40 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private Collection<Entry> doGetAll(List<byte[]> keys, long rev) {
-        assert keys != null : "keys list can't be null.";
-        assert !keys.isEmpty() : "keys list can't be empty.";
-        assert rev >= 0;
+    private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
 
-        Collection<Entry> res = new ArrayList<>(keys.size());
+        var res = new ArrayList<Entry>(keys.size());
 
         for (byte[] key : keys) {
-            res.add(doGet(key, rev));
+            res.add(doGet(key, revUpperBound));
         }
 
         return res;
     }
 
     private Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= 0 : revUpperBound;
 
-        List<Long> revs = keysIdx.get(key);
+        long[] keyRevisions = toLongArray(keysIdx.get(key));
+        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
 
-        if (revs == null || revs.isEmpty()) {
+        if (maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
             return EntryImpl.empty(key);
         }
 
-        long lastRev = maxRevision(revs, revUpperBound);
+        long revision = keyRevisions[maxRevisionIndex];
 
-        // lastRev can be -1 if maxRevision return -1.
-        if (lastRev == -1) {
-            return EntryImpl.empty(key);
+        Value value = getValue(key, revision);
+
+        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
+            throw new CompactedException(revUpperBound, compactionRevision);
         }
 
-        return doGetValue(key, lastRev);
+        return EntryImpl.toEntry(key, revision, value);
     }
 
     private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
@@ -958,7 +947,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void saveCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -969,7 +958,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        assert revision >= 0;
+        assert revision >= 0 : revision;
 
         synchronized (mux) {
             assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -985,8 +974,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private static long[] toLongArray(List<Long> list) {
-        if (list.isEmpty()) {
+    @Override
+    public long checksum(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    private static long[] toLongArray(@Nullable List<Long> list) {
+        if (list == null) {
             return LONG_EMPTY_ARRAY;
         }
 
@@ -1007,5 +1001,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value.tombstone();
+    }
+
+    private Value getValue(byte[] key, long revision) {
+        NavigableMap<byte[], Value> valueByKey = revsIdx.get(revision);
+
+        assert valueByKey != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        Value value = valueByKey.get(key);
+
+        assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        return value;
     }
 }

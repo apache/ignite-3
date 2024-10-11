@@ -101,6 +101,15 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
+    public void putAll(List<byte[]> keys, List<byte[]> values) {
+        inBusyWriteLock(() -> {
+            for (int i = 0; i < keys.size(); i++) {
+                map.put(new ByteArray(keys.get(i)), values.get(i));
+            }
+        });
+    }
+
+    @Override
     public void replaceAll(byte[] prefix, byte[] key, byte[] value) {
         inBusyWriteLock(() -> {
             map.entrySet().removeIf(e -> startsWith(e.getKey().bytes(), prefix));

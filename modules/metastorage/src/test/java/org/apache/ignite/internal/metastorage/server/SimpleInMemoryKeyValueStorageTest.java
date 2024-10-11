@@ -25,4 +25,9 @@ class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
     }
+
+    @Override
+    protected boolean supportsChecksums() {
+        return false;
+    }
 }

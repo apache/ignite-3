@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.disaster.system.message;
+package org.apache.ignite.internal.sql.engine.statistic;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 
 /**
- * Response to {@link MetastorageIndexTermRequestMessage}.
+ * Defined interface to manage SQL statistics.
  */
-@Transferable(SystemDisasterRecoveryMessageGroup.METASTORAGE_INDEX_TERM_RESPONSE)
-public interface MetastorageIndexTermResponseMessage extends NetworkMessage {
+public interface SqlStatisticManager extends LifecycleAware {
     /**
-     * Returns Raft index of the Metastorage group on the sender of this message.
+     * Returns approximate number of rows in table by their id.
      */
-    long raftIndex();
+    long tableSize(int tableId);
 
-    /**
-     * Returns term corresponding to the Raft index of the Metastorage group on the sender of this message.
-     */
-    long raftTerm();
+    @Override
+    default void start(){}
+
+    @Override
+    default void stop(){}
 }

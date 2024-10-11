@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -164,7 +164,7 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @see Condition
      * @see Operation
      */
-    CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link Iif}

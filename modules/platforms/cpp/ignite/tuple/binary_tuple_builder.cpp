@@ -348,8 +348,10 @@ void binary_tuple_builder::append_bytes(bytes_view bytes) {
     assert(element_index < element_count);
     assert(next_value + bytes.size() <= value_base + value_area_size);
 
-    std::memcpy(next_value, bytes.data(), bytes.size());
-    next_value += bytes.size();
+    if (!bytes.empty()) {
+        std::memcpy(next_value, bytes.data(), bytes.size());
+        next_value += bytes.size();
+    }
 
     append_entry();
 }

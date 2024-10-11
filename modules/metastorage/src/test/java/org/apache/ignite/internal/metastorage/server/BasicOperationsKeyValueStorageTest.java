@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,6 +85,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
     @WorkDirectory
     Path workDir;
+
+    /** Whether the implemention under test supports checksums. */
+    protected abstract boolean supportsChecksums();
 
     @Test
     public void testPut() {
@@ -529,34 +533,34 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // Remove non-existent entry.
         removeFromMs(key);
 
-        assertEquals(0, storage.revision());
+        assertEquals(1, storage.revision());
         assertTrue(storage.get(key).empty());
 
         putToMs(key, val);
 
-        assertEquals(1, storage.revision());
+        assertEquals(2, storage.revision());
 
         // Remove existent entry.
         removeFromMs(key);
 
-        assertEquals(2, storage.revision());
+        assertEquals(3, storage.revision());
 
         Entry e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
-        assertEquals(2, e.revision());
+        assertEquals(3, e.revision());
 
         // Remove already removed entry (tombstone can't be removed).
         removeFromMs(key);
 
-        assertEquals(2, storage.revision());
+        assertEquals(4, storage.revision());
 
         e = storage.get(key);
 
         assertFalse(e.empty());
         assertTrue(e.tombstone());
-        assertEquals(2, e.revision());
+        assertEquals(3, e.revision());
     }
 
     @Test
@@ -2141,6 +2145,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         storage.put(key, value, hybridTimestamp(10));
 
+        long checksum1 = 0;
+        if (supportsChecksums()) {
+            checksum1 = storage.checksum(1);
+        }
+
         Path snapshotDir = workDir.resolve("snapshotDir");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
@@ -2153,6 +2162,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         assertEquals(1L, storage.revision());
         assertFalse(storage.get(key).empty());
+
+        if (supportsChecksums()) {
+            assertThat(storage.checksum(1), is(checksum1));
+        }
     }
 
     @Test
@@ -2245,33 +2258,41 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.put(key, value, MIN_VALUE);
     }
 
-    private void putAllToMs(List<byte[]> keys, List<byte[]> values) {
+    void putAllToMs(List<byte[]> keys, List<byte[]> values) {
         storage.putAll(keys, values, MIN_VALUE);
     }
 
-    private void removeFromMs(byte[] key) {
+    void removeFromMs(byte[] key) {
         storage.remove(key, MIN_VALUE);
     }
 
-    private void removeAllFromMs(List<byte[]> keys) {
+    void removeAllFromMs(List<byte[]> keys) {
         storage.removeAll(keys, MIN_VALUE);
     }
 
-    private boolean invokeOnMs(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+    private boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure) {
+        return invokeOnMs(condition, success, failure, createCommandId());
+    }
+
+    boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure, CommandId commandId) {
         return storage.invoke(
                 condition,
                 success,
                 failure,
                 MIN_VALUE,
-                createCommandId()
+                commandId
         );
     }
 
     private StatementResult invokeOnMs(If iif) {
+        return invokeOnMs(iif, createCommandId());
+    }
+
+    StatementResult invokeOnMs(If iif, CommandId commandId) {
         return storage.invoke(
                 iif,
                 MIN_VALUE,
-                createCommandId()
+                commandId
         );
     }
 

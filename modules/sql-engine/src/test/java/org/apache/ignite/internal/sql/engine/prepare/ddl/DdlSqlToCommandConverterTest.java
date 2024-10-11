@@ -301,7 +301,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @TestFactory
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15200")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     public Stream<DynamicTest> numericDefaultWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -337,7 +337,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @TestFactory
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15200")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     public Stream<DynamicTest> nonIntervalDefaultsWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -353,7 +353,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15200")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     @TestFactory
     public Stream<DynamicTest> intervalDefaultsWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
@@ -667,7 +667,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(ex.getMessage(), containsString("String cannot be empty"));
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @MethodSource("intervalTypeNames")
@@ -692,7 +692,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         }
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @MethodSource("intervalTypeNames")
