@@ -77,7 +77,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     private static List<ColumnType> columnTypes() {
         return Arrays.stream(ColumnType.values())
                 .filter(t -> t != ColumnType.NULL
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Include interval types after this issue is resolved
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Include interval types after this issue is resolved
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
                 )

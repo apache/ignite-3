@@ -64,6 +64,7 @@ public partial class LinqTests
             query.ToString());
     }
 
+    [Ignore("IGNITE-23243 Value was either too large or too small for a Decimal")]
     [Test]
     public void TestCastToDecimalPrecision()
     {
@@ -75,8 +76,8 @@ public partial class LinqTests
 
         var res = query.ToList();
 
-        // TODO IGNITE-23171 Sql. Result of division doesn't match derived type
-        // Assert.AreEqual(900m / 33m, res[0]);
+        // The result can not be presented by decimal type.
+        // The expected value should be replaced when https://issues.apache.org/jira/browse/IGNITE-23243 is fixed.
         Assert.AreEqual(27.27272727272727m, res[0]);
 
         StringAssert.Contains("select cast((cast(_T0.VAL as decimal(60, 30)) / ?) as decimal(60, 30))", query.ToString());

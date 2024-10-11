@@ -442,9 +442,7 @@ private:
         static_assert(std::is_signed_v<SRC>);
         static_assert(std::is_signed_v<TGT>);
         static_assert(sizeof(TGT) < sizeof(SRC));
-        // Check if TGT::min <= value <= TGT::max.
-        return std::make_unsigned_t<SRC>(value + std::numeric_limits<TGT>::max() + 1)
-            <= std::numeric_limits<std::make_unsigned_t<TGT>>::max();
+        return std::numeric_limits<TGT>::min() <= value && value <= std::numeric_limits<TGT>::max();
     }
 
     /**

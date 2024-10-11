@@ -443,7 +443,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            pendingReqs.remove(-1L).future().complete(unpacker.retain());
+            completeRequestFuture(pendingReqs.remove(-1L).future(), unpacker);
             return;
         }
 
@@ -474,7 +474,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            pendingReq.future().complete(unpacker.retain());
+            completeRequestFuture(pendingReq.future(), unpacker);
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
@@ -508,18 +508,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
         }
 
-        try {
-            if (err != null) {
-                handler.completeExceptionally(err);
-            } else {
-                unpacker.retain();
-                handler.complete(new PayloadInputChannel(this, unpacker, null));
-            }
-        } catch (Exception e) {
-            log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-
-            throw new IgniteException(PROTOCOL_ERR, "Failed to to server notification: " + e.getMessage(), e);
-        }
+        completeNotificationFuture(handler, unpacker, err);
     }
 
     /**
@@ -793,6 +782,45 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public String endpoint() {
         return cfg.getAddress().toString();
+    }
+
+    private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {
+        // Add reference count before jumping onto another thread (due to handleAsync() in send()).
+        unpacker.retain();
+
+        try {
+            if (!fut.complete(unpacker)) {
+                unpacker.close();
+            }
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
+        }
+    }
+
+    private void completeNotificationFuture(
+            CompletableFuture<PayloadInputChannel> fut,
+            ClientMessageUnpacker unpacker,
+            @Nullable Throwable err) {
+        if (err != null) {
+            asyncContinuationExecutor.execute(() -> fut.completeExceptionally(err));
+            return;
+        }
+
+        // Add reference count before jumping onto another thread.
+        unpacker.retain();
+
+        asyncContinuationExecutor.execute(() -> {
+            try {
+                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                    unpacker.close();
+                }
+            } catch (Throwable e) {
+                unpacker.close();
+
+                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+            }
+        });
     }
 
     /**

@@ -520,7 +520,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE \"table\"\"Test\"\"\"");
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @Test
     public void testCreateTableDoesNotAllowIntervals() {
@@ -537,7 +537,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @Test
     public void testAlterTableDoesNotAllowIntervals() {
