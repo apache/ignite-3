@@ -634,7 +634,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param newChecksum Checksum corresponding to the revision.
      * @throws RocksDBException If failed.
      */
-    private void completeAndWriteBatch(WriteBatch batch, long newRev, KeyValueUpdateContext context, long newChecksum) throws RocksDBException {
+    private void completeAndWriteBatch(
+            WriteBatch batch, long newRev, KeyValueUpdateContext context, long newChecksum
+    ) throws RocksDBException {
         HybridTimestamp ts = context.timestamp;
 
         byte[] revisionBytes = longToBytes(newRev);
