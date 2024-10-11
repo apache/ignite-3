@@ -20,20 +20,11 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.binarySearch;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.TreeSet;
 import java.util.function.LongPredicate;
-import java.util.function.Predicate;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.jetbrains.annotations.Nullable;
 
 /** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
 public class KeyValueStorageUtils {
-    /** Lexicographic order comparator. */
-    public static final Comparator<byte[]> KEY_BYTES_COMPARATOR = Arrays::compareUnsigned;
-
     /** Constant meaning something could not be found. */
     public static final int NOT_FOUND = -1;
 
@@ -117,26 +108,5 @@ public class KeyValueStorageUtils {
                 "Requested revision should be less than or equal to the current: [requested=%s, current=%s]",
                 requestedRevision, revision
         );
-    }
-
-    /** Creates a predicate for {@link KeyValueStorage#watchRange(byte[], byte[], long, WatchListener)}. */
-    public static Predicate<byte[]> watchRangeKeyPredicate(byte[] keyFrom, byte @Nullable [] keyTo) {
-        return keyTo == null
-                ? k -> KEY_BYTES_COMPARATOR.compare(keyFrom, k) <= 0
-                : k -> KEY_BYTES_COMPARATOR.compare(keyFrom, k) <= 0 && KEY_BYTES_COMPARATOR.compare(keyTo, k) > 0;
-    }
-
-    /** Creates a predicate for {@link KeyValueStorage#watchExact(byte[], long, WatchListener)}. */
-    public static Predicate<byte[]> watchExactKeyPredicate(byte[] key) {
-        return k -> KEY_BYTES_COMPARATOR.compare(k, key) == 0;
-    }
-
-    /** Creates a predicate for {@link KeyValueStorage#watchExact(Collection, long, WatchListener)}. */
-    public static Predicate<byte[]> watchExactKeyPredicate(Collection<byte[]> keys) {
-        var keySet = new TreeSet<>(KEY_BYTES_COMPARATOR);
-
-        keySet.addAll(keys);
-
-        return keySet::contains;
     }
 }

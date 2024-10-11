@@ -26,8 +26,6 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchExactKeyPredicate;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchRangeKeyPredicate;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToLong;
@@ -65,9 +63,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,6 +77,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -159,6 +160,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
     );
+
+    /** Lexicographic order comparator. */
+    private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
     /** Batch size (number of keys) for storage compaction. The value is arbitrary. */
     private static final int COMPACT_BATCH_SIZE = 10;
@@ -880,29 +884,43 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
+        assert keyFrom != null : "keyFrom couldn't be null.";
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchRangeKeyPredicate(keyFrom, keyTo)));
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> CMP.compare(keyFrom, k) <= 0
+                : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
     public void watchExact(byte[] key, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
+        assert key != null : "key couldn't be null.";
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(key)));
+        Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
     public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
-        assert !keys.isEmpty();
+        assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(keys)));
+        TreeSet<byte[]> keySet = new TreeSet<>(CMP);
+
+        keySet.addAll(keys);
+
+        Predicate<byte[]> inPredicate = keySet::contains;
+
+        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
     }
 
     @Override
     public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
-        assert startRevision > 0 : startRevision;
+        assert startRevision != 0 : "First meaningful revision is 1";
 
         long currentRevision;
 

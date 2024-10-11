@@ -22,15 +22,12 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.KEY_BYTES_COMPARATOR;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchExactKeyPredicate;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.watchRangeKeyPredicate;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
@@ -47,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -54,10 +52,12 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongConsumer;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -81,6 +81,9 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
+    /** Lexicographical comparator. */
+    private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
+
     /**
      * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
      *
@@ -88,7 +91,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      *
      * <p>Guarded by {@link #mux}.</p>
      */
-    private final NavigableMap<byte[], List<Long>> keysIdx = new ConcurrentSkipListMap<>(KEY_BYTES_COMPARATOR);
+    private final NavigableMap<byte[], List<Long>> keysIdx = new ConcurrentSkipListMap<>(CMP);
 
     /** Timestamp to revision mapping. */
     private final NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
@@ -437,29 +440,43 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
+        assert keyFrom != null : "keyFrom couldn't be null.";
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchRangeKeyPredicate(keyFrom, keyTo)));
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> CMP.compare(keyFrom, k) <= 0
+                : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
     public void watchExact(byte[] key, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
+        assert key != null : "key couldn't be null.";
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(key)));
+        Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
     public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
-        assert !keys.isEmpty();
+        assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
+        assert rev > 0 : "rev must be positive.";
 
-        watchProcessor.addWatch(new Watch(rev, listener, watchExactKeyPredicate(keys)));
+        TreeSet<byte[]> keySet = new TreeSet<>(CMP);
+
+        keySet.addAll(keys);
+
+        Predicate<byte[]> inPredicate = keySet::contains;
+
+        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
     }
 
     @Override
     public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
-        assert startRevision > 0 : startRevision;
+        assert startRevision != 0 : "First meaningful revision is 1";
 
         synchronized (mux) {
             areWatchesEnabled = true;
@@ -616,7 +633,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 tsToRevMap.putAll(snapshot.tsToRevMap);
                 revToTsMap.putAll(snapshot.revToTsMap);
                 snapshot.revsIdx.forEach((revision, entries) -> {
-                    TreeMap<byte[], Value> entries0 = new TreeMap<>(KEY_BYTES_COMPARATOR);
+                    TreeMap<byte[], Value> entries0 = new TreeMap<>(CMP);
                     entries.forEach((keyBytes, valueSnapshot) -> entries0.put(keyBytes, valueSnapshot.toValue()));
 
                     revsIdx.put(revision, entries0);
@@ -819,7 +836,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 curRev,
                 (rev, entries) -> {
                     if (entries == null) {
-                        entries = new TreeMap<>(KEY_BYTES_COMPARATOR);
+                        entries = new TreeMap<>(CMP);
                     }
 
                     entries.put(key, val);
@@ -837,7 +854,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, HybridTimestamp opTs) {
         synchronized (mux) {
             // Update revsIdx.
-            NavigableMap<byte[], Value> entries = new TreeMap<>(KEY_BYTES_COMPARATOR);
+            NavigableMap<byte[], Value> entries = new TreeMap<>(CMP);
 
             for (int i = 0; i < keys.size(); i++) {
                 byte[] key = keys.get(i);
