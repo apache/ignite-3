@@ -383,7 +383,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private static LockException abandonedLockException(UUID locker, UUID holder) {
         return new LockException(ACQUIRE_LOCK_ERR,
-                "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
+                "Failed to acquire a lock due to \"abandoned\" state [locker=" + locker + ", holder=" + holder + ']');
     }
 
     public interface Releasable {
@@ -528,7 +528,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 if (res.isCompletedExceptionally()) {
                                     return failedFuture(abandonedLockException(txId, holderTx));
                                 } else {
-                                    return failedFuture(lockException(txId, holderTx));
+                                    return failedFuture(lockException(txId, holderTx)); // IX locks never wait.
                                 }
                             }
                         } else {
@@ -543,7 +543,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             if (eventResult.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));
                             } else {
-                                return failedFuture(lockException(txId, holderTx));
+                                return failedFuture(lockException(txId, holderTx));  // IX locks never wait.
                             }
                         } else {
                             track(txId, this);
