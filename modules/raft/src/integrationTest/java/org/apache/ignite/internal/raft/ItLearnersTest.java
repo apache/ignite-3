@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -278,7 +279,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         // Wait for the leader to be elected.
         services.forEach(service -> assertThat(
                 service.refreshLeader().thenApply(v -> service.leader()),
-                is(follower.asPeer())
+                willBe(follower.asPeer())
         ));
 
         nodes.set(0, null).close();
@@ -305,7 +306,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         // Wait for the leader to be elected.
         services.forEach(service -> assertThat(
                 service.refreshLeader().thenApply(v -> service.leader()),
-                is(follower.asPeer())
+                willBe(follower.asPeer())
         ));
 
         nodes.set(1, null).close();

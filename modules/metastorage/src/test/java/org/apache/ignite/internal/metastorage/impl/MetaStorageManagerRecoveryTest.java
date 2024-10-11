@@ -50,6 +50,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -99,7 +100,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private RaftManager raftManager(long remoteRevision) throws Exception {
         RaftManager raft = mock(RaftManager.class);
 
-        RaftGroupService service = mock(RaftGroupService.class);
+        RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionCommand.class)))
                 .thenAnswer(invocation -> completedFuture(remoteRevision));
