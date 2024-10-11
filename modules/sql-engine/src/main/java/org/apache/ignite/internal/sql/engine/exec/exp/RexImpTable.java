@@ -476,9 +476,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * 5. Amend calls of:
  *    EnumUtils.fromInternal -> ConverterUtils.fromInternal
  *    Expressions.makeUnary  -> IgniteExpressions.makeUnary
- *    Expressions.makeBinary -> IgniteExpressions.makeBinary
+ *    Expressions.makeBinary -> IgniteExpressions.makeBinary (or IgniteExpressions.decimalDivision in cause of decimal division).
  *    Expressions.multiply   -> IgniteExpressions.multiplyExact
  *    Expressions.divide     -> IgniteExpressions.divideExact
+ *    Expressions.divide     -> IgniteExpressions.makeDecimalDivision (if one or both operands are decimals)
  *    Expressions.negate     -> IgniteExpressions.makeUnary
  *    Expressions.subtract   -> IgniteExpressions.subtractExact
  *    Expressions.add        -> IgniteExpressions.addExact
@@ -3075,6 +3076,19 @@ public class RexImpTable {
       if (fieldComparator != null) {
         // We need to add the comparator, the argValueList might be non-mutable, so create a new one
         argValueList = FlatLists.append(argValueList, fieldComparator);
+      }
+
+      if (type0 == BigDecimal.class && type1 == BigDecimal.class && op == IgniteSqlOperatorTable.DIVIDE) {
+        int precision = call.getType().getPrecision();
+        int scale = call.getType().getScale();
+
+        assert precision != RelDataType.PRECISION_NOT_SPECIFIED || scale != RelDataType.SCALE_NOT_SPECIFIED
+                : "No precision/scale for decimal division. Return type: "
+                + call.getType()
+                + " operands: "
+                + call.getOperands().stream().map(RexNode::getType).collect(Collectors.toList());
+
+        return IgniteExpressions.makeDecimalDivision(argValueList.get(0), argValueList.get(1), precision, scale);
       }
 
       final Primitive primitive = Primitive.ofBoxOr(type0);

@@ -93,7 +93,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -281,6 +280,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 assert targetRevision != null;
 
                 listenForRecovery(targetRevision);
+            }).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.info("Recovery failed", ex);
+
+                    recoveryFinishedFuture.completeExceptionally(ex);
+                }
             });
 
             return recoveryFinishedFuture;
@@ -304,10 +309,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -326,13 +328,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             if (storageRevision >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             }
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private void finishRecovery(long targetRevision) {
+        appliedRevision = targetRevision;
+
+        if (targetRevision > 0) {
+            clusterTime.updateSafeTime(storage.timestampByRevision(targetRevision));
+        }
+
+        if (recoveryFinishedFuture.complete(targetRevision)) {
+            LOG.info("Finished MetaStorage recovery");
         }
     }
 
@@ -743,15 +754,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.get(key, revLowerBound, revUpperBound);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
     }
 
     @Override

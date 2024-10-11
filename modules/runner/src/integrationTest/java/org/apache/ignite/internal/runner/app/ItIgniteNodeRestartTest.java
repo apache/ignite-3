@@ -765,6 +765,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
 

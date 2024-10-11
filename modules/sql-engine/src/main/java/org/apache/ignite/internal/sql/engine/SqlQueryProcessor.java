@@ -56,6 +56,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -98,6 +99,8 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
@@ -176,6 +179,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final ReplicaService replicaService;
 
     private final SqlSchemaManager sqlSchemaManager;
+    private final SqlStatisticManager sqlStatisticManager;
 
     private final FailureManager failureManager;
 
@@ -237,6 +241,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SqlLocalConfiguration nodeCfg,
             TransactionInflights transactionInflights,
             TxManager txManager,
+            LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler
     ) {
         this.clusterSrvc = clusterSrvc;
@@ -258,9 +263,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.transactionInflights = transactionInflights;
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
-
+        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
+                sqlStatisticManager,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
@@ -355,6 +361,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
+
+        registerService(sqlStatisticManager);
 
         this.executionSrvc = executionSrvc;
 
@@ -698,6 +706,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     @TestOnly
     public MetricManager metricManager() {
         return metricManager;
+    }
+
+    @TestOnly
+    public SqlStatisticManager sqlStatisticManager() {
+        return sqlStatisticManager;
     }
 
     /** Performs additional validation of a parsed statement. **/

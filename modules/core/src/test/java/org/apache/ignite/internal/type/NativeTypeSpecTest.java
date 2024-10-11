@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 public class NativeTypeSpecTest {
 
     @ParameterizedTest
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200: Include PERIOD and DURATION after interval type support is added.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Include PERIOD and DURATION after interval type support is added.
     @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"NULL", "PERIOD", "DURATION"})
     public void testFromColumnType(ColumnType columnType) {
         NativeTypeSpec typeSpec = NativeTypeSpec.fromColumnType(columnType);
