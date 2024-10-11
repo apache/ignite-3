@@ -237,6 +237,26 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(ex.getMessage(), is("Some of proposed CMG nodes are not online: [abc]."));
     }
 
+    @Test
+    void resetClusterRepairingCmgUsesCurrentCmgNodesIfNotSpecified() {
+        int replicationFactor = 1;
+
+        ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
+
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        prepareNodeStateForClusterReset();
+
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
+                .thenReturn(completedFuture(successResponseMessage));
+
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(null, replicationFactor);
+        assertThat(future, willCompleteSuccessfully());
+
+        verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
+
+        assertThat(messageCaptor.getValue().newCmgNodes(), is(usualClusterState.cmgNodes()));
+    }
+
     @ParameterizedTest
     @EnumSource(ResetCluster.class)
     void resetClusterRequiresClusterState(ResetCluster action) {
@@ -620,11 +640,22 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     void resetClusterWithMgRequiresPositiveMgReplicationFactor(int metastorageReplicationFactor) {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+
         ClusterResetException ex = assertWillThrow(
                 manager.resetClusterRepairingMetastorage(List.of(thisNodeName), metastorageReplicationFactor),
                 ClusterResetException.class
         );
         assertThat(ex.getMessage(), is("Metastorage replication factor must be positive."));
+    }
+
+    @Test
+    void resetClusterRequiresCmgNodeNames() {
+        ClusterResetException ex = assertWillThrow(
+                manager.resetCluster(null),
+                ClusterResetException.class
+        );
+        assertThat(ex.getMessage(), is("CMG node names must be specified."));
     }
 
     @Test

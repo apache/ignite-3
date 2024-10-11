@@ -61,7 +61,14 @@ public class SystemDisasterRecoveryController implements SystemDisasterRecoveryA
     public CompletableFuture<Void> reset(ResetClusterRequest command) {
         LOG.info("Reset command is {}", command);
 
-        return systemDisasterRecoveryManager.resetCluster(command.cmgNodeNames());
+        if (command.metastorageReplicationFactor() == null) {
+            return systemDisasterRecoveryManager.resetCluster(command.cmgNodeNames());
+        } else {
+            return systemDisasterRecoveryManager.resetClusterRepairingMetastorage(
+                    command.cmgNodeNames(),
+                    command.metastorageReplicationFactor()
+            );
+        }
     }
 
     @Override

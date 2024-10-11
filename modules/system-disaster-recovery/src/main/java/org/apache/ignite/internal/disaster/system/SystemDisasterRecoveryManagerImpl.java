@@ -195,19 +195,23 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> resetCluster(List<String> proposedCmgNodeNames) {
+        if (proposedCmgNodeNames == null) {
+            return failedFuture(new ClusterResetException("CMG node names must be specified."));
+        }
+
         return resetClusterInternal(proposedCmgNodeNames, null);
     }
 
     @Override
     public CompletableFuture<Void> resetClusterRepairingMetastorage(
-            List<String> proposedCmgNodeNames,
+            @Nullable List<String> proposedCmgNodeNames,
             int metastorageReplicationFactor
     ) {
         return resetClusterInternal(proposedCmgNodeNames, metastorageReplicationFactor);
     }
 
     private CompletableFuture<Void> resetClusterInternal(
-            List<String> proposedCmgNodeNames,
+            @Nullable List<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
         try {
@@ -217,21 +221,29 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         }
     }
 
-    private CompletableFuture<Void> doResetCluster(List<String> proposedCmgNodeNames, @Nullable Integer metastorageReplicationFactor) {
-        ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
-
-        ensureNoRepetitions(proposedCmgNodeNames);
-        ensureContainsThisNodeName(proposedCmgNodeNames);
-
+    private CompletableFuture<Void> doResetCluster(
+            @Nullable List<String> proposedCmgNodeNames,
+            @Nullable Integer metastorageReplicationFactor
+    ) {
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
-        ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
+
+        if (proposedCmgNodeNames != null) {
+            ensureNoRepetitions(proposedCmgNodeNames);
+            ensureContainsThisNodeName(proposedCmgNodeNames);
+
+            ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
+        }
+
+        ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
         ensureReplicationFactorFitsTopologyIfGiven(metastorageReplicationFactor, nodesInTopology);
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
+        Collection<String> cmgNodeNames = proposedCmgNodeNames == null ? clusterState.cmgNodes() : proposedCmgNodeNames;
+
         ResetClusterMessage message = buildResetClusterMessageForReset(
-                proposedCmgNodeNames,
+                cmgNodeNames,
                 clusterState,
                 metastorageReplicationFactor,
                 nodesInTopology
@@ -246,7 +258,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
                     boolean repairMg = metastorageReplicationFactor != null;
 
-                    if (enoughResponsesAreSuccesses(repairMg, proposedCmgNodeNames, responseFutures)) {
+                    if (enoughResponsesAreSuccesses(repairMg, cmgNodeNames, responseFutures)) {
                         restarter.initiateRestart();
 
                         return null;
@@ -358,7 +370,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private static boolean enoughResponsesAreSuccesses(
             boolean repairMg,
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Map<String, CompletableFuture<NetworkMessage>> responseFutures
     ) {
         if (repairMg) {
@@ -369,7 +381,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static boolean isMajorityOfCmgAreSuccesses(
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Map<String, CompletableFuture<NetworkMessage>> responseFutures
     ) {
         Set<String> newCmgNodesSet = new HashSet<>(proposedCmgNodeNames);

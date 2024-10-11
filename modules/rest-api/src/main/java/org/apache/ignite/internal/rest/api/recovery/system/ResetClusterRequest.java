@@ -25,26 +25,46 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Request to reset cluster. */
 @Schema(description = "Reset cluster.")
 public class ResetClusterRequest {
-    @Schema(description = "Names of the proposed CMG nodes.")
+    @Schema(description = "Names of the proposed CMG nodes. Optional if Metastorage replication factor is specified, then "
+            + "current CMG nodes will be used.")
     @IgniteToStringInclude
-    private final List<String> cmgNodeNames;
+    private final @Nullable List<String> cmgNodeNames;
+
+    @Schema(description = "Number of nodes in the Raft voting member set for Metastorage.")
+    @IgniteToStringInclude
+    private final @Nullable Integer metastorageReplicationFactor;
 
     /** Constructor. */
     @JsonCreator
-    public ResetClusterRequest(@JsonProperty("cmgNodeNames") List<String> cmgNodeNames) {
-        Objects.requireNonNull(cmgNodeNames);
+    public ResetClusterRequest(
+            @JsonProperty("cmgNodeNames") @Nullable List<String> cmgNodeNames,
+            @JsonProperty("metastorageReplicationFactor") @Nullable Integer metastorageReplicationFactor
+    ) {
+        if (metastorageReplicationFactor == null) {
+            Objects.requireNonNull(cmgNodeNames);
+            this.cmgNodeNames = List.copyOf(cmgNodeNames);
+        } else {
+            this.cmgNodeNames = cmgNodeNames;
+        }
 
-        this.cmgNodeNames = List.copyOf(cmgNodeNames);
+        this.metastorageReplicationFactor = metastorageReplicationFactor;
     }
 
     /** Returns names of the proposed CMG nodes. */
     @JsonGetter("cmgNodeNames")
-    public List<String> cmgNodeNames() {
+    public @Nullable List<String> cmgNodeNames() {
         return cmgNodeNames;
+    }
+
+    /** Returns number of nodes in the Raft voting member set for Metastorage. */
+    @JsonGetter("metastorageReplicationFactor")
+    public @Nullable Integer metastorageReplicationFactor() {
+        return metastorageReplicationFactor;
     }
 
     @Override
