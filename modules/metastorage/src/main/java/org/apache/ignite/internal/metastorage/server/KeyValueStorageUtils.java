@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.binarySearch;
 
 import java.util.function.LongPredicate;
+import org.jetbrains.annotations.Nullable;
 
 /** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
 public class KeyValueStorageUtils {
@@ -110,8 +111,8 @@ public class KeyValueStorageUtils {
      *
      * @param bytes Bytes.
      */
-    public static String toUtf8String(byte[] bytes) {
-        return new String(bytes, UTF_8);
+    public static String toUtf8String(byte @Nullable [] bytes) {
+        return bytes == null ? "null" : new String(bytes, UTF_8);
     }
 
     /** Asserts that the compaction revision is less than the current storage revision. */
