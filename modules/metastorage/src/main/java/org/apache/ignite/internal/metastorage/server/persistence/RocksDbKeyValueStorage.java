@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
@@ -98,7 +100,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
@@ -1138,7 +1139,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         assert revUpperBound >= 0 : revUpperBound;
 
         long[] keyRevisions = getRevisionsForOperation(key);
-        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
 
         if (maxRevisionIndex == NOT_FOUND) {
             CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
@@ -1157,46 +1158,49 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return EntryImpl.toEntry(key, revision, value);
     }
 
-    /**
-     * Returns all entries corresponding to the given key and bounded by given revisions.
-     * All these entries are ordered by revisions and have the same key.
-     * The lower bound and the upper bound are inclusive.
-     *
-     * @param key The key.
-     * @param revLowerBound The lower bound of revision.
-     * @param revUpperBound The upper bound of revision.
-     * @return Entries corresponding to the given key.
-     */
     private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
-        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
-        assert revUpperBound >= revLowerBound
-                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        assert revLowerBound >= 0 : revLowerBound;
+        assert revUpperBound >= 0 : revUpperBound;
+        assert revUpperBound >= revLowerBound : "revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound;
 
-        long[] revs;
+        long[] keyRevisions = getRevisionsForOperation(key);
 
-        try {
-            revs = getRevisions(key);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        int minRevisionIndex = minRevisionIndex(keyRevisions, revLowerBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+        if (minRevisionIndex == NOT_FOUND || maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
+
+            return List.of();
         }
 
-        if (revs.length == 0) {
-            return Collections.emptyList();
+        var entries = new ArrayList<Entry>();
+
+        for (int i = minRevisionIndex; i <= maxRevisionIndex; i++) {
+            long revision = keyRevisions[i];
+
+            Value value;
+
+            // More complex check to read less from disk.
+            if (revision <= compactionRevision) {
+                if (!isLastIndex(keyRevisions, i)) {
+                    continue;
+                }
+
+                value = getValueForOperation(key, revision);
+
+                if (value.tombstone()) {
+                    continue;
+                }
+            } else {
+                value = getValueForOperation(key, revision);
+            }
+
+            entries.add(EntryImpl.toEntry(key, revision, value));
         }
 
-        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
-        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
-
-        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
-        if (firstRevIndex == -1 || lastRevIndex == -1) {
-            return Collections.emptyList();
-        }
-
-        List<Entry> entries = new ArrayList<>();
-
-        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
-            entries.add(doGetValue(key, revs[i]));
+        if (entries.isEmpty()) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
         }
 
         return entries;
@@ -1246,46 +1250,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (rev <= upperBoundRev) {
                 return rev;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
-     * If there is no such revision then {@code -1} will be returned.
-     *
-     * @param revs          Revisions list.
-     * @param lowerBoundRev Revision lower bound.
-     * @return Index of minimum revision or {@code -1} if there is no such revision.
-     */
-    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
-        for (int i = 0; i < revs.length; i++) {
-            long rev = revs[i];
-
-            if (rev >= lowerBoundRev) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
-     * If there is no such revision then {@code -1} will be returned.
-     *
-     * @param revs          Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Index of maximum revision or {@code -1} if there is no such revision.
-     */
-    private static int maxRevisionIndex(long[] revs, long upperBoundRev) {
-        for (int i = revs.length - 1; i >= 0; i--) {
-            long rev = revs[i];
-
-            if (rev <= upperBoundRev) {
-                return i;
             }
         }
 
