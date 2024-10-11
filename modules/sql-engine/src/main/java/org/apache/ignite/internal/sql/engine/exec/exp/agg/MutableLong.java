@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.Objects;
-
 /**
  * Mutable variant of {@link Long} used by some {@link Accumulator}.
  */
@@ -55,30 +53,5 @@ final class MutableLong extends Number {
     @Override
     public double doubleValue() {
         return value;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MutableLong that = (MutableLong) o;
-        return value == that.value;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(value);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return Long.toString(value);
     }
 }
