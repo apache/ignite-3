@@ -57,7 +57,7 @@ public class KeyValueStorageUtils {
     }
 
     /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRevision}. If there is no such revision then
+     * Returns index of maximum revision which is less or equal to {@code upperBoundRevision}. If there is no such revision then
      * {@link #NOT_FOUND} will be returned.
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
@@ -78,7 +78,7 @@ public class KeyValueStorageUtils {
     }
 
     /**
-     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRevision}. If there is no such revision then
+     * Returns index of minimum revision which is greater or equal to {@code lowerBoundRevision}. If there is no such revision then
      * {@link #NOT_FOUND} will be returned.
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
