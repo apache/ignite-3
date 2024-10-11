@@ -89,7 +89,7 @@ import org.jetbrains.annotations.Nullable;
  * The implementation of {@link RaftGroupService}.
  */
 // TODO: IGNITE-20738 Methods updateConfiguration/refreshMembers/*Peer/*Learner are not thread-safe
-// and can produce meaningless (peers, learners) pairs as a result.
+//  and can produce meaningless (peers, learners) pairs as a result.
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
@@ -578,7 +578,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             long stopTime,
             CompletableFuture<R> fut,
             int retryCount
-
     ) {
         if (!busyLock.enterBusy()) {
             fut.cancel(true);
@@ -608,16 +607,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     err == null ? null : err.getMessage());
                         }
 
-                        if (err != null) {
-                            handleThrowable(err, peer, request, requestFactory, stopTime, fut, retryCount);
-                        } else if (resp instanceof ErrorResponse) {
-                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retryCount);
-                        } else if (resp instanceof SMErrorResponse) {
-                            handleSmErrorResponse((SMErrorResponse) resp, fut);
-                        } else {
-                            leader = peer; // The OK response was received from a leader.
+                        try {
+                            if (err != null) {
+                                handleThrowable(err, peer, request, requestFactory, stopTime, fut, retryCount);
+                            } else if (resp instanceof ErrorResponse) {
+                                handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retryCount);
+                            } else if (resp instanceof SMErrorResponse) {
+                                handleSmErrorResponse((SMErrorResponse) resp, fut);
+                            } else {
+                                leader = peer; // The OK response was received from a leader.
 
-                            fut.complete((R) resp);
+                                fut.complete((R) resp);
+                            }
+                        } catch (Throwable e) {
+                            fut.completeExceptionally(e);
                         }
                     });
         } finally {
@@ -660,7 +663,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 }
             }
 
-            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut, retryCount + 1));
+            scheduleRetry(randomPeer, requestFactory, stopTime, fut, retryCount);
         } else {
             fut.completeExceptionally(err);
         }
@@ -687,36 +690,50 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1));
+                scheduleRetry(peer, requestFactory, stopTime, fut, retryCount);
 
                 break;
 
-            case ENOENT:
-                scheduleRetry(() -> {
-                    // If changing peers or requesting a leader and something is not found
-                    // probably target peer is doing rebalancing, try another peer.
-                    if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAndLearnersAsyncRequest) {
-                        sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1);
-                    } else {
-                        sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1);
-                    }
-                });
+            case ENOENT: {
+                Peer newTargetPeer;
+
+                // If changing peers or requesting a leader and something is not found
+                // probably target peer is doing rebalancing, try another peer.
+                if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAndLearnersAsyncRequest) {
+                    newTargetPeer = randomNode(peer);
+                } else {
+                    newTargetPeer = peer;
+                }
+
+                scheduleRetry(newTargetPeer, requestFactory, stopTime, fut, retryCount);
 
                 break;
+            }
 
+            case EHOSTDOWN:
+            case ESHUTDOWN:
+            case ENODESHUTDOWN:
             case EPERM:
                 // TODO: IGNITE-15706
             case UNKNOWN:
-            case EINTERNAL:
-                if (resp.leaderId() == null) {
-                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1));
-                } else {
-                    leader = parsePeer(resp.leaderId()); // Update a leader.
+            case EINTERNAL: {
+                Peer newTargetPeer;
 
-                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut, retryCount + 1));
+                if (resp.leaderId() == null) {
+                    newTargetPeer = randomNode(peer);
+                } else {
+                    newTargetPeer = parsePeer(resp.leaderId());
+
+                    assert newTargetPeer != null;
+
+                    leader = newTargetPeer;
                 }
 
+                scheduleRetry(newTargetPeer, requestFactory, stopTime, fut, retryCount);
+
                 break;
+            }
+
             case EREORDER:
                 fut.completeExceptionally(new SafeTimeReorderException());
 
@@ -753,8 +770,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private void scheduleRetry(Runnable runnable) {
-        executor.schedule(runnable, configuration.retryDelay().value(), TimeUnit.MILLISECONDS);
+    private void scheduleRetry(
+            Peer peer,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            long stopTime,
+            CompletableFuture<? extends NetworkMessage> fut,
+            int retryCount
+    ) {
+        executor.schedule(
+                () -> sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1),
+                configuration.retryDelay().value(),
+                TimeUnit.MILLISECONDS
+        );
     }
 
     /**
@@ -787,9 +814,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         List<Peer> peers0 = peers;
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19466
-        // assert peers0 != null && !peers0.isEmpty();
-        if (peers0 == null || peers0.isEmpty()) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Peers are not ready [groupId=" + groupId + ']');
+        // assert !peers0.isEmpty();
+        if (peers0.isEmpty()) {
+            throw new IgniteInternalException(INTERNAL_ERR, "No peers available [groupId=" + groupId + ']');
         }
 
         if (peers0.size() == 1) {
@@ -837,9 +864,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers List of {@link PeerId} string representations.
      * @return List of {@link PeerId}
      */
-    private static @Nullable List<Peer> parsePeerList(@Nullable Collection<String> peers) {
+    private static List<Peer> parsePeerList(@Nullable Collection<String> peers) {
         if (peers == null) {
-            return null;
+            return List.of();
         }
 
         List<Peer> res = new ArrayList<>(peers.size());
