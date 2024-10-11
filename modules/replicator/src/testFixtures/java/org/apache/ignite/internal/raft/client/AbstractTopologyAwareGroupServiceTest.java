@@ -234,7 +234,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 false
         );
 
-        raftClientNoInitialNotify.refreshLeader().get(WAIT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        raftClientNoInitialNotify.refreshLeader().get();
 
         List<NetworkAddress> clientAddress = findLocalAddresses(clientPort, clientPort + 1);
         assertEquals(1, clientAddress.size());
