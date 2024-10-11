@@ -1,0 +1,371 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.metastorage.server;
+
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.LongConsumer;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
+
+/** Abstract implementation of {@link KeyValueStorage}. */
+public abstract class AbstractKeyValueStorage implements KeyValueStorage {
+    protected static final Comparator<byte[]> KEY_COMPARATOR = Arrays::compareUnsigned;
+
+    protected final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    protected final WatchProcessor watchProcessor;
+
+    /**
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    private @Nullable LongConsumer recoveryRevisionListener;
+
+    /**
+     * Revision. Will be incremented for each single-entry or multi-entry update operation.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    protected long rev;
+
+    /**
+     * Last compaction revision that was set or restored from a snapshot.
+     *
+     * <p>This field is used by metastorage read methods to determine whether {@link CompactedException} should be thrown.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    protected long compactionRevision = -1;
+
+    protected final AtomicBoolean stopCompaction = new AtomicBoolean();
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param failureManager Failure processor that is used to handle critical errors.
+     */
+    protected AbstractKeyValueStorage(String nodeName, FailureManager failureManager) {
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
+    }
+
+    /** Returns the key revisions for operation, an empty array if not found. */
+    protected abstract long[] keyRevisionsForOperation(byte[] key);
+
+    /** Returns key values by revision for operation. */
+    protected abstract Value valueForOperation(byte[] key, long revision);
+
+    @Override
+    public Entry get(byte[] key) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, rev);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public Entry get(byte[] key, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revLowerBound, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> getAll(List<byte[]> keys) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGetAll(keys, rev);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGetAll(keys, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
+        rwLock.readLock().lock();
+
+        try {
+            return range(keyFrom, keyTo, rev);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public long revision() {
+        rwLock.readLock().lock();
+
+        try {
+            return rev;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        assert revision >= 0 : revision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            compactionRevision = revision;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public long getCompactionRevision() {
+        rwLock.readLock().lock();
+
+        try {
+            return compactionRevision;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void stopCompaction() {
+        stopCompaction.set(true);
+    }
+
+    @Override
+    public byte @Nullable [] nextKey(byte[] key) {
+        return incrementPrefix(key);
+    }
+
+    @Override
+    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+        watchProcessor.registerRevisionUpdateListener(listener);
+    }
+
+    @Override
+    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+        watchProcessor.unregisterRevisionUpdateListener(listener);
+    }
+
+    @Override
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
+        return watchProcessor.notifyUpdateRevisionListeners(newRevision);
+    }
+
+    @Override
+    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
+        rwLock.writeLock().lock();
+
+        try {
+            this.recoveryRevisionListener = listener;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void removeWatch(WatchListener listener) {
+        watchProcessor.removeWatch(listener);
+    }
+
+    @Override
+    public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
+        assert rev > 0 : rev;
+        assert !keys.isEmpty();
+
+        TreeSet<byte[]> keySet = new TreeSet<>(KEY_COMPARATOR);
+
+        keySet.addAll(keys);
+
+        Predicate<byte[]> inPredicate = keySet::contains;
+
+        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
+    }
+
+    @Override
+    public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
+        assert rev > 0 : rev;
+
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0
+                : k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0 && KEY_COMPARATOR.compare(keyTo, k) > 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
+    }
+
+    @Override
+    public void watchExact(byte[] key, long rev, WatchListener listener) {
+        assert rev > 0 : rev;
+
+        Predicate<byte[]> exactPredicate = k -> KEY_COMPARATOR.compare(k, key) == 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
+    }
+
+    /** Notifies of revision update. Must be called under the {@link #rwLock}. */
+    protected void notifyRevisionUpdate() {
+        if (recoveryRevisionListener != null) {
+            // Listener must be invoked only on recovery, after recovery listener must be null.
+            recoveryRevisionListener.accept(rev);
+        }
+    }
+
+    protected Entry doGet(byte[] key, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        long[] keyRevisions = keyRevisionsForOperation(key);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+        if (maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+            return EntryImpl.empty(key);
+        }
+
+        long revision = keyRevisions[maxRevisionIndex];
+
+        Value value = valueForOperation(key, revision);
+
+        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
+            throw new CompactedException(revUpperBound, compactionRevision);
+        }
+
+        return EntryImpl.toEntry(key, revision, value);
+    }
+
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : revLowerBound;
+        assert revUpperBound >= 0 : revUpperBound;
+        assert revUpperBound >= revLowerBound : "revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound;
+
+        long[] keyRevisions = keyRevisionsForOperation(key);
+
+        if (keyRevisions.length == 0) {
+            return Collections.emptyList();
+        }
+
+        int firstRevIndex = minRevisionIndex(keyRevisions, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
+        if (firstRevIndex == -1 || lastRevIndex == NOT_FOUND) {
+            return Collections.emptyList();
+        }
+
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            long revision = keyRevisions[i];
+
+            Value value = valueForOperation(key, revision);
+
+            entries.add(EntryImpl.toEntry(key, revision, value));
+        }
+
+        return entries;
+    }
+
+    private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
+        assert !keys.isEmpty();
+        assert revUpperBound >= 0 : revUpperBound;
+
+        var res = new ArrayList<Entry>(keys.size());
+
+        for (byte[] key : keys) {
+            res.add(doGet(key, revUpperBound));
+        }
+
+        return res;
+    }
+
+    /**
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}. If there is no such revision then
+     * {@code -1} will be returned.
+     *
+     * @param revs Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
+     */
+    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.length; i++) {
+            long rev = revs[i];
+
+            if (rev >= lowerBoundRev) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+}
