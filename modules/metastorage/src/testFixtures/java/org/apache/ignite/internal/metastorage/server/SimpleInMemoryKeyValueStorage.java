@@ -127,7 +127,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private long term;
 
     /** Last saved configuration. */
-    private byte[] configuration;
+    private byte @Nullable [] configuration;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.
@@ -1026,6 +1026,27 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public long checksum(long revision) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+        synchronized (mux) {
+            this.index = 0;
+            this.term = 0;
+            this.configuration = null;
+
+            this.rev = 0;
+            this.compactionRevision = -1;
+            this.savedCompactionRevision = -1;
+
+            this.keysIdx.clear();
+            this.revsIdx.clear();
+
+            this.tsToRevMap.clear();
+            this.revToTsMap.clear();
+
+            this.updatedEntries.clear();
+        }
     }
 
     private static long[] toLongArray(@Nullable List<Long> list) {

@@ -99,8 +99,8 @@ import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils;
-import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
+import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
@@ -487,12 +487,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
-            closeRocksResources();
-
-            destroyRocksDb();
-
-            createDb();
+            clear();
 
             snapshotManager.restoreSnapshot(path);
 
@@ -505,6 +500,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             notifyRevisionUpdate();
+        } catch (MetaStorageException e) {
+            throw e;
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
@@ -1785,6 +1782,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void clear() {
+        // There's no way to easily remove all data from RocksDB, so we need to re-create it from scratch.
+        closeRocksResources();
+
+        try {
+            destroyRocksDb();
+
+            this.rev = 0;
+            this.compactionRevision = -1;
+
+            this.updatedEntries.clear();
+
+            createDb();
+        } catch (Exception e) {
+            throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         }
     }
 

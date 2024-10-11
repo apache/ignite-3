@@ -372,6 +372,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
         raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
 
+        storage.clear();
+
         // Here, we must destroy the storage, but it's already destroyed in the beginning of the startAsync() method (in its own #start()).
         // Just to make sure this is maintained, we add an assertion.
         assert storage.revision() == 0 : "It's expected that the storage is destroyed at startup, but now it's not (revision is "

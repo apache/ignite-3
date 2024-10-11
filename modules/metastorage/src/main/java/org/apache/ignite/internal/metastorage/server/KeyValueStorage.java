@@ -464,4 +464,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws CompactedException If the requested revision has been compacted.
      */
     long checksum(long revision);
+
+    /**
+     * Clears the content of the storage. Should only be called when no one else uses this storage.
+     */
+    void clear();
 }
