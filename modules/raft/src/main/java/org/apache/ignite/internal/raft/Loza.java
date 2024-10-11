@@ -194,7 +194,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+    public <T extends RaftGroupService> T startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -219,7 +219,7 @@ public class Loza implements RaftManager {
      * @param groupOptions Options to apply to the group.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+    public RaftGroupService startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -240,7 +240,7 @@ public class Loza implements RaftManager {
      * @param raftServiceFactory If not null, used for creation of raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+    public <T extends RaftGroupService> T startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -287,7 +287,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+    public RaftGroupService startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -302,7 +302,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+    public RaftGroupService startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -310,7 +310,7 @@ public class Loza implements RaftManager {
             RaftNodeDisruptorConfiguration disruptorConfiguration,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
-        return startRaftGroupNodeAndWaitNodeReadyFuture(
+        return startRaftGroupNodeAndWaitNodeReady(
                 nodeId,
                 configuration,
                 lsnr,
@@ -322,7 +322,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+    public <T extends RaftGroupService> T startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -358,7 +358,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
+    public RaftGroupService startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
             throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -373,7 +373,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
+    public <T extends RaftGroupService> T startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,
@@ -424,7 +424,7 @@ public class Loza implements RaftManager {
         }
     }
 
-    private <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeInternal(
+    private <T extends RaftGroupService> T startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -437,7 +437,7 @@ public class Loza implements RaftManager {
         Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
 
         return raftServiceFactory == null
-                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
+                ? (T) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
                 : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
     }
 
@@ -462,7 +462,7 @@ public class Loza implements RaftManager {
         }
     }
 
-    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
+    private RaftGroupService startRaftGroupServiceInternal(
             ReplicationGroupId grpId,
             PeersAndLearners membersConfiguration,
             Marshaller commandsMarshaller

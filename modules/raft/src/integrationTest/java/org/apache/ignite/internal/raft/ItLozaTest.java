@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -45,7 +44,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
@@ -142,14 +140,13 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         var nodeId = new RaftNodeId(groupId, configuration.peer(node.name()));
 
-        return loza.startRaftGroupNodeAndWaitNodeReadyFuture(
+        return loza.startRaftGroupNodeAndWaitNodeReady(
                         nodeId,
                         configuration,
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
                         groupOptionsConfigurer
-                )
-                .get(10, TimeUnit.SECONDS);
+                );
     }
 
     /**
@@ -248,7 +245,7 @@ public class ItLozaTest extends IgniteAbstractTest {
         // Start two Raft nodes: one backed by a volatile storage and the other - by "shared" persistent storage.
         var volatileRaftNodeId = new RaftNodeId(new TestReplicationGroupId("volatile"), peer);
 
-        CompletableFuture<RaftGroupService> volatileServiceFuture = loza.startRaftGroupNode(
+        RaftGroupService volatileService = loza.startRaftGroupNode(
                 volatileRaftNodeId,
                 configuration,
                 raftGroupListener,
@@ -261,7 +258,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         var persistentNodeId = new RaftNodeId(new TestReplicationGroupId("persistent"), peer);
 
-        CompletableFuture<RaftGroupService> persistentServiceFuture = loza.startRaftGroupNode(
+        RaftGroupService persistentService = loza.startRaftGroupNode(
                 persistentNodeId,
                 configuration,
                 raftGroupListener,
@@ -270,11 +267,6 @@ public class ItLozaTest extends IgniteAbstractTest {
                         .setLogStorageFactory(logStorageFactory)
                         .serverDataPath(partitionsWorkDir.metaPath())
         );
-
-        assertThat(allOf(volatileServiceFuture, persistentServiceFuture), willCompleteSuccessfully());
-
-        RaftGroupService volatileService = volatileServiceFuture.join();
-        RaftGroupService persistentService = persistentServiceFuture.join();
 
         // Execute two write command in parallel. We then hope that these commands wil be batched together.
         WriteCommand cmd = testWriteCommand("foo");
@@ -333,7 +325,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                 partitionsWorkDir.metaPath()
         );
 
-        CompletableFuture<RaftGroupService> startServiceFuture = loza.startRaftGroupNode(
+        RaftGroupService service = loza.startRaftGroupNode(
                 nodeId,
                 configuration,
                 raftGroupListener,
@@ -341,8 +333,6 @@ public class ItLozaTest extends IgniteAbstractTest {
                 null,
                 configurer
         );
-        assertThat(startServiceFuture, willCompleteSuccessfully());
-        RaftGroupService service = startServiceFuture.join();
 
         assertThat(service.run(testWriteCommand("foo")), willCompleteSuccessfully());
 

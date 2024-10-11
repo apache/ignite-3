@@ -162,9 +162,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param configuration Raft configuration.
      * @param membersConfiguration Raft members configuration.
      * @param executor Executor for retrying requests.
-     * @return Future representing pending completion of the operation.
+     * @return A new Raft group service.
      */
-    public static CompletableFuture<RaftGroupService> start(
+    public static RaftGroupService start(
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
@@ -205,7 +205,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             );
         }
 
-        return completedFuture(service);
+        return service;
     }
 
     @Override

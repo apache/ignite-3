@@ -183,30 +183,35 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param factory Message factory.
      * @param raftConfiguration RAFT configuration.
      * @param configuration Group configuration.
-     * @param getLeader True to get the group's leader upon service creation.
      * @param executor RPC executor.
      * @param logicalTopologyService Logical topology service.
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
-     * @return Future to create a raft client.
+     * @return New Raft client.
      */
-    public static CompletableFuture<TopologyAwareRaftGroupService> start(
+    public static TopologyAwareRaftGroupService start(
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
             RaftConfiguration raftConfiguration,
             PeersAndLearners configuration,
-            boolean getLeader,
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription,
             Marshaller cmdMarshaller
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, executor, cmdMarshaller)
-                .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
-                        raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
+        return new TopologyAwareRaftGroupService(
+                cluster,
+                factory,
+                executor,
+                raftConfiguration,
+                RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, executor, cmdMarshaller),
+                logicalTopologyService,
+                eventsClientListener,
+                notifyOnSubscription
+        );
     }
 
     /**

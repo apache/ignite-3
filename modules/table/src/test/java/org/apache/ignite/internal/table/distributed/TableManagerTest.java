@@ -349,7 +349,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testPreconfiguredTable() throws Exception {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+                .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -660,7 +660,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+                .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
 
         createZone(1, 1);
 

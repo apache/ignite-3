@@ -498,13 +498,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
-        CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
+        RaftGroupService clientFuture = RaftGroupServiceImpl
                 .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, executor, commandsMarshaller);
 
-        assertThat(clientFuture, willCompleteSuccessfully());
+        clients.add(clientFuture);
 
-        clients.add(clientFuture.join());
-
-        return clientFuture.join();
+        return clientFuture;
     }
 }

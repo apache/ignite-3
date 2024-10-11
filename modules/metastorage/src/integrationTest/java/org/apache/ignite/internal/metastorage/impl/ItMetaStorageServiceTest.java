@@ -223,13 +223,16 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start(PeersAndLearners configuration) {
-            CompletableFuture<RaftGroupService> raftService =
-                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager)
-                            .thenCompose(unused -> startRaftService(configuration));
+            CompletableFuture<Void> startFuture = startAsync(
+                    new ComponentContext(),
+                    clusterService,
+                    partitionsLogStorageFactory,
+                    raftManager
+            );
 
-            assertThat(raftService, willCompleteSuccessfully());
+            assertThat(startFuture, willCompleteSuccessfully());
 
-            metaStorageRaftService = raftService.join();
+            metaStorageRaftService = startRaftService(configuration);
 
             metaStorageService = new MetaStorageServiceImpl(
                     clusterService.nodeName(),
@@ -244,7 +247,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             return clusterService.nodeName();
         }
 
-        private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {
+        private RaftGroupService startRaftService(PeersAndLearners configuration) {
             String name = name();
 
             boolean isLearner = configuration.peer(name) == null;
@@ -258,7 +261,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                return raftManager.startRaftGroupNodeAndWaitNodeReady(
                         raftNodeId,
                         configuration,
                         listener,

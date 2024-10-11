@@ -72,6 +72,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.IndexWithTerm;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -394,7 +395,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         MetaStorageListener raftListener = new MetaStorageListener(storage, clusterTime, this::onConfigurationCommitted);
 
-        CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
+        TopologyAwareRaftGroupService service = raftMgr.startRaftGroupNodeAndWaitNodeReady(
                 raftNodeId(localPeer),
                 configuration,
                 raftListener,
@@ -404,28 +405,29 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 raftGroupOptionsConfigurer
         );
 
-        serviceFuture
-                .thenAccept(service -> service.subscribeLeader(new MetaStorageLeaderElectionListener(
-                        busyLock,
-                        clusterService,
-                        logicalTopologyService,
-                        metaStorageSvcFut,
-                        learnerManager,
-                        clusterTime,
-                        // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
-                        // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
-                        // dependency between these two components.
-                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
-                        electionListeners,
-                        this::peersChangeStateExists
-                )))
-                .whenComplete((v, e) -> {
+        LeaderElectionListener leaderElectionListener = new MetaStorageLeaderElectionListener(
+                busyLock,
+                clusterService,
+                logicalTopologyService,
+                metaStorageSvcFut,
+                learnerManager,
+                clusterTime,
+                // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
+                // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
+                // dependency between these two components.
+                deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
+                electionListeners,
+                this::peersChangeStateExists
+        );
+
+        return service.subscribeLeader(leaderElectionListener)
+                .handle((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to register MetaStorageLeaderElectionListener", e);
                     }
-                });
 
-        return serviceFuture;
+                    return service;
+                });
     }
 
     private boolean peersChangeStateExists() {
@@ -1033,18 +1035,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             PeersAndLearners raftClientConfiguration,
             Function<RaftGroupService, CompletableFuture<T>> action
     ) {
-        return startOneOffRaftGroupService(raftClientConfiguration)
-                .thenCompose(raftGroupService -> action.apply(raftGroupService)
-                        .whenComplete((res, ex) -> raftGroupService.shutdown())
-                );
-    }
-
-    private CompletableFuture<RaftGroupService> startOneOffRaftGroupService(PeersAndLearners newConfiguration) {
         try {
-            return raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, newConfiguration);
+            RaftGroupService raftGroupService = startOneOffRaftGroupService(raftClientConfiguration);
+
+            return action.apply(raftGroupService)
+                    .whenComplete((res, ex) -> raftGroupService.shutdown());
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
+    }
+
+    private RaftGroupService startOneOffRaftGroupService(PeersAndLearners newConfiguration)
+            throws NodeStoppingException {
+        return raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, newConfiguration);
     }
 
     @TestOnly
