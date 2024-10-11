@@ -635,7 +635,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         var commandsSerializer = new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry());
 
         CompletableFuture<RaftGroupService> service = RaftGroupServiceImpl.start(
-                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor, commandsSerializer
+                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, executor, commandsSerializer
         );
 
         assertThat(service, willCompleteSuccessfully());

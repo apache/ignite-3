@@ -235,7 +235,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(clientNode.serializationRegistry());
 
         RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor, commandsMarshaller)
+                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, executor, commandsMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         clients.add(client);

@@ -204,7 +204,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             boolean notifyOnSubscription,
             Marshaller cmdMarshaller
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor, cmdMarshaller)
+        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, executor, cmdMarshaller)
                 .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
                         raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
     }

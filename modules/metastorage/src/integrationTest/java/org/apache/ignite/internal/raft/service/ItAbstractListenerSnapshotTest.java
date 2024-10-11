@@ -499,7 +499,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
         CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor, commandsMarshaller);
+                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, executor, commandsMarshaller);
 
         assertThat(clientFuture, willCompleteSuccessfully());
 

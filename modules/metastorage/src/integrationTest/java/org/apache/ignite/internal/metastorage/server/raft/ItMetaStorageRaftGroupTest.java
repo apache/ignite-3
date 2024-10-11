@@ -486,7 +486,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
         ));
@@ -497,7 +496,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
         ));
@@ -508,7 +506,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
         ));

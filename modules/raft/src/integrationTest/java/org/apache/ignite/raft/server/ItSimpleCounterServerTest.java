@@ -146,13 +146,13 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
         client1 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
+                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, executor, cmdMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
         client2 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
+                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, executor, cmdMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 3, 10_000));

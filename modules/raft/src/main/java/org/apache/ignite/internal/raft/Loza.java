@@ -473,7 +473,6 @@ public class Loza implements RaftManager {
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
         );

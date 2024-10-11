@@ -161,7 +161,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param factory Message factory.
      * @param configuration Raft configuration.
      * @param membersConfiguration Raft members configuration.
-     * @param getLeader {@code True} to get the group's leader upon service creation.
      * @param executor Executor for retrying requests.
      * @return Future representing pending completion of the operation.
      */
@@ -171,7 +170,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftMessagesFactory factory,
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
-            boolean getLeader,
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
@@ -207,25 +205,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             );
         }
 
-        if (!getLeader) {
-            return completedFuture(service);
-        }
-
-        return service.refreshLeader().handle((unused, throwable) -> {
-            if (throwable != null) {
-                if (throwable.getCause() instanceof TimeoutException) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Failed to refresh a leader [groupId={}]", groupId);
-                    }
-                } else {
-                    if (LOG.isWarnEnabled()) {
-                        LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
-                    }
-                }
-            }
-
-            return service;
-        });
+        return completedFuture(service);
     }
 
     @Override
