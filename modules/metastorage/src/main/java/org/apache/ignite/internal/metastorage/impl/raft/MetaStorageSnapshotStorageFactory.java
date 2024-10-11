@@ -40,6 +40,11 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
     /** Snapshot meta, constructed from the storage data and raft group configuration at startup. {@code null} if the storage is empty. */
     private final @Nullable RaftOutter.SnapshotMeta startupSnapshotMeta;
 
+    /**
+     * Constructor.
+     *
+     * @param storage Key-value storage instance.
+     */
     public MetaStorageSnapshotStorageFactory(KeyValueStorage storage) {
         this.storage = storage;
 

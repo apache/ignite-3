@@ -28,6 +28,13 @@ public class KeyValueUpdateContext {
     public final long term;
     public final HybridTimestamp timestamp;
 
+    /**
+     * Constructor.
+     *
+     * @param index Update command index.
+     * @param term Update command term.
+     * @param timestamp Update command timestamp.
+     */
     public KeyValueUpdateContext(long index, long term, HybridTimestamp timestamp) {
         assert timestamp != null;
 
