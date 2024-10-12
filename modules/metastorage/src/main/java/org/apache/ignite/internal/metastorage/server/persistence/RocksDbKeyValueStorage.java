@@ -866,7 +866,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            return range(keyFrom, keyTo, rev);
+            return doRange(keyFrom, keyTo, rev);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -877,86 +877,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            var readOpts = new ReadOptions();
-
-            var upperBound = keyTo == null ? null : new Slice(keyTo);
-
-            readOpts.setIterateUpperBound(upperBound);
-
-            RocksIterator iterator = index.newIterator(readOpts);
-
-            iterator.seek(keyFrom);
-
-            return new RocksIteratorAdapter<>(iterator) {
-                /** Cached entry used to filter "empty" values. */
-                @Nullable
-                private Entry next;
-
-                @Override
-                public boolean hasNext() {
-                    if (next != null) {
-                        return true;
-                    }
-
-                    while (next == null && super.hasNext()) {
-                        Entry nextCandidate = decodeEntry(it.key(), it.value());
-
-                        it.next();
-
-                        if (!nextCandidate.empty()) {
-                            next = nextCandidate;
-
-                            return true;
-                        }
-                    }
-
-                    return false;
-                }
-
-                @Override
-                public Entry next() {
-                    if (!hasNext()) {
-                        throw new NoSuchElementException();
-                    }
-
-                    Entry result = next;
-
-                    assert result != null;
-
-                    next = null;
-
-                    return result;
-                }
-
-                @Override
-                protected Entry decodeEntry(byte[] key, byte[] value) {
-                    long[] revisions = getAsLongs(value);
-
-                    long targetRevision = maxRevision(revisions, revUpperBound);
-
-                    if (targetRevision == -1) {
-                        return EntryImpl.empty(key);
-                    }
-
-                    // This is not a correct approach for using locks in terms of compaction correctness (we should block compaction for the
-                    // whole iteration duration). However, compaction is not fully implemented yet, so this lock is taken for consistency
-                    // sake. This part must be rewritten in the future.
-                    rwLock.readLock().lock();
-
-                    try {
-                        return doGetValue(key, targetRevision);
-                    } finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-
-                @Override
-                public void close() {
-                    super.close();
-
-                    RocksUtils.closeAll(readOpts, upperBound);
-                }
-            };
+            return doRange(keyFrom, keyTo, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1234,59 +1155,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, "Failed to get revisions for the key: " + toUtf8String(key), e);
         }
-    }
-
-    /**
-     * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
-     * returned.
-     *
-     * @param revs          Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Maximum revision or {@code -1} if there is no such revision.
-     */
-    private static long maxRevision(long[] revs, long upperBoundRev) {
-        for (int i = revs.length - 1; i >= 0; i--) {
-            long rev = revs[i];
-
-            if (rev <= upperBoundRev) {
-                return rev;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Gets the value by a key and a revision.
-     *
-     * @param key      Target key.
-     * @param revision Target revision.
-     * @return Entry.
-     */
-    private Entry doGetValue(byte[] key, long revision) {
-        if (revision == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        byte[] valueBytes;
-
-        try {
-            valueBytes = data.get(keyToRocksKey(revision, key));
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
-
-        if (valueBytes == null || valueBytes.length == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        Value lastVal = bytesToValue(valueBytes);
-
-        if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, revision, lastVal.operationTimestamp());
-        }
-
-        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.operationTimestamp());
     }
 
     /**
@@ -1766,5 +1634,88 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     e
             );
         }
+    }
+
+    private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+        var readOpts = new ReadOptions();
+
+        Slice upperBound = keyTo == null ? null : new Slice(keyTo);
+
+        readOpts.setIterateUpperBound(upperBound);
+
+        RocksIterator iterator = index.newIterator(readOpts);
+
+        iterator.seek(keyFrom);
+
+        return new RocksIteratorAdapter<>(iterator) {
+            /** Cached entry used to filter "empty" values. */
+            private @Nullable Entry next;
+
+            @Override
+            public boolean hasNext() {
+                if (next != null) {
+                    return true;
+                }
+
+                while (next == null && super.hasNext()) {
+                    Entry nextCandidate = decodeEntry(it.key(), it.value());
+
+                    it.next();
+
+                    if (!nextCandidate.empty()) {
+                        next = nextCandidate;
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            @Override
+            public Entry next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                Entry result = next;
+
+                assert result != null;
+
+                next = null;
+
+                return result;
+            }
+
+            @Override
+            protected Entry decodeEntry(byte[] key, byte[] keyRevisionsBytes) {
+                long[] keyRevisions = getAsLongs(keyRevisionsBytes);
+
+                int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+                if (maxRevisionIndex == NOT_FOUND) {
+                    return EntryImpl.empty(key);
+                }
+
+                long revision = keyRevisions[maxRevisionIndex];
+
+                // According to the compaction algorithm, we will start it locally on a new compaction revision only when all cursors are
+                // completed strictly before it. Therefore, during normal operation, we should not get an error here.
+                Value value = getValueForOperation(key, revision);
+
+                return EntryImpl.toEntry(key, revision, value);
+            }
+
+            @Override
+            public void close() {
+                super.close();
+
+                RocksUtils.closeAll(readOpts, upperBound);
+            }
+        };
     }
 }

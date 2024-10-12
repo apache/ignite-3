@@ -386,29 +386,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
         synchronized (mux) {
-            return range(keyFrom, keyTo, rev);
+            return doRange(keyFrom, keyTo, rev);
         }
     }
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
         synchronized (mux) {
-            SortedMap<byte[], List<Long>> subMap = keyTo == null
-                    ? keysIdx.tailMap(keyFrom)
-                    : keysIdx.subMap(keyFrom, keyTo);
-
-            return subMap.entrySet().stream()
-                    .map(e -> {
-                        long targetRevision = maxRevision(e.getValue(), revUpperBound);
-
-                        if (targetRevision == -1) {
-                            return EntryImpl.empty(e.getKey());
-                        }
-
-                        return doGetValue(e.getKey(), targetRevision);
-                    })
-                    .filter(e -> !e.empty())
-                    .collect(collectingAndThen(toList(), Cursor::fromIterable));
+            return doRange(keyFrom, keyTo, revUpperBound);
         }
     }
 
@@ -529,8 +514,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return;
         }
 
-        HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
-        assert ts != null;
+        long revision = updatedEntries.get(0).revision();
+
+        HybridTimestamp ts = revToTsMap.get(revision);
+        assert ts != null : revision;
 
         watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
@@ -785,48 +772,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return entries;
     }
 
-    /**
-     * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
-     * returned.
-     *
-     * @param revs Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Appropriate revision or {@code -1} if there is no such revision.
-     */
-    private static long maxRevision(List<Long> revs, long upperBoundRev) {
-        int i = revs.size() - 1;
-
-        for (; i >= 0; i--) {
-            long rev = revs.get(i);
-
-            if (rev <= upperBoundRev) {
-                return rev;
-            }
-        }
-
-        return -1;
-    }
-
-    private Entry doGetValue(byte[] key, long lastRev) {
-        if (lastRev == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        NavigableMap<byte[], Value> lastRevVals = revsIdx.get(lastRev);
-
-        if (lastRevVals == null || lastRevVals.isEmpty()) {
-            return EntryImpl.empty(key);
-        }
-
-        Value lastVal = lastRevVals.get(key);
-
-        if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, lastRev, lastVal.operationTimestamp());
-        }
-
-        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.operationTimestamp());
-    }
-
     private void doPut(byte[] key, byte[] bytes, long curRev, HybridTimestamp opTs) {
         // Update keysIdx.
         List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
@@ -982,5 +927,34 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+        SortedMap<byte[], List<Long>> subMap = keyTo == null
+                ? keysIdx.tailMap(keyFrom)
+                : keysIdx.subMap(keyFrom, keyTo);
+
+        return subMap.entrySet().stream()
+                .map(e -> {
+                    byte[] key = e.getKey();
+                    long[] keyRevisions = toLongArray(e.getValue());
+
+                    int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+
+                    if (maxRevisionIndex == NOT_FOUND) {
+                        return EntryImpl.empty(key);
+                    }
+
+                    long revision = keyRevisions[maxRevisionIndex];
+                    Value value = getValue(key, revision);
+
+                    return EntryImpl.toEntry(key, revision, value);
+                })
+                .filter(e -> !e.empty())
+                .collect(collectingAndThen(toList(), Cursor::fromIterable));
     }
 }

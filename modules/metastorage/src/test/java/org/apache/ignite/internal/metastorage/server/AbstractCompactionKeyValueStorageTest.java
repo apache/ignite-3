@@ -45,6 +45,7 @@ import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -686,6 +687,39 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 6, 6);
         assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 6, 7);
         assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 7, 7);
+    }
+
+    @Test
+    void testRangeLatestAndCompaction() {
+        storage.setCompactionRevision(6);
+
+        assertDoesNotThrow(() -> {
+            try (Cursor<Entry> cursor = storage.range(FOO_KEY, null)) {
+                cursor.hasNext();
+                cursor.next();
+            }
+        });
+    }
+
+    @Test
+    void testRangeAndCompaction() {
+        try (Cursor<Entry> cursorBeforeSetCompactionRevision = storage.range(FOO_KEY, null, 5)) {
+            storage.setCompactionRevision(5);
+
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 1));
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 3));
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 5));
+
+            assertDoesNotThrow(() -> {
+                try (Cursor<Entry> range = storage.range(FOO_KEY, null, 6)) {
+                    range.hasNext();
+                    range.next();
+                }
+            });
+
+            assertDoesNotThrow(cursorBeforeSetCompactionRevision::hasNext);
+            assertDoesNotThrow(cursorBeforeSetCompactionRevision::next);
+        }
     }
 
     private List<Integer> collectRevisions(byte[] key) {
