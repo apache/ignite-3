@@ -630,74 +630,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private CompletableFuture<Replica> startReplicaInternal(
-            RaftGroupEventsListener raftGroupEventsListener,
-            RaftGroupListener raftGroupListener,
-            boolean isVolatileStorage,
-            @Nullable SnapshotStorageFactory snapshotStorageFactory,
-            Function<RaftGroupService, ReplicaListener> createListener,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration
-    ) throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-
-        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, snapshotStorageFactory);
-
-        // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
-        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        RaftGroupService raftClient = ((Loza) raftManager).startRaftGroupNode(
-                raftNodeId,
-                newConfiguration,
-                raftGroupListener,
-                raftGroupEventsListener,
-                groupOptions,
-                raftGroupServiceFactory
-        );
-
-        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
-
-        ReplicaListener replicaListener = createListener.apply(raftClient);
-
-        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-        Replica newReplica = new ReplicaImpl(
-                replicaGrpId,
-                replicaListener,
-                storageIndexTracker,
-                localNode,
-                executor,
-                placementDriver,
-                clockService,
-                replicaStateManager::reserveReplica
-        );
-
-        CompletableFuture<Replica> newReplicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
-
-                return completedFuture(newReplica);
-            } else {
-                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
-
-                existingReplicaFuture.complete(newReplica);
-
-                return existingReplicaFuture;
-            }
-        });
-
-        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
-
-        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
-                .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
-
-                    return null;
-                })
-                .thenCompose(v -> newReplicaFuture);
-    }
-
     /**
      * Creates and starts a new replica.
      *
@@ -729,14 +661,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         try {
             return startReplicaInternal(
-                    raftGroupEventsListener,
-                    raftGroupListener,
-                    isVolatileStorage,
-                    snapshotStorageFactory,
-                    createListener,
-                    storageIndexTracker,
                     replicaGrpId,
-                    newConfiguration);
+                    snapshotStorageFactory,
+                    newConfiguration,
+                    raftGroupListener,
+                    raftGroupEventsListener,
+                    isVolatileStorage,
+                    (raftClient) -> new ReplicaImpl(
+                            replicaGrpId,
+                            createListener.apply(raftClient),
+                            storageIndexTracker,
+                            clusterNetSvc.topologyService().localMember(),
+                            executor,
+                            placementDriver,
+                            clockService,
+                            replicaStateManager::reserveReplica
+                    )
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -756,7 +697,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            Function<RaftGroupService, ReplicaListener> listener,
+            Function<RaftGroupService, ReplicaListener> createListener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -768,33 +709,39 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return internalStartZoneReplica(
+            return startReplicaInternal(
                     replicaGrpId,
-                    listener,
                     snapshotStorageFactory,
                     newConfiguration,
                     raftGroupListener,
                     raftGroupEventsListener,
-                    busyLock
+                    false,
+                    (raftClient) -> new ZonePartitionReplicaImpl(
+                            replicaGrpId,
+                            createListener.apply(raftClient),
+                            raftClient
+                    )
             );
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<Replica> internalStartZoneReplica(
+    private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            Function<RaftGroupService, ReplicaListener> listener,
-            SnapshotStorageFactory snapshotStorageFactory,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
             RaftGroupEventsListener raftGroupEventsListener,
-            IgniteSpinBusyLock busyLock
+            boolean isVolatileStorage,
+            Function<TopologyAwareRaftGroupService, Replica> createReplica
     ) throws NodeStoppingException {
-        RaftGroupOptions groupOptions = groupOptionsForPartition(false, snapshotStorageFactory);
-
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
+        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, snapshotStorageFactory);
+
+        // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
+        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         TopologyAwareRaftGroupService raftClient = ((Loza) raftManager).startRaftGroupNode(
                 raftNodeId,
                 newConfiguration,
@@ -804,45 +751,34 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftGroupServiceFactory
         );
 
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        try {
-            LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+        Replica newReplica = createReplica.apply(raftClient);
 
-            Replica newReplica = new ZonePartitionReplicaImpl(
-                    replicaGrpId,
-                    listener.apply(raftClient),
-                    raftClient
-            );
+        CompletableFuture<Replica> newReplicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-            CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-                if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                    assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                    LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+                return completedFuture(newReplica);
+            } else {
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                    return completedFuture(newReplica);
-                } else {
-                    existingReplicaFuture.complete(newReplica);
-                    LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+                existingReplicaFuture.complete(newReplica);
 
-                    return existingReplicaFuture;
-                }
-            });
+                return existingReplicaFuture;
+            }
+        });
 
-            var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
-            return fireEvent(AFTER_REPLICA_STARTED, eventParams)
-                    .exceptionally(e -> {
-                        LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
 
-                        return null;
-                    })
-                    .thenCompose(v -> replicaFuture);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                    return null;
+                })
+                .thenCompose(v -> newReplicaFuture);
     }
 
     /**
