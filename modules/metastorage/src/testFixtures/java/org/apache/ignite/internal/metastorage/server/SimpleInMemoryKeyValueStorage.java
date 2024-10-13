@@ -26,9 +26,6 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
@@ -323,15 +320,23 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
-        synchronized (mux) {
+        rwLock.readLock().lock();
+
+        try {
             return doRange(keyFrom, keyTo, rev);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
-        synchronized (mux) {
+        rwLock.readLock().lock();
+
+        try {
             return doRange(keyFrom, keyTo, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -755,7 +760,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     }
 
                     long revision = keyRevisions[maxRevisionIndex];
-                    Value value = getValue(key, revision);
+                    Value value = valueForOperation(key, revision);
 
                     return EntryImpl.toEntry(key, revision, value);
                 })

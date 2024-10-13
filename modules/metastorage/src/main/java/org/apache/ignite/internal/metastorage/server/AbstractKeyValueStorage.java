@@ -21,12 +21,12 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
@@ -240,6 +240,17 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
+        assert rev > 0 : rev;
+
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0
+                : k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0 && KEY_COMPARATOR.compare(keyTo, k) > 0;
+
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
+    }
+
+    @Override
     public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
         assert rev > 0 : rev;
         assert !keys.isEmpty();
@@ -251,17 +262,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         Predicate<byte[]> inPredicate = keySet::contains;
 
         watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
-    }
-
-    @Override
-    public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
-        assert rev > 0 : rev;
-
-        Predicate<byte[]> rangePredicate = keyTo == null
-                ? k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0
-                : k -> KEY_COMPARATOR.compare(keyFrom, k) <= 0 && KEY_COMPARATOR.compare(keyTo, k) > 0;
-
-        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
@@ -311,26 +311,42 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         long[] keyRevisions = keyRevisionsForOperation(key);
 
-        if (keyRevisions.length == 0) {
-            return Collections.emptyList();
+        int minRevisionIndex = minRevisionIndex(keyRevisions, revLowerBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+        if (minRevisionIndex == NOT_FOUND || maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
+
+            return List.of();
         }
 
-        int firstRevIndex = minRevisionIndex(keyRevisions, revLowerBound);
-        int lastRevIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+        var entries = new ArrayList<Entry>();
 
-        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
-        if (firstRevIndex == -1 || lastRevIndex == NOT_FOUND) {
-            return Collections.emptyList();
-        }
-
-        List<Entry> entries = new ArrayList<>();
-
-        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+        for (int i = minRevisionIndex; i <= maxRevisionIndex; i++) {
             long revision = keyRevisions[i];
 
-            Value value = valueForOperation(key, revision);
+            Value value;
+
+            // More complex check to read less from disk.
+            if (revision <= compactionRevision) {
+                if (!isLastIndex(keyRevisions, i)) {
+                    continue;
+                }
+
+                value = valueForOperation(key, revision);
+
+                if (value.tombstone()) {
+                    continue;
+                }
+            } else {
+                value = valueForOperation(key, revision);
+            }
 
             entries.add(EntryImpl.toEntry(key, revision, value));
+        }
+
+        if (entries.isEmpty()) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
         }
 
         return entries;
@@ -347,25 +363,5 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
 
         return res;
-    }
-
-    /**
-     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}. If there is no such revision then
-     * {@code -1} will be returned.
-     *
-     * @param revs Revisions list.
-     * @param lowerBoundRev Revision lower bound.
-     * @return Index of minimum revision or {@code -1} if there is no such revision.
-     */
-    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
-        for (int i = 0; i < revs.length; i++) {
-            long rev = revs[i];
-
-            if (rev >= lowerBoundRev) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

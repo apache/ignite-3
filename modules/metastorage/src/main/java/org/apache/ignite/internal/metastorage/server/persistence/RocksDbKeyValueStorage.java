@@ -24,8 +24,6 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.appendLong;
@@ -887,53 +885,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     /**
-     * Gets the value by a key and a revision.
-     *
-     * @param key      Target key.
-     * @param revision Target revision.
-     * @return Entry.
-     */
-    private Entry doGetValue(byte[] key, long revision) {
-        if (revision == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        byte[] valueBytes;
-
-        try {
-            valueBytes = data.get(keyToRocksKey(revision, key));
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
-
-        if (valueBytes == null || valueBytes.length == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        Value lastVal = bytesToValue(valueBytes);
-
-        if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, revision, lastVal.operationTimestamp());
-        }
-
-        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.operationTimestamp());
-    }
-
-    /**
-     * Returns array of revisions of the entry corresponding to the key.
-     *
-     * @param key Key.
-     * @throws MetaStorageException If there was an error while getting the revisions for the key.
-     */
-    private long[] getRevisionsForOperation(byte[] key) {
-        try {
-            return getRevisions(key);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, "Failed to get revisions for the key: " + toUtf8String(key), e);
-        }
-    }
-
-    /**
      * Adds an entry to the batch.
      *
      * @param batch Write batch.
@@ -1439,7 +1390,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                 // According to the compaction algorithm, we will start it locally on a new compaction revision only when all cursors are
                 // completed strictly before it. Therefore, during normal operation, we should not get an error here.
-                Value value = getValueForOperation(key, revision);
+                Value value = valueForOperation(key, revision);
 
                 return EntryImpl.toEntry(key, revision, value);
             }
