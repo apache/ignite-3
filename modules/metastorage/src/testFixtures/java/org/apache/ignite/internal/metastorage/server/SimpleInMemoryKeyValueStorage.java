@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
@@ -320,35 +322,16 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
+        synchronized (mux) {
+            return doRange(keyFrom, keyTo, rev);
+        }
+    }
+
+    @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
-        rwLock.readLock().lock();
-
-        try {
-            SortedMap<byte[], List<Long>> subMap = keyTo == null
-                    ? keysIdx.tailMap(keyFrom)
-                    : keysIdx.subMap(keyFrom, keyTo);
-
-            return subMap.entrySet().stream()
-                    .map(e -> {
-                        byte[] key = e.getKey();
-                        long[] keyRevisions = toLongArray(e.getValue());
-
-                        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
-
-                        if (maxRevisionIndex == NOT_FOUND) {
-                            return EntryImpl.empty(key);
-                        }
-
-                        long revision = keyRevisions[maxRevisionIndex];
-
-                        Value value = valueForOperation(key, revision);
-
-                        return EntryImpl.toEntry(key, revision, value);
-                    })
-                    .filter(e -> !e.empty())
-                    .collect(collectingAndThen(toList(), Cursor::fromIterable));
-        } finally {
-            rwLock.readLock().unlock();
+        synchronized (mux) {
+            return doRange(keyFrom, keyTo, revUpperBound);
         }
     }
 
@@ -433,8 +416,10 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             return;
         }
 
-        HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
-        assert ts != null;
+        long revision = updatedEntries.get(0).revision();
+
+        HybridTimestamp ts = revToTsMap.get(revision);
+        assert ts != null : revision;
 
         watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
@@ -747,5 +732,34 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+        SortedMap<byte[], List<Long>> subMap = keyTo == null
+                ? keysIdx.tailMap(keyFrom)
+                : keysIdx.subMap(keyFrom, keyTo);
+
+        return subMap.entrySet().stream()
+                .map(e -> {
+                    byte[] key = e.getKey();
+                    long[] keyRevisions = toLongArray(e.getValue());
+
+                    int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+
+                    if (maxRevisionIndex == NOT_FOUND) {
+                        return EntryImpl.empty(key);
+                    }
+
+                    long revision = keyRevisions[maxRevisionIndex];
+                    Value value = getValue(key, revision);
+
+                    return EntryImpl.toEntry(key, revision, value);
+                })
+                .filter(e -> !e.empty())
+                .collect(collectingAndThen(toList(), Cursor::fromIterable));
     }
 }

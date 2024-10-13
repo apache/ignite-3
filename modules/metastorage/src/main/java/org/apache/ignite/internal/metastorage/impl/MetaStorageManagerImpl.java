@@ -93,7 +93,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -281,6 +280,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 assert targetRevision != null;
 
                 listenForRecovery(targetRevision);
+            }).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.info("Recovery failed", ex);
+
+                    recoveryFinishedFuture.completeExceptionally(ex);
+                }
             });
 
             return recoveryFinishedFuture;
@@ -304,10 +309,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -326,13 +328,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             if (storageRevision >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
-                appliedRevision = targetRevision;
-                if (recoveryFinishedFuture.complete(targetRevision)) {
-                    LOG.info("Finished MetaStorage recovery");
-                }
+                finishRecovery(targetRevision);
             }
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private void finishRecovery(long targetRevision) {
+        appliedRevision = targetRevision;
+
+        if (targetRevision > 0) {
+            clusterTime.updateSafeTime(storage.timestampByRevision(targetRevision));
+        }
+
+        if (recoveryFinishedFuture.complete(targetRevision)) {
+            LOG.info("Finished MetaStorage recovery");
         }
     }
 
@@ -743,15 +754,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.get(key, revLowerBound, revUpperBound);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
     }
 
     @Override
@@ -761,15 +764,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
-        return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
+        return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
     }
 
     @Override
     public Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound) {
-        byte[] rangeStart = keyPrefix.bytes();
-        byte[] rangeEnd = storage.nextKey(rangeStart);
+        return inBusyLock(busyLock, () -> {
+            byte[] rangeStart = keyPrefix.bytes();
+            byte[] rangeEnd = storage.nextKey(rangeStart);
 
-        return storage.range(rangeStart, rangeEnd, revUpperBound);
+            return storage.range(rangeStart, rangeEnd, revUpperBound);
+        });
     }
 
     @Override
@@ -913,21 +918,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return range(keyFrom, keyTo, false);
-    }
-
-    /**
-     * Retrieves entries for the given key range in lexicographic order.
-     *
-     * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
-     */
-    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
         if (!busyLock.enterBusy()) {
             return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, false)));
         } finally {
             busyLock.leaveBusy();
         }
