@@ -208,7 +208,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Buffer used to cache new events while an event replay is in progress. After replay finishes, the cache gets drained and is never
      * used again.
      *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     @Nullable
     private List<UpdatedEntries> eventCache;
@@ -216,7 +216,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /**
      * Current list of updated entries.
      *
-     * <p>Since this list gets read and updated only on writes (under a write lock), no extra synchronisation is needed.
+     * <p>Since this list gets read and updated only on writes (under a write lock), no extra synchronisation is needed.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
     private final UpdatedEntries updatedEntries = new UpdatedEntries();
 

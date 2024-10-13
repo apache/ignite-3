@@ -328,6 +328,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             Value value;
 
             // More complex check to read less from disk.
+            // Optimization for persistent storage.
             if (revision <= compactionRevision) {
                 if (!isLastIndex(keyRevisions, i)) {
                     continue;
