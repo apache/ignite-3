@@ -142,6 +142,83 @@ def Binary(string: Union[str, bytes]):
         return BINARY(string, 'utf-8')
 
 
+
+class Error(Exception):
+    """
+    Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
+    except statement. Warnings are not considered errors and thus should not use this class as base.
+    """
+    pass
+
+
+# noinspection PyShadowingBuiltins
+class Warning(Exception):
+    """
+    Exception raised for important warnings like data truncations while inserting, etc.
+    """
+    pass
+
+
+class InterfaceError(Error):
+    """
+    Exception raised for errors that are related to the database interface rather than the database itself.
+    """
+    pass
+
+
+class DatabaseError(Error):
+    """
+    Exception raised for errors that are related to the database.
+    """
+    pass
+
+
+class DataError(DatabaseError):
+    """
+    Exception raised for errors that are due to problems with the processed data like division by zero, numeric value
+    out of range, etc..
+    """
+    pass
+
+
+class InternalError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
+    pass
+
+
+class OperationalError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database’s operation and not necessarily under the control of
+    the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction could not be
+    processed, a memory allocation error occurred during processing, etc.
+    """
+    pass
+
+
+class ProgrammingError(DatabaseError):
+    """
+    Exception raised for programming errors, e.g. table not found or already exists, syntax error in the SQL statement,
+    wrong number of parameters specified, etc.
+    """
+    pass
+
+
+class IntegrityError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    """
+    pass
+
+
+class NotSupportedError(DatabaseError):
+    """
+    Exception raised in case a method or database API was used which is not supported by the database.
+    """
+    pass
+
+
 def _type_code_from_int(native: int):
     if native == native_type_code.NIL:
         return NULL
@@ -441,6 +518,17 @@ class Connection:
     Connection class. Represents a single connection to the Ignite cluster.
     """
 
+    Error = Error
+    Warning = Warning
+    InterfaceError = InterfaceError
+    DatabaseError = DatabaseError
+    DataError = DataError
+    InternalError = InternalError
+    OperationalError = OperationalError
+    ProgrammingError = ProgrammingError
+    IntegrityError = IntegrityError
+    NotSupportedError = NotSupportedError
+
     def __init__(self):
         self._autocommit = True
         self._py_connection = None
@@ -564,78 +652,3 @@ def connect(address: [str], **kwargs) -> Connection:
     """
     return _pyignite3_extension.connect(address=address, **kwargs)
 
-
-class Error(Exception):
-    """
-    Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
-    except statement. Warnings are not considered errors and thus should not use this class as base.
-    """
-    pass
-
-
-# noinspection PyShadowingBuiltins
-class Warning(Exception):
-    """
-    Exception raised for important warnings like data truncations while inserting, etc.
-    """
-    pass
-
-
-class InterfaceError(Error):
-    """
-    Exception raised for errors that are related to the database interface rather than the database itself.
-    """
-    pass
-
-
-class DatabaseError(Error):
-    """
-    Exception raised for errors that are related to the database.
-    """
-    pass
-
-
-class DataError(DatabaseError):
-    """
-    Exception raised for errors that are due to problems with the processed data like division by zero, numeric value
-    out of range, etc..
-    """
-    pass
-
-
-class InternalError(DatabaseError):
-    """
-    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
-    """
-    pass
-
-
-class OperationalError(DatabaseError):
-    """
-    Exception raised for errors that are related to the database’s operation and not necessarily under the control of
-    the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction could not be
-    processed, a memory allocation error occurred during processing, etc.
-    """
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    """
-    Exception raised for programming errors, e.g. table not found or already exists, syntax error in the SQL statement,
-    wrong number of parameters specified, etc.
-    """
-    pass
-
-
-class IntegrityError(DatabaseError):
-    """
-    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
-    """
-    pass
-
-
-class NotSupportedError(DatabaseError):
-    """
-    Exception raised in case a method or database API was used which is not supported by the database.
-    """
-    pass
