@@ -381,8 +381,7 @@ void sql_connection::transaction_commit() {
 
 sql_result sql_connection::internal_transaction_commit() {
     if (!m_transaction_id) {
-        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
-        return sql_result::AI_ERROR;
+        return sql_result::AI_SUCCESS;
     }
 
     LOG_MSG("Committing transaction: " << *m_transaction_id);
