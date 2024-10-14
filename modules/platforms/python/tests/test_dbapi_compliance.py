@@ -46,3 +46,7 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
         # Stored procedures are not supported
         pass
 
+    def test_executemany(self):
+        # TODO: IGNITE-22742 Implement execution with a batch of parameters
+        pass
+
