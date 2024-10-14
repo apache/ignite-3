@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.internal.cli.commands.recovery.cluster.migrate;
 
-import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 
-/**
- * Test controller. Exposes a single ping endpoint.
- */
-@Controller
-public class TestController {
-    @Get("ping")
-    public String ping() {
-        return "pong";
+/** Tests "recovery cluster migrate" REPL command. */
+@DisplayName("recovery cluster migrate REPL")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-23296")
+class MigrateToClusterCommandReplTest extends MigrateToClusterCommandTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
     }
-
 }

@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION_DESC;
 
 import java.net.URL;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import picocli.CommandLine.Option;
 
 /**
@@ -33,7 +33,7 @@ public class ClusterUrlMixin {
     @Option(
             names = CLUSTER_URL_OPTION,
             description = CLUSTER_URL_OPTION_DESC,
-            converter = UrlConverter.class,
+            converter = RestEndpointUrlConverter.class,
             order = CLUSTER_URL_OPTION_ORDER
     )
     private URL clusterUrl;
