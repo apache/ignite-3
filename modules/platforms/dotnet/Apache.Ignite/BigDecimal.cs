@@ -18,6 +18,7 @@
 namespace Apache.Ignite;
 
 using System;
+using System.Globalization;
 using System.Numerics;
 
 /// <summary>
@@ -74,5 +75,24 @@ public record struct BigDecimal(BigInteger Value, int Scale) : IComparable<BigDe
         }
 
         throw new ArgumentException($"Unexpected object type: {obj.GetType()}. Object must be of type {nameof(BigDecimal)}.");
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => ToString(null);
+
+    /// <summary>
+    /// Converts the numeric value of this object to its equivalent string representation.
+    /// </summary>
+    /// <param name="provider">An object that supplies culture-specific formatting information.</param>
+    /// <returns>The string representation of the current value.</returns>
+    public string ToString(IFormatProvider? provider)
+    {
+        var numberFormatInfo = NumberFormatInfo.GetInstance(provider);
+
+        var res = Value.ToString("D", provider);
+
+        return Scale == 0
+            ? res
+            : res.Insert(Scale, numberFormatInfo.NumberDecimalSeparator);
     }
 }
