@@ -957,6 +957,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
+        // There we're closing replicas' futures that was created by requests and should be completed with NodeStoppingException.
         try {
             IgniteUtils.closeAllManually(() -> {
                 assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
