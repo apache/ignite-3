@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertRequestedRevisionLessThanOrEqualToCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
@@ -43,7 +45,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -385,29 +386,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
         synchronized (mux) {
-            return range(keyFrom, keyTo, rev);
+            return doRange(keyFrom, keyTo, rev);
         }
     }
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
         synchronized (mux) {
-            SortedMap<byte[], List<Long>> subMap = keyTo == null
-                    ? keysIdx.tailMap(keyFrom)
-                    : keysIdx.subMap(keyFrom, keyTo);
-
-            return subMap.entrySet().stream()
-                    .map(e -> {
-                        long targetRevision = maxRevision(e.getValue(), revUpperBound);
-
-                        if (targetRevision == -1) {
-                            return EntryImpl.empty(e.getKey());
-                        }
-
-                        return doGetValue(e.getKey(), targetRevision);
-                    })
-                    .filter(e -> !e.empty())
-                    .collect(collectingAndThen(toList(), Cursor::fromIterable));
+            return doRange(keyFrom, keyTo, revUpperBound);
         }
     }
 
@@ -528,8 +514,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return;
         }
 
-        HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
-        assert ts != null;
+        long revision = updatedEntries.get(0).revision();
+
+        HybridTimestamp ts = revToTsMap.get(revision);
+        assert ts != null : revision;
 
         watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
@@ -728,7 +716,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revUpperBound >= 0 : revUpperBound;
 
         long[] keyRevisions = toLongArray(keysIdx.get(key));
-        int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
 
         if (maxRevisionIndex == NOT_FOUND) {
             CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
@@ -748,114 +736,40 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
-        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
-        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
-        assert revUpperBound >= revLowerBound
-                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        assert revLowerBound >= 0 : revLowerBound;
+        assert revUpperBound >= 0 : revUpperBound;
+        assert revUpperBound >= revLowerBound : "revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound;
 
-        List<Long> revs = keysIdx.get(key);
+        long[] keyRevisions = toLongArray(keysIdx.get(key));
 
-        if (revs == null || revs.isEmpty()) {
-            return Collections.emptyList();
+        int minRevisionIndex = minRevisionIndex(keyRevisions, revLowerBound);
+        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
+
+        if (minRevisionIndex == NOT_FOUND || maxRevisionIndex == NOT_FOUND) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
+
+            return List.of();
         }
 
-        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
-        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
+        var entries = new ArrayList<Entry>();
 
-        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
-        if (firstRevIndex == -1 || lastRevIndex == -1) {
-            return Collections.emptyList();
+        for (int i = minRevisionIndex; i <= maxRevisionIndex; i++) {
+            long revision = keyRevisions[i];
+
+            Value value = getValue(key, revision);
+
+            if (revision <= compactionRevision && (!isLastIndex(keyRevisions, i) || value.tombstone())) {
+                continue;
+            }
+
+            entries.add(EntryImpl.toEntry(key, revision, value));
         }
 
-        List<Entry> entries = new ArrayList<>();
-
-        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
-            entries.add(doGetValue(key, revs.get(i)));
+        if (entries.isEmpty()) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
         }
 
         return entries;
-    }
-
-    /**
-     * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
-     * returned.
-     *
-     * @param revs Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Appropriate revision or {@code -1} if there is no such revision.
-     */
-    private static long maxRevision(List<Long> revs, long upperBoundRev) {
-        int i = revs.size() - 1;
-
-        for (; i >= 0; i--) {
-            long rev = revs.get(i);
-
-            if (rev <= upperBoundRev) {
-                return rev;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
-     * If there is no such revision then {@code -1} will be returned.
-     *
-     * @param revs          Revisions list.
-     * @param lowerBoundRev Revision lower bound.
-     * @return Index of minimum revision or {@code -1} if there is no such revision.
-     */
-    private static int minRevisionIndex(List<Long> revs, long lowerBoundRev) {
-        for (int i = 0; i < revs.size(); i++) {
-            long rev = revs.get(i);
-
-            if (rev >= lowerBoundRev) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
-     * If there is no such revision then {@code -1} will be returned.
-     *
-     * @param revs          Revisions list.
-     * @param upperBoundRev Revision upper bound.
-     * @return Index of maximum revision or {@code -1} if there is no such revision.
-     */
-    private static int maxRevisionIndex(List<Long> revs, long upperBoundRev) {
-        for (int i = revs.size() - 1; i >= 0; i--) {
-            long rev = revs.get(i);
-
-            if (rev <= upperBoundRev) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private Entry doGetValue(byte[] key, long lastRev) {
-        if (lastRev == 0) {
-            return EntryImpl.empty(key);
-        }
-
-        NavigableMap<byte[], Value> lastRevVals = revsIdx.get(lastRev);
-
-        if (lastRevVals == null || lastRevVals.isEmpty()) {
-            return EntryImpl.empty(key);
-        }
-
-        Value lastVal = lastRevVals.get(key);
-
-        if (lastVal.tombstone()) {
-            return EntryImpl.tombstone(key, lastRev, lastVal.operationTimestamp());
-        }
-
-        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.operationTimestamp());
     }
 
     private void doPut(byte[] key, byte[] bytes, long curRev, HybridTimestamp opTs) {
@@ -1013,5 +927,34 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
+        assert revUpperBound >= 0 : revUpperBound;
+
+        CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+
+        SortedMap<byte[], List<Long>> subMap = keyTo == null
+                ? keysIdx.tailMap(keyFrom)
+                : keysIdx.subMap(keyFrom, keyTo);
+
+        return subMap.entrySet().stream()
+                .map(e -> {
+                    byte[] key = e.getKey();
+                    long[] keyRevisions = toLongArray(e.getValue());
+
+                    int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+
+                    if (maxRevisionIndex == NOT_FOUND) {
+                        return EntryImpl.empty(key);
+                    }
+
+                    long revision = keyRevisions[maxRevisionIndex];
+                    Value value = getValue(key, revision);
+
+                    return EntryImpl.toEntry(key, revision, value);
+                })
+                .filter(e -> !e.empty())
+                .collect(collectingAndThen(toList(), Cursor::fromIterable));
     }
 }

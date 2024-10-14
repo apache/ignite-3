@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.binarySearch;
 
 import java.util.function.LongPredicate;
+import org.jetbrains.annotations.Nullable;
 
 /** Helper class with useful methods and constants for {@link KeyValueStorage} implementations. */
 public class KeyValueStorageUtils {
@@ -57,7 +58,7 @@ public class KeyValueStorageUtils {
     }
 
     /**
-     * Returns index of maximum revision which must be less or equal to {@code upperBoundRevision}. If there is no such revision then
+     * Returns index of maximum revision which is less or equal to {@code upperBoundRevision}. If there is no such revision then
      * {@link #NOT_FOUND} will be returned.
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
@@ -77,6 +78,27 @@ public class KeyValueStorageUtils {
         return i;
     }
 
+    /**
+     * Returns index of minimum revision which is greater or equal to {@code lowerBoundRevision}. If there is no such revision then
+     * {@link #NOT_FOUND} will be returned.
+     *
+     * @param keyRevisions Metastorage key revisions in ascending order.
+     * @param lowerBoundRevision Revision lower bound.
+     */
+    public static int minRevisionIndex(long[] keyRevisions, long lowerBoundRevision) {
+        int i = binarySearch(keyRevisions, lowerBoundRevision);
+
+        if (i < 0) {
+            if (i == -(keyRevisions.length + 1)) {
+                return NOT_FOUND;
+            }
+
+            i = -(i + 1);
+        }
+
+        return i;
+    }
+
     /** Returns {@link true} if the requested index is the last index of the array. */
     public static boolean isLastIndex(long[] arr, int index) {
         assert index >= 0 && index < arr.length : "index=" + index + ", arr.length=" + arr.length;
@@ -89,8 +111,8 @@ public class KeyValueStorageUtils {
      *
      * @param bytes Bytes.
      */
-    public static String toUtf8String(byte[] bytes) {
-        return new String(bytes, UTF_8);
+    public static String toUtf8String(byte @Nullable [] bytes) {
+        return bytes == null ? "null" : new String(bytes, UTF_8);
     }
 
     /** Asserts that the compaction revision is less than the current storage revision. */
