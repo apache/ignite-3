@@ -24,15 +24,15 @@ import org.apache.ignite.raft.jraft.storage.snapshot.startup.StartupSnapshotRead
  * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
  */
 class StartupMetaStorageSnapshotReader extends StartupSnapshotReader {
-    private final MetaStorageSnapshotStorageFactory factory;
+    private final SnapshotMeta meta;
 
-    StartupMetaStorageSnapshotReader(MetaStorageSnapshotStorageFactory factory) {
-        this.factory = factory;
+    StartupMetaStorageSnapshotReader(SnapshotMeta meta) {
+        this.meta = meta;
     }
 
     @Override
     public SnapshotMeta load() {
-        return factory.startupSnapshotMeta();
+        return meta;
     }
 
     @Override

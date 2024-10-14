@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage;
 
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.jetbrains.annotations.Nullable;
 
 /** Snapshot storage factory interface. */
 @FunctionalInterface
@@ -30,5 +31,5 @@ public interface SnapshotStorageFactory {
      * @param raftOptions Raft options.
      * @return Snapshot storage. {@code null} if there's no snapshot.
      */
-    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
+    @Nullable SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
 }

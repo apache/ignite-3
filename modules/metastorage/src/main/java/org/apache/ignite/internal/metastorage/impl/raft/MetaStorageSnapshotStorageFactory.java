@@ -74,17 +74,6 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
                 .build();
     }
 
-    /**
-     * Returns a snapshot meta, constructed from the storage data and raft group configuration at startup.
-     */
-    SnapshotMeta startupSnapshotMeta() {
-        if (startupSnapshotMeta == null) {
-            throw new IllegalStateException("Storage is empty, so startup snapshot should not be read");
-        }
-
-        return startupSnapshotMeta;
-    }
-
     @Override
     public @Nullable SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new LocalSnapshotStorage(uri, raftOptions) {
@@ -99,7 +88,7 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
                         return null;
                     }
 
-                    return new StartupMetaStorageSnapshotReader(MetaStorageSnapshotStorageFactory.this);
+                    return new StartupMetaStorageSnapshotReader(startupSnapshotMeta);
                 }
 
                 return super.open();

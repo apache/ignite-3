@@ -953,13 +953,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+    public void advanceSafeTime(KeyValueUpdateContext context) {
         synchronized (mux) {
+            setIndexAndTerm(context.index, context.term);
+
             if (!areWatchesEnabled) {
                 return;
             }
 
-            watchProcessor.advanceSafeTime(newSafeTime);
+            watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
 

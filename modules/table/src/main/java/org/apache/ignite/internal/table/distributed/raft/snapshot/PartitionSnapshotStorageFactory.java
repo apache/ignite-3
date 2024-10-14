@@ -110,7 +110,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public @Nullable PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new PartitionSnapshotStorage(
                 topologyService,
                 outgoingSnapshotsManager,

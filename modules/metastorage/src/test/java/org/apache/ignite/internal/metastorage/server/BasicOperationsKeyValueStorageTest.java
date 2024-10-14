@@ -69,6 +69,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -2180,6 +2181,27 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1L, storage.revision());
         assertFalse(storage.get(key0).empty());
         assertTrue(storage.get(key1).empty());
+    }
+
+    @Test
+    void testClear() {
+        byte[] key = key(0);
+
+        storage.put(key, key, msContext(hybridTimestamp(1)));
+        assertEquals(1, storage.revision());
+
+        storage.clear();
+
+        assertTrue(storage.get(key).empty());
+
+        assertEquals(0, storage.revision());
+        assertEquals(-1, storage.getCompactionRevision());
+
+        assertNull(storage.getConfiguration());
+        assertNull(storage.getIndexWithTerm());
+
+        // "timestampByRevision" is not checked, because its behavior depends on "-ea" flag.
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(hybridTimestamp(2)));
     }
 
     private CompletableFuture<Void> watchExact(

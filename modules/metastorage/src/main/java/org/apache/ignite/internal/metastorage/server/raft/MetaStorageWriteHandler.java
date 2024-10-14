@@ -219,9 +219,7 @@ public class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toIf(cmd.iif()), context, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
-            storage.setIndexAndTerm(index, term);
-
-            storage.advanceSafeTime(opTime);
+            storage.advanceSafeTime(context);
 
             clo.result(null);
         } else if (command instanceof EvictIdempotentCommandsCacheCommand) {

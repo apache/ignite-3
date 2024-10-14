@@ -486,9 +486,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Advances MetaStorage Safe Time to a new value without creating a new revision.
      *
-     * @param newSafeTime New Safe Time value.
+     * @param context Operation's context.
      */
-    void advanceSafeTime(HybridTimestamp newSafeTime);
+    void advanceSafeTime(KeyValueUpdateContext context);
 
     /**
      * Saves the compaction revision to the storage meta.

@@ -129,7 +129,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 /**
  * Meta storage client tests.
@@ -318,10 +317,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Starts nodes. It is important to call {@link #prepareNodes(int)}, then configure required mocks, and only then star nodes. Otherwise
-     * the {@link Node#mockStorage} (for example) will be concurrently used by a node and configured in the test (using a
-     * {@link Mockito#when(Object)}, for example). This is not allowed, mocks must be accessed exclusively during a configuration phase,
-     * it's not thread-safe.
+     * Starts nodes. It is important that this method is called before all mocks are configured, otherwise we will have races between raft
+     * server and mockito.
      */
     private void startNodes() {
         PeersAndLearners metaStorageConfiguration = PeersAndLearners.fromConsistentIds(

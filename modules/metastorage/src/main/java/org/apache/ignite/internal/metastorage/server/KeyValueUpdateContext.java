@@ -20,8 +20,8 @@ package org.apache.ignite.internal.metastorage.server;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Operation context for update operations in {@link KeyValueStorage}. Includes operation timestamp and a necessary metadata in terms of a
- * {@code long index} and {@code long term}.
+ * Operation context for update operations in {@link KeyValueStorage}. Includes operation timestamp and necessary metadata in terms of an
+ * {@code long index} and a {@code long term}.
  */
 public class KeyValueUpdateContext {
     public final long index;

@@ -568,9 +568,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 return null;
             }
 
-            long[] longs = getAsLongs(bytes);
-
-            return new IndexWithTerm(longs[0], longs[1]);
+            return new IndexWithTerm(bytesToLong(bytes, 0), bytesToLong(bytes, Long.BYTES));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -1679,12 +1677,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+    public void advanceSafeTime(KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
+            setIndexAndTerm(context.index, context.term);
+
             if (recoveryStatus.get() == RecoveryStatus.DONE) {
-                watchProcessor.advanceSafeTime(newSafeTime);
+                watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
