@@ -132,11 +132,14 @@ def TimestampFromTicks(ticks):
 
 
 # noinspection PyPep8Naming
-def Binary(string: str):
+def Binary(string: Union[str, bytes]):
     """
     This function constructs an object capable of holding a binary (long) string value.
     """
-    return BINARY(string, 'utf-8')
+    if isinstance(string, bytes):
+        return string
+    else:
+        return BINARY(string, 'utf-8')
 
 
 def _type_code_from_int(native: int):
