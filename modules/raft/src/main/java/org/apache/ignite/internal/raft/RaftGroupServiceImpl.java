@@ -557,7 +557,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        var context = new RetryContext(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), 1);
+        var context = new RetryContext(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), 0);
 
         sendWithRetry(future, context);
 

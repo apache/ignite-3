@@ -24,19 +24,21 @@ import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Represents a context containing data for {@code RaftGroupServiceImpl#sendWithRetry} methods.
+ *
+ * <p>Not thread-safe.
  */
 class RetryContext {
-    private final Peer targetPeer;
+    private Peer targetPeer;
 
     private final Function<Peer, ? extends NetworkMessage> requestFactory;
 
-    private final NetworkMessage request;
+    private NetworkMessage request;
 
     private final long stopTime;
 
-    private final int retryCount;
+    private int retryCount;
 
-    private final Set<Peer> unavailablePeers;
+    private final Set<Peer> unavailablePeers = new HashSet<>();
 
     /**
      * Creates a context.
@@ -48,23 +50,11 @@ class RetryContext {
      *     unavailability it'll be scheduled for a next attempt. Generally a request will be retried until success or timeout.
      */
     RetryContext(Peer targetPeer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, int retryCount) {
-        this(targetPeer, requestFactory, requestFactory.apply(targetPeer), stopTime, retryCount, Set.of());
-    }
-
-    private RetryContext(
-            Peer targetPeer,
-            Function<Peer, ? extends NetworkMessage> requestFactory,
-            NetworkMessage request,
-            long stopTime,
-            int retryCount,
-            Set<Peer> unavailablePeers
-    ) {
         this.targetPeer = targetPeer;
         this.requestFactory = requestFactory;
-        this.request = request;
+        this.request = requestFactory.apply(targetPeer);
         this.stopTime = stopTime;
         this.retryCount = retryCount;
-        this.unavailablePeers = unavailablePeers;
     }
 
     Peer targetPeer() {
@@ -89,32 +79,20 @@ class RetryContext {
 
     RetryContext nextAttempt(Peer newTargetPeer) {
         // We can avoid recreating the request if the target peer has not changed.
-        NetworkMessage newRequest = newTargetPeer.equals(targetPeer) ? request : requestFactory.apply(newTargetPeer);
+        if (!newTargetPeer.equals(targetPeer)) {
+            request = requestFactory.apply(newTargetPeer);
+        }
 
-        return new RetryContext(
-                newTargetPeer,
-                requestFactory,
-                newRequest,
-                stopTime,
-                retryCount + 1,
-                unavailablePeers
-        );
+        targetPeer = newTargetPeer;
+
+        retryCount++;
+
+        return this;
     }
 
     RetryContext nextAttemptForUnavailablePeer(Peer newTargetPeer) {
-        // We can avoid recreating the request if the target peer has not changed.
-        NetworkMessage newRequest = newTargetPeer.equals(targetPeer) ? request : requestFactory.apply(newTargetPeer);
+        unavailablePeers.add(targetPeer);
 
-        Set<Peer> newUnavailablePeers = new HashSet<>(unavailablePeers);
-        newUnavailablePeers.add(targetPeer);
-
-        return new RetryContext(
-                newTargetPeer,
-                requestFactory,
-                newRequest,
-                stopTime,
-                retryCount + 1,
-                newUnavailablePeers
-        );
+        return nextAttempt(newTargetPeer);
     }
 }

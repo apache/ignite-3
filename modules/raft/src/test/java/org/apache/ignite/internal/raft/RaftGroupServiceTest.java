@@ -129,7 +129,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private volatile @Nullable Peer leader = NODES.get(0);
 
     /** Call timeout. */
-    private static final long TIMEOUT = 500;
+    private static final long TIMEOUT = 1000;
 
     /** Current term. */
     private static final long CURRENT_TERM = 1;
