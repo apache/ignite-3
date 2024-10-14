@@ -74,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2165,7 +2166,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                             .build();
 
-                                    String localNodeId = localNode().name();
+                                    UUID localNodeId = localNode().id();
 
                                     replicaMgr.replica(replicaGrpId).thenAccept(primaryReplica -> metaStorageMgr
                                             .get(pendingPartAssignmentsKey(replicaGrpId))
