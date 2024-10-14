@@ -30,11 +30,11 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -142,8 +142,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
+        Catalog catalog1 = getLatestCatalog(node0);
         InternalTransaction tx1 = startRwTxWithStartTimeNotLessThan(node0, node0.clock().now());
+
+        sql("create table a(a int primary key)");
+        Catalog catalog2 = getLatestCatalog(node0);
         InternalTransaction tx2 = startRwTxWithStartTimeNotLessThan(node1, tx1.startTimestamp());
+
+        sql("alter table a add column (b int)");
+        Catalog catalog3 = getLatestCatalog(node0);
         InternalTransaction readonlyTx = (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
         InternalTransaction tx3 = startRwTxWithStartTimeNotLessThan(node2, tx2.startTimestamp());
 
@@ -153,21 +160,21 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx1.startTimestamp().longValue()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(catalog1.time()));
         });
 
         tx1.rollback();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx2.startTimestamp().longValue()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(catalog2.time()));
         });
 
         tx2.commit();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx3.startTimestamp().longValue()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(catalog3.time()));
         });
 
         tx3.rollback();
@@ -228,13 +235,20 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static int getLatestCatalogVersion(Ignite ignite) {
+        Catalog catalog = getLatestCatalog(ignite);
+
+        return catalog.version();
+    }
+
+    private static Catalog getLatestCatalog(Ignite ignite) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
         CatalogManagerImpl catalogManager = ((CatalogManagerImpl) igniteImpl.catalogManager());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(igniteImpl.clock().nowLong()));
-        assertNotNull(catalog);
 
-        return catalog.version();
+        Objects.requireNonNull(catalog);
+
+        return catalog;
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {

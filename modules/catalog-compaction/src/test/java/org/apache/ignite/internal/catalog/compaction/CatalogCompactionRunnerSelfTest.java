@@ -1054,7 +1054,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 schemaSyncService,
                 topologyService,
                 ForkJoinPool.commonPool(),
-                clockService::now,
+                clockService::nowLong,
                 minTimeCollector
         );
 

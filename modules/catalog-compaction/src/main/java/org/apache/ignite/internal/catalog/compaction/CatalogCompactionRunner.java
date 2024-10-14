@@ -72,7 +72,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredCatalogTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
@@ -125,7 +125,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
-    private final ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider;
+    private final ActiveLocalTxMinimumRequiredCatalogTimeProvider activeLocalTxMinimumBeginTimeProvider;
 
     private final ReplicaService replicaService;
 
@@ -162,7 +162,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
             Executor executor,
-            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
+            ActiveLocalTxMinimumRequiredCatalogTimeProvider activeLocalTxMinimumBeginTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService
     ) {
         this.localNodeName = localNodeName;
@@ -349,7 +349,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
-                    long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
+                    long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumRequiredTime();
 
                     Map<String, Map<Integer, BitSet>> allPartitions = new HashMap<>();
                     allPartitions.put(localNodeName, localPartitions);
@@ -666,7 +666,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
-                    .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
+                    .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumRequiredTime())
                     .partitions(availablePartitionsMessages(availablePartitions))
                     .build();
 
