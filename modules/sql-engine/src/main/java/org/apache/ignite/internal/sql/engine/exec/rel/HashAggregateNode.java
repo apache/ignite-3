@@ -85,6 +85,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         ImmutableBitSet.Builder b = ImmutableBitSet.builder();
 
         groupings = new ArrayList<>(grpSets.size());
+        accs = accFactory != null ? accFactory.get() : Collections.emptyList();
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
@@ -96,7 +97,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         allFields = b.build();
-        accs = accFactory != null ? accFactory.get() : Collections.emptyList();
     }
 
     /** {@inheritDoc} */
