@@ -17,32 +17,36 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
 import org.apache.ignite.raft.jraft.core.State;
 
 /**
  * Enum for states of local partitions.
  */
-public enum LocalPartitionStateEnum {
+public enum LocalPartitionStateEnum implements TransferableEnum {
     /** This state might be used when partition is not yet started, or it's already stopping, for example. */
-    UNAVAILABLE,
+    UNAVAILABLE(0),
 
     /** Alive partition with a healthy state machine. */
-    HEALTHY,
+    HEALTHY(1),
 
     /** Partition is starting right now. */
-    INITIALIZING,
+    INITIALIZING(2),
 
     /** Partition is installing a Raft snapshot from the leader. */
-    INSTALLING_SNAPSHOT,
+    INSTALLING_SNAPSHOT(3),
 
     /** Partition is catching up, meaning that it's not replicated part of the log yet. */
-    CATCHING_UP,
+    CATCHING_UP(4),
 
     /** Partition is in broken state, usually it means that its state machine thrown an exception. */
-    BROKEN;
+    BROKEN(5);
 
-    /** Cached array with all enum values. */
-    private static final LocalPartitionStateEnum[] VALUES = values();
+    private final int transferableId;
+
+    LocalPartitionStateEnum(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
     /** Converts internal raft node state into public local partition state. */
     public static LocalPartitionStateEnum convert(State raftNodeState) {
@@ -70,17 +74,8 @@ public enum LocalPartitionStateEnum {
         }
     }
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static LocalPartitionStateEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
-
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }
