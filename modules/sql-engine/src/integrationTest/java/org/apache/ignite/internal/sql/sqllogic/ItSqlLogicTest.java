@@ -171,6 +171,11 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             + "  rest.port: {}\n"
             + "}";
 
+    /**
+     * Interval between idle Safe Time synchronizations for the Metastorage.
+     *
+     * <p>This value is chosen empirically (it allows to run the suite as fast as possible at the TC).
+     */
     private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
 
     /** Embedded nodes. */
