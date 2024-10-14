@@ -19,7 +19,7 @@ package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.ThreadLocalRandom.current;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
@@ -47,6 +47,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -556,7 +557,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        sendWithRetry(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), future, 1);
+        var context = new RetryContext(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), 1);
+
+        sendWithRetry(future, context);
 
         return future;
     }
@@ -564,21 +567,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /**
      * Retries a request until success or timeout.
      *
-     * @param peer Initial target peer, request can be sent to a random peer if the target peer is unavailable.
-     * @param requestFactory Factory for creating requests to the target peer.
-     * @param stopTime Stop time.
-     * @param fut The future.
+     * @param fut Result future.
+     * @param retryContext Context.
      * @param <R> Response type.
-     * @param retryCount Number of retries made. sendWithRetry method has a recursion nature, in case of recoverable exceptions or peer
-     *     unavailability it'll be scheduled for a next attempt. Generally a request will be retried until success or timeout.
      */
-    private <R extends NetworkMessage> void sendWithRetry(
-            Peer peer,
-            Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime,
-            CompletableFuture<R> fut,
-            int retryCount
-    ) {
+    private <R extends NetworkMessage> void sendWithRetry(CompletableFuture<R> fut, RetryContext retryContext) {
         if (!busyLock.enterBusy()) {
             fut.cancel(true);
 
@@ -586,16 +579,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         try {
-            if (currentTimeMillis() >= stopTime) {
-                fut.completeExceptionally(
-                        new TimeoutException(format("Send with retry timed out [retryCount = {}, groupId = {}].", retryCount, groupId)));
+            if (currentTimeMillis() >= retryContext.stopTime()) {
+                fut.completeExceptionally(new TimeoutException(format(
+                        "Send with retry timed out [retryCount = {}, groupId = {}].",
+                        retryContext.retryCount(),
+                        groupId
+                )));
 
                 return;
             }
 
-            NetworkMessage request = requestFactory.apply(peer);
+            NetworkMessage request = retryContext.request();
 
-            resolvePeer(peer)
+            resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
@@ -603,19 +599,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     request,
                                     resp,
                                     cluster.topologyService().localMember().address(),
-                                    peer.consistentId(),
+                                    retryContext.targetPeer().consistentId(),
                                     err == null ? null : err.getMessage());
                         }
 
                         try {
                             if (err != null) {
-                                handleThrowable(err, peer, request, requestFactory, stopTime, fut, retryCount);
+                                handleThrowable(fut, err, retryContext);
                             } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retryCount);
+                                handleErrorResponse(fut, (ErrorResponse) resp, retryContext);
                             } else if (resp instanceof SMErrorResponse) {
-                                handleSmErrorResponse((SMErrorResponse) resp, fut);
+                                handleSmErrorResponse(fut, (SMErrorResponse) resp);
                             } else {
-                                leader = peer; // The OK response was received from a leader.
+                                leader = retryContext.targetPeer(); // The OK response was received from a leader.
 
                                 fut.complete((R) resp);
                             }
@@ -628,61 +624,45 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private void handleThrowable(
-            Throwable err,
-            Peer peer,
-            NetworkMessage sentRequest,
-            Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime,
-            CompletableFuture<? extends NetworkMessage> fut,
-            int retryCount
-    ) {
+    private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 
-        if (recoverable(err)) {
-            Peer randomPeer = randomNode(peer);
+        if (!recoverable(err)) {
+            fut.completeExceptionally(err);
 
-            if (LOG.isDebugEnabled()) {
-                if (err instanceof TimeoutException) {
-                    LOG.debug(
-                            "Recoverable TimeoutException during the request occurred (will be retried on the randomly selected"
-                                    + " node) [request={}, peer={}, newPeer={}].",
-                            includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
-                            peer,
-                            randomPeer
-                    );
-                } else {
-                    LOG.debug(
-                            "Recoverable error during the request occurred (will be retried on the randomly selected node) "
-                                    + "[request={}, peer={}, newPeer={}].",
-                            err,
-                            includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
-                            peer,
-                            randomPeer
-                    );
-                }
+            return;
+        }
+
+        Peer randomPeer = randomNode(retryContext);
+
+        if (LOG.isDebugEnabled()) {
+            String msg;
+
+            if (err instanceof TimeoutException) {
+                msg = "Recoverable TimeoutException during the request occurred (will be retried on a randomly selected node) "
+                        + "[request={}, peer={}, newPeer={}].";
+            } else {
+                msg = "Recoverable error during the request occurred (will be retried on a randomly selected node) "
+                        + "[request={}, peer={}, newPeer={}].";
             }
 
-            scheduleRetry(randomPeer, requestFactory, stopTime, fut, retryCount);
-        } else {
-            fut.completeExceptionally(err);
+            LOG.debug(
+                    msg,
+                    includeSensitive() ? retryContext.request() : retryContext.request().toStringForLightLogging(),
+                    retryContext.targetPeer(),
+                    randomPeer
+            );
         }
+
+        scheduleRetry(fut, retryContext.nextAttempt(randomPeer));
     }
 
-    private void handleErrorResponse(
-            ErrorResponse resp,
-            Peer peer,
-            NetworkMessage sentRequest,
-            Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime,
-            CompletableFuture<? extends NetworkMessage> fut,
-            int retryCount
-    ) {
+    private void handleErrorResponse(CompletableFuture<? extends NetworkMessage> fut, ErrorResponse resp, RetryContext retryContext) {
         RaftError error = RaftError.forNumber(resp.errorCode());
 
         switch (error) {
             case SUCCESS:
-                leader = peer; // The OK response was received from a leader.
+                leader = retryContext.targetPeer(); // The OK response was received from a leader.
 
                 fut.complete(null); // Void response.
 
@@ -690,37 +670,46 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(peer, requestFactory, stopTime, fut, retryCount);
+                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer()));
 
                 break;
 
+            // TODO: IGNITE-15706
+            case UNKNOWN:
+            case EINTERNAL:
             case ENOENT: {
+                NetworkMessage request = retryContext.request();
+
                 Peer newTargetPeer;
 
                 // If changing peers or requesting a leader and something is not found
                 // probably target peer is doing rebalancing, try another peer.
-                if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAndLearnersAsyncRequest) {
-                    newTargetPeer = randomNode(peer);
+                if (request instanceof GetLeaderRequest || request instanceof ChangePeersAndLearnersAsyncRequest) {
+                    newTargetPeer = randomNode(retryContext);
                 } else {
-                    newTargetPeer = peer;
+                    newTargetPeer = retryContext.targetPeer();
                 }
 
-                scheduleRetry(newTargetPeer, requestFactory, stopTime, fut, retryCount);
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer));
 
                 break;
             }
 
             case EHOSTDOWN:
             case ESHUTDOWN:
-            case ENODESHUTDOWN:
-            case EPERM:
-                // TODO: IGNITE-15706
-            case UNKNOWN:
-            case EINTERNAL: {
+            case ENODESHUTDOWN: {
+                Peer newTargetPeer = randomNode(retryContext);
+
+                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer));
+
+                break;
+            }
+
+            case EPERM: {
                 Peer newTargetPeer;
 
                 if (resp.leaderId() == null) {
-                    newTargetPeer = randomNode(peer);
+                    newTargetPeer = randomNode(retryContext);
                 } else {
                     newTargetPeer = parsePeer(resp.leaderId());
 
@@ -729,7 +718,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     leader = newTargetPeer;
                 }
 
-                scheduleRetry(newTargetPeer, requestFactory, stopTime, fut, retryCount);
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer));
 
                 break;
             }
@@ -746,7 +735,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private static void handleSmErrorResponse(SMErrorResponse resp, CompletableFuture<? extends NetworkMessage> fut) {
+    private static void handleSmErrorResponse(CompletableFuture<? extends NetworkMessage> fut, SMErrorResponse resp) {
         SMThrowable th = resp.error();
 
         if (th instanceof SMCompactedThrowable) {
@@ -767,18 +756,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
         } else if (th instanceof SMFullThrowable) {
             fut.completeExceptionally(((SMFullThrowable) th).throwable());
+        } else {
+            assert false : th;
         }
     }
 
-    private void scheduleRetry(
-            Peer peer,
-            Function<Peer, ? extends NetworkMessage> requestFactory,
-            long stopTime,
-            CompletableFuture<? extends NetworkMessage> fut,
-            int retryCount
-    ) {
+    private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
         executor.schedule(
-                () -> sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1),
+                () -> sendWithRetry(fut, retryContext),
                 configuration.retryDelay().value(),
                 TimeUnit.MILLISECONDS
         );
@@ -804,46 +789,36 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Returns a random peer. Tries 5 times finding a peer different from the excluded peer. If excluded peer is null, just returns a random
-     * peer.
+     * Returns a random peer.
      *
-     * @param excludedPeer Excluded peer.
-     * @return Random peer.
+     * <p>If the {@code retryContext} is not {@code null}, the random peer will be chosen as to not to match
+     * {@link RetryContext#targetPeer()} and {@link RetryContext#unavailablePeers()}.
      */
-    private Peer randomNode(@Nullable Peer excludedPeer) {
-        List<Peer> peers0 = peers;
-
+    private Peer randomNode(@Nullable RetryContext retryContext) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19466
-        // assert !peers0.isEmpty();
-        if (peers0.isEmpty()) {
+        // assert !peers.isEmpty();
+
+        List<Peer> availablePeers;
+
+        if (retryContext == null) {
+            availablePeers = new ArrayList<>(peers);
+        } else {
+            availablePeers = peers.stream()
+                    .filter(peer -> !retryContext.unavailablePeers().contains(peer))
+                    .collect(toCollection(ArrayList::new));
+        }
+
+        if (availablePeers.isEmpty()) {
             throw new IgniteInternalException(INTERNAL_ERR, "No peers available [groupId=" + groupId + ']');
         }
 
-        if (peers0.size() == 1) {
-            return peers0.get(0);
-        }
+        Collections.shuffle(availablePeers, ThreadLocalRandom.current());
 
-        int lastPeerIndex = excludedPeer == null ? -1 : peers0.indexOf(excludedPeer);
-
-        ThreadLocalRandom random = current();
-
-        int newIdx = 0;
-
-        for (int retries = 0; retries < 5; retries++) {
-            newIdx = random.nextInt(peers0.size());
-
-            if (newIdx != lastPeerIndex) {
-                Peer peer = peers0.get(newIdx);
-
-                assert peer != null : "idx=" + newIdx + ", peers=" + peers0;
-
-                if (cluster.topologyService().getByConsistentId(peer.consistentId()) != null) {
-                    break;
-                }
-            }
-        }
-
-        return peers0.get(newIdx);
+        return availablePeers.stream()
+                .filter(peer -> retryContext != null && !retryContext.targetPeer().equals(peer))
+                .filter(peer -> cluster.topologyService().getByConsistentId(peer.consistentId()) != null)
+                .findAny()
+                .orElse(availablePeers.get(0));
     }
 
     /**

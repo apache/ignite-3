@@ -129,7 +129,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private volatile @Nullable Peer leader = NODES.get(0);
 
     /** Call timeout. */
-    private static final long TIMEOUT = 1000;
+    private static final long TIMEOUT = 500;
 
     /** Current term. */
     private static final long CURRENT_TERM = 1;
@@ -629,13 +629,53 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(names = {"ESHUTDOWN", "EHOSTDOWN", "ENODESHUTDOWN", "EPERM", "UNKNOWN", "EINTERNAL"})
-    public void testRetryOnErrorWithUpdateLeader(RaftError error) {
+    @EnumSource(names = {"ESHUTDOWN", "EHOSTDOWN", "ENODESHUTDOWN"})
+    public void testRetryOnErrorWithUnavailablePeers(RaftError error) {
         when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
                 .thenReturn(completedFuture(FACTORY.errorResponse()
                         .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willThrow(IgniteInternalException.class, String.format("No peers available [groupId=%s]", TEST_GRP)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"UNKNOWN", "EINTERNAL", "ENOENT"})
+    public void testRetryOnErrorWithTimeout(RaftError error) {
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"EPERM"})
+    public void testRetryOnErrorWithUpdateLeader(RaftError error) {
+        when(messagingService.invoke(
+                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(0).consistentId())),
+                any(ReadActionRequest.class),
+                anyLong())
+        )
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
                         .leaderId(NODES.get(NODES.size() - 1).consistentId())
-                        .build()))
+                        .build()));
+
+        when(messagingService.invoke(
+                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(NODES.size() - 1).consistentId())),
+                any(ReadActionRequest.class),
+                anyLong())
+        )
                 .thenReturn(completedFuture(FACTORY.actionResponse().result(null).build()));
 
         RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
