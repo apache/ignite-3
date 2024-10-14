@@ -918,15 +918,19 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private Value getValue(byte[] key, long revision) {
-        NavigableMap<byte[], Value> valueByKey = revsIdx.get(revision);
-
-        assert valueByKey != null : "key=" + toUtf8String(key) + ", revision=" + revision;
-
-        Value value = valueByKey.get(key);
+        Value value = getValueNullable(key, revision);
 
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    private @Nullable Value getValueNullable(byte[] key, long revision) {
+        NavigableMap<byte[], Value> valueByKey = revsIdx.get(revision);
+
+        assert valueByKey != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        return valueByKey.get(key);
     }
 
     private Cursor<Entry> doRange(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
@@ -943,14 +947,19 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     byte[] key = e.getKey();
                     long[] keyRevisions = toLongArray(e.getValue());
 
-                    int maxRevisionIndex = KeyValueStorageUtils.maxRevisionIndex(keyRevisions, revUpperBound);
+                    int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
 
                     if (maxRevisionIndex == NOT_FOUND) {
                         return EntryImpl.empty(key);
                     }
 
                     long revision = keyRevisions[maxRevisionIndex];
-                    Value value = getValue(key, revision);
+                    Value value = getValueNullable(key, revision);
+
+                    // Value may be null if the compaction has removed it in parallel.
+                    if (value == null || (revision <= compactionRevision && value.tombstone())) {
+                        return EntryImpl.empty(key);
+                    }
 
                     return EntryImpl.toEntry(key, revision, value);
                 })

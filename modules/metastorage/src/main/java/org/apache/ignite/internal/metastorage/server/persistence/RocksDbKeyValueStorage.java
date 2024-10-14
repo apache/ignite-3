@@ -111,6 +111,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -1621,12 +1622,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private Value getValueForOperation(byte[] key, long revision) {
+        Value value = getValueForOperationNullable(key, revision);
+
+        assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
+
+        return value;
+    }
+
+    private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
 
             assert valueBytes != null && valueBytes.length != 0 : "key=" + toUtf8String(key) + ", revision=" + revision;
 
-            return bytesToValue(valueBytes);
+            return ArrayUtils.nullOrEmpty(valueBytes) ? null : bytesToValue(valueBytes);
         } catch (RocksDBException e) {
             throw new MetaStorageException(
                     OP_EXECUTION_ERR,
@@ -1650,6 +1659,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         RocksIterator iterator = index.newIterator(readOpts);
 
         iterator.seek(keyFrom);
+
+        long compactionRevisionBeforeCreateCursor = compactionRevision;
 
         return new RocksIteratorAdapter<>(iterator) {
             /** Cached entry used to filter "empty" values. */
@@ -1702,10 +1713,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
 
                 long revision = keyRevisions[maxRevisionIndex];
+                Value value = getValueForOperationNullable(key, revision);
 
-                // According to the compaction algorithm, we will start it locally on a new compaction revision only when all cursors are
-                // completed strictly before it. Therefore, during normal operation, we should not get an error here.
-                Value value = getValueForOperation(key, revision);
+                // Value may be null if the compaction has removed it in parallel.
+                if (value == null || (revision <= compactionRevisionBeforeCreateCursor && value.tombstone())) {
+                    return EntryImpl.empty(key);
+                }
 
                 return EntryImpl.toEntry(key, revision, value);
             }
