@@ -52,11 +52,25 @@ public class BigDecimalTests
     }
 
     [Test]
+    public void TestNegativeScaleIsNotSupported()
+    {
+        // ReSharper disable once ObjectCreationAsStatement
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BigDecimal(BigInteger.One, -1));
+    }
+
+    [Test]
     [TestCase("0", 0, null, "0")]
     [TestCase("0", 1, null, "0")]
     [TestCase("1", 0, null, "1")]
     [TestCase("1", 1, null, ".1")]
     [TestCase("1", 5, null, ".00001")]
+    [TestCase("123", -1, null, "123")]
+    [TestCase("123", 0, null, "123")]
+    [TestCase("123", 1, null, "12.3")]
+    [TestCase("123", 2, null, "1.23")]
+    [TestCase("123", 3, null, ".123")]
+    [TestCase("123", 4, null, ".0123")]
+    [TestCase("123", 5, null, ".00123")]
     [TestCase("123456789", 5, null, "1234.56789")]
     [TestCase("123456789", 5, "", "1234.56789")]
     [TestCase("123456789", 5, "en-US", "1234.56789")]

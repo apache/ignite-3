@@ -20,28 +20,45 @@ namespace Apache.Ignite;
 using System;
 using System.Globalization;
 using System.Numerics;
+using Internal.Common;
 using Internal.Proto.BinaryTuple;
 
 /// <summary>
 /// Big decimal.
 /// </summary>
-public readonly record struct BigDecimal(BigInteger Value, short Scale) : IComparable<BigDecimal>, IComparable
+public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BigDecimal"/> struct.
+    /// </summary>
+    /// <param name="unscaledValue">Unscaled value.</param>
+    /// <param name="scale">Scale.</param>
+    public BigDecimal(BigInteger unscaledValue, short scale)
+    {
+        IgniteArgumentCheck.Ensure(scale >= 0, nameof(scale), "Scale must be non-negative.");
+
+        UnscaledValue = unscaledValue;
+        Scale = scale;
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BigDecimal"/> struct.
     /// </summary>
     /// <param name="value">Decimal value.</param>
     public BigDecimal(decimal value)
-        : this(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: short.MaxValue))
     {
-        // No-op.
+        (UnscaledValue, Scale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: short.MaxValue);
     }
 
-    private BigDecimal((BigInteger BigInt, short Scale) parts)
-        : this(parts.BigInt, parts.Scale)
-    {
-        // No-op.
-    }
+    /// <summary>
+    /// Gets the unscaled value.
+    /// </summary>
+    public BigInteger UnscaledValue { get; }
+
+    /// <summary>
+    /// Gets the scale.
+    /// </summary>
+    public short Scale { get; }
 
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
@@ -62,7 +79,7 @@ public readonly record struct BigDecimal(BigInteger Value, short Scale) : ICompa
     /// <exception cref="OverflowException">Value was either too large or too small for a Decimal.</exception>
     public decimal ToDecimal()
     {
-        decimal res = (decimal)Value;
+        decimal res = (decimal)UnscaledValue;
 
         if (Scale > 0)
         {
@@ -86,17 +103,17 @@ public readonly record struct BigDecimal(BigInteger Value, short Scale) : ICompa
 
         if (Scale == other.Scale)
         {
-            return Value.CompareTo(other.Value);
+            return UnscaledValue.CompareTo(other.UnscaledValue);
         }
 
         if (Scale > other.Scale)
         {
-            var otherVal = other.Value * BigInteger.Pow(10, Scale - other.Scale);
-            return Value.CompareTo(otherVal);
+            var otherVal = other.UnscaledValue * BigInteger.Pow(10, Scale - other.Scale);
+            return UnscaledValue.CompareTo(otherVal);
         }
 
-        var thisVal = Value * BigInteger.Pow(10, other.Scale - Scale);
-        return thisVal.CompareTo(other.Value);
+        var thisVal = UnscaledValue * BigInteger.Pow(10, other.Scale - Scale);
+        return thisVal.CompareTo(other.UnscaledValue);
     }
 
     /// <inheritdoc />
@@ -127,7 +144,7 @@ public readonly record struct BigDecimal(BigInteger Value, short Scale) : ICompa
     {
         var numberFormatInfo = NumberFormatInfo.GetInstance(provider);
 
-        var res = Value.ToString("D", provider);
+        var res = UnscaledValue.ToString("D", provider);
 
         if (Scale == 0 || res == "0")
         {
