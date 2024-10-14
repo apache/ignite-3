@@ -142,7 +142,6 @@ def Binary(string: Union[str, bytes]):
         return BINARY(string, 'utf-8')
 
 
-
 class Error(Exception):
     """
     Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
@@ -250,20 +249,26 @@ def _type_code_from_int(native: int):
     raise InterfaceError(f'Unsupported data type: {native}')
 
 
-class ColumnDescription:
+class ColumnDescription(tuple):
     """
     Represents a description of the single column of the result set.
     """
 
-    def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
-                 precision: Optional[int], scale: Optional[int], null_ok: bool):
-        self.name = name
-        self.type_code = _type_code_from_int(type_code)
-        self.display_size = display_size
-        self.internal_size = internal_size
-        self.precision = precision
-        self.scale = scale
-        self.null_ok = null_ok
+    def __new__(cls, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
+                precision: Optional[int], scale: Optional[int], null_ok: bool):
+        self = tuple.__new__(
+            cls, (name, _type_code_from_int(type_code), display_size, internal_size, precision, scale, null_ok)
+        )
+
+        self.name = self[0]
+        self.type_code = self[1]
+        self.display_size = self[2]
+        self.internal_size = self[3]
+        self.precision = self[4]
+        self.scale = self[5]
+        self.null_ok = self[6]
+
+        return self
 
 
 class Cursor:
@@ -329,7 +334,7 @@ class Cursor:
         This attribute will be None for operations that do not return rows or if the cursor has not had an operation
         invoked via the .execute*() method yet.
         """
-        if self._py_cursor is None:
+        if self._py_cursor is None or (len(self._description) == 1 and self._description[0].name == 'APPLIED'):
             return None
         return self._description
 
