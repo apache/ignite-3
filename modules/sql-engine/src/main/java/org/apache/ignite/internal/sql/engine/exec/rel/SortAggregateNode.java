@@ -46,9 +46,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
-    /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
-
     private final RowFactory<RowT> rowFactory;
 
     private final ImmutableBitSet grpSet;
@@ -91,7 +88,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert Objects.nonNull(comp);
 
         this.type = type;
-        this.accFactory = accFactory;
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;

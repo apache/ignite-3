@@ -48,9 +48,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
-    /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
-
     private final RowFactory<RowT> rowFactory;
 
     /** A bit set that contains fields included in all grouping sets. */
@@ -77,7 +74,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         super(ctx);
 
         this.type = type;
-        this.accFactory = accFactory;
         this.rowFactory = rowFactory;
 
         assert grpSets.size() <= Byte.MAX_VALUE : "Too many grouping sets";
