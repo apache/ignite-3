@@ -317,7 +317,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Starts nodes. It is important that this method is called before all mocks are configured, otherwise we will have races between raft
+     * Starts nodes. It is important that this method is called after all mocks are configured, otherwise we will have races between raft
      * server and mockito.
      */
     private void startNodes() {

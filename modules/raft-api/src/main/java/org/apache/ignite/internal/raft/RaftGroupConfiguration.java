@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl.raft;
+package org.apache.ignite.internal.raft;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A RAFT group configuration at which it was committed.
+ * A POJO for a RAFT group configuration, could be used to by other modules. Not used by a RAFT module itself.
  */
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;

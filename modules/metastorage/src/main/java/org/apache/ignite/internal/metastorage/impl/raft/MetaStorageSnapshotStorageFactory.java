@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.impl.raft;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.raft.IndexWithTerm;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
