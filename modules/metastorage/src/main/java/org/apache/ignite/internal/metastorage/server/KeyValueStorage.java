@@ -287,7 +287,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns cursor by latest entries which correspond to the given keys range.
      *
-     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked. Also, each entry will be the
+     * only one with the most recent revision.</p>
      *
      * <p>Never throws {@link CompactedException} as well as cursor methods.</p>
      *
@@ -299,7 +300,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
      *
-     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked. And also each record will be
+     * one and with a revision less than or equal to the {@code revUpperBound}.</p>
      *
      * <p>Cursor methods never throw {@link CompactedException}.</p>
      *
