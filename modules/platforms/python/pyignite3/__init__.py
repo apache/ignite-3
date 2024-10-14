@@ -334,9 +334,15 @@ class Cursor:
         This attribute will be None for operations that do not return rows or if the cursor has not had an operation
         invoked via the .execute*() method yet.
         """
-        if self._py_cursor is None or (len(self._description) == 1 and self._description[0].name == 'APPLIED'):
+        if self._py_cursor is None or self._is_non_sql_query():
             return None
         return self._description
+
+    def _is_non_sql_query(self):
+        """
+        A little hack to detect DDL and DML queries.
+        """
+        return len(self._description) == 1 and self._description[0].name in ['APPLIED', 'ROWCOUNT']
 
     @property
     def rowcount(self) -> int:
@@ -377,7 +383,7 @@ class Cursor:
 
     def callproc(self, *_args):
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         raise NotSupportedError('Stored procedures are not supported')
 
@@ -402,7 +408,7 @@ class Cursor:
         but this kind of usage is deprecated: .executemany() should be used instead.
         """
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         self._py_cursor.execute(query, params)
         self._update_description()
@@ -427,7 +433,7 @@ class Cursor:
 
     def executemany(self, *_args):
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
@@ -439,7 +445,13 @@ class Cursor:
         or no call was issued yet.
         """
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
+
+        if self._description is None:
+            raise InterfaceError('No query has been executed')
+
+        if self._is_non_sql_query():
+            raise InterfaceError('Query does not return any rows')
 
         res = self._py_cursor.fetchone()
         if res is None:
@@ -463,7 +475,7 @@ class Cursor:
         or no call was issued yet.
         """
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         if size is None:
             size = self.arraysize
@@ -487,7 +499,7 @@ class Cursor:
         or no call was issued yet.
         """
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         res = []
         row = self.fetchone()
@@ -499,14 +511,14 @@ class Cursor:
 
     def nextset(self):
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         # TODO: IGNITE-22743 Implement execution of SQL scripts
         raise NotSupportedError('Operation is not supported')
 
     def setinputsizes(self, *_args):
         if self._py_cursor is None:
-            raise InterfaceError('Connection is already closed')
+            raise InterfaceError('Cursor is already closed')
 
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
