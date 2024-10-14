@@ -57,3 +57,11 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
     def test_non_idempotent_close(self):
         # There is no use in raising error on double close.
         pass
+
+    def test_setinputsizes(self):
+        # TODO: IGNITE-22742 Implement execution with a batch of parameters
+        pass
+
+    def test_setoutputsize(self):
+        # setoutputsize does not do anything currently.
+        pass
