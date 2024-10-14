@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -65,7 +66,7 @@ public class ZonePartitionReplicaImpl implements Replica {
     }
 
     @Override
-    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId) {
         return listener.invoke(request, senderId);
     }
 
@@ -81,6 +82,8 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
+        listener.onShutdown();
+
         return nullCompletedFuture();
     }
 

@@ -382,15 +382,11 @@ class VersatileReadWriteLockTest {
     }
 
     private void assertThatNoReadLockIsHeld() {
-        assertTrue(lock.tryWriteLock(), "Read lock is still held");
-
-        lock.writeUnlock();
+        assertThat("Read locks are still held", lock.readLocksHeld(), is(0));
     }
 
     private void assertThatNoWriteLockIsHeld() {
-        assertTrue(lock.tryReadLock(), "Write lock is still held");
-
-        lock.readUnlock();
+        assertFalse(lock.isWriteLocked(), "Write lock is still held");
     }
 
     @Test
@@ -452,7 +448,7 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void concurrentInReadLockAsyncAndWriteLockWorkCorrectly() {
+    void concurrentInReadLockAsyncAndWriteLockWorkCorrectly() throws Exception {
         RunnableX readLocker = () -> {
             for (int i = 0; i < 300; i++) {
                 lock.inReadLockAsync(CompletableFutures::nullCompletedFuture).get(10, SECONDS);
@@ -467,8 +463,22 @@ class VersatileReadWriteLockTest {
 
         runRace(10_000, readLocker, writeLocker);
 
-        assertThatNoReadLockIsHeld();
-        assertThatNoWriteLockIsHeld();
+        assertThatReadLocksHeldReachesZero();
+        assertThatWriteLockGetsUnlocked();
+    }
+
+    private void assertThatReadLocksHeldReachesZero() throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> lock.readLocksHeld() == 0, SECONDS.toMillis(10)),
+                () -> "Read locks are still held " + lock.readLocksHeld()
+        );
+    }
+
+    private void assertThatWriteLockGetsUnlocked() throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> !lock.isWriteLocked(), SECONDS.toMillis(10)),
+                () -> "Still write locked"
+        );
     }
 
     @Test

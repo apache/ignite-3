@@ -228,10 +228,18 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = createConfiguration(List.of(follower), List.of());
 
-        CompletableFuture<RaftGroupService> service1 =
-                startRaftGroup(follower, configuration.peer(follower.consistentId()), configuration, new TestRaftGroupListener());
+        CompletableFuture<RaftGroupService> service1 = startRaftGroup(
+                follower,
+                configuration.peer(follower.consistentId()),
+                configuration,
+                new TestRaftGroupListener()
+        );
 
-        assertThat(service1.thenApply(RaftGroupService::leader), willBe(follower.asPeer()));
+        assertThat(
+                service1.thenCompose(service -> service.refreshLeader()
+                        .thenApply(v -> service.leader())),
+                willBe(follower.asPeer())
+        );
         assertThat(service1.thenApply(RaftGroupService::learners), willBe(empty()));
 
         CompletableFuture<Void> addLearners = service1
@@ -330,10 +338,27 @@ public class ItLearnersTest extends IgniteAbstractTest {
         CompletableFuture<RaftGroupService> peerService = startRaftGroup(node, peer, configuration, peerListener);
         CompletableFuture<RaftGroupService> learnerService = startRaftGroup(node, learner, configuration, learnerListener);
 
-        assertThat(peerService.thenApply(RaftGroupService::leader), willBe(peer));
-        assertThat(peerService.thenApply(RaftGroupService::leader), willBe(not(learner)));
-        assertThat(learnerService.thenApply(RaftGroupService::leader), willBe(peer));
-        assertThat(learnerService.thenApply(RaftGroupService::leader), willBe(not(learner)));
+        assertThat(peerService.thenCompose(
+                service -> service.refreshLeader()
+                    .thenApply(v -> service.leader())),
+                willBe(peer)
+        );
+        assertThat(
+                // the leader is already refreshed
+                peerService.thenApply(RaftGroupService::leader),
+                willBe(not(learner))
+        );
+
+        assertThat(learnerService.thenCompose(
+                        service -> service.refreshLeader()
+                                .thenApply(v -> service.leader())),
+                willBe(peer)
+        );
+        assertThat(
+                // the leader is already refreshed
+                learnerService.thenApply(RaftGroupService::leader),
+                willBe(not(learner))
+        );
 
         // Test writing data.
         CompletableFuture<?> writeFuture = peerService

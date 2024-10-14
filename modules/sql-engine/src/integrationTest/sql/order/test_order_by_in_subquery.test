@@ -33,7 +33,7 @@ statement error
 SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY l
 
 # ORDER BY on alias in right-most query but related just to the subquery.
-query I
+query I rowsort
 SELECT a-10 AS k FROM test UNION (SELECT a-10 AS l FROM test ORDER BY l)
 ----
 1

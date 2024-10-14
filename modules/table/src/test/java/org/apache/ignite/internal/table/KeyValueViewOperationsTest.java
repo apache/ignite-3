@@ -17,61 +17,37 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.type.NativeTypes.BYTES;
-import static org.apache.ignite.internal.type.NativeTypes.DATE;
-import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.type.NativeTypes.INT16;
-import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.table.KeyValueTestUtils.ALL_TYPES_COLUMNS;
+import static org.apache.ignite.internal.table.KeyValueTestUtils.newKey;
+import static org.apache.ignite.internal.table.KeyValueTestUtils.newValue;
 import static org.apache.ignite.internal.type.NativeTypes.INT64;
-import static org.apache.ignite.internal.type.NativeTypes.INT8;
-import static org.apache.ignite.internal.type.NativeTypes.STRING;
-import static org.apache.ignite.internal.type.NativeTypes.datetime;
-import static org.apache.ignite.internal.type.NativeTypes.time;
-import static org.apache.ignite.internal.type.NativeTypes.timestamp;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.KeyValueTestUtils.TestKeyObject;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -80,44 +56,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     private final Random rnd = new Random();
 
-    private final Column[] valCols = {
-            new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
-            new Column("primitiveByteCol".toUpperCase(), INT8, false),
-            new Column("primitiveShortCol".toUpperCase(), INT16, false),
-            new Column("primitiveIntCol".toUpperCase(), INT32, false),
-            new Column("primitiveLongCol".toUpperCase(), INT64, false),
-            new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
-            new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
-
-            new Column("booleanCol".toUpperCase(), BOOLEAN, true),
-            new Column("byteCol".toUpperCase(), INT8, true),
-            new Column("shortCol".toUpperCase(), INT16, true),
-            new Column("intCol".toUpperCase(), INT32, true),
-            new Column("longCol".toUpperCase(), INT64, true),
-            new Column("nullLongCol".toUpperCase(), INT64, true),
-            new Column("floatCol".toUpperCase(), FLOAT, true),
-            new Column("doubleCol".toUpperCase(), DOUBLE, true),
-
-            new Column("dateCol".toUpperCase(), DATE, true),
-            new Column("timeCol".toUpperCase(), time(0), true),
-            new Column("dateTimeCol".toUpperCase(), datetime(6), true),
-            new Column("timestampCol".toUpperCase(), timestamp(6), true),
-
-            new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
-            new Column("stringCol".toUpperCase(), STRING, true),
-            new Column("nullBytesCol".toUpperCase(), BYTES, true),
-            new Column("bytesCol".toUpperCase(), BYTES, true),
-            new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
-    };
-
     private final SchemaDescriptor schema = new SchemaDescriptor(
             SCHEMA_VERSION,
             new Column[]{new Column("id".toUpperCase(), INT64, false)},
-            valCols
+            ALL_TYPES_COLUMNS
     );
 
     private final Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
@@ -550,11 +498,11 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     public void getAll() {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> kvView = kvView();
 
-        final TestKeyObject key1 = TestKeyObject.randomObject(rnd);
-        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        final TestKeyObject key3 = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes val1 = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val3 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key1 = newKey(rnd);
+        final TestKeyObject key2 = newKey(rnd);
+        final TestKeyObject key3 = newKey(rnd);
+        final TestObjectWithAllTypes val1 = newValue(rnd);
+        final TestObjectWithAllTypes val3 = newValue(rnd);
 
         kvView.putAll(
                 null,
@@ -631,28 +579,6 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
-    @Test
-    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
-        KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> view = kvView();
-
-        TestKeyObject key = new TestKeyObject(1);
-        TestObjectWithAllTypes expectedValue = TestObjectWithAllTypes.randomObject(rnd);
-        MarshallersProvider marshallers = new ReflectionMarshallersProvider();
-
-        BinaryRow resultRow = new KvMarshallerImpl<>(schema, marshallers, keyMapper, valMapper)
-                .marshal(key, expectedValue);
-
-        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
-                .doReturn(completedFuture(resultRow))
-                .when(internalTable).get(any(), any());
-
-        TestObjectWithAllTypes result = view.get(null, new TestKeyObject(1L));
-
-        assertThat(result, is(equalTo(expectedValue)));
-
-        verify(internalTable, times(2)).get(any(), isNull());
-    }
-
     /**
      * Creates key-value view.
      */
@@ -664,7 +590,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
+        Set<NativeTypeSpec> testedTypes = Arrays.stream(ALL_TYPES_COLUMNS).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
@@ -682,44 +608,5 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 keyMapper,
                 valMapper
         );
-    }
-
-    /**
-     * Test object.
-     */
-    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
-    public static class TestKeyObject {
-        public static TestKeyObject randomObject(Random rnd) {
-            return new TestKeyObject(rnd.nextLong());
-        }
-
-        private long id;
-
-        private TestKeyObject() {
-        }
-
-        public TestKeyObject(long id) {
-            this.id = id;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            TestKeyObject that = (TestKeyObject) o;
-
-            return id == that.id;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id);
-        }
     }
 }

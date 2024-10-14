@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -71,7 +72,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
             names = {"DURATION", "PERIOD"},
             mode = Mode.EXCLUDE
     )
@@ -103,6 +104,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
         assertQuery("SELECT (? + 1)::INTEGER").withParams(1).returns(2).check();
+        assertQuery("SELECT ?::VARCHAR = '8'").withParams(8).returns(true).check();
 
         createAndPopulateTable();
         assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go").returns(true).returns(false)
@@ -170,8 +172,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
-
-        assertQuery("SELECT ?::INTEGER = '8'").withParams(8).returns(true).check();
     }
 
     /**
@@ -480,6 +480,41 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
             QueryProcessor qryProc = queryProcessor();
             await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
         });
+    }
+
+    @ParameterizedTest(name = "{1} {2}")
+    @MethodSource("integerOverflows")
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
+        assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
+    }
+
+    private static Stream<Arguments> integerOverflows() {
+        return Stream.of(
+                // BIGINT
+                arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
+                arguments(SqlTypeName.BIGINT, "SELECT -(?::BIGINT)/-1", "9223372036854775808"),
+                arguments(SqlTypeName.BIGINT, "SELECT -(?::BIGINT) * -1", "9223372036854775808"),
+                arguments(SqlTypeName.BIGINT, "SELECT ?::BIGINT/-1", "-9223372036854775808"),
+
+                // INTEGER
+                arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
+                arguments(SqlTypeName.INTEGER, "SELECT -(?::INTEGER)/-1", "2147483648"),
+                arguments(SqlTypeName.INTEGER, "SELECT -(?::INTEGER) * -1", "2147483648"),
+                arguments(SqlTypeName.INTEGER, "SELECT ?::INTEGER/-1", "-2147483648"),
+
+                // SMALLINT
+                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(? AS SMALLINT)", -32768),
+                arguments(SqlTypeName.SMALLINT, "SELECT (CAST(-? AS SMALLINT)/-1)::SMALLINT", 32768),
+                arguments(SqlTypeName.SMALLINT, "SELECT (CAST(-? AS SMALLINT) * -1)::SMALLINT", 32768),
+                arguments(SqlTypeName.SMALLINT, "SELECT (?/-1)::SMALLINT", -32768),
+
+                // TINYINT
+                arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
+                arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT)/-1)::TINYINT", 128),
+                arguments(SqlTypeName.TINYINT, "SELECT (CAST(-? AS TINYINT) * -1)::TINYINT", 128),
+                arguments(SqlTypeName.TINYINT, "SELECT (?/-1)::TINYINT", -128)
+        );
     }
 
     @Override

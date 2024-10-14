@@ -406,7 +406,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String txCoordinatorId,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -428,7 +428,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId) {
+            UUID txCoordinatorId) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
@@ -438,7 +438,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return null;
     }
@@ -448,7 +448,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String txCoordinatorId,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -466,7 +466,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }

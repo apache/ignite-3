@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -103,7 +104,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         when(service.run(any(GetCurrentRevisionCommand.class)))
                 .thenAnswer(invocation -> completedFuture(remoteRevision));
 
-        when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
+        when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> completedFuture(service));
 
         return raft;
@@ -150,8 +151,9 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static ClusterManagementGroupManager clusterManagementManager() {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
-        when(mock.metaStorageNodes())
-                .thenAnswer(invocation -> completedFuture(Set.of(LEADER_NAME)));
+        when(mock.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(LEADER_NAME)).build()
+        ));
 
         return mock;
     }

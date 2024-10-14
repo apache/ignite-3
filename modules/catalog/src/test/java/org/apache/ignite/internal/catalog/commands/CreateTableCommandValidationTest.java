@@ -485,7 +485,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         });
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)

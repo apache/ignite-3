@@ -89,7 +89,8 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
                 clusterState.igniteVersion().toString(),
-                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()),
+                clusterState.formerClusterIds()
         );
     }
 

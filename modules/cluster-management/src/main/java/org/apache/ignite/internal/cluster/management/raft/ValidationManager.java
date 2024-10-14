@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -134,7 +135,7 @@ public class ValidationManager {
     }
 
     void removeValidatedNodes(Collection<LogicalNode> nodes) {
-        Set<String> validatedNodeIds = storageManager.getValidatedNodes().stream()
+        Set<UUID> validatedNodeIds = storageManager.getValidatedNodes().stream()
                 .map(ClusterNode::id)
                 .collect(toSet());
 

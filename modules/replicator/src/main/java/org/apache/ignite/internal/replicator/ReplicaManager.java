@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
@@ -46,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -217,7 +220,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ExecutorService replicasCreationExecutor;
 
-    private volatile String localNodeId;
+    private volatile UUID localNodeId;
 
     private volatile String localNodeConsistentId;
 
@@ -445,9 +448,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            String senderId = sender.id();
-
-            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, sender.id());
 
             resFut.whenComplete((res, ex) -> {
                 NetworkMessage msg;
@@ -622,7 +623,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     .orElse(null);
 
                             if (response == null) {
-                                return stopLeaseProlongation(groupId, redirectNodeId, endTime);
+                                // Schedule the retry with delay to increase possibility that leases would be refreshed by LeaseTracker
+                                // and new attempt will succeed.
+                                return supplyAsync(() -> null, delayedExecutor(50, TimeUnit.MILLISECONDS))
+                                        .thenComposeAsync(un -> stopLeaseProlongation(groupId, redirectNodeId, endTime), requestsExecutor);
                             } else {
                                 return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
                             }
@@ -1279,7 +1283,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         final ReplicaManager replicaManager;
 
-        volatile String localNodeId;
+        volatile UUID localNodeId;
 
         ReplicaStateManager(
                 Executor replicaStartStopPool,
@@ -1293,7 +1297,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             this.replicaManager = replicaManager;
         }
 
-        void start(String localNodeId) {
+        void start(UUID localNodeId) {
             this.localNodeId = localNodeId;
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);

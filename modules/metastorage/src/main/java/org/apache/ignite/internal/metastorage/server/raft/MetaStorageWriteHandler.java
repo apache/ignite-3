@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -350,9 +352,7 @@ public class MetaStorageWriteHandler {
         byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
         byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
-        Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
-
-        try (cursor) {
+        try (Cursor<Entry> cursor = storage.range(keyFrom, keyTo)) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
                     CommandId commandId = CommandId.fromString(
@@ -380,35 +380,28 @@ public class MetaStorageWriteHandler {
     void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
         LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
 
-        long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
+        List<byte[]> evictionCandidateKeys = collectEvictionCandidateKeys(evictionTimestamp);
 
-        if (obsoleteRevision != -1) {
-            byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
-            byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
-
-            List<byte[]> evictionCandidateKeys = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
-                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
-                    .filter(entry -> !entry.tombstone() && !entry.empty())
-                    .map(Entry::key)
-                    .collect(toList());
-
-            evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
-                CommandId commandId = CommandId.fromString(
-                        ByteUtils.stringFromBytes(evictionCandidateKeyBytes).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
-
-                idempotentCommandCache.remove(commandId);
-            });
-
-            storage.removeAll(evictionCandidateKeys, operationTimestamp);
-
-            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-                            + " removedEntriesCount={}, cacheSize={}].",
-                    evictionTimestamp,
-                    clusterTime.now(),
-                    evictionCandidateKeys.size(),
-                    idempotentCommandCache.size()
-            );
+        if (evictionCandidateKeys.isEmpty()) {
+            return;
         }
+
+        evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
+            CommandId commandId = CommandId.fromString(
+                    ByteUtils.stringFromBytes(evictionCandidateKeyBytes).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
+
+            idempotentCommandCache.remove(commandId);
+        });
+
+        storage.removeAll(evictionCandidateKeys, operationTimestamp);
+
+        LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
+                        + " removedEntriesCount={}, cacheSize={}].",
+                evictionTimestamp,
+                clusterTime.now(),
+                evictionCandidateKeys.size(),
+                idempotentCommandCache.size()
+        );
     }
 
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
@@ -446,5 +439,28 @@ public class MetaStorageWriteHandler {
 
             closure.result(res);
         }
+    }
+
+    private List<byte[]> collectEvictionCandidateKeys(HybridTimestamp evictionTimestamp) {
+        byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
+        byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
+
+        Stream<Entry> entryStream;
+
+        try {
+            long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
+
+            entryStream = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
+                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
+                    .filter(entry -> !entry.tombstone() && !entry.empty());
+        } catch (CompactedException e) {
+            // Fallback to scanning with time timestamp filtering.
+            entryStream = storage.range(keyFrom, keyTo).stream()
+                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
+                    .filter(entry -> !entry.tombstone() && !entry.empty())
+                    .filter(entry -> entry.timestamp().compareTo(evictionTimestamp) <= 0);
+        }
+
+        return entryStream.map(Entry::key).collect(toList());
     }
 }

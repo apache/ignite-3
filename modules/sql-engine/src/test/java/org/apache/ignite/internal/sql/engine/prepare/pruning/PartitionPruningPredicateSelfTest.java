@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteralOrValueExpr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -27,7 +28,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
@@ -77,7 +77,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     private static List<ColumnType> columnTypes() {
         return Arrays.stream(ColumnType.values())
                 .filter(t -> t != ColumnType.NULL
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Include interval types after this issue is resolved
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Include interval types after this issue is resolved
                         && t != ColumnType.DURATION
                         && t != ColumnType.PERIOD
                 )
@@ -203,8 +203,8 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         for (String nodeName : group.nodeNames()) {
             ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
-                    .queryId(UUID.randomUUID())
-                    .localNode(new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("localhost", 123)))
+                    .queryId(randomUUID())
+                    .localNode(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123)))
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();

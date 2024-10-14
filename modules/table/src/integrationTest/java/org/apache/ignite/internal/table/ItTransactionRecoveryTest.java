@@ -437,7 +437,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
 
         // Stop old coordinator.
-        String txCrdNodeId = txCrdNode.id();
+        UUID txCrdNodeId = txCrdNode.id();
 
         txCrdNode.stop();
 
@@ -506,7 +506,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
 
         // Stop old coordinator.
-        String txCrdNodeId = txCrdNode.id();
+        UUID txCrdNodeId = txCrdNode.id();
 
         txCrdNode.stop();
 
@@ -922,7 +922,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             throws Exception {
         scanSingleEntryAndLeaveCursorOpen(targetNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), tx);
 
-        String txCrdNodeId = txCrdNode.id();
+        UUID txCrdNodeId = txCrdNode.id();
 
         txCrdNode.stop();
 
@@ -1113,7 +1113,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException, ExecutionException {
         Transaction rwTx1 = createRwTransaction(node);
 
-        String txCrdNodeId = node.id();
+        UUID txCrdNodeId = node.id();
 
         node.stop();
 

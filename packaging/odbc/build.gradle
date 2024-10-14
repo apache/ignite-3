@@ -50,7 +50,7 @@ def tokensWin = [
         DLL_SRC : odbcDll != null ? odbcDll.path : ''
 ]
 
-tasks.register('replacePackageScriptVars', Copy) {
+def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
@@ -63,7 +63,7 @@ tasks.register('replacePackageScriptVars', Copy) {
     into "$buildDir/scripts/"
 }
 
-tasks.register('replacePackageScriptVarsWin', Copy) {
+def replacePackageScriptVarsWin = tasks.register('replacePackageScriptVarsWin', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }

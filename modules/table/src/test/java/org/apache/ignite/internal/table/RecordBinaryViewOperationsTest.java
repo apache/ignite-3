@@ -17,41 +17,25 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
@@ -60,6 +44,8 @@ import org.junit.jupiter.api.function.Executable;
 
 /**
  * Basic table operations test.
+ *
+ *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
 public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
@@ -651,33 +637,6 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         assertNull(tbl.getAndReplace(null, tuple));
 
         assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
-    }
-
-    @Test
-    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
-        SchemaDescriptor schema = schemaDescriptor();
-        InternalTable internalTable = spy(createInternalTable(schema));
-        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
-
-        RecordView<Tuple> view = new RecordBinaryViewImpl(
-                internalTable,
-                new DummySchemaManagerImpl(schema),
-                schemaVersions,
-                mock(IgniteSql.class),
-                marshallers
-        );
-
-        BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
-
-        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
-                .doReturn(completedFuture(resultRow))
-                .when(internalTable).get(any(), any());
-
-        Tuple result = view.get(null, Tuple.create().set("id", 1L));
-
-        assertThat(result.longValue("val"), is(2L));
-
-        verify(internalTable, times(2)).get(any(), isNull());
     }
 
     /**

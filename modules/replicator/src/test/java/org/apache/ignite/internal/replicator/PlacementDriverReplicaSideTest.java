@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -66,8 +67,8 @@ import org.junit.jupiter.api.Test;
 public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id0", "name0", new NetworkAddress("localhost", 1234));
-    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl("id1", "name`", new NetworkAddress("localhost", 2345));
+    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "name0", new NetworkAddress("localhost", 1234));
+    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl(randomUUID(), "name`", new NetworkAddress("localhost", 2345));
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 

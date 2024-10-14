@@ -47,7 +47,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /**
      * Transaction coordinator inconsistent ID.
      */
-    private final String coordinatorId;
+    private final UUID coordinatorId;
 
     /**
      * The constructor.
@@ -56,7 +56,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, UUID coordinatorId) {
         this.txManager = txManager;
         this.id = id;
         this.coordinatorId = coordinatorId;
@@ -74,7 +74,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @return Transaction coordinator inconsistent ID.
      */
     @Override
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return coordinatorId;
     }
 

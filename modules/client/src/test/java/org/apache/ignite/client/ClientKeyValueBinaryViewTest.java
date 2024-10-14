@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -37,7 +38,6 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -105,13 +105,12 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16707")
     public void testPutNullAsValueIsForbidden() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
         Tuple key = defaultTupleKey();
 
         NullPointerException ex = assertThrows(NullPointerException.class, () -> kvView.put(null, key, null));
-        assertThat(ex.getMessage(), containsString("change me"));
+        assertThat(ex.getMessage(), equalTo("val"));
     }
 
     @Test

@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.T
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.Test;
@@ -32,20 +34,22 @@ import org.junit.jupiter.api.Test;
  * @see ExistenceCondition
  */
 public class ExistenceConditionTest {
+    private static final HybridClock CLOCK = new HybridClockImpl();
+
     /** Entry key. */
-    private static final byte[] KEY = new byte[]{1};
+    private static final byte[] KEY = {1};
 
     /** Entry value. */
-    private static final byte[] VAL = new byte[]{1};
+    private static final byte[] VAL = {1};
 
     /** Regular entry. */
-    private static final Entry ENTRY = new EntryImpl(KEY, VAL, 1, 1);
+    private static final Entry ENTRY = new EntryImpl(KEY, VAL, 1, CLOCK.now());
 
     /** Empty entry. */
     private static final Entry EMPTY = EntryImpl.empty(KEY);
 
     /** Tombstone entry. */
-    private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, 1);
+    private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, CLOCK.now());
 
     /**
      * Tests {@link ExistenceCondition.Type#EXISTS} condition for regular, empty and tombstone entries.

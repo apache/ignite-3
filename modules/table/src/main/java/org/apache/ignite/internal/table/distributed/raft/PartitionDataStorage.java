@@ -237,7 +237,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     void updateLease(
             long leaseStartTime,
-            String primaryReplicaNodeId,
+            UUID primaryReplicaNodeId,
             String primaryReplicaNodeName
     );
 
@@ -253,7 +253,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * @return Primary replica node id.
      */
-    String primaryReplicaNodeId();
+    UUID primaryReplicaNodeId();
 
     /**
      * Return the node name of the known lease for this replication group.

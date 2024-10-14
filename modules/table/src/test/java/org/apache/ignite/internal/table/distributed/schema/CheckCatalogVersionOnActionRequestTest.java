@@ -130,7 +130,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .tablePartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())
                 .rowUuid(UUID.randomUUID())
-                .txCoordinatorId("coordinator")
+                .txCoordinatorId(UUID.randomUUID())
                 .requiredCatalogVersion(requiredVersion)
                 .build();
     }

@@ -138,13 +138,13 @@ class QueryPartTest {
 
     @Test
     void withOptionPart() {
-        WithOption withOption = WithOption.primaryZone("z");
+        Option withOption = Option.primaryZone("z");
         assertThat(sql(withOption), is("PRIMARY_ZONE='Z'"));
 
-        withOption = WithOption.partitions(1);
+        withOption = Option.partitions(1);
         assertThat(sql(withOption), is("PARTITIONS=1"));
 
-        withOption = WithOption.replicas(1);
+        withOption = Option.replicas(1);
         assertThat(sql(withOption), is("REPLICAS=1"));
     }
 

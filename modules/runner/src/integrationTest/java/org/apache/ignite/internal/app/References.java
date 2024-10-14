@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY
 import java.util.Collection;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -48,6 +49,7 @@ class References {
     final IgniteTransactions transactions;
     final IgniteSql sql;
     final IgniteCompute compute;
+    final IgniteCatalog catalog;
 
     final Collection<ClusterNode> clusterNodes;
 
@@ -76,6 +78,7 @@ class References {
         transactions = ignite.transactions();
         sql = ignite.sql();
         compute = ignite.compute();
+        catalog = ignite.catalog();
 
         clusterNodes = ignite.clusterNodes();
 

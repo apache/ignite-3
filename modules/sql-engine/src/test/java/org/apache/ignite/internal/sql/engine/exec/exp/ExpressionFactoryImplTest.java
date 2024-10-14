@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static java.util.Collections.singletonList;
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,7 +40,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -114,8 +114,8 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 Long2ObjectMaps.emptyMap(), null, null, null);
 
         ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
-                .queryId(UUID.randomUUID())
-                .localNode(new ClusterNodeImpl("1", "node-1", new NetworkAddress("localhost", 1234)))
+                .queryId(randomUUID())
+                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
                 .fragment(fragmentDescription)
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
@@ -728,7 +728,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val);
         assertInstanceOf(RexLiteral.class, expr1);
 
-        Object val2 = literalsOnly ? 1 : UUID.randomUUID();
+        Object val2 = literalsOnly ? 1 : randomUUID();
         RexNode expr2 = SqlTestUtils.generateLiteralOrValueExpr(literalsOnly ? ColumnType.INT32 : ColumnType.UUID, val2);
         assertEquals(literalsOnly, expr2 instanceof RexLiteral);
 
@@ -869,7 +869,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
                 // UUID literal doesn't exists.
                 ColumnType.UUID,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-15200
+                // TODO https://issues.apache.org/jira/browse/IGNITE-17373
                 ColumnType.DURATION,
                 ColumnType.PERIOD
         );

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -44,8 +45,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -241,9 +242,13 @@ public class LeaseUpdater {
 
         ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
-        IgniteBiTuple<List<Lease>, Boolean> renewedLeasesTup = replaceProlongableLeaseInCollection(currentLeases, deniedLease);
+        IgniteTuple3<List<Lease>, Boolean, Boolean> renewedLeasesTup = replaceProlongableLeaseInCollection(currentLeases, deniedLease);
 
-        if (!renewedLeasesTup.get2()) {
+        if (!renewedLeasesTup.get3()) {
+            // If lease not found, return current time: the lease that don't exist can't be denied.
+            return completedFuture(clockService.now());
+        } else if (!renewedLeasesTup.get2()) {
+            // If lease was not replaced, return null: the operation may be retried by caller.
             return nullCompletedFuture();
         } else {
             return msManager.invoke(
@@ -260,22 +265,28 @@ public class LeaseUpdater {
         }
     }
 
-    private static IgniteBiTuple<List<Lease>, Boolean> replaceProlongableLeaseInCollection(Collection<Lease> leases, Lease newLease) {
+    private static IgniteTuple3<List<Lease>, Boolean, Boolean> replaceProlongableLeaseInCollection(
+            Collection<Lease> leases,
+            Lease newLease
+    ) {
         List<Lease> renewedLeases = new ArrayList<>();
         boolean replaced = false;
+        boolean found = false;
 
         for (Lease ls : leases) {
-            if (ls.replicationGroupId().equals(newLease.replicationGroupId())
-                    && ls.getStartTime().equals(newLease.getStartTime())
-                    && ls.isProlongable()) {
-                renewedLeases.add(newLease);
-                replaced = true;
+            if (ls.replicationGroupId().equals(newLease.replicationGroupId())) {
+                found = true;
+
+                if (ls.getStartTime().equals(newLease.getStartTime()) && ls.isProlongable()) {
+                    renewedLeases.add(newLease);
+                    replaced = true;
+                }
             } else {
                 renewedLeases.add(ls);
             }
         }
 
-        return new IgniteBiTuple<>(renewedLeases, replaced);
+        return new IgniteTuple3<>(renewedLeases, replaced, found);
     }
 
     /**
@@ -536,8 +547,8 @@ public class LeaseUpdater {
             // New lease is granted.
             writeNewLease(grpId, candidate, renewedLeases);
 
-            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
-
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23213 Depending on the solution we may refactor this.
+            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name()) && !agreement.isCancelled();
             toBeNegotiated.put(grpId, force);
         }
 

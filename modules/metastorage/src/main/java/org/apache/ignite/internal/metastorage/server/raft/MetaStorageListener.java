@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -43,10 +43,12 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta storage listener.
@@ -60,6 +62,18 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     /** Storage. */
     private final KeyValueStorage storage;
 
+    private final Consumer<CommittedConfiguration> onConfigurationCommitted;
+
+    /**
+     * Constructor.
+     *
+     * @param storage Storage.
+     */
+    @TestOnly
+    public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+        this(storage, clusterTime, newConfig -> {});
+    }
+
     /**
      * Constructor.
      *
@@ -67,10 +81,13 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
      */
     public MetaStorageListener(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime
+            ClusterTimeImpl clusterTime,
+            Consumer<CommittedConfiguration> onConfigurationCommitted
     ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
+        this.onConfigurationCommitted = onConfigurationCommitted;
+
+        writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
     }
 
     @Override
@@ -104,7 +121,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
-                    Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
+                    List<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
                             ? storage.getAll(toByteArrayList(getAllCmd.keys()))
                             : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 
@@ -186,6 +203,13 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     @Override
     public boolean onBeforeApply(Command command) {
         return writeHandler.beforeApply(command);
+    }
+
+    @Override
+    public void onConfigurationCommitted(CommittedConfiguration config) {
+        RaftGroupListener.super.onConfigurationCommitted(config);
+
+        onConfigurationCommitted.accept(config);
     }
 
     @Override

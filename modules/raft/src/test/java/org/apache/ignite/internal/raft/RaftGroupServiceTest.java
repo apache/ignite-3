@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -161,7 +162,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 .thenAnswer(invocation -> {
                     String consistentId = invocation.getArgument(0);
 
-                    return new ClusterNodeImpl(consistentId, consistentId, new NetworkAddress("localhost", 123));
+                    return new ClusterNodeImpl(deriveUuidFrom(consistentId), consistentId, new NetworkAddress("localhost", 123));
                 });
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
@@ -179,7 +180,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testRefreshLeaderStable() {
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertNull(service.leader());
 
@@ -195,7 +196,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         // Simulate running elections.
         leader = null;
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertNull(service.leader());
 
@@ -211,7 +212,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         executor.schedule((Runnable) () -> leader = NODES.get(0), 500, TimeUnit.MILLISECONDS);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertNull(service.leader());
 
@@ -224,7 +225,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testRefreshLeaderWithTimeout() {
         mockLeaderRequest(true);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.refreshLeader(), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
@@ -234,7 +235,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
@@ -246,7 +247,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertNull(service.leader());
 
@@ -260,17 +261,16 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         mockLeaderRequest(false);
         mockUserInput(true, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.run(testWriteCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
 
     @Test
     public void testUserRequestLeaderNotElected() {
-        mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
 
         Peer leader = this.leader;
 
@@ -285,10 +285,9 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testUserRequestLeaderElectedAfterDelay() {
-        mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
 
         Peer leader = this.leader;
 
@@ -307,14 +306,13 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testUserRequestLeaderElectedAfterDelayWithFailedNode() {
-        mockLeaderRequest(false);
         mockUserInput(false, NODES.get(0));
 
         CompletableFuture<Void> confUpdateFuture = raftConfiguration.retryTimeout().update(TIMEOUT * 3);
 
         assertThat(confUpdateFuture, willCompleteSuccessfully());
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
 
         Peer leader = this.leader;
 
@@ -340,10 +338,9 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testUserRequestLeaderChanged() {
-        mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
 
         Peer leader = this.leader;
 
@@ -364,18 +361,18 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSnapshotExecutionException() {
-        mockSnapshotRequest(1);
+        mockSnapshotRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.snapshot(new Peer("localhost-8082")), willThrow(IgniteInternalException.class));
     }
 
     @Test
     public void testSnapshotExecutionFailedResponse() {
-        mockSnapshotRequest(0);
+        mockSnapshotRequest(true);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.snapshot(new Peer("localhost-8082")), willThrow(RaftException.class));
     }
@@ -390,7 +387,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
@@ -410,7 +407,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2));
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
@@ -430,7 +427,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
@@ -468,7 +465,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2));
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
@@ -504,9 +501,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         when(messagingService.invoke(any(ClusterNode.class), any(TransferLeaderRequest.class), anyLong()))
                 .then(invocation -> completedFuture(RaftRpcFactory.DEFAULT.newResponse(FACTORY, Status.OK())));
 
-        mockLeaderRequest(false);
-
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
 
         assertEquals(NODES.get(0), service.leader());
 
@@ -524,7 +519,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1));
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
@@ -548,7 +543,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1));
 
         assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
@@ -574,7 +569,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1));
 
         assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
@@ -591,7 +586,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testGetLeaderRequest() {
         mockLeaderRequest(false);
 
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
 
         assertNull(service.leader());
 
@@ -608,7 +603,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testReadIndex() {
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
         mockReadIndex(false);
 
         CompletableFuture<Long> fut = service.readIndex();
@@ -620,7 +615,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testReadIndexWithMessageSendTimeout() {
-        RaftGroupService service = startRaftGroupService(NODES, false);
+        RaftGroupService service = startRaftGroupService(NODES);
         mockReadIndex(true);
 
         CompletableFuture<Long> fut = service.readIndex();
@@ -628,18 +623,27 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(fut, willThrowFast(TimeoutException.class));
     }
 
-    private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
+    private RaftGroupService startRaftGroupService(List<Peer> peers) {
         PeersAndLearners memberConfiguration = PeersAndLearners.fromPeers(peers, Set.of());
 
         var commandsSerializer = new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry());
 
         CompletableFuture<RaftGroupService> service = RaftGroupServiceImpl.start(
-                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor, commandsSerializer
+                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, false, executor, commandsSerializer
         );
 
         assertThat(service, willCompleteSuccessfully());
 
         return service.join();
+    }
+
+    private RaftGroupService startRaftGroupServiceWithRefreshLeader(List<Peer> peers) {
+        RaftGroupService service = startRaftGroupService(peers);
+
+        mockLeaderRequest(false);
+        service.refreshLeader().join();
+
+        return service;
     }
 
     /**
@@ -737,10 +741,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 });
     }
 
-    private void mockSnapshotRequest(int mode) {
+    private void mockSnapshotRequest(boolean returnResponseWithError) {
         when(messagingService.invoke(any(ClusterNode.class), any(CliRequests.SnapshotRequest.class), anyLong()))
                 .then(invocation -> {
-                    if (mode == 0) {
+                    if (returnResponseWithError) {
                         ErrorResponse response = FACTORY.errorResponse()
                                 .errorCode(RaftError.UNKNOWN.getNumber())
                                 .errorMsg("Failed to create a snapshot")

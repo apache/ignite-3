@@ -23,9 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -48,20 +45,14 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteServer;
-import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -73,21 +64,16 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the internal table API.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItInternalTableTest extends BaseIgniteAbstractTest {
+public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
@@ -99,48 +85,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             }
     );
 
-    private static final int BASE_PORT = 3344;
-
-    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
-
-    private static IgniteServer NODE;
-
-    @WorkDirectory
-    private static Path WORK_DIR;
-
     private Table table;
 
-    @BeforeAll
-    static void startNode(TestInfo testInfo) {
-        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
-
-        String nodeName = testNodeName(testInfo, 0);
-
-        String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT, connectNodeAddr);
-
-        NODE = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
-
-        InitParameters initParameters = InitParameters.builder()
-                .metaStorageNodes(NODE)
-                .clusterName("cluster")
-                .build();
-
-        TestIgnitionManager.init(NODE, initParameters);
-
-        assertThat(NODE.waitForInitAsync(), willCompleteSuccessfully());
-    }
-
-    @AfterAll
-    static void stopNode(TestInfo testInfo) throws Exception {
-        closeAll(() -> NODE.shutdown());
-        NODE = null;
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 
     @BeforeEach
@@ -728,6 +677,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     protected static IgniteImpl node() {
-        return unwrapIgniteImpl(NODE.api());
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 }

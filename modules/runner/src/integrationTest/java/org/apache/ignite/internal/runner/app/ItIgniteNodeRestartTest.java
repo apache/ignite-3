@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -200,6 +201,8 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -295,7 +298,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private ReplicationConfiguration replicationConfiguration;
 
     /**
-     * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
+     * Interceptor of {@link MetaStorageManager#invoke(Condition, List, List)}.
      */
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
@@ -499,7 +502,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 msRaftConfigurer
         ) {
             @Override
-            public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+            public CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure) {
                 if (metaStorageInvokeInterceptor != null) {
                     var res = metaStorageInvokeInterceptor.invoke(condition, success, failure);
 
@@ -681,6 +684,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
+        MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -728,7 +733,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         clockService,
                         placementDriverManager.placementDriver(),
                         schemaSyncService
-                )
+                ),
+                minTimeCollectorService
         );
 
         var indexManager = new IndexManager(
@@ -759,6 +765,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
 
@@ -1279,7 +1286,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 willCompleteSuccessfully()
         );
 
-        String leaseholderId = primaryFut.join().getLeaseholderId();
+        UUID leaseholderId = primaryFut.join().getLeaseholderId();
 
         if (!ignite1.id().equals(leaseholderId)) {
             transferPrimary(List.of(ignite, ignite1), groupId, ignite1.name());
@@ -1884,7 +1891,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             return -1;
         }
 
-        return ByteUtils.bytesToInt(e.value());
+        return ByteUtils.bytesToIntKeepingOrder(e.value());
     }
 
     private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {

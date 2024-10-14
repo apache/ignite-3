@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -164,7 +164,7 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @see Condition
      * @see Operation
      */
-    CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link Iif}
@@ -247,14 +247,6 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      */
     Publisher<Entry> prefix(ByteArray prefix, long revUpperBound);
-
-    /**
-     * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
-     *
-     * @return Completed future. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     */
-    CompletableFuture<Void> compact();
 
     /**
      * Returns a future which will hold current revision of the metastorage leader.

@@ -44,8 +44,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermRequestMessage;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -79,21 +79,24 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
     private ArgumentCaptor<Set<String>> mgNodesCaptor;
 
     @Captor
+    private ArgumentCaptor<Long> mgRepairingConfigIndexCaptor;
+
+    @Captor
     private ArgumentCaptor<BecomeMetastorageLeaderMessage> becomeLeaderMessageCaptor;
 
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
-    private final ClusterNode node1 = new ClusterNodeImpl(randomUUID().toString(), "node1", new NetworkAddress("host", 1001));
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID().toString(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID().toString(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID().toString(), "node4", new NetworkAddress("host", 1004));
+    private final ClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node1", new NetworkAddress("host", 1001));
+    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
 
     @BeforeEach
     void configureMocks() {
         lenient().when(messagingService.invoke(any(String.class), any(BecomeMetastorageLeaderMessage.class), anyLong()))
                 .thenReturn(completedFuture(cmgMessagesFactory.successResponseMessage().build()));
-        lenient().when(cmgManager.changeMetastorageNodes(any()))
+        lenient().when(cmgManager.changeMetastorageNodes(any(), anyLong()))
                 .thenReturn(nullCompletedFuture());
     }
 
@@ -112,8 +115,9 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         assertThat(repair.repair(Set.of(node1.name()), 1), willSucceedIn(3, SECONDS));
 
-        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture());
+        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), contains(node1.name()));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(11L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
         assertThat(becomeLeaderMessageCaptor.getValue().termBeforeChange(), is(1L));
@@ -121,12 +125,15 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
     }
 
     private void willRespondWithIndexAndTerm(ClusterNode node, int raftIndex, int raftTerm) {
-        when(messagingService.invoke(eq(node.name()), any(MetastorageIndexTermRequestMessage.class), anyLong()))
+        when(messagingService.invoke(eq(node.name()), any(StartMetastorageRepairRequest.class), anyLong()))
                 .thenReturn(completedFuture(indexTermResponse(raftIndex, raftTerm)));
     }
 
-    private MetastorageIndexTermResponseMessage indexTermResponse(int raftIndex, int raftTerm) {
-        return messagesFactory.metastorageIndexTermResponseMessage().raftIndex(raftIndex).raftTerm(raftTerm).build();
+    private StartMetastorageRepairResponse indexTermResponse(int raftIndex, int raftTerm) {
+        return messagesFactory.startMetastorageRepairResponse()
+                .raftIndex(raftIndex)
+                .raftTerm(raftTerm)
+                .build();
     }
 
     @Test
@@ -140,8 +147,9 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
         Set<String> threeNodes = Set.of(node1.name(), node2.name(), node3.name());
         assertThat(repair.repair(threeNodes, 3), willSucceedIn(3, SECONDS));
 
-        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture());
+        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node1.name(), node2.name(), node3.name()));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(13L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
         assertThat(becomeLeaderMessageCaptor.getValue().termBeforeChange(), is(1L));
@@ -185,8 +193,9 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         assertThat(repair.repair(Set.of(node1.name(), node2.name(), node3.name()), 2), willSucceedIn(3, SECONDS));
 
-        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture());
+        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node2.name(), node3.name()));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(13L));
 
         verify(messagingService).invoke(eq(node2.name()), becomeLeaderMessageCaptor.capture(), anyLong());
     }
@@ -201,8 +210,9 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
         assertThat(repair.repair(Set.of(node1.name(), node2.name(), node3.name()), 2), willSucceedIn(3, SECONDS));
 
-        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture());
+        verify(cmgManager).changeMetastorageNodes(mgNodesCaptor.capture(), mgRepairingConfigIndexCaptor.capture());
         assertThat(mgNodesCaptor.getValue(), containsInAnyOrder(node1.name(), node3.name()));
+        assertThat(mgRepairingConfigIndexCaptor.getValue(), is(11L));
 
         verify(messagingService).invoke(eq(node1.name()), becomeLeaderMessageCaptor.capture(), anyLong());
     }

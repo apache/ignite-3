@@ -205,7 +205,7 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromTxCoordinator(
             UUID txId,
-            @Nullable String coordinatorId,
+            @Nullable UUID coordinatorId,
             TablePartitionId commitGrpId,
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture

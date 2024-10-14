@@ -305,7 +305,7 @@ public interface InternalTable extends ManuallyCloseable {
             UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
     }
@@ -335,7 +335,7 @@ public interface InternalTable extends ManuallyCloseable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     );
 
     /**
@@ -356,7 +356,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String txCoordinatorId,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -407,7 +407,7 @@ public interface InternalTable extends ManuallyCloseable {
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     );
 
     /**
@@ -428,7 +428,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String txCoordinatorId,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,

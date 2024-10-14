@@ -36,11 +36,11 @@ public class TxAttributes implements Serializable {
     private static final long serialVersionUID = 3933878724800694086L;
 
     private static final TxAttributes DUMMY = new TxAttributes(
-            new UUID(0L, 0L), (TablePartitionId) null, "dummy_tx_coordinator"
+            new UUID(0L, 0L), (TablePartitionId) null, new UUID(0, 0)
     );
 
     private final UUID id;
-    private final String coordinatorId;
+    private final UUID coordinatorId;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
     private final @Nullable TablePartitionId commitPartition;
@@ -81,7 +81,7 @@ public class TxAttributes implements Serializable {
     private TxAttributes(
             UUID id,
             HybridTimestamp readTimestamp,
-            String coordinatorId
+            UUID coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.readTimestamp = Objects.requireNonNull(readTimestamp, "timestamp");
@@ -94,7 +94,7 @@ public class TxAttributes implements Serializable {
     private TxAttributes(
             UUID id,
             @Nullable TablePartitionId commitPartitionId,
-            String coordinatorId
+            UUID coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.commitPartition = commitPartitionId;
@@ -137,7 +137,7 @@ public class TxAttributes implements Serializable {
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return coordinatorId;
     }
 

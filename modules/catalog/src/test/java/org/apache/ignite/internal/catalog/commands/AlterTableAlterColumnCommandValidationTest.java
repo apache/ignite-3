@@ -309,7 +309,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
     @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL", "DURATION", "PERIOD"})
@@ -426,7 +426,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
     @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL", "DURATION", "PERIOD"})
@@ -678,7 +678,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
@@ -730,7 +730,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 //  Remove this after interval type support is added.
                 if (from == DURATION || to == DURATION || from == PERIOD || to == PERIOD) {
                     continue;

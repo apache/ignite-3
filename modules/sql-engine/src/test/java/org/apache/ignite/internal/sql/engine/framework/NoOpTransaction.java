@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
+
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -35,7 +37,7 @@ import org.apache.ignite.tx.TransactionException;
  */
 public final class NoOpTransaction implements InternalTransaction {
 
-    private final UUID id = UUID.randomUUID();
+    private final UUID id = randomUUID();
 
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
 
@@ -76,7 +78,7 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     private NoOpTransaction(String name, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(name, name, networkAddress), 1L);
+        this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(randomUUID(), name, networkAddress), 1L);
         this.readOnly = readOnly;
     }
 
@@ -131,7 +133,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return clusterNode().id();
     }
 

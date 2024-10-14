@@ -181,6 +181,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::RESTORING_STORAGE:
         case error::code::COMPACTION:
             return sql_state::SHY000_GENERAL_ERROR;
+        case error::code::COMPACTED:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Index group. Group code: 6
         case error::code::INDEX_NOT_FOUND:
@@ -223,12 +225,8 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
-        case error::code::GENERIC:
-        case error::code::DIRECTORY_CREATION:
-        case error::code::ALREADY_CLOSED:
-        case error::code::STORAGE_REBALANCE:
-        case error::code::ALREADY_DESTROYED:
         case error::code::INDEX_NOT_BUILT:
+        case error::code::STORAGE_CORRUPTED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
@@ -238,6 +236,8 @@ sql_state error_code_to_sql_state(error::code code) {
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::PORT_IN_USE:
+        case error::code::FILE_TRANSFER:
+        case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:
         case error::code::ADDRESS_UNRESOLVED:
             return sql_state::S08001_CANNOT_CONNECT;

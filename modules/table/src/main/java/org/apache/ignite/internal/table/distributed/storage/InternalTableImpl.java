@@ -756,26 +756,7 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        CompletableFuture<R> fut = awaitPrimaryReplica(tablePartitionId, tx.startTimestamp())
-                .thenCompose(primaryReplica -> {
-                    try {
-                        ClusterNode node = getClusterNode(primaryReplica);
-
-                        return replicaSvc.invoke(node, op.apply(tablePartitionId, enlistmentConsistencyToken(primaryReplica)));
-                    } catch (Throwable e) {
-                        throw new TransactionException(
-                                INTERNAL_ERR,
-                                format(
-                                        "Failed to invoke the replica request [tableName={}, partId={}].",
-                                        tableName,
-                                        partId
-                                ),
-                                e
-                        );
-                    }
-                });
-
-        return postEvaluate(fut, tx);
+        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
     }
 
     /**
@@ -796,24 +777,51 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        CompletableFuture<R> fut = awaitPrimaryReplica(tablePartitionId, tx.startTimestamp())
-                .thenCompose(primaryReplica -> {
-                    try {
-                        ClusterNode node = getClusterNode(primaryReplica);
+        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
+    }
 
-                        return replicaSvc.invoke(node, op.apply(tablePartitionId, enlistmentConsistencyToken(primaryReplica)));
-                    } catch (Throwable e) {
-                        throw new TransactionException(
-                                INTERNAL_ERR,
-                                format(
-                                        "Failed to invoke the replica request [tableName={}, partId={}].",
-                                        tableName,
-                                        partId
-                                ),
-                                e
-                        );
-                    }
-                });
+    /**
+     * Sends a read-only transaction request to the primary replica for a replication grout specified.
+     *
+     * @param tx Transaction.
+     * @param tablePartitionId Replication group id.
+     * @param op Replica requests factory.
+     * @param <R> The future.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> sendReadOnlyToPrimaryReplica(
+            InternalTransaction tx,
+            TablePartitionId tablePartitionId,
+            BiFunction<TablePartitionId, Long, ReplicaRequest> op
+    ) {
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, tx.startTimestamp());
+
+        Function<ReplicaMeta, CompletableFuture<R>> evaluateClo = primaryReplica -> {
+            try {
+                ClusterNode node = getClusterNode(primaryReplica);
+
+                return replicaSvc.invoke(node, op.apply(tablePartitionId, enlistmentConsistencyToken(primaryReplica)));
+            } catch (Throwable e) {
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        format("Failed to invoke the replica request [tableName={}, grp={}].", tableName, tablePartitionId),
+                        e
+                );
+            }
+        };
+
+        CompletableFuture<R> fut;
+
+        if (meta != null && clusterNodeResolver.getById(meta.getLeaseholderId()) != null) {
+            try {
+                fut = evaluateClo.apply(meta);
+            } catch (IgniteException e) {
+                return failedFuture(e);
+            }
+        } else {
+            fut = awaitPrimaryReplica(tablePartitionId, tx.startTimestamp())
+                    .thenCompose(evaluateClo);
+        }
 
         return postEvaluate(fut, tx);
     }
@@ -1459,7 +1467,7 @@ public class InternalTableImpl implements InternalTable {
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return readOnlyScan(partId, txId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude, txCoordinatorId);
     }
@@ -1469,7 +1477,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -1501,7 +1509,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return readOnlyScan(
                 partId,
@@ -1536,7 +1544,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1570,7 +1578,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         validatePartitionIndex(partId);
 
@@ -1683,7 +1691,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             TablePartitionId commitPartition,
-            String coordinatorId,
+            UUID coordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
@@ -1941,13 +1949,11 @@ public class InternalTableImpl implements InternalTable {
             return enlistState;
         };
 
-        if (meta != null) {
+        if (meta != null && clusterNodeResolver.getById(meta.getLeaseholderId()) != null) {
             try {
                 return completedFuture(enlistClo.apply(meta));
             } catch (IgniteException e) {
-                if (e.code() != REPLICA_UNAVAILABLE_ERR) {
-                    return failedFuture(e);
-                }
+                return failedFuture(e);
             }
         }
 
@@ -1972,7 +1978,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
-        String leaseHolderId = replicaMeta.getLeaseholderId();
+        UUID leaseHolderId = replicaMeta.getLeaseholderId();
 
         ClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
 

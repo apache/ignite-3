@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,16 +63,20 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
+import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
-import org.apache.ignite.internal.disaster.system.message.MetastorageIndexTermResponseMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessageBuilder;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
+import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetastorageGroupMaintenance;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -109,6 +115,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
     private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
+    private static final ByteArray WITNESSED_METASTORAGE_REPAIR_CLUSTER_ID_VAULT_KEY
+            = new ByteArray("systemRecovery.witnessedMetastorageRepairClusterId");
 
     private static final String INITIAL_CONFIGURATION = "initial-config";
 
@@ -135,12 +143,14 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ComponentContext componentContext = new ComponentContext();
 
-    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID().toString(), thisNodeName, new NetworkAddress("host", 1001));
+    private final ClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
 
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID().toString(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID().toString(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID().toString(), "node4", new NetworkAddress("host", 1004));
-    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID().toString(), "node5", new NetworkAddress("host", 1005));
+    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
+    private final ClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
+
+    private final UUID clusterId = new UUID(1, 2);
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
@@ -169,7 +179,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 messagingService,
                 vaultManager,
                 restarter,
-                metastorageMaintenance
+                metastorageMaintenance,
+                new ConstantClusterIdSupplier(clusterId)
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
     }
@@ -628,18 +639,34 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void returnsIndexAndTerm() {
+    void startMetastorageRepairReturnsIndexAndTerm() {
         when(metastorageMaintenance.raftNodeIndex()).thenReturn(completedFuture(new IndexWithTerm(234, 2)));
 
         NetworkMessageHandler handler = extractMessageHandler();
-        handler.onReceived(messagesFactory.metastorageIndexTermRequestMessage().build(), thisNode, 123L);
+        handler.onReceived(startMetastorageRepairRequest(), thisNode, 123L);
 
-        ArgumentCaptor<MetastorageIndexTermResponseMessage> captor = ArgumentCaptor.forClass(MetastorageIndexTermResponseMessage.class);
+        ArgumentCaptor<StartMetastorageRepairResponse> captor = ArgumentCaptor.forClass(StartMetastorageRepairResponse.class);
         verify(messagingService).respond(eq(thisNode), captor.capture(), eq(123L));
 
-        MetastorageIndexTermResponseMessage response = captor.getValue();
+        StartMetastorageRepairResponse response = captor.getValue();
         assertThat(response.raftIndex(), is(234L));
         assertThat(response.raftTerm(), is(2L));
+    }
+
+    @Test
+    void startsMetastorageRepairSavesClusterIdToVaultAsWitnessed() {
+        when(metastorageMaintenance.raftNodeIndex()).thenReturn(completedFuture(new IndexWithTerm(234, 2)));
+
+        NetworkMessageHandler handler = extractMessageHandler();
+        handler.onReceived(startMetastorageRepairRequest(), thisNode, 123L);
+
+        VaultEntry entry = vaultManager.get(WITNESSED_METASTORAGE_REPAIR_CLUSTER_ID_VAULT_KEY);
+        assertThat(entry, is(notNullValue()));
+        assertThat(entry.value(), is(uuidToBytes(clusterId)));
+    }
+
+    private StartMetastorageRepairRequest startMetastorageRepairRequest() {
+        return messagesFactory.startMetastorageRepairRequest().build();
     }
 
     @ParameterizedTest

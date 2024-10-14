@@ -41,7 +41,7 @@ dependencies {
     javaClient(igniteJavaClient)
 }
 
-tasks.register('createChecksums', Checksum) {
+def createChecksums = tasks.register('createChecksums', Checksum) {
     dependsOn distZip
 
     inputFiles.from distZip.outputs.files
