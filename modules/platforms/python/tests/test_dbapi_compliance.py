@@ -50,3 +50,10 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
         # TODO: IGNITE-22742 Implement execution with a batch of parameters
         pass
 
+    def test_nextset(self):
+        # TODO: IGNITE-22743 Implement execution of SQL scripts
+        pass
+
+    def test_non_idempotent_close(self):
+        # There is no use in raising error on double close.
+        pass
