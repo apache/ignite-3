@@ -490,7 +490,7 @@ class Cursor:
                 break
             res.append(row)
 
-        return None if not res else res
+        return res
 
     def fetchall(self) -> Optional[Sequence[Sequence[Optional[Any]]]]:
         """
