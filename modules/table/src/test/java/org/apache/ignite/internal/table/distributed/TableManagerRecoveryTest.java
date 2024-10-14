@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
@@ -280,7 +279,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
         when(raftGrpSrvcMock.leader()).thenReturn(new Peer("node0"));
-        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> completedFuture(raftGrpSrvcMock));
+        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> raftGrpSrvcMock);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
