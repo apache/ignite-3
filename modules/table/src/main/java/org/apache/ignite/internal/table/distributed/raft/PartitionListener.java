@@ -581,7 +581,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onLeaderStart() {
-        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
+        // No-op.
+//        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
     }
 
     @Override
@@ -590,6 +591,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
             long proposedSafeTime = cmd.safeTime().longValue();
+
+            if (maxObservableSafeTime == -1) {
+                maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
+            }
 
             // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
             // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried

@@ -164,6 +164,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
 
+        sendSafeTimeSyncCommand(raftClient, HybridTimestamp.MIN_VALUE, true);
+
         HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
 
         // Send command with safe time X.
@@ -226,6 +228,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         RaftGroupService raftClient = someNode.raftClient;
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
+
+        sendSafeTimeSyncCommand(raftClient, HybridTimestamp.MIN_VALUE, true);
 
         HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
 
