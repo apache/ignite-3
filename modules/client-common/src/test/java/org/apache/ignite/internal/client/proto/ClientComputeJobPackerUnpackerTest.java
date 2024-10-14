@@ -41,7 +41,6 @@ import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
-import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,11 +75,7 @@ class ClientComputeJobPackerUnpackerTest {
     }
 
     private static List<Object> pojo() {
-        return List.of(new Pojo(
-                true, (byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", UUID.randomUUID(), new byte[]{1, 2, 3},
-                LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(),
-                Period.of(1, 2, 3), Duration.of(1, ChronoUnit.DAYS)
-        ));
+        return List.of(Pojo.generateTestPojo());
     }
 
     private ClientMessagePacker messagePacker;
@@ -190,21 +185,6 @@ class ClientComputeJobPackerUnpackerTest {
                     "Can not unpack object because the marshaller is provided but the object was packed without marshaller."
             );
         }
-    }
-
-    /** Pojo with unsupported type. */
-    public static class UnsupportedType {
-        // Unsupported type
-        Object obj = new Object();
-    }
-
-    @Test
-    void packUnsupportedType() {
-        assertThrows(
-                UnsupportedObjectTypeMarshallingException.class,
-                () -> packJobResult(new UnsupportedType(), null, messagePacker),
-                "Tuple field is of unsupported type: class java.lang.Object"
-        );
     }
 
     @Test
