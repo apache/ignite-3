@@ -42,6 +42,7 @@ public record struct BigDecimal(BigInteger Value, int Scale) : IComparable<BigDe
     /// Converts the value of this instance to its equivalent decimal representation.
     /// </summary>
     /// <returns>Decimal representation of the current value.</returns>
+    /// <exception cref="OverflowException">Value was either too large or too small for a Decimal.</exception>
     public decimal ToDecimal()
     {
         decimal res = (decimal)Value;
