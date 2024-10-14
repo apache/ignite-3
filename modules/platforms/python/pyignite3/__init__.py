@@ -507,7 +507,7 @@ class Cursor:
             res.append(row)
             row = self.fetchone()
 
-        return None if not res else res
+        return res
 
     def nextset(self):
         if self._py_cursor is None:
