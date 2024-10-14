@@ -24,6 +24,10 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
     connect_kw_args = {'address': server_addresses_basic}
     lower_func = 'lower'
 
+    prefix = dbapi20.DatabaseAPI20Test.table_prefix
+    ddl1 = 'create table %sbooze (name varchar(20) primary key)' % prefix
+    ddl2 = 'create table %sbarflys (name varchar(20) primary key, drink varchar(30))' % prefix
+
     def setUp(self):
         dbapi20.DatabaseAPI20Test.setUp(self)
         #
