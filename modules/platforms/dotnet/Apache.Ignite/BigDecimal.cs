@@ -20,12 +20,29 @@ namespace Apache.Ignite;
 using System;
 using System.Globalization;
 using System.Numerics;
+using Internal.Proto.BinaryTuple;
 
 /// <summary>
 /// Big decimal.
 /// </summary>
-public record struct BigDecimal(BigInteger Value, int Scale) : IComparable<BigDecimal>, IComparable
+public readonly record struct BigDecimal(BigInteger Value, short Scale) : IComparable<BigDecimal>, IComparable
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BigDecimal"/> struct.
+    /// </summary>
+    /// <param name="value">Decimal value.</param>
+    public BigDecimal(decimal value)
+        : this(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: int.MaxValue))
+    {
+        // No-op.
+    }
+
+    private BigDecimal((BigInteger BigInt, short Scale) parts)
+        : this(parts.BigInt, parts.Scale)
+    {
+        // No-op.
+    }
+
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
     public static bool operator <(BigDecimal left, BigDecimal right) => left.CompareTo(right) < 0;
