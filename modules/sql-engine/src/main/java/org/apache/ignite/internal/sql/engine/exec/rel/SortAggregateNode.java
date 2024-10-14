@@ -57,6 +57,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
 
+    private final List<AccumulatorWrapper<RowT>> accs;
+
     private RowT prevRow;
 
     private Group grp;
@@ -93,6 +95,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+        this.accs = accFactory != null ? accFactory.get() : Collections.emptyList();
 
         init();
     }
@@ -214,10 +217,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private boolean hasAccumulators() {
-        return accFactory != null;
-    }
-
     private Group newGroup(RowT r) {
         final Object[] grpKeys = new Object[grpSet.cardinality()];
         List<Integer> fldIdxs = grpSet.asList();
@@ -252,26 +251,25 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
-            List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
-            AccumulatorsState state = new AccumulatorsState(wrappers.size());
+            AccumulatorsState state = new AccumulatorsState(accs.size());
 
             Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
-            for (int i = 0; i < wrappers.size(); i++) {
-                AccumulatorWrapper<RowT> acc = wrappers.get(i);
+            for (int i = 0; i < accs.size(); i++) {
+                AccumulatorWrapper<RowT> acc = accs.get(i);
                 if (acc.isDistinct()) {
                     distinctSets.put(i, new HashSet<>());
                 }
             }
 
-            aggRow = new AggregateRow<>(wrappers, type, state, distinctSets);
+            aggRow = new AggregateRow<>(state, distinctSets);
         }
 
         private void add(RowT row) {
-            aggRow.update(grpSet, context().rowHandler(), row);
+            aggRow.update(accs, grpSet, context().rowHandler(), row);
         }
 
         private RowT row() {
-            Object[] fields = aggRow.createOutput(grpSet, AggregateRow.NO_GROUP_ID);
+            Object[] fields = aggRow.createOutput(type, accs, grpSet, AggregateRow.NO_GROUP_ID);
 
             int i = 0;
 
@@ -279,7 +277,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            aggRow.writeTo(fields, grpSet, AggregateRow.NO_GROUP_ID);
+            aggRow.writeTo(type, accs, fields, grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }

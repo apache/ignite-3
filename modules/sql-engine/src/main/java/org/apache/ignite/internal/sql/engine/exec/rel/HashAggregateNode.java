@@ -58,6 +58,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private final List<Grouping> groupings;
 
+    private final List<AccumulatorWrapper<RowT>> accs;
+
     private int requested;
 
     private int waiting;
@@ -94,6 +96,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         allFields = b.build();
+        accs = accFactory != null ? accFactory.get() : Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -261,7 +264,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(allFields, handler, row);
+            aggRow.update(accs, allFields, handler, row);
         }
 
         /**
@@ -282,7 +285,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 GroupKey grpKey = entry.getKey();
                 AggregateRow<RowT> aggRow = entry.getValue();
 
-                Object[] fields = aggRow.createOutput(allFields, grpId);
+                Object[] fields = aggRow.createOutput(type, accs, allFields, grpId);
 
                 int j = 0;
                 int k = 0;
@@ -291,7 +294,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                aggRow.writeTo(fields, allFields, grpId);
+                aggRow.writeTo(type, accs, fields, allFields, grpId);
 
                 RowT row = rowFactory.create(fields);
 
@@ -303,26 +306,18 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private AggregateRow<RowT> create() {
-            List<AccumulatorWrapper<RowT>> wrappers;
-
-            if (accFactory == null) {
-                wrappers = Collections.emptyList();
-            } else {
-                wrappers = accFactory.get();
-            }
-
             Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
 
-            for (int i = 0; i < wrappers.size(); i++) {
-                AccumulatorWrapper<RowT> acc = wrappers.get(i);
+            for (int i = 0; i < accs.size(); i++) {
+                AccumulatorWrapper<RowT> acc = accs.get(i);
                 if (acc.isDistinct()) {
                     distinctSets.put(i, new HashSet<>());
                 }
             }
 
-            AccumulatorsState state = new AccumulatorsState(wrappers.size());
+            AccumulatorsState state = new AccumulatorsState(accs.size());
 
-            return new AggregateRow<>(wrappers, type, state, distinctSets);
+            return new AggregateRow<>(state, distinctSets);
         }
 
         private boolean isEmpty() {

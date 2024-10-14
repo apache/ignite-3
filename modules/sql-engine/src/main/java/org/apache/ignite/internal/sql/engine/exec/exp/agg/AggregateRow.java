@@ -26,13 +26,9 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 /**
  * Per group/grouping set row that contains state of accumulators.
  */
-public final class AggregateRow<RowT> {
+public class AggregateRow<RowT> {
     /** A placeholder of absent group id. */
     public static final byte NO_GROUP_ID = -1;
-
-    private final List<AccumulatorWrapper<RowT>> accs;
-
-    private final AggregateType type;
 
     private final AccumulatorsState state;
 
@@ -40,13 +36,9 @@ public final class AggregateRow<RowT> {
 
     /** Constructor. */
     public AggregateRow(
-            List<AccumulatorWrapper<RowT>> accs,
-            AggregateType type,
             AccumulatorsState state,
             Int2ObjectArrayMap<Set<Object>> distinctSets
     ) {
-        this.type = type;
-        this.accs = accs;
         this.state = state;
         this.distinctSets = distinctSets;
     }
@@ -69,7 +61,7 @@ public final class AggregateRow<RowT> {
     }
 
     /** Updates this row by using data of the given row. */
-    public void update(ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
+    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> acc = accs.get(i);
 
@@ -92,7 +84,7 @@ public final class AggregateRow<RowT> {
     }
 
     /** Creates an empty array for fields to populate output row with. */
-    public Object[] createOutput(ImmutableBitSet allFields, byte groupId) {
+    public Object[] createOutput(AggregateType type, List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, byte groupId) {
         int extra = groupId == NO_GROUP_ID || type != AggregateType.MAP ? 0 : 1;
         int rowSize = allFields.cardinality() + accs.size() + extra;
 
@@ -100,7 +92,7 @@ public final class AggregateRow<RowT> {
     }
 
     /** Writes aggregate state of the given row to given array. */
-    public void writeTo(Object[] output, ImmutableBitSet allFields, byte groupId) {
+    public void writeTo(AggregateType type, List<AccumulatorWrapper<RowT>> accs, Object[] output, ImmutableBitSet allFields, byte groupId) {
         int cardinality = allFields.cardinality();
 
         AccumulatorsState result = new AccumulatorsState(accs.size());
