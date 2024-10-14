@@ -407,8 +407,7 @@ void sql_connection::transaction_rollback() {
 
 sql_result sql_connection::internal_transaction_rollback() {
     if (!m_transaction_id) {
-        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
-        return sql_result::AI_ERROR;
+        return sql_result::AI_SUCCESS;
     }
 
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
