@@ -23,19 +23,26 @@ using System.Numerics;
 /// <summary>
 /// Big decimal.
 /// </summary>
-public sealed record BigDecimal(BigInteger Value, int Scale) : IComparable<BigDecimal>, IComparable
+public record struct BigDecimal(BigInteger Value, int Scale) : IComparable<BigDecimal>, IComparable
 {
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+
+    public static bool operator <(BigDecimal left, BigDecimal right) => left.CompareTo(right) < 0;
+
+    public static bool operator <=(BigDecimal left, BigDecimal right) => left.CompareTo(right) <= 0;
+
+    public static bool operator >(BigDecimal left, BigDecimal right) => left.CompareTo(right) > 0;
+
+    public static bool operator >=(BigDecimal left, BigDecimal right) => left.CompareTo(right) >= 0;
+
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+
     /// <inheritdoc />
-    public int CompareTo(BigDecimal? other)
+    public int CompareTo(BigDecimal other)
     {
-        if (ReferenceEquals(this, other))
+        if (Equals(this, other))
         {
             return 0;
-        }
-
-        if (other is null)
-        {
-            return 1;
         }
 
         if (Scale == other.Scale)
