@@ -15,7 +15,7 @@
 import pyignite3
 import dbapi20
 
-from tests.util import server_addresses_basic
+from tests.util import server_addresses_basic, check_cluster_started, start_cluster, kill_process_tree
 
 
 class TestPyignite3(dbapi20.DatabaseAPI20Test):
@@ -30,17 +30,14 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
 
     def setUp(self):
         dbapi20.DatabaseAPI20Test.setUp(self)
-        #
-        # try:
-        #     con = self._connect()
-        #     con.close()
-        # except:
-        #     cmd = [ "psql", "-c", "create database dbapi20_test" ]
-        #     if subprocess.call(cmd):
-        #         self.fail("Failed to create databse.")
+        self._srv = None
+        if not check_cluster_started():
+            self._srv = start_cluster()
 
     def tearDown(self):
         dbapi20.DatabaseAPI20Test.tearDown(self)
+        if self._srv:
+            kill_process_tree(self._srv.pid)
 
     def test_callproc(self):
         # Stored procedures are not supported
