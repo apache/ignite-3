@@ -129,7 +129,7 @@ public readonly record struct BigDecimal(BigInteger Value, short Scale) : ICompa
 
         var res = Value.ToString("D", provider);
 
-        return Scale == 0
+        return Scale == 0 || res == "0"
             ? res
             : res.Insert(Scale, numberFormatInfo.NumberDecimalSeparator);
     }

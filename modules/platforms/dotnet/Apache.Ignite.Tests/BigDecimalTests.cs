@@ -52,6 +52,10 @@ public class BigDecimalTests
     }
 
     [Test]
+    [TestCase("0", 0, null, "0")]
+    [TestCase("0", 1, null, "0")]
+    [TestCase("1", 0, null, "1")]
+    [TestCase("1", 1, null, "0.1")]
     [TestCase("123456789", 4, null, "1234.56789")]
     [TestCase("123456789", 4, "", "1234.56789")]
     [TestCase("123456789", 4, "en-US", "1234.56789")]
