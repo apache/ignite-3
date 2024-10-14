@@ -32,7 +32,7 @@ public readonly record struct BigDecimal(BigInteger Value, short Scale) : ICompa
     /// </summary>
     /// <param name="value">Decimal value.</param>
     public BigDecimal(decimal value)
-        : this(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: int.MaxValue))
+        : this(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: short.MaxValue))
     {
         // No-op.
     }

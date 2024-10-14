@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Globalization;
 using System.Numerics;
 using NUnit.Framework;
 
@@ -31,5 +33,33 @@ public class BigDecimalTests
         var bigDecimal = new BigDecimal(BigInteger.Parse("1234567890"), 5);
 
         Assert.AreEqual(12345.6789m, bigDecimal.ToDecimal());
+    }
+
+    [Test]
+    public void TestFromDecimalToDecimal()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            var unscaled = Random.Shared.NextInt64(long.MinValue, long.MaxValue);
+            var scale = Random.Shared.Next(0, 25);
+
+            var decimalVal = new decimal(unscaled) / (decimal)Math.Pow(10, scale);
+            var bigDecimal = new BigDecimal(decimalVal);
+            var result = bigDecimal.ToDecimal();
+
+            Assert.AreEqual(decimalVal, result);
+        }
+    }
+
+    [Test]
+    [TestCase("123456789", 4, null, "1234.56789")]
+    public void TestToString(string unscaled, short scale, string? cultureName, string expected)
+    {
+        // TODO
+        var bigDecimal = new BigDecimal(BigInteger.Parse(unscaled), scale);
+
+        Assert.AreEqual("1234.56789", bigDecimal.ToString());
+        Assert.AreEqual("1234.56789", bigDecimal.ToString(CultureInfo.InvariantCulture));
+        Assert.AreEqual("1234,56789", bigDecimal.ToString(CultureInfo.GetCultureInfo("de-DE")));
     }
 }
