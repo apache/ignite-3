@@ -38,6 +38,26 @@ public record struct BigDecimal(BigInteger Value, int Scale) : IComparable<BigDe
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
+    /// <summary>
+    /// Converts the value of this instance to its equivalent decimal representation.
+    /// </summary>
+    /// <returns>Decimal representation of the current value.</returns>
+    public decimal ToDecimal()
+    {
+        decimal res = (decimal)Value;
+
+        if (Scale > 0)
+        {
+            res /= (decimal)BigInteger.Pow(10, Scale);
+        }
+        else if (Scale < 0)
+        {
+            res *= (decimal)BigInteger.Pow(10, -Scale);
+        }
+
+        return res;
+    }
+
     /// <inheritdoc />
     public int CompareTo(BigDecimal other)
     {
