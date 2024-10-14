@@ -493,15 +493,15 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // BIGINT
                 arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(-? AS BIGINT)/-1", "9223372036854775808"),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(-? AS BIGINT) * -1", "9223372036854775808"),
-                arguments(SqlTypeName.BIGINT, "SELECT (?::BIGINT/-1)::BIGINT", "-9223372036854775808"),
+                arguments(SqlTypeName.BIGINT, "SELECT -(?::BIGINT)/-1", "9223372036854775808"),
+                arguments(SqlTypeName.BIGINT, "SELECT -(?::BIGINT) * -1", "9223372036854775808"),
+                arguments(SqlTypeName.BIGINT, "SELECT ?::BIGINT/-1", "-9223372036854775808"),
 
                 // INTEGER
                 arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(-? AS INTEGER)/-1", "2147483648"),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(-? AS INTEGER) * -1", "2147483648"),
-                arguments(SqlTypeName.INTEGER, "SELECT (?/-1)::INTEGER", "-2147483648"),
+                arguments(SqlTypeName.INTEGER, "SELECT -(?::INTEGER)/-1", "2147483648"),
+                arguments(SqlTypeName.INTEGER, "SELECT -(?::INTEGER) * -1", "2147483648"),
+                arguments(SqlTypeName.INTEGER, "SELECT ?::INTEGER/-1", "-2147483648"),
 
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT -CAST(? AS SMALLINT)", -32768),
