@@ -42,8 +42,7 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
     def tearDown(self):
         dbapi20.DatabaseAPI20Test.tearDown(self)
 
-    def test_non_idempotent_close(self): pass
-    def test_nextset(self): pass
-    def test_setoutputsize(self): pass
-    def test_callproc(self): pass
+    def test_callproc(self):
+        # Stored procedures are not supported
+        pass
 
