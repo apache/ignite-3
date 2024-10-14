@@ -24,8 +24,11 @@ import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /** Math operations with overflow checking. */
 public class IgniteMath {
@@ -43,6 +46,9 @@ public class IgniteMath {
 
     private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
     private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
+
+    /** Decimal rounding mode. */
+    public static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
@@ -268,6 +274,17 @@ public class IgniteMath {
         }
 
         return (byte) (x / y);
+    }
+
+    /**
+     * Decimal division. Precision is only used by type inferenc, its value is ignored at runtime.
+     * See {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}.
+     */
+    public static @Nullable BigDecimal decimalDivide(@Nullable BigDecimal x, @Nullable BigDecimal y, int p, int s) {
+        if (x == null || y == null) {
+            return null;
+        }
+        return x.divide(y, s, ROUNDING_MODE);
     }
 
     private static void throwDivisionByZero() {
