@@ -87,10 +87,12 @@ import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -146,6 +148,26 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private static final byte[] COMPACTION_REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_COMPACTION_REVISION_KEY".getBytes(UTF_8)
+    );
+
+    /**
+     * Key for storing index and term.
+     *
+     * @see #setIndexAndTerm(long, long)
+     */
+    private static final byte[] INDEX_AND_TERM_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_INDEX_AND_TERM_KEY".getBytes(UTF_8)
+    );
+
+    /**
+     * Key for storing configuration.
+     *
+     * @see #saveConfiguration(byte[], long, long)
+     */
+    private static final byte[] CONFIGURATION_KEY = keyToRocksKey(
+            SYSTEM_REVISION_MARKER_VALUE,
+            "SYSTEM_CONFIGURATION_KEY".getBytes(UTF_8)
     );
 
     /** Batch size (number of keys) for storage compaction. The value is arbitrary. */
@@ -249,8 +271,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            // Delete existing data, relying on the raft's snapshot and log playback
-            destroyRocksDb();
+            Files.createDirectories(dbPath);
 
             createDb();
         } catch (IOException | RocksDBException e) {
@@ -306,6 +327,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     private DBOptions createDbOptions() {
         DBOptions options = new DBOptions()
+                .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
                 .setCreateIfMissing(true);
 
@@ -417,12 +439,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
-            closeRocksResources();
-
-            destroyRocksDb();
-
-            createDb();
+            clear();
 
             snapshotManager.restoreSnapshot(path);
 
@@ -435,6 +452,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             }
 
             notifyRevisionUpdate();
+        } catch (MetaStorageException e) {
+            throw e;
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
@@ -443,7 +462,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void put(byte[] key, byte[] value, HybridTimestamp opTs) {
+    public void put(byte[] key, byte[] value, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -451,15 +470,78 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             long curRev = rev + 1;
 
-            addDataToBatch(batch, key, value, curRev, opTs);
+            addDataToBatch(batch, key, value, curRev, context.timestamp);
 
             updateKeysIndex(batch, key, curRev);
 
-            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
+            completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void setIndexAndTerm(long index, long term) {
+        rwLock.writeLock().lock();
+
+        try (WriteBatch batch = new WriteBatch()) {
+            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+
+            db.write(defaultWriteOptions, batch);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public @Nullable IndexWithTerm getIndexWithTerm() {
+        rwLock.readLock().lock();
+
+        try {
+            byte[] bytes = data.get(INDEX_AND_TERM_KEY);
+
+            if (bytes == null) {
+                return null;
+            }
+
+            return new IndexWithTerm(bytesToLong(bytes, 0), bytesToLong(bytes, Long.BYTES));
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void saveConfiguration(byte[] configuration, long index, long term) {
+        rwLock.writeLock().lock();
+
+        try (WriteBatch batch = new WriteBatch()) {
+            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+            data.put(batch, CONFIGURATION_KEY, configuration);
+
+            db.write(defaultWriteOptions, batch);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public byte @Nullable [] getConfiguration() {
+        rwLock.readLock().lock();
+
+        try {
+            return data.get(CONFIGURATION_KEY);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -487,11 +569,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param batch Write batch.
      * @param newRev New revision.
-     * @param ts Operation's timestamp.
+     * @param context Operation's context.
      * @param newChecksum Checksum corresponding to the revision.
      * @throws RocksDBException If failed.
      */
-    private void completeAndWriteBatch(WriteBatch batch, long newRev, HybridTimestamp ts, long newChecksum) throws RocksDBException {
+    private void completeAndWriteBatch(
+            WriteBatch batch, long newRev, KeyValueUpdateContext context, long newChecksum
+    ) throws RocksDBException {
+        HybridTimestamp ts = context.timestamp;
+
         byte[] revisionBytes = longToBytes(newRev);
 
         data.put(batch, REVISION_KEY, revisionBytes);
@@ -503,6 +589,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         validateNoChecksumConflict(newRev, newChecksum);
         revisionToChecksum.put(batch, revisionBytes, longToBytes(newChecksum));
+
+        data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, context.index, context.term));
 
         db.write(defaultWriteOptions, batch);
 
@@ -539,7 +627,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
+    public void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -547,13 +635,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             long curRev = rev + 1;
 
-            addAllToBatch(batch, keys, values, curRev, opTs);
+            addAllToBatch(batch, keys, values, curRev, context.timestamp);
 
             for (byte[] key : keys) {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
+            completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -562,7 +650,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void remove(byte[] key, HybridTimestamp opTs) {
+    public void remove(byte[] key, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -570,11 +658,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             long curRev = rev + 1;
 
-            if (addToBatchForRemoval(batch, key, curRev, opTs)) {
+            if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
+            completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -583,7 +671,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
+    public void removeAll(List<byte[]> keys, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
@@ -594,7 +682,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                if (addToBatchForRemoval(batch, key, curRev, opTs)) {
+                if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
                     existingKeys.add(key);
                 }
             }
@@ -603,7 +691,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            completeAndWriteBatch(batch, curRev, opTs, newChecksum);
+            completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
@@ -616,7 +704,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             Condition condition,
             List<Operation> success,
             List<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     ) {
         rwLock.writeLock().lock();
@@ -634,7 +722,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                     updateResult
             ));
 
-            applyOperations(ops, opTs, false, updateResult);
+            applyOperations(ops, context, false, updateResult);
 
             return branch;
         } catch (RocksDBException e) {
@@ -645,7 +733,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
+    public StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId) {
         rwLock.writeLock().lock();
 
         try {
@@ -675,7 +763,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                             updateResult
                     ));
 
-                    applyOperations(ops, opTs, true, updateResult);
+                    applyOperations(ops, context, true, updateResult);
 
                     return update.result();
                 } else {
@@ -689,8 +777,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private void applyOperations(List<Operation> ops, HybridTimestamp opTs, boolean multiInvoke, ByteBuffer updateResult)
+    private void applyOperations(List<Operation> ops, KeyValueUpdateContext context, boolean multiInvoke, ByteBuffer updateResult)
             throws RocksDBException {
+        HybridTimestamp opTs = context.timestamp;
+
         long curRev = rev + 1;
 
         List<byte[]> updatedKeys = new ArrayList<>();
@@ -736,7 +826,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 updateKeysIndex(batch, key, curRev);
             }
 
-            completeAndWriteBatch(batch, curRev, opTs, checksum.roundValue());
+            completeAndWriteBatch(batch, curRev, context, checksum.roundValue());
         }
     }
 
@@ -857,7 +947,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             if (indexToCompact == revs.length - 1) {
                 index.delete(batch, key);
             } else {
-                index.put(batch, key, longsToBytes(revs, indexToCompact + 1));
+                index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
             }
         } catch (Throwable t) {
             throw new MetaStorageException(
@@ -1159,12 +1249,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+    public void advanceSafeTime(KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
+            setIndexAndTerm(context.index, context.term);
+
             if (recoveryStatus.get() == RecoveryStatus.DONE) {
-                watchProcessor.advanceSafeTime(newSafeTime);
+                watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -1202,6 +1294,25 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void clear() {
+        // There's no way to easily remove all data from RocksDB, so we need to re-create it from scratch.
+        closeRocksResources();
+
+        try {
+            destroyRocksDb();
+
+            this.rev = 0;
+            this.compactionRevision = -1;
+
+            this.updatedEntries.clear();
+
+            createDb();
+        } catch (Exception e) {
+            throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         }
     }
 

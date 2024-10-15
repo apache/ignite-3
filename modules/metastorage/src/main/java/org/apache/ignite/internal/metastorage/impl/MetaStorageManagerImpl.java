@@ -40,6 +40,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
@@ -297,7 +299,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private void listenForRecovery(long targetRevision) {
-        storage.setRecoveryRevisionListener(storageRevision -> {
+        LongConsumer listener = storageRevision -> {
             if (!busyLock.enterBusy()) {
                 recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
@@ -315,26 +317,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             } finally {
                 busyLock.leaveBusy();
             }
-        });
+        };
 
-        if (!busyLock.enterBusy()) {
-            recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
-
-            return;
-        }
+        storage.setRecoveryRevisionListener(listener);
 
         // Storage might be already up-to-date, so check here manually after setting the listener.
-        try {
-            long storageRevision = storage.revision();
-
-            if (storageRevision >= targetRevision) {
-                storage.setRecoveryRevisionListener(null);
-
-                finishRecovery(targetRevision);
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
+        listener.accept(storage.revision());
     }
 
     private void finishRecovery(long targetRevision) {
@@ -400,6 +388,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
         raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
 
+        storage.clear();
+
         // Here, we must destroy the storage, but it's already destroyed in the beginning of the startAsync() method (in its own #start()).
         // Just to make sure this is maintained, we add an assertion.
         assert storage.revision() == 0 : "It's expected that the storage is destroyed at startup, but now it's not (revision is "
@@ -461,6 +451,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                     RaftGroupOptions groupOptions = (RaftGroupOptions) options;
                     groupOptions.externallyEnforcedConfigIndex(metaStorageInfo.metastorageRepairingConfigIndex());
+                    groupOptions.snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
                 }
         );
 

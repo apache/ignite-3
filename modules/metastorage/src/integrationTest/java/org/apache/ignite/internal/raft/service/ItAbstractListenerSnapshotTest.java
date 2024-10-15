@@ -498,11 +498,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
-        RaftGroupService clientFuture = RaftGroupServiceImpl
+        RaftGroupService client = RaftGroupServiceImpl
                 .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, executor, commandsMarshaller);
 
-        clients.add(clientFuture);
+        clients.add(client);
 
-        return clientFuture;
+        return client;
     }
 }

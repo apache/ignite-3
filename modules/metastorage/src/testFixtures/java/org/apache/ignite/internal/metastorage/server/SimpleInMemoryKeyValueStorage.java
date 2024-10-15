@@ -62,6 +62,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -103,6 +104,15 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
      */
     private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
+    /** Last update index. */
+    private long index;
+
+    /** Last update term. */
+    private long term;
+
+    /** Last saved configuration. */
+    private byte @Nullable [] configuration;
+
     /**
      * Last {@link #saveCompactionRevision saved} compaction revision.
      *
@@ -129,23 +139,77 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void put(byte[] key, byte[] value, HybridTimestamp opTs) {
+    public void setIndexAndTerm(long index, long term) {
         rwLock.writeLock().lock();
 
         try {
-            long curRev = rev + 1;
-
-            doPut(key, value, curRev, opTs);
-
-            updateRevision(curRev, opTs);
+            this.index = index;
+            this.term = term;
         } finally {
             rwLock.writeLock().unlock();
         }
     }
 
-    private void updateRevision(long newRevision, HybridTimestamp ts) {
+    @Override
+    public @Nullable IndexWithTerm getIndexWithTerm() {
+        rwLock.writeLock().lock();
+
+        try {
+            if (index == 0) {
+                return null;
+            }
+
+            return new IndexWithTerm(index, term);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void saveConfiguration(byte[] configuration, long index, long term) {
+        rwLock.writeLock().lock();
+
+        try {
+            this.configuration = configuration;
+
+            setIndexAndTerm(index, term);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public byte @Nullable [] getConfiguration() {
+        rwLock.writeLock().lock();
+
+        try {
+            return configuration;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void put(byte[] key, byte[] value, KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try {
+            long curRev = rev + 1;
+
+            doPut(key, value, curRev, context.timestamp);
+
+            updateRevision(curRev, context);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    private void updateRevision(long newRevision, KeyValueUpdateContext context) {
+        setIndexAndTerm(context.index, context.term);
+
         rev = newRevision;
 
+        HybridTimestamp ts = context.timestamp;
         tsToRevMap.put(ts.longValue(), rev);
         revToTsMap.put(rev, ts);
 
@@ -155,34 +219,34 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
+    public void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
             long curRev = rev + 1;
 
-            doPutAll(curRev, keys, values, opTs);
+            doPutAll(curRev, keys, values, context);
         } finally {
             rwLock.writeLock().unlock();
         }
     }
 
     @Override
-    public void remove(byte[] key, HybridTimestamp opTs) {
+    public void remove(byte[] key, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
             long curRev = rev + 1;
 
-            doRemove(key, curRev, opTs);
-            updateRevision(curRev, opTs);
+            doRemove(key, curRev, context.timestamp);
+            updateRevision(curRev, context);
         } finally {
             rwLock.writeLock().unlock();
         }
     }
 
     @Override
-    public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
+    public void removeAll(List<byte[]> keys, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
@@ -204,7 +268,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            doPutAll(curRev, existingKeys, vals, opTs);
+            doPutAll(curRev, existingKeys, vals, context);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -215,12 +279,14 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             Condition condition,
             List<Operation> success,
             List<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     ) {
         rwLock.writeLock().lock();
 
         try {
+            HybridTimestamp opTs = context.timestamp;
+
             Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
             boolean branch = condition.test(e.toArray(new Entry[]{}));
@@ -256,7 +322,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                 }
             }
 
-            updateRevision(curRev, opTs);
+            updateRevision(curRev, context);
 
             return branch;
         } finally {
@@ -265,10 +331,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
+    public StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId) {
         rwLock.writeLock().lock();
 
         try {
+            HybridTimestamp opTs = context.timestamp;
+
             If currIf = iif;
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.cond().keys()));
@@ -307,7 +375,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                         }
                     }
 
-                    updateRevision(curRev, opTs);
+                    updateRevision(curRev, context);
 
                     return branch.update().result();
                 } else {
@@ -637,7 +705,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     }
 
-    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, HybridTimestamp opTs) {
+    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, KeyValueUpdateContext context) {
+        HybridTimestamp opTs = context.timestamp;
+
         // Update revsIdx.
         NavigableMap<byte[], Value> entries = new TreeMap<>(KEY_COMPARATOR);
 
@@ -660,19 +730,21 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             revsIdx.put(curRev, entries);
         }
 
-        updateRevision(curRev, opTs);
+        updateRevision(curRev, context);
     }
 
     @Override
-    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+    public void advanceSafeTime(KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
         try {
+            setIndexAndTerm(context.index, context.term);
+
             if (!areWatchesEnabled) {
                 return;
             }
 
-            watchProcessor.advanceSafeTime(newSafeTime);
+            watchProcessor.advanceSafeTime(context.timestamp);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -696,6 +768,31 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     @Override
     public long checksum(long revision) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+        rwLock.writeLock().lock();
+
+        try {
+            this.index = 0;
+            this.term = 0;
+            this.configuration = null;
+
+            this.rev = 0;
+            this.compactionRevision = -1;
+            this.savedCompactionRevision = -1;
+
+            this.keysIdx.clear();
+            this.revsIdx.clear();
+
+            this.tsToRevMap.clear();
+            this.revToTsMap.clear();
+
+            this.updatedEntries.clear();
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     private static long[] toLongArray(@Nullable List<Long> list) {

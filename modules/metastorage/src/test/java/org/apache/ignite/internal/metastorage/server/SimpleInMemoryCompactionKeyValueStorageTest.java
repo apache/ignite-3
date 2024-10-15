@@ -23,4 +23,9 @@ public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompact
     public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
     }
+
+    @Override
+    void testSaveCompactionRevisionAndRestart() {
+        // No-op. In-memory storage implementation loses the data upon restart.
+    }
 }
