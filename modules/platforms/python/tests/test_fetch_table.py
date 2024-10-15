@@ -57,7 +57,8 @@ def test_fetchmany_table_empty(table_name, cursor, drop_table_cleanup):
     cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
     cursor.execute(f"select col1, id from {table_name}")
     end = cursor.fetchmany(size=10)
-    assert end is None
+    assert end is not None
+    assert len(end) == 0
 
 
 def test_fetchmany_table_many_rows(table_name, cursor, drop_table_cleanup):
@@ -90,7 +91,8 @@ def test_fetchall_table_empty(table_name, cursor, drop_table_cleanup):
     cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
     cursor.execute(f"select col1, id from {table_name}")
     end = cursor.fetchall()
-    assert end is None
+    assert end is not None
+    assert len(end) == 0
 
 
 def test_fetchall_table_many_rows(table_name, cursor, drop_table_cleanup):

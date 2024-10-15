@@ -26,6 +26,9 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +36,7 @@ import java.util.zip.Checksum;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -46,6 +50,38 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+    }
+
+    @Test
+    void testRestoreAfterRestart() throws Exception {
+        byte[] key = key(1);
+        byte[] val = keyValue(1, 1);
+
+        Entry e = storage.get(key);
+
+        assertTrue(e.empty());
+
+        putToMs(key, val);
+
+        e = storage.get(key);
+
+        assertArrayEquals(key, e.key());
+        assertArrayEquals(val, e.value());
+
+        long revisionBeforeRestart = storage.revision();
+
+        storage.close();
+
+        storage = new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+
+        storage.start();
+
+        assertEquals(revisionBeforeRestart, storage.revision());
+
+        e = storage.get(key);
+
+        assertArrayEquals(key, e.key());
+        assertArrayEquals(val, e.value());
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -92,7 +93,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                     toServerCondition(condition),
                     success,
                     failure,
-                    HybridTimestamp.MIN_VALUE,
+                    kvContext(HybridTimestamp.MIN_VALUE),
                     new CommandIdGenerator(UUID::randomUUID).newId()
             );
 

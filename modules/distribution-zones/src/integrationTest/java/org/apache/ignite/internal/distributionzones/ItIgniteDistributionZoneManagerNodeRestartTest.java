@@ -104,6 +104,7 @@ import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -114,7 +115,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -240,7 +241,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
-                new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, workDir.resolve("metastorage"), new NoOpFailureManager())
         ));
 
         blockMetaStorageUpdates(metastore);

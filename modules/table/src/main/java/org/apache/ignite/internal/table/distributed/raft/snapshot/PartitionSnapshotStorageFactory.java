@@ -25,9 +25,9 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -110,7 +110,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public @Nullable PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new PartitionSnapshotStorage(
                 topologyService,
                 outgoingSnapshotsManager,

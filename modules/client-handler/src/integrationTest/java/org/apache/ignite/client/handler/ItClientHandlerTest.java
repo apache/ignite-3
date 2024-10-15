@@ -28,7 +28,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -228,7 +227,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
                     "org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException",
                     errClassName
             );
-            assertNull(errStackTrace);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
         }
     }
 
@@ -354,7 +353,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Authentication failed"));
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
-            assertNull(errStackTrace);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
         }
     }
 
@@ -409,7 +408,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Authentication failed"));
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
-            assertNull(errStackTrace);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
         }
     }
 
@@ -462,7 +461,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Unsupported version: 2.8.0"));
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
-            assertNull(errStackTrace);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
         }
     }
 

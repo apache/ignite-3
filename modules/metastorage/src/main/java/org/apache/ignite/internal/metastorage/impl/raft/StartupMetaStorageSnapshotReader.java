@@ -15,17 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.impl.raft;
 
-/** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
-public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
-    @Override
-    public KeyValueStorage createStorage() {
-        return new SimpleInMemoryKeyValueStorage("test");
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.apache.ignite.raft.jraft.storage.snapshot.startup.StartupSnapshotReader;
+
+/**
+ * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
+ */
+class StartupMetaStorageSnapshotReader extends StartupSnapshotReader {
+    private final SnapshotMeta meta;
+
+    StartupMetaStorageSnapshotReader(SnapshotMeta meta) {
+        this.meta = meta;
     }
 
     @Override
-    void testSaveCompactionRevisionAndRestart() {
-        // No-op. In-memory storage implementation loses the data upon restart.
+    public SnapshotMeta load() {
+        return meta;
+    }
+
+    @Override
+    public String getPath() {
+        return ""; // This is deliberate.
     }
 }

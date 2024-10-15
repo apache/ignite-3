@@ -116,4 +116,13 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
             channel.heartbeatAsync(w -> w.out().writePayload(new byte[]{1, 2, 3})).join();
         }
     }
+
+    @Test
+    void testExceptionHasHint() {
+        var client = IgniteClient.builder().addresses(getClientAddresses().get(0)).build();
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> client.sql().execute(null, "select x from bad"));
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
+                ex.getCause().getCause().getCause().getCause().getMessage());
+    }
 }

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.indexToCompact;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -106,5 +107,23 @@ public class KeyValueStorageUtilsTest {
         assertFalse(isLastIndex(array, 1));
 
         assertTrue(isLastIndex(array, 2));
+    }
+
+    @Test
+    void testMinRevisionIndex() {
+        long[] keyRevisions = {3, 5, 7};
+
+        assertEquals(0, minRevisionIndex(keyRevisions, 1));
+        assertEquals(0, minRevisionIndex(keyRevisions, 2));
+        assertEquals(0, minRevisionIndex(keyRevisions, 3));
+
+        assertEquals(1, minRevisionIndex(keyRevisions, 4));
+        assertEquals(1, minRevisionIndex(keyRevisions, 5));
+
+        assertEquals(2, minRevisionIndex(keyRevisions, 6));
+        assertEquals(2, minRevisionIndex(keyRevisions, 7));
+
+        assertEquals(NOT_FOUND, minRevisionIndex(keyRevisions, 8));
+        assertEquals(NOT_FOUND, minRevisionIndex(keyRevisions, 9));
     }
 }

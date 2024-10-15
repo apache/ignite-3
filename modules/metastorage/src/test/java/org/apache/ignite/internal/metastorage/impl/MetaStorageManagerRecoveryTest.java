@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -169,7 +170,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
         for (int i = 0; i < targetRevision; i++) {
-            kvs.put(new byte[0], new byte[0], clock.now());
+            kvs.put(new byte[0], new byte[0], kvContext(clock.now()));
         }
 
         assertThat(msDeployFut, willSucceedFast());

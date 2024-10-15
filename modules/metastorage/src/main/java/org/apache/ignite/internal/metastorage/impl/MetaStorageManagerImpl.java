@@ -39,6 +39,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
@@ -93,7 +95,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -296,7 +297,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private void listenForRecovery(long targetRevision) {
-        storage.setRecoveryRevisionListener(storageRevision -> {
+        LongConsumer listener = storageRevision -> {
             if (!busyLock.enterBusy()) {
                 recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
@@ -314,26 +315,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             } finally {
                 busyLock.leaveBusy();
             }
-        });
+        };
 
-        if (!busyLock.enterBusy()) {
-            recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
-
-            return;
-        }
+        storage.setRecoveryRevisionListener(listener);
 
         // Storage might be already up-to-date, so check here manually after setting the listener.
-        try {
-            long storageRevision = storage.revision();
-
-            if (storageRevision >= targetRevision) {
-                storage.setRecoveryRevisionListener(null);
-
-                finishRecovery(targetRevision);
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
+        listener.accept(storage.revision());
     }
 
     private void finishRecovery(long targetRevision) {
@@ -399,6 +386,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
         raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
 
+        storage.clear();
+
         // Here, we must destroy the storage, but it's already destroyed in the beginning of the startAsync() method (in its own #start()).
         // Just to make sure this is maintained, we add an assertion.
         assert storage.revision() == 0 : "It's expected that the storage is destroyed at startup, but now it's not (revision is "
@@ -460,6 +449,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                     RaftGroupOptions groupOptions = (RaftGroupOptions) options;
                     groupOptions.externallyEnforcedConfigIndex(metaStorageInfo.metastorageRepairingConfigIndex());
+                    groupOptions.snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
                 }
         );
 
@@ -755,15 +745,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return storage.get(key, revLowerBound, revUpperBound);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
     }
 
     @Override
@@ -773,15 +755,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
-        return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
+        return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
     }
 
     @Override
     public Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound) {
-        byte[] rangeStart = keyPrefix.bytes();
-        byte[] rangeEnd = storage.nextKey(rangeStart);
+        return inBusyLock(busyLock, () -> {
+            byte[] rangeStart = keyPrefix.bytes();
+            byte[] rangeEnd = storage.nextKey(rangeStart);
 
-        return storage.range(rangeStart, rangeEnd, revUpperBound);
+            return storage.range(rangeStart, rangeEnd, revUpperBound);
+        });
     }
 
     @Override
@@ -925,21 +909,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return range(keyFrom, keyTo, false);
-    }
-
-    /**
-     * Retrieves entries for the given key range in lexicographic order.
-     *
-     * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
-     */
-    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
         if (!busyLock.enterBusy()) {
             return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, false)));
         } finally {
             busyLock.leaveBusy();
         }

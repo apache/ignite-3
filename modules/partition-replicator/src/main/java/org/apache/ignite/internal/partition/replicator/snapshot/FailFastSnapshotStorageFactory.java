@@ -25,6 +25,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Temporary snapshot factory, which must help to identify the unexpected snapshots,
@@ -33,7 +34,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 // TODO https://issues.apache.org/jira/browse/IGNITE-22416 remove it
 public class FailFastSnapshotStorageFactory implements SnapshotStorageFactory {
     @Override
-    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public @Nullable SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new SnapshotStorage() {
 
             private <T> T fail() {
