@@ -671,7 +671,7 @@ def connect(address: [str], **kwargs) -> Connection:
         A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
 
     Keyword Arguments
-    ----------
+    -----------------
     identity: str, optional
         An identifier to use for authentication. E.g. username.
     secret: str, optional
