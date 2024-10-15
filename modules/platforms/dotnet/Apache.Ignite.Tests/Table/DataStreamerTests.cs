@@ -694,6 +694,11 @@ public class DataStreamerTests : IgniteTestsBase
             EchoArgsReceiver,
             receiverArg: arg).SingleAsync();
 
+        if (arg is decimal dec)
+        {
+            arg = new BigDecimal(dec);
+        }
+
         Assert.AreEqual(arg, res);
     }
 
