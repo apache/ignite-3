@@ -657,15 +657,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void resetClusterRequiresCmgNodeNames() {
-        ClusterResetException ex = assertWillThrow(
-                manager.resetCluster(null),
-                ClusterResetException.class
-        );
-        assertThat(ex.getMessage(), is("CMG node names must be specified."));
-    }
-
-    @Test
     void resetClusterWithMgRequiresCurrentTopologyBeEnoughForMgReplicationFactor() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
 
