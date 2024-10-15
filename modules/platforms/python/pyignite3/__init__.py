@@ -283,7 +283,8 @@ class Cursor:
     """
     arraysize: int = 1
 
-    def __init__(self, py_cursor, conn):
+    def __init__(self, cur_id: int, py_cursor, conn):
+        self._cur_id = cur_id
         self._py_cursor = py_cursor
         self._description = None
         self._rownumber = None
@@ -396,6 +397,8 @@ class Cursor:
             self._py_cursor.close()
             self._py_cursor = None
             self._rownumber = None
+            # noinspection PyProtectedMember
+            self._conn._cursor_closed(self._cur_id)
 
     def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
         """
@@ -549,6 +552,8 @@ class Connection:
     def __init__(self):
         self._autocommit = True
         self._py_connection = None
+        self._cursors = {}
+        self._cursor_cnt = 0
 
     def __enter__(self):
         return self
@@ -565,6 +570,11 @@ class Connection:
         if self._py_connection is not None:
             self._py_connection.close()
             self._py_connection = None
+
+            cursors = self._cursors
+            self._cursors = {}
+            for cursor in cursors.values():
+                cursor.close()
 
     def commit(self):
         """
@@ -637,7 +647,17 @@ class Connection:
         """
         if self._py_connection is None:
             raise InterfaceError('Connection is already closed')
-        return Cursor(py_cursor=self._py_connection.cursor(), conn=self)
+
+        cursor_id = self._cursor_cnt
+        self._cursor_cnt += 1
+
+        cursor = Cursor(cur_id=cursor_id, py_cursor=self._py_connection.cursor(), conn=self)
+        self._cursors[cursor_id] = cursor
+
+        return cursor
+
+    def _cursor_closed(self, cur_id: int):
+        self._cursors.pop(cur_id, None)
 
 
 def connect(address: [str], **kwargs) -> Connection:
