@@ -55,6 +55,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
@@ -524,9 +525,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         try {
             storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(
-                        new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
-                );
+                storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
                 storage.lastApplied(config.index(), config.term());
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 

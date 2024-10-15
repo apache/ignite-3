@@ -712,6 +712,7 @@ public class IgniteImpl implements Ignite {
                 vaultMgr,
                 restarter,
                 metaStorageMgr,
+                cmgMgr,
                 clusterIdService
         );
 

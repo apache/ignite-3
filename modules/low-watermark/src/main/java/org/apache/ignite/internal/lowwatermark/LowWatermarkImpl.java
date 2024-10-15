@@ -59,7 +59,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfigurationSchema;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -170,7 +169,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     private @Nullable HybridTimestamp readLowWatermarkFromVault() {
         VaultEntry vaultEntry = vaultManager.get(LOW_WATERMARK_VAULT_KEY);
 
-        return vaultEntry == null ? null : ByteUtils.fromBytes(vaultEntry.value());
+        return vaultEntry == null ? null : HybridTimestamp.fromBytes(vaultEntry.value());
     }
 
     @Override
@@ -335,7 +334,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
         return inBusyLockAsync(busyLock, () -> {
-                    vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
+                    vaultManager.put(LOW_WATERMARK_VAULT_KEY, newLowWatermark.toBytes());
 
                     return waitForLocksAndSetLowWatermark(newLowWatermark)
                             .thenComposeAsync(unused2 -> fireEvent(

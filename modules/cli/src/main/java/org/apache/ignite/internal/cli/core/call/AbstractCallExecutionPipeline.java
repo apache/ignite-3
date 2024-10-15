@@ -20,9 +20,11 @@ package org.apache.ignite.internal.cli.core.call;
 import java.io.PrintWriter;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.decorators.DefaultDecoratorRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 
 /**
@@ -39,6 +41,8 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
 
     /** Decorator that decorates call's output. */
     protected final Decorator<T, TerminalOutput> decorator;
+
+    private final DecoratorRegistry decoratorRegistry = new DefaultDecoratorRegistry();
 
     /** Handlers for any exceptions. */
     protected final ExceptionHandlers exceptionHandlers;
@@ -90,11 +94,22 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
         }
 
         if (!callOutput.isEmpty()) {
-            TerminalOutput decoratedOutput = decorator.decorate(callOutput.body());
+            TerminalOutput decoratedOutput = decorate(callOutput.body());
             output.println(decoratedOutput.toTerminalString());
         }
 
         return 0;
+    }
+
+    private TerminalOutput decorate(T body) {
+        return selectDecorator(body).decorate(body);
+    }
+
+    private Decorator<T, TerminalOutput> selectDecorator(T body) {
+        if (decorator != null) {
+            return decorator;
+        }
+        return decoratorRegistry.getDecorator((Class<T>) body.getClass());
     }
 
     /**

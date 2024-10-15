@@ -25,11 +25,36 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
  * Accumulator interface.
  */
 public interface Accumulator {
-    void add(Object... args);
 
-    Object end();
+    /**
+     * Updates this accumulator.
+     *
+     * @param state state of the accumulator.
+     * @param args arguments.
+     */
+    void add(AccumulatorsState state, Object[] args);
 
+    /**
+     * Computes result of this accumulator.
+     *
+     * @param state Accumulator state.
+     * @param result Result holder.
+     */
+    void end(AccumulatorsState state, AccumulatorsState result);
+
+    /**
+     * Returns types of arguments for this accumulator.
+     *
+     * @param typeFactory Type factory.
+     * @return List of argument types.
+     */
     List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
 
+    /**
+     * Returns a result type for this accumulator.
+     *
+     * @param typeFactory Type factory.
+     * @return A result type.
+     */
     RelDataType returnType(IgniteTypeFactory typeFactory);
 }
