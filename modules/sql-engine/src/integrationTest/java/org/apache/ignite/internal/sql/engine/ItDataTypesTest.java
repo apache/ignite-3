@@ -416,11 +416,11 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
         assertQuery("select decode(1, 0, 0, ?, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
-        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.000000")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
         assertQuery("select decode(1, 0, 0, ?, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
-        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.00")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.000000")).check();
         assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
         assertQuery("select decode(?, 0, 1.0, 1, 1, 5)").withParams(3).returns(new BigDecimal("5.0")).check();

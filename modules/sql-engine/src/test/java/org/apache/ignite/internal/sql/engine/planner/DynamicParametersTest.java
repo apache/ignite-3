@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -228,12 +229,29 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 checkStatement()
+                        .sql("SELECT ?", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(28, 6)))
+                        .ok(),
+
+                checkStatement()
                         .sql("SELECT ?", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
+                        // We are going to cast at runtime.
+                        .project("?0"),
+
+                checkStatement()
+                        .sql("SELECT CAST(? AS DECIMAL(60, 30))", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
+                        // We are going to cast at runtime.
+                        .project("?0"),
+
+                checkStatement()
+                        .sql("SELECT ?::DECIMAL(60, 30)", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
                         // We are going to cast at runtime.
                         .project("?0"),
 

@@ -56,6 +56,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
@@ -81,15 +82,57 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite SQL doesn't support precision more than 3 for temporal types.
         if (type == ColumnType.TIME || type == ColumnType.TIMESTAMP || type == ColumnType.DATETIME) {
             param = SqlTestUtils.generateValueByType(type, 3, -1);
+        } else if (type == ColumnType.DECIMAL) { // by default derived type of parameter of type BigDecimal is DECIMAL(28, 6)
+            param = SqlTestUtils.generateValueByType(type, 28, 6);
         } else {
             param = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
         }
+
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
         // ToDo https://issues.apache.org/jira/browse/IGNITE-23130 Typeof for TIMESTAMP return not well formed name.
         assertTrue(type0.replace('_', ' ').startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
+    }
+
+    /**
+     * By default derived type of parameter of type BigDecimal is DECIMAL(28, 6). This test makes sure it's possible to go beyond
+     * default precision and scale by wrapping dynamic param placeholder with CAST operation.
+      */
+    @ParameterizedTest
+    @ValueSource(ints = {30, 60, 120})
+    void testMetadataTypesForDecimalDynamicParameters(int precision) {
+        int scale = precision / 2;
+        Object param = SqlTestUtils.generateValueByType(ColumnType.DECIMAL, precision, scale);
+
+        String typeString = decimalTypeString(precision, scale);
+
+        assertQuery("SELECT typeof(CAST(? as " + typeString + "))")
+                .withParams(param)
+                .returns(typeString)
+                .check();
+
+        assertQuery("SELECT typeof(?::" + typeString + ")")
+                .withParams(param)
+                .returns(typeString)
+                .check();
+
+        assertQuery("SELECT CAST(? as " + typeString + ")")
+                .withParams(param)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(precision).scale(scale))
+                .returns(param)
+                .check();
+
+        assertQuery("SELECT ?::" + typeString)
+                .withParams(param)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(precision).scale(scale))
+                .returns(param)
+                .check();
+    }
+
+    private static String decimalTypeString(int precision, int scale) {
+        return format("DECIMAL({}, {})", precision, scale);
     }
 
     @Test
