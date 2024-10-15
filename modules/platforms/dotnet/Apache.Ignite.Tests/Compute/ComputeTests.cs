@@ -59,7 +59,7 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
-        public static readonly JobDescriptor<string, decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
+        public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
 
         public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
@@ -709,7 +709,7 @@ namespace Apache.Ignite.Tests.Compute
                 expected = decimal.Round(expected, scale);
             }
 
-            Assert.AreEqual(expected, resVal);
+            Assert.AreEqual(expected, resVal.ToDecimal());
         }
 
         [Test]
