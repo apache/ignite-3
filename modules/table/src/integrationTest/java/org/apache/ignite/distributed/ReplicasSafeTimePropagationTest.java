@@ -77,8 +77,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -149,7 +147,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
      *     <li>Send command with safe time less than X to the new leader and verify that SafeTimeReorderException is thrown.</li>
      * </ol>
      */
-    @RepeatedTest(100)
+    @Test
     public void testSafeTimeReorderingOnLeaderReElection() throws Exception {
         // Start three nodes and a raft group with three peers.
         {
@@ -217,7 +215,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
      *     and verify that SafeTimeReorderException is thrown.</li>
      * </ol>
      */
-    @RepeatedTest(100)
+    @Test
     public void testSafeTimeReorderingOnLeaderRestart() throws Exception {
         // Start two node and a raft group with two peer.
         {

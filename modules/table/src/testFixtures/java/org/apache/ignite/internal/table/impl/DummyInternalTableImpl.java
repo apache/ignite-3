@@ -453,6 +453,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .leaseStartTime(primary.getStartTime().longValue())
                     .primaryReplicaNodeId(primary.getLeaseholderId())
                     .primaryReplicaNodeName(primary.getLeaseholder())
+                    .safeTime(CLOCK_SERVICE.now())
                     .build();
 
             assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());

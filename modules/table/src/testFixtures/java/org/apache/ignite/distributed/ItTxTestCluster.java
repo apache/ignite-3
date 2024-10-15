@@ -771,8 +771,9 @@ public class ItTxTestCluster {
 
         for (int p = 0; p < assignments.size(); p++) {
             TablePartitionId grpId = grpIds.get(p);
+            ClockService clock = clockServices.values().iterator().next();
             CompletableFuture<ReplicaMeta> primaryFuture = placementDriver.getPrimaryReplica(grpId,
-                    clockServices.values().iterator().next().now());
+                    clock.now());
 
             // TestPlacementDriver always returns completed futures.
             assert primaryFuture.isDone();
@@ -785,6 +786,7 @@ public class ItTxTestCluster {
                     .leaseStartTime(primary.getStartTime().longValue())
                     .primaryReplicaNodeId(primary.getLeaseholderId())
                     .primaryReplicaNodeName(primary.getLeaseholder())
+                    .safeTime(clock.now())
                     .build();
 
             CompletableFuture<RaftGroupService> raftClientFuture = getRaftClientForGroup(grpId);

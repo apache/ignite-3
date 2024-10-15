@@ -260,6 +260,7 @@ public class ReplicaImpl implements Replica {
                 .leaseStartTime(leaseStartTime)
                 .primaryReplicaNodeId(primaryReplicaNodeId)
                 .primaryReplicaNodeName(primaryReplicaNodeName)
+                .safeTime(clockService.now())
                 .build();
 
         return raftClient.run(cmd);
