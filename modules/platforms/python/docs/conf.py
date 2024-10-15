@@ -38,6 +38,7 @@ extensions = [
     'sphinx.ext.duration',
     'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
 ]
 
 templates_path = ['_templates']
@@ -50,3 +51,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+html_favicon = '_static/Apache_Ignite_logo_128x128.png'
+
+html_sidebars = {
+    '**': [
+        'about.html',
+        'searchfield.html',
+        'localtoc.html',
+    ]
+}
+
+html_theme_options = {
+    'logo': 'Apache_Ignite_logo_128x128.png',
+    'page_width': '1020px',
+    'sidebar_width': '240px',
+}
