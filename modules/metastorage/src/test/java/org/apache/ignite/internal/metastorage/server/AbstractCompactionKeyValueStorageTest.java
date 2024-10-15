@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -534,6 +536,257 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetAll(6, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
     }
 
+    @Test
+    void testGetListAndCompactionForFooKey() {
+        // FOO_KEY has revisions: [1, 3, 5].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 1, 1);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 1, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 3);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 1, 1);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 1, 2);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 2, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 3, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 1, 3);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 2, 3);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 3, 3);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 3, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 4, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 3, 5);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 3, 4);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 4, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 3, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 5, 5);
+
+        storage.setCompactionRevision(5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 3, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 5, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 5, 6);
+
+        storage.setCompactionRevision(6);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 3, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 5, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(FOO_KEY, 5, 6);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 6, 6);
+        assertThrowsCompactedExceptionForGetList(FOO_KEY, 6, 7);
+    }
+
+    @Test
+    void testGetListAndCompactionForBarKey() {
+        // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 1);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 1, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 1, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 2, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 2, 3);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 1);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 2);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 2, 2);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 3);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 2, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 3, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 3);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 2, 3);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 3, 3);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 3, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 4, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 3, 5);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 3, 4);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 4, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 1, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 2, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 3, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 5, 5);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 2, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 3, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 4, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 5, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 5, 6);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 6, 6);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 1, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 2, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 3, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 4, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 5, 5);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 5, 6);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 6, 6);
+        assertThrowsCompactedExceptionForGetList(BAR_KEY, 6, 7);
+        assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 7, 7);
+    }
+
+    @Test
+    void testGetListAndCompactionForNotExistsKey() {
+        storage.setCompactionRevision(1);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 1, 1);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 1, 2);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 2, 2);
+
+        storage.setCompactionRevision(2);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 1, 2);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 2, 2);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 2, 3);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 3, 3);
+
+        storage.setCompactionRevision(3);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 2, 3);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 3, 3);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 3, 4);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 4, 4);
+
+        storage.setCompactionRevision(4);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 3, 4);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 4, 4);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 4, 5);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 5, 5);
+
+        storage.setCompactionRevision(5);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 4, 5);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 5, 5);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 5, 6);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 6, 6);
+
+        storage.setCompactionRevision(6);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 5, 6);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 6, 6);
+        assertThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 6, 7);
+        assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 7, 7);
+    }
+
+    @Test
+    void testRangeLatestAndCompaction() {
+        storage.setCompactionRevision(6);
+
+        assertDoesNotThrow(() -> {
+            try (Cursor<Entry> cursor = storage.range(FOO_KEY, null)) {
+                cursor.hasNext();
+                cursor.next();
+            }
+        });
+    }
+
+    @Test
+    void testRangeAndCompaction() {
+        try (Cursor<Entry> cursorBeforeSetCompactionRevision = storage.range(FOO_KEY, null, 5)) {
+            storage.setCompactionRevision(5);
+
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 1));
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 3));
+            assertThrows(CompactedException.class, () -> storage.range(FOO_KEY, null, 5));
+
+            assertDoesNotThrow(() -> {
+                try (Cursor<Entry> range = storage.range(FOO_KEY, null, 6)) {
+                    range.hasNext();
+                    range.next();
+                }
+            });
+
+            assertDoesNotThrow(cursorBeforeSetCompactionRevision::hasNext);
+            assertDoesNotThrow(cursorBeforeSetCompactionRevision::next);
+        }
+    }
+
+    /**
+     * Tests {@link KeyValueStorage#range(byte[], byte[])} and {@link KeyValueStorage#range(byte[], byte[], long)} for the case when
+     * cursors should or should not return the last element after compaction. For {@link #FOO_KEY} and {@link #BAR_KEY}, the last revisions
+     * are 5, a regular entry and a tombstone. Keys with their revisions are added in {@link #setUp()}.
+     *
+     * <p>Consider the situation:</p>
+     * <ul>
+     *     <li>Made {@link KeyValueStorage#setCompactionRevision(long) KeyValueStorage.setCompactionRevision(5)}.</li>
+     *     <li>Waited for all cursors to end with revision {@code 5} or less.</li>
+     *     <li>Made {@link KeyValueStorage#compact(long) KeyValueStorage.compact(5)}.</li>
+     *     <li>Invoke {@link KeyValueStorage#range} for last revision and revision {@code 6} for {@link #FOO_KEY} and {@link #BAR_KEY}.
+     *     <ul>
+     *         <li>For {@link #FOO_KEY}, we need to return a entry with revision {@code 5}, since it will not be removed from the storage
+     *         after compaction.</li>
+     *         <li>For {@link #BAR_KEY}, we should not return anything, since the key will be deleted after compaction.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     */
+    @Test
+    void testRangeAndCompactionForCaseReadLastEntries() {
+        storage.setCompactionRevision(5);
+
+        try (
+                Cursor<Entry> rangeFooKeyCursorLatest = storage.range(FOO_KEY, storage.nextKey(FOO_KEY));
+                Cursor<Entry> rangeFooKeyCursorBounded = storage.range(FOO_KEY, storage.nextKey(FOO_KEY), 6);
+                Cursor<Entry> rangeBarKeyCursorLatest = storage.range(BAR_KEY, storage.nextKey(BAR_KEY));
+                Cursor<Entry> rangeBarKeyCursorBounded = storage.range(BAR_KEY, storage.nextKey(BAR_KEY), 6)
+        ) {
+            // Must see the latest revision of the FOO_KEY as it will not be removed from storage by the compaction.
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorBounded));
+
+            // Must not see the latest revision of the BAR_KEY, as it will have to be removed from the storage by the compaction.
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorLatest));
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorBounded));
+        }
+    }
+
+    /**
+     * Tests {@link KeyValueStorage#range(byte[], byte[])} and {@link KeyValueStorage#range(byte[], byte[], long)} for the case when they
+     * were invoked on a revision (for example, on revision {@code 5}) before invoking
+     * {@link KeyValueStorage#setCompactionRevision(long) KeyValueStorage.setCompactionRevision(5)} but before invoking
+     * {@link KeyValueStorage#compact(long) KeyValueStorage.compact(5)}. Such cursors should return entries since nothing should be
+     * removed yet until they are completed. Keys are chosen for convenience. Keys with their revisions are added in {@link #setUp()}.
+     */
+    @Test
+    void testRangeAfterSetCompactionRevisionButBeforeStartCompaction() {
+        try (
+                Cursor<Entry> rangeFooKeyCursorLatest = storage.range(FOO_KEY, storage.nextKey(FOO_KEY));
+                Cursor<Entry> rangeFooKeyCursorBounded = storage.range(FOO_KEY, storage.nextKey(FOO_KEY), 5);
+                Cursor<Entry> rangeBarKeyCursorLatest = storage.range(BAR_KEY, storage.nextKey(BAR_KEY));
+                Cursor<Entry> rangeBarKeyCursorBounded = storage.range(BAR_KEY, storage.nextKey(BAR_KEY), 5)
+        ) {
+            storage.setCompactionRevision(5);
+
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorBounded));
+
+            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorBounded));
+        }
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -546,6 +799,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
 
         return revisions;
+    }
+
+    private List<Long> collectRevisions(Cursor<Entry> cursor) {
+        return cursor.stream().map(Entry::revision).collect(toList());
     }
 
     private static byte[] fromString(String s) {
@@ -596,6 +853,21 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                     () -> String.format("keys=%s, revision=%s", toUtf8String(keys), revisionUpperBound)
             );
         }
+    }
+
+    private void assertThrowsCompactedExceptionForGetList(byte[] key, long revLowerBound, long revUpperBound) {
+        assertThrows(
+                CompactedException.class,
+                () -> storage.get(key, revLowerBound, revUpperBound),
+                () -> String.format("key=%s, revLowerBound=%s, revUpperBound=%s", toUtf8String(key), revLowerBound, revUpperBound)
+        );
+    }
+
+    private void assertDoesNotThrowsCompactedExceptionForGetList(byte[] key, long revLowerBound, long revUpperBound) {
+        assertDoesNotThrow(
+                () -> storage.get(key, revLowerBound, revUpperBound),
+                () -> String.format("key=%s, revLowerBound=%s, revUpperBound=%s", toUtf8String(key), revLowerBound, revUpperBound)
+        );
     }
 
     private static String toUtf8String(byte[]... keys) {
