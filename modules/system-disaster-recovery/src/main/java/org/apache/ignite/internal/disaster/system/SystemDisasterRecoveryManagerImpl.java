@@ -201,9 +201,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> resetCluster(List<String> proposedCmgNodeNames) {
-        if (proposedCmgNodeNames == null) {
-            return failedFuture(new ClusterResetException("CMG node names must be specified."));
-        }
+        assert proposedCmgNodeNames != null;
 
         return resetClusterInternal(proposedCmgNodeNames, null);
     }
