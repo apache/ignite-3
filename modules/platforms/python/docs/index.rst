@@ -22,30 +22,52 @@ Apache Ignite 3.
 .. _PEP-0249: https://peps.python.org/pep-0249
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
-
-Module Interface
-================
-
-In this section you can find a module-level functions and types.
-
 Connection Constructor
-----------------------
+====================================
 
 This is the interface entry point.
 
 .. autofunction:: pyignite3.connect
 
-Type Objects and Constructors
------------------------------
 
-The module exports the following constructors and singletons:
+Connection Object
+====================================
+
+.. autoclass:: pyignite3.Connection
+   :members:
+
+
+Cursor Object
+=============
+
+.. autoclass:: pyignite3.Cursor
+   :members:
+
+
+ColumnDescription Object
+========================
+
+.. autoclass:: pyignite3.ColumnDescription
+
+
+Globals
+=======
+
+Module defines following globals:
 
 .. autodata:: pyignite3.apilevel
 .. autodata:: pyignite3.threadsafety
 .. autodata:: pyignite3.paramstyle
+
+
+Type Objects and Constructors
+=============================
+
+The module exports the following constructors and singletons:
+
 .. autodata:: pyignite3.NULL
 .. autodata:: pyignite3.BOOLEAN
 .. autodata:: pyignite3.INT
@@ -67,3 +89,20 @@ The module exports the following constructors and singletons:
 .. autofunction:: pyignite3.TimeFromTicks
 .. autofunction:: pyignite3.TimestampFromTicks
 .. autofunction:: pyignite3.Binary
+
+
+Exceptions
+==========
+
+The module defines the following error classes:
+
+.. autoexception:: pyignite3.Error
+.. autoexception:: pyignite3.Warning
+.. autoexception:: pyignite3.InterfaceError
+.. autoexception:: pyignite3.DatabaseError
+.. autoexception:: pyignite3.DataError
+.. autoexception:: pyignite3.InternalError
+.. autoexception:: pyignite3.OperationalError
+.. autoexception:: pyignite3.ProgrammingError
+.. autoexception:: pyignite3.IntegrityError
+.. autoexception:: pyignite3.NotSupportedError
