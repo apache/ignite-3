@@ -104,4 +104,10 @@ public class BigDecimalTests
         Assert.AreEqual(expectedUnscaled, (long)bigDecimal.UnscaledValue);
         Assert.AreEqual(expectedScale, bigDecimal.Scale);
     }
+
+    [Test]
+    public void TestCompareTo()
+    {
+        Assert.Fail("TODO");
+    }
 }
