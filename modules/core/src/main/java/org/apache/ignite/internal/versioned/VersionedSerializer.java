@@ -58,7 +58,7 @@ public abstract class VersionedSerializer<T> {
      * @throws IOException If an I/O error occurs.
      */
     public final void writeExternal(T object, IgniteDataOutput out) throws IOException {
-        int hdr = MAGIC + getProtocolVersion();
+        int hdr = MAGIC + (getProtocolVersion() & 0xFF);
 
         out.writeInt(hdr);
 
