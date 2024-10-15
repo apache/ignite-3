@@ -471,7 +471,33 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestBigDecimal()
         {
-            Assert.Fail("TODO");
+            Test(0, 3);
+            Test(0, 0);
+
+            Test(decimal.MaxValue, 0);
+            Test(decimal.MinValue, 0);
+
+            Test(12345.6789m, 4);
+            Test(12345.678m, 4);
+            Test(12345.67m, 4);
+
+            Test(-12345.6789m, 4);
+            Test(-12345.678m, 4);
+            Test(-12345.67m, 4);
+
+            Test(12345.6789m, 2, 12345.67m);
+            Test(12345.6789m, 0, 12345m);
+
+            Test(-12345.6789m, 2, -12345.67m);
+            Test(-12345.6789m, 0, -12345m);
+
+            static void Test(decimal val, int scale, decimal? expected = null)
+            {
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBigDecimal(new BigDecimal(val), scale));
+                var res = reader.GetBigDecimal(0, scale).ToDecimal();
+
+                Assert.AreEqual(expected ?? val, res);
+            }
         }
 
         [Test]
