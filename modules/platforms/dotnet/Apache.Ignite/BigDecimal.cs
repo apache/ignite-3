@@ -158,7 +158,11 @@ public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
 
         res = res.PadLeft(Scale, '0');
 
-        return res
-            .Insert(res.Length - Scale, numberFormatInfo.NumberDecimalSeparator);
+        if (res.Length == Scale)
+        {
+            return "0." + res;
+        }
+
+        return res.Insert(res.Length - Scale, numberFormatInfo.NumberDecimalSeparator);
     }
 }
