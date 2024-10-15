@@ -64,6 +64,15 @@ public class BigDecimalTests
     }
 
     [Test]
+    public void TestToDecimalOutOfRange()
+    {
+        var bigDecimal = new BigDecimal(BigInteger.Parse("123456789123456789123456789123456789123456789"), 3);
+
+        var ex = Assert.Throws<OverflowException>(() => bigDecimal.ToDecimal());
+        Assert.AreEqual("Value was either too large or too small for a Decimal.", ex.Message);
+    }
+
+    [Test]
     [TestCase("0", 0, null, "0")]
     [TestCase("0", 1, null, "0")]
     [TestCase("1", 0, null, "1")]
