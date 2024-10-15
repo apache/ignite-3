@@ -27,7 +27,7 @@ import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 public class DecoratorRegistry {
     private final Map<Class<?>, Decorator<?, TerminalOutput>> store = new HashMap<>();
 
-    public <T> void add(Class<T> clazz, Decorator<T, TerminalOutput> decorator) {
+    public <T> void add(Class<? extends T> clazz, Decorator<T, TerminalOutput> decorator) {
         store.put(clazz, decorator);
     }
 
@@ -35,7 +35,7 @@ public class DecoratorRegistry {
         store.putAll(decoratorRegistry.store);
     }
 
-    public <T> Decorator<T, TerminalOutput> getDecorator(Class<T> clazz) {
+    public <T> Decorator<T, TerminalOutput> getDecorator(Class<? extends T> clazz) {
         return (Decorator<T, TerminalOutput>) store.getOrDefault(clazz, new DefaultDecorator<T>());
     }
 }

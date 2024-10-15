@@ -17,26 +17,32 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig;
 
-import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.cliconfig.CliConfigShowCall;
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import picocli.CommandLine.Command;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * Command to get CLI configuration in REPL mode.
- */
-@Command(name = "show", description = "Shows currently activated config")
-public class CliConfigShowReplCommand extends BaseCommand implements Callable<Integer> {
-    @Inject
-    private CliConfigShowCall call;
+import org.junit.jupiter.api.Test;
 
+class CliConfigShowCommandReplTest extends CliConfigCommandTestBase {
     @Override
-    public Integer call() {
-        return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(StringCallInput::new)
+    protected Class<?> getCommandClass() {
+        return CliConfigShowReplCommand.class;
+    }
+
+    @Test
+    void showCliConfig() {
+        execute();
+
+        String[] expectedResult = {
+                "[database]" + System.lineSeparator(),
+                "server=127.0.0.1" + System.lineSeparator(),
+                "port=8080" + System.lineSeparator(),
+                "file=\"apache.ignite\"" + System.lineSeparator()
+        };
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputContains(expectedResult),
+                this::assertErrOutputIsEmpty
         );
     }
+
 }
