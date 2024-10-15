@@ -52,7 +52,7 @@ public class BigDecimalTests
             var bigDecimal = new BigDecimal(decimalVal);
             var result = bigDecimal.ToDecimal();
 
-            Assert.AreEqual(decimalVal, result);
+            Assert.AreEqual(decimalVal, result, $"Unscaled={unscaled}, Scale={scale}");
         }
     }
 
