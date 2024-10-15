@@ -560,7 +560,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
-            var unscaled = new BigInteger(span, isBigEndian: true);
+            var unscaled = new BigInteger(span[2..], isBigEndian: true);
 
             return new BigDecimal(unscaled, valScale);
         }
