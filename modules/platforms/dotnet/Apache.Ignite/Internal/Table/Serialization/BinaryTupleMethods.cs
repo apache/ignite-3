@@ -190,9 +190,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Gets the read method.
         /// </summary>
         /// <param name="type">Type of the value to read.</param>
+        /// <param name="targetTypeHint">User-requested type.</param>
         /// <returns>Read method for the specified value type.</returns>
-        public static MethodInfo GetReadMethod(Type type) =>
-            ReadMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
+        public static MethodInfo GetReadMethod(Type type, Type? targetTypeHint = null)
+        {
+            if (targetTypeHint != null)
+            {
+                if (type == typeof(BigDecimal) || type == typeof(BigDecimal?))
+                {
+                    if (targetTypeHint != typeof(BigDecimal) && targetTypeHint != typeof(BigDecimal?))
+                    {
+                        type = Nullable.GetUnderlyingType(type) != null ? typeof(decimal?) : typeof(decimal);
+                    }
+                }
+            }
+
+            return ReadMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
+        }
 
         /// <summary>
         /// Gets the read method.
