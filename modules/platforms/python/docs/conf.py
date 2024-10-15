@@ -20,6 +20,7 @@
 
 import os
 import sys
+import pyignite3
 
 sys.path.insert(0, os.path.abspath('../'))
 
@@ -29,7 +30,7 @@ sys.path.insert(0, os.path.abspath('../'))
 project = 'pyignite3'
 copyright = '2024, The Apache Software Foundation'
 author = 'The Apache Software Foundation'
-release = '3.1'
+release = pyignite3.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -64,5 +65,5 @@ html_sidebars = {
 html_theme_options = {
     'logo': 'Apache_Ignite_logo_128x128.png',
     'page_width': '1020px',
-    'sidebar_width': '240px',
+    'sidebar_width': '260px',
 }
