@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
@@ -68,7 +67,6 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -557,7 +555,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        var context = new RetryContext(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), 0);
+        var context = new RetryContext(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value());
 
         sendWithRetry(future, context);
 
@@ -581,22 +579,22 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         try {
             if (currentTimeMillis() >= retryContext.stopTime()) {
                 fut.completeExceptionally(new TimeoutException(format(
-                        "Send with retry timed out [retryCount = {}, groupId = {}].",
+                        "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}].",
                         retryContext.retryCount(),
-                        groupId
+                        groupId,
+                        retryContext.errorTraceId()
                 )));
 
                 return;
             }
 
-            NetworkMessage request = retryContext.request();
-
             resolvePeer(retryContext.targetPeer())
-                    .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
+                    .thenCompose(node -> cluster.messagingService()
+                            .invoke(node, retryContext.request(), configuration.responseTimeout().value()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
-                                    request,
+                                    retryContext.request(),
                                     resp,
                                     cluster.topologyService().localMember().address(),
                                     retryContext.targetPeer().consistentId(),
@@ -609,7 +607,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             } else if (resp instanceof ErrorResponse) {
                                 handleErrorResponse(fut, (ErrorResponse) resp, retryContext);
                             } else if (resp instanceof SMErrorResponse) {
-                                handleSmErrorResponse(fut, (SMErrorResponse) resp);
+                                handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
                             } else {
                                 leader = retryContext.targetPeer(); // The OK response was received from a leader.
 
@@ -640,17 +638,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (err instanceof TimeoutException) {
                 msg = "Recoverable TimeoutException during the request occurred (will be retried on a randomly selected node) "
-                        + "[request={}, peer={}, newPeer={}].";
+                        + "[request={}, peer={}, newPeer={}, traceId={}].";
             } else {
                 msg = "Recoverable error during the request occurred (will be retried on a randomly selected node) "
-                        + "[request={}, peer={}, newPeer={}].";
+                        + "[request={}, peer={}, newPeer={}, traceId={}].";
             }
 
             LOG.debug(
                     msg,
                     includeSensitive() ? retryContext.request() : retryContext.request().toStringForLightLogging(),
                     retryContext.targetPeer(),
-                    randomPeer
+                    randomPeer,
+                    retryContext.errorTraceId()
             );
         }
 
@@ -735,7 +734,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private static void handleSmErrorResponse(CompletableFuture<? extends NetworkMessage> fut, SMErrorResponse resp) {
+    private static void handleSmErrorResponse(
+            CompletableFuture<? extends NetworkMessage> fut, SMErrorResponse resp, RetryContext retryContext
+    ) {
         SMThrowable th = resp.error();
 
         if (th instanceof SMCompactedThrowable) {
@@ -746,16 +747,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         .getConstructor(String.class)
                         .newInstance(compactedThrowable.throwableMessage());
 
-                fut.completeExceptionally(restoredTh);
+                fut.completeExceptionally(new IgniteInternalException(retryContext.errorTraceId(), INTERNAL_ERR, restoredTh));
             } catch (Exception e) {
                 LOG.warn("Cannot restore throwable from user's state machine. "
                         + "Check if throwable " + compactedThrowable.throwableClassName()
                         + " is present in the classpath.");
 
-                fut.completeExceptionally(new IgniteException(compactedThrowable.throwableMessage()));
+                fut.completeExceptionally(new IgniteInternalException(
+                        retryContext.errorTraceId(), INTERNAL_ERR, compactedThrowable.throwableMessage()
+                ));
             }
         } else if (th instanceof SMFullThrowable) {
-            fut.completeExceptionally(((SMFullThrowable) th).throwable());
+            fut.completeExceptionally(new IgniteInternalException(
+                    retryContext.errorTraceId(), INTERNAL_ERR, ((SMFullThrowable) th).throwable()
+            ));
         } else {
             assert false : th;
         }
@@ -795,19 +800,34 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * {@link RetryContext#targetPeer()} and {@link RetryContext#unavailablePeers()}.
      */
     private Peer randomNode(@Nullable RetryContext retryContext) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19466
-        // assert !peers.isEmpty();
+        List<Peer> localPeers = peers;
 
-        List<Peer> availablePeers;
+        var availablePeers = new ArrayList<Peer>(localPeers.size());
 
         if (retryContext == null) {
-            availablePeers = new ArrayList<>(peers);
+            availablePeers.addAll(localPeers);
         } else {
-            availablePeers = peers.stream()
-                    .filter(peer -> !retryContext.unavailablePeers().contains(peer))
-                    .collect(toCollection(ArrayList::new));
+            for (Peer peer : localPeers) {
+                if (!retryContext.targetPeer().equals(peer) && !retryContext.unavailablePeers().contains(peer)) {
+                    availablePeers.add(peer);
+                }
+            }
+
+            if (availablePeers.isEmpty()) {
+                LOG.warn(
+                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, trace ID: {}].",
+                        localPeers, retryContext.errorTraceId()
+                );
+
+                retryContext.resetUnavailablePeers();
+
+                // Read the volatile field again, just in case it changed.
+                availablePeers.addAll(peers);
+            }
         }
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19466
+        // assert !availablePeers.isEmpty();
         if (availablePeers.isEmpty()) {
             throw new IgniteInternalException(INTERNAL_ERR, "No peers available [groupId=" + groupId + ']');
         }
@@ -815,7 +835,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Collections.shuffle(availablePeers, ThreadLocalRandom.current());
 
         return availablePeers.stream()
-                .filter(peer -> retryContext != null && !retryContext.targetPeer().equals(peer))
                 .filter(peer -> cluster.topologyService().getByConsistentId(peer.consistentId()) != null)
                 .findAny()
                 .orElse(availablePeers.get(0));

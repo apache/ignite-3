@@ -43,7 +43,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.ConnectException;
@@ -640,7 +642,14 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
 
-        assertThat(response, willThrow(IgniteInternalException.class, String.format("No peers available [groupId=%s]", TEST_GRP)));
+        assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
+
+        // Verify that we tried to send the message to every node.
+        NODES.forEach(node -> verify(messagingService, atLeastOnce()).invoke(
+                argThat((ClusterNode target) -> target != null && target.name().equals(node.consistentId())),
+                any(ReadActionRequest.class),
+                anyLong()
+        ));
     }
 
     @ParameterizedTest
