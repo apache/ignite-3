@@ -78,6 +78,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -148,8 +149,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
      *     <li>Send command with safe time less than X to the new leader and verify that SafeTimeReorderException is thrown.</li>
      * </ol>
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21565")
+    @RepeatedTest(100)
     public void testSafeTimeReorderingOnLeaderReElection() throws Exception {
         // Start three nodes and a raft group with three peers.
         {
@@ -164,6 +164,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
 
+        // Send first safeTime aware raft command in order to initialize leader's safe time.
         sendSafeTimeSyncCommand(raftClient, HybridTimestamp.MIN_VALUE, true);
 
         HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
@@ -186,6 +187,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         assertTrue(aliveNode.isPresent());
 
         RaftGroupService anotherClient = aliveNode.get().raftClient;
+
+        assertThat(anotherClient.refreshLeader(), willCompleteSuccessfully());
 
         // Send command with safe time less than previously applied to the new leader and verify that SafeTimeReorderException is thrown.
         sendSafeTimeSyncCommand(anotherClient, firstSafeTime.subtractPhysicalTime(1), true);
@@ -214,7 +217,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
      *     and verify that SafeTimeReorderException is thrown.</li>
      * </ol>
      */
-    @Test
+    @RepeatedTest(100)
     public void testSafeTimeReorderingOnLeaderRestart() throws Exception {
         // Start two node and a raft group with two peer.
         {
@@ -229,6 +232,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
 
+        // Send first safeTime aware raft command in order to initialize leader's safe time.
         sendSafeTimeSyncCommand(raftClient, HybridTimestamp.MIN_VALUE, true);
 
         HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
@@ -244,6 +248,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         // And restart.
         startCluster(cluster);
+
+        assertThat(someNode.raftClient.refreshLeader(), willCompleteSuccessfully());
 
         // Send command with safe time less than previously applied to the leader before the restart
         // and verify that SafeTimeReorderException is thrown.
