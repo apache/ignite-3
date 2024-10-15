@@ -78,6 +78,14 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
         return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
     }
 
+    /** Data provider with non zero for second value. */
+    static DataProvider<Object[]> dataProviderWithNonZeroSecondValue(TypePair typePair) {
+        Object val1 = SqlTestUtils.generateValueByType(typePair.first());
+        Object val2 = generateNotZeroValueByType(typePair.second());
+
+        return DataProvider.fromRow(new Object[]{0, val1, val2}, 1);
+    }
+
     private static @Nullable Object generateReducedValueByType(NativeType nativeType) {
         ColumnType type = nativeType.spec().asColumnType();
 
@@ -132,6 +140,82 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
     private static Object generateConstantValueByType(NativeType type) {
         return generateConstantValueByType(type, "2");
+    }
+
+    private static Object generateNotZeroValueByType(NativeType nativeType) {
+        ColumnType type = nativeType.spec().asColumnType();
+
+        switch (type) {
+            case INT8: {
+                byte res;
+
+                do {
+                    res = (byte) (((byte) SqlTestUtils.generateValueByType(type, 0, 0)));
+                } while (res == 0);
+
+                return res;
+            }
+            case INT16: {
+                short res;
+
+                do {
+                    res = ((short) SqlTestUtils.generateValueByType(type, 0, 0));
+                } while (res == 0);
+
+                return res;
+            }
+            case INT32: {
+                int res;
+
+                do {
+                    res = (int) SqlTestUtils.generateValueByType(type, 0, 0);
+                } while (res == 0);
+
+                return res;
+            }
+            case INT64: {
+                long res;
+
+                do {
+                    res = (long) SqlTestUtils.generateValueByType(type, 0, 0);
+                } while (res == 0);
+
+                return res;
+            }
+            case FLOAT: {
+                float res;
+
+                do {
+                    res = (float) SqlTestUtils.generateValueByType(type, 0, 0);
+                } while (Math.signum(res) == 0);
+
+                return res;
+            }
+            case DOUBLE: {
+                double res;
+
+                do {
+                    res = (double) SqlTestUtils.generateValueByType(type, 0, 0);
+                } while (Math.signum(res) == 0);
+
+                return res;
+            }
+            case DECIMAL: {
+                int scale = ((DecimalNativeType) nativeType).scale();
+                int precision = ((DecimalNativeType) nativeType).precision();
+
+                BigDecimal res;
+
+                do {
+                    res = ((BigDecimal) SqlTestUtils.generateValueByType(type, precision, scale))
+                            .divide(BigDecimal.valueOf(2), RoundingMode.HALF_DOWN).setScale(scale, RoundingMode.HALF_DOWN);
+                } while (res.compareTo(BigDecimal.ZERO) == 0);
+
+                return res;
+            }
+            default:
+                throw new IllegalArgumentException("unsupported type " + type);
+        }
     }
 
     static ClusterWrapper testCluster(TypePair typePair, DataProvider<Object[]> dataProvider) {

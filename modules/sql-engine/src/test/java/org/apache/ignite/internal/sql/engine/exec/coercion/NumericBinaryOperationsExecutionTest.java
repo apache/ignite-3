@@ -75,7 +75,7 @@ public class NumericBinaryOperationsExecutionTest extends BaseTypeCheckExecution
 
         String sql = "SELECT c1 % c2 FROM t";
 
-        try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
+        try (ClusterWrapper testCluster = testCluster(typePair, dataProviderWithNonZeroSecondValue(typePair))) {
             testCluster.process(sql, checkReturnResult());
         }
     }
