@@ -65,8 +65,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo AppendDateTimeNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateTimeNullable))!;
         private static readonly MethodInfo AppendTimestamp = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestamp))!;
         private static readonly MethodInfo AppendTimestampNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestampNullable))!;
-        private static readonly MethodInfo AppendDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimal))!;
-        private static readonly MethodInfo AppendDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimalNullable))!;
+        private static readonly MethodInfo AppendDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimal))!;
+        private static readonly MethodInfo AppendDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimalNullable))!;
+        private static readonly MethodInfo AppendBigDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimal))!;
+        private static readonly MethodInfo AppendBigDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimalNullable))!;
         private static readonly MethodInfo AppendBytes =
             typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytesNullable), new[] { typeof(byte[]) })!;
 
@@ -131,6 +133,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(byte[]), AppendBytes },
             { typeof(decimal), AppendDecimal },
             { typeof(decimal?), AppendDecimalNullable },
+            { typeof(BigDecimal), AppendBigDecimal },
+            { typeof(BigDecimal?), AppendBigDecimalNullable }
         };
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
