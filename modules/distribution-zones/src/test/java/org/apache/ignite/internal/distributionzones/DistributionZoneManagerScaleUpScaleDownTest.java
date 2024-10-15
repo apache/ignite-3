@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
@@ -451,7 +452,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
                 keyValueStorage.putAll(
                         List.of(keyScaleUp, keyDataNodes),
                         List.of(longToBytesKeepingOrder(revisionOfScaleUp + 100L), value),
-                        HybridTimestamp.MIN_VALUE
+                        kvContext(HybridTimestamp.MIN_VALUE)
                 );
             }
 
@@ -503,7 +504,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
                 keyValueStorage.putAll(
                         List.of(keyScaleDown, keyDataNodes),
                         List.of(scaleDownRevision, keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
-                        HybridTimestamp.MIN_VALUE
+                        kvContext(HybridTimestamp.MIN_VALUE)
                 );
             }
 

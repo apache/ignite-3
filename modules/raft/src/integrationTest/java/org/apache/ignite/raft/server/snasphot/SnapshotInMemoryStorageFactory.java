@@ -30,6 +30,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The factory for a snapshot storage, which is persisted in the map.
@@ -48,7 +49,7 @@ public class SnapshotInMemoryStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public @Nullable SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         return new SnapshotStorage() {
             @Override
             public boolean setFilterBeforeCopyRemote() {

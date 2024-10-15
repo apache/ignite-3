@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -129,8 +131,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         byte[] key3 = key(3);
         byte[] val3 = keyValue(3, 3);
-
-        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
 
@@ -1959,13 +1959,13 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         // 1 -> 5
         // 2 -> 10
         // 3 -> 15
-        storage.put(key(1), keyValue(1, 1), hybridTimestamp(5));
+        storage.put(key(1), keyValue(1, 1), kvContext(hybridTimestamp(5)));
         assertEquals(1, storage.revision());
 
-        storage.put(key(1), keyValue(1, 1), hybridTimestamp(10));
+        storage.put(key(1), keyValue(1, 1), kvContext(hybridTimestamp(10)));
         assertEquals(2, storage.revision());
 
-        storage.put(key(2), keyValue(2, 2), hybridTimestamp(15));
+        storage.put(key(2), keyValue(2, 2), kvContext(hybridTimestamp(15)));
         assertEquals(3, storage.revision());
 
         // Check revisionByTimestamp()
@@ -1998,10 +1998,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         HybridTimestamp timestamp0 = hybridTimestamp(10L);
         HybridTimestamp timestamp1 = hybridTimestamp(20L);
 
-        storage.put(key, value, timestamp0);
+        storage.put(key, value, kvContext(timestamp0));
         assertEquals(timestamp0, storage.timestampByRevision(1));
 
-        storage.put(key, value, timestamp1);
+        storage.put(key, value, kvContext(timestamp1));
         assertEquals(timestamp0, storage.timestampByRevision(1));
         assertEquals(timestamp1, storage.timestampByRevision(2));
     }
@@ -2014,10 +2014,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         HybridTimestamp timestamp0 = hybridTimestamp(10L);
         HybridTimestamp timestamp1 = hybridTimestamp(20L);
 
-        storage.put(key, val, timestamp0);
+        storage.put(key, val, kvContext(timestamp0));
         checkEntriesTimestamp(List.of(key), timestamp0);
 
-        storage.put(key, val, timestamp1);
+        storage.put(key, val, kvContext(timestamp1));
         checkEntriesTimestamp(List.of(key), timestamp1);
 
         checkEntriesTimestamp(List.of(key), storage.revision() - 1, timestamp0);
@@ -2036,13 +2036,13 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         List<byte[]> keys = List.of(key0, key1);
 
-        storage.putAll(keys, List.of(val, val), timestamp0);
+        storage.putAll(keys, List.of(val, val), kvContext(timestamp0));
         checkEntriesTimestamp(keys, timestamp0, timestamp0);
 
-        storage.putAll(List.of(key0), List.of(val), timestamp1);
+        storage.putAll(List.of(key0), List.of(val), kvContext(timestamp1));
         checkEntriesTimestamp(keys, timestamp1, timestamp0);
 
-        storage.putAll(List.of(key1), List.of(val), timestamp2);
+        storage.putAll(List.of(key1), List.of(val), kvContext(timestamp2));
         checkEntriesTimestamp(keys, timestamp1, timestamp2);
 
         checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0);
@@ -2058,9 +2058,9 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         HybridTimestamp timestamp0 = hybridTimestamp(10L);
         HybridTimestamp timestamp1 = hybridTimestamp(20L);
 
-        storage.put(key, val, timestamp0);
+        storage.put(key, val, kvContext(timestamp0));
 
-        storage.remove(key, timestamp1);
+        storage.remove(key, kvContext(timestamp1));
         checkEntriesTimestamp(List.of(key), timestamp1);
 
         checkEntriesTimestamp(List.of(key), storage.revision() - 1, timestamp0);
@@ -2080,12 +2080,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         List<byte[]> keys = List.of(key0, key1, key2);
 
-        storage.putAll(keys, List.of(val, val, val), timestamp0);
+        storage.putAll(keys, List.of(val, val, val), kvContext(timestamp0));
 
-        storage.removeAll(List.of(key0, key2), timestamp1);
+        storage.removeAll(List.of(key0, key2), kvContext(timestamp1));
         checkEntriesTimestamp(keys, timestamp1, timestamp0, timestamp1);
 
-        storage.removeAll(List.of(key1), timestamp2);
+        storage.removeAll(List.of(key1), kvContext(timestamp2));
         checkEntriesTimestamp(keys, timestamp1, timestamp2, timestamp1);
 
         checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0, timestamp0);
@@ -2112,14 +2112,14 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 new Statement(ops(noop()).yield())
         );
 
-        storage.invoke(if0, timestamp0, createCommandId());
+        storage.invoke(if0, kvContext(timestamp0), createCommandId());
         checkEntriesTimestamp(keys, timestamp0, timestamp0, timestamp0);
 
         storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key0),
                 List.of(put(new ByteArray(key0), val), remove(new ByteArray(key2))),
                 List.of(),
-                timestamp1,
+                kvContext(timestamp1),
                 createCommandId()
         );
         checkEntriesTimestamp(keys, timestamp1, timestamp0, timestamp1);
@@ -2130,7 +2130,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 new Statement(ops(noop()).yield())
         );
 
-        storage.invoke(if1, timestamp2, createCommandId());
+        storage.invoke(if1, kvContext(timestamp2), createCommandId());
         checkEntriesTimestamp(keys, timestamp2, timestamp0, timestamp1);
 
         checkEntriesTimestamp(keys, storage.revision() - 2, timestamp0, timestamp0, timestamp0);
@@ -2143,7 +2143,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key = key(0);
         byte[] value = keyValue(0, 0);
 
-        storage.put(key, value, hybridTimestamp(10));
+        storage.put(key, value, kvContext(hybridTimestamp(10)));
 
         long checksum1 = 0;
         if (supportsChecksums()) {
@@ -2154,10 +2154,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         restartStorage();
-
-        assertEquals(0L, storage.revision());
-        assertTrue(storage.get(key).empty());
-
         storage.restoreSnapshot(snapshotDir);
 
         assertEquals(1L, storage.revision());
@@ -2174,18 +2170,39 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         byte[] key1 = key(1);
         byte[] value = keyValue(0, 0);
 
-        storage.put(key0, value, hybridTimestamp(10));
+        storage.put(key0, value, kvContext(hybridTimestamp(10)));
 
         Path snapshotDir = workDir.resolve("snapshotDir");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        storage.put(key1, value, hybridTimestamp(10));
+        storage.put(key1, value, kvContext(hybridTimestamp(10)));
 
         storage.restoreSnapshot(snapshotDir);
 
         assertEquals(1L, storage.revision());
         assertFalse(storage.get(key0).empty());
         assertTrue(storage.get(key1).empty());
+    }
+
+    @Test
+    void testClear() {
+        byte[] key = key(0);
+
+        storage.put(key, key, kvContext(hybridTimestamp(1)));
+        assertEquals(1, storage.revision());
+
+        storage.clear();
+
+        assertTrue(storage.get(key).empty());
+
+        assertEquals(0, storage.revision());
+        assertEquals(-1, storage.getCompactionRevision());
+
+        assertNull(storage.getConfiguration());
+        assertNull(storage.getIndexWithTerm());
+
+        // "timestampByRevision" is not checked, because its behavior depends on "-ea" flag.
+        assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(hybridTimestamp(2)));
     }
 
     private CompletableFuture<Void> watchExact(
@@ -2255,19 +2272,19 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     void putToMs(byte[] key, byte[] value) {
-        storage.put(key, value, MIN_VALUE);
+        storage.put(key, value, kvContext(MIN_VALUE));
     }
 
     void putAllToMs(List<byte[]> keys, List<byte[]> values) {
-        storage.putAll(keys, values, MIN_VALUE);
+        storage.putAll(keys, values, kvContext(MIN_VALUE));
     }
 
     void removeFromMs(byte[] key) {
-        storage.remove(key, MIN_VALUE);
+        storage.remove(key, kvContext(MIN_VALUE));
     }
 
     void removeAllFromMs(List<byte[]> keys) {
-        storage.removeAll(keys, MIN_VALUE);
+        storage.removeAll(keys, kvContext(MIN_VALUE));
     }
 
     private boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure) {
@@ -2279,7 +2296,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 condition,
                 success,
                 failure,
-                MIN_VALUE,
+                kvContext(MIN_VALUE),
                 commandId
         );
     }
@@ -2291,7 +2308,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     StatementResult invokeOnMs(If iif, CommandId commandId) {
         return storage.invoke(
                 iif,
-                MIN_VALUE,
+                kvContext(MIN_VALUE),
                 commandId
         );
     }

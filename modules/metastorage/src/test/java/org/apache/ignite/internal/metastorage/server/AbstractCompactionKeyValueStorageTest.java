@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -75,13 +76,13 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         super.setUp();
 
         // Revision = 1.
-        storage.putAll(List.of(FOO_KEY, BAR_KEY), List.of(SOME_VALUE, SOME_VALUE), clock.now());
+        storage.putAll(List.of(FOO_KEY, BAR_KEY), List.of(SOME_VALUE, SOME_VALUE), kvContext(clock.now()));
         // Revision = 2.
-        storage.put(BAR_KEY, SOME_VALUE, clock.now());
+        storage.put(BAR_KEY, SOME_VALUE, kvContext(clock.now()));
         // Revision = 3.
-        storage.put(FOO_KEY, SOME_VALUE, clock.now());
+        storage.put(FOO_KEY, SOME_VALUE, kvContext(clock.now()));
         // Revision = 4.
-        storage.put(SOME_KEY, SOME_VALUE, clock.now());
+        storage.put(SOME_KEY, SOME_VALUE, kvContext(clock.now()));
 
         var fooKey = new ByteArray(FOO_KEY);
         var barKey = new ByteArray(BAR_KEY);
@@ -93,14 +94,14 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                 new Statement(ops(noop()).yield())
         );
 
-        storage.invoke(iif, clock.now(), new CommandIdGenerator(UUID::randomUUID).newId());
+        storage.invoke(iif, kvContext(clock.now()), new CommandIdGenerator(UUID::randomUUID).newId());
 
         // Revision = 6.
-        storage.remove(SOME_KEY, clock.now());
+        storage.remove(SOME_KEY, kvContext(clock.now()));
 
         // Revision = 7.
         // Special revision update to prevent tests from failing.
-        storage.put(fromString("fake"), SOME_VALUE, clock.now());
+        storage.put(fromString("fake"), SOME_VALUE, kvContext(clock.now()));
 
         assertEquals(7, storage.revision());
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
@@ -268,7 +269,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         restartStorage();
 
-        assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(1, storage.getCompactionRevision());
     }
 
     @Test
