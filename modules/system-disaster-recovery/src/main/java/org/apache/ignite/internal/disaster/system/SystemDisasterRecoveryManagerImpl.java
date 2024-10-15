@@ -201,7 +201,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> resetCluster(List<String> proposedCmgNodeNames) {
-        assert proposedCmgNodeNames != null;
+        if (proposedCmgNodeNames == null) {
+            return failedFuture(new ClusterResetException("Proposed CMG node names can't be null."));
+        }
 
         return resetClusterInternal(proposedCmgNodeNames, null);
     }
@@ -232,12 +234,10 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     ) {
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
 
-        if (proposedCmgNodeNames != null) {
-            ensureNoRepetitions(proposedCmgNodeNames);
-            ensureContainsThisNodeName(proposedCmgNodeNames);
+        ensureNoRepetitions(proposedCmgNodeNames);
+        ensureContainsThisNodeName(proposedCmgNodeNames);
 
-            ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
-        }
+        ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
 
         ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
         ensureReplicationFactorFitsTopologyIfGiven(metastorageReplicationFactor, nodesInTopology);

@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -45,12 +44,7 @@ public class ResetClusterRequest {
             @JsonProperty("cmgNodeNames") @Nullable List<String> cmgNodeNames,
             @JsonProperty("metastorageReplicationFactor") @Nullable Integer metastorageReplicationFactor
     ) {
-        if (metastorageReplicationFactor == null) {
-            Objects.requireNonNull(cmgNodeNames);
-            this.cmgNodeNames = List.copyOf(cmgNodeNames);
-        } else {
-            this.cmgNodeNames = cmgNodeNames;
-        }
+        this.cmgNodeNames = cmgNodeNames == null ? null : List.copyOf(cmgNodeNames);
 
         this.metastorageReplicationFactor = metastorageReplicationFactor;
     }
@@ -70,5 +64,10 @@ public class ResetClusterRequest {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /** If Metastorage repair should be done along with cluster reset. */
+    public boolean metastorageRepairRequested() {
+        return metastorageReplicationFactor != null;
     }
 }
