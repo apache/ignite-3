@@ -60,7 +60,7 @@ public class BigDecimalTests
     public void TestNegativeScaleIsNotSupported()
     {
         // ReSharper disable once ObjectCreationAsStatement
-        Assert.Throws<ArgumentOutOfRangeException>(() => new BigDecimal(BigInteger.One, -1));
+        Assert.Throws<ArgumentException>(() => new BigDecimal(BigInteger.One, -1));
     }
 
     [Test]
@@ -89,5 +89,16 @@ public class BigDecimalTests
             : bigDecimal.ToString(CultureInfo.GetCultureInfo(cultureName));
 
         Assert.AreEqual(expected, str);
+    }
+
+    [Test]
+    [TestCase(0, 0, 0)]
+    [TestCase(1, 1, 0)]
+    public void TestUnscaledValueAndScale(decimal val, long expectedUnscaled, short expectedScale)
+    {
+        var bigDecimal = new BigDecimal(val);
+
+        Assert.AreEqual(expectedUnscaled, (long)bigDecimal.UnscaledValue);
+        Assert.AreEqual(expectedScale, bigDecimal.Scale);
     }
 }
