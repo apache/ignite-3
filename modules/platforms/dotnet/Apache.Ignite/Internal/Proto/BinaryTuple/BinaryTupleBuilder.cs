@@ -550,8 +550,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendBigDecimal(BigDecimal value, int scale)
         {
-            PutShort(value.Scale);
-            PutNumber(value.UnscaledValue);
+            var valueScale = value.Scale;
+            var unscaledValue = value.UnscaledValue;
+
+            if (valueScale > scale)
+            {
+                unscaledValue /= BigInteger.Pow(10, valueScale - scale);
+                valueScale = (short)scale;
+            }
+
+            PutShort(valueScale);
+            PutNumber(unscaledValue);
         }
 
         /// <summary>
