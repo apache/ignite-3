@@ -229,8 +229,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = createConfiguration(List.of(follower), List.of());
 
-        RaftGroupService service1 =
-                startRaftGroup(follower, configuration.peer(follower.consistentId()), configuration, new TestRaftGroupListener());
+        RaftGroupService service1 = startRaftGroup(
+                follower,
+                configuration.peer(follower.consistentId()),
+                configuration,
+                new TestRaftGroupListener()
+        );
 
         assertThat(service1.refreshLeader(), willCompleteSuccessfully());
 
@@ -395,7 +399,10 @@ public class ItLearnersTest extends IgniteAbstractTest {
         var newLearnerListener = new TestRaftGroupListener();
 
         startRaftGroup(
-                newLearner, newConfiguration.learner(newLearner.consistentId()), newConfiguration, newLearnerListener
+                newLearner,
+                newConfiguration.learner(newLearner.consistentId()),
+                newConfiguration,
+                newLearnerListener
         );
 
         assertThat(newLearnerListener.storage.poll(10, TimeUnit.SECONDS), is("foo"));
