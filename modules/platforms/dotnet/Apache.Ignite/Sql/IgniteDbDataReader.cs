@@ -211,7 +211,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         ValidateColumnType(typeof(decimal), column);
 
-        return GetReader().GetDecimal(ordinal, column.Scale);
+        return GetReader().GetDecimal(ordinal, column.Scale).ToDecimal();
     }
 
     /// <inheritdoc/>
