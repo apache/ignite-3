@@ -262,7 +262,7 @@ namespace Apache.Ignite.Tests.Compute
                 IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val);
                 object res = await resExec.GetResultAsync();
 
-                if (res is BigDecimal bigDecimal)
+                if (res is BigDecimal bigDecimal && val is decimal)
                 {
                     res = bigDecimal.ToDecimal();
                 }
