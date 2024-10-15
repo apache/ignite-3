@@ -485,6 +485,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     try {
                         if (!ixLocksOwners.isEmpty()) {
+                            assert !ixLocksOwners.containsKey(txId) : "Unsupported coarse lock upgrade mode: IX -> S";
+
                             UUID holderTx = ixLocksOwners.keySet().iterator().next();
                             CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
                             if (res.isCompletedExceptionally()) {
@@ -498,10 +500,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                     new IgniteBiTuple<>(new Lock(lockKey, lockMode, txId), fut));
                             return prev == null ? fut : prev.get2();
                         } else {
-                            track(txId, this);
-
                             Lock lock = new Lock(lockKey, lockMode, txId);
-                            sLocksOwners.put(txId, lock);
+                            Lock prev = sLocksOwners.putIfAbsent(txId, lock);
+
+                            if (prev == null) {
+                                track(txId, this); // Do not track on reenter.
+                            }
+
                             return completedFuture(lock);
                         }
                     } finally {
@@ -513,24 +518,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 case IX:
                     int idx = Math.abs(txId.hashCode()) % stripes.length;
 
-                    // Attempt to find a holder candidate.
                     while(true) {
                         // This will prevent IX to block S, giving deadlock avoidance.
                         boolean locked = stripes[idx].readLock().tryLock();
 
+                        // Striped lock is held for short time. Can spin wait here.
                         if (!locked) {
-                            // Try to get report tx holder.
-                            Iterator<UUID> iter = sLocksOwners.keySet().iterator();
-
-                            if (iter.hasNext()) {
-                                UUID holderTx = iter.next();
-                                CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
-                                if (res.isCompletedExceptionally()) {
-                                    return failedFuture(abandonedLockException(txId, holderTx));
-                                } else {
-                                    return failedFuture(lockException(txId, holderTx)); // IX locks never wait.
-                                }
-                            }
+                            Thread.onSpinWait();
                         } else {
                             break;
                         }
@@ -538,6 +532,24 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     try {
                         if (!sLocksOwners.isEmpty()) {
+                            if (sLocksOwners.containsKey(txId)) {
+                                // S-locks can't be modified under the striped lock.
+                                if (sLocksOwners.size() == 1) {
+                                    // Safe to re-enter.
+                                    track(txId, this); // Double track.
+                                    Lock lock = new Lock(lockKey, lockMode, txId);
+                                    Lock prev = ixLocksOwners.putIfAbsent(txId, lock);
+                                    return completedFuture(lock);
+                                } else {
+                                    // Concurrent transactions attempt to upgrade to SIX. Deny lock attempt.
+                                    for (Lock lock : ixLocksOwners.values()) {
+                                        if (!lock.txId().equals(txId)) {
+                                            return failedFuture(lockException(txId, lock.txId()));
+                                        }
+                                    }
+                                }
+                            }
+
                             UUID holderTx = sLocksOwners.keySet().iterator().next();
                             CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
                             if (eventResult.isCompletedExceptionally()) {
@@ -546,9 +558,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 return failedFuture(lockException(txId, holderTx));  // IX locks never wait.
                             }
                         } else {
-                            track(txId, this);
                             Lock lock = new Lock(lockKey, lockMode, txId);
-                            ixLocksOwners.putIfAbsent(txId, lock); // Avoid overwrite existing lock.
+                            Lock prev = ixLocksOwners.putIfAbsent(txId, lock);// Avoid overwrite existing lock.
+
+                            if (prev == null) {
+                                track(txId, this); // Do not track on reenter.
+                            }
+
                             return completedFuture(lock);
                         }
                     } finally {
@@ -601,8 +617,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                         assert removed != null: "Attempt to release not acquired lock: " + lock.txId();
 
-                        if (!ixLocksOwners.isEmpty() || sLocksWaiters.isEmpty()) {
-                            assert sLocksOwners.isEmpty();
+                        if (sLocksWaiters.isEmpty()) {
+                            return; // Nothing to do.
+                        }
+
+                        if (!ixLocksOwners.isEmpty()) {
+                            assert sLocksOwners.isEmpty() || sLocksOwners.containsKey(lock.txId());
 
                             return; // Nothing to do.
                         }
