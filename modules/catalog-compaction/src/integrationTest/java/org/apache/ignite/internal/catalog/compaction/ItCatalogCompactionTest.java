@@ -45,7 +45,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
@@ -129,7 +129,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void testGlobalMinimumTxBeginTime() {
+    void testGlobalMinimumTxRequiredTime() {
         IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
         IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
         IgniteImpl node2 = unwrapIgniteImpl(CLUSTER.node(2));
@@ -140,23 +140,31 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 node2.catalogCompactionRunner()
         );
 
-        Collection<ClusterNode> topologyNodes = node0.clusterNodes();
+        // The test requires that no one else change the schema while it is running.
+        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
 
-        Catalog catalog1 = getLatestCatalog(node0);
-        InternalTransaction tx1 = startRwTxWithStartTimeNotLessThan(node0, node0.clock().now());
+        Catalog catalog1 = getLatestCatalog(node2);
+        InternalTransaction tx1 = (InternalTransaction) node0.transactions().begin();
 
+        // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
         Catalog catalog2 = getLatestCatalog(node0);
-        InternalTransaction tx2 = startRwTxWithStartTimeNotLessThan(node1, tx1.startTimestamp());
+        assertThat(catalog2.version(), is(catalog1.version() + 1));
+        InternalTransaction tx2 = (InternalTransaction) node1.transactions().begin();
+        InternalTransaction ignoredReadonlyTx =
+                (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
 
+        // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
-        Catalog catalog3 = getLatestCatalog(node0);
-        InternalTransaction readonlyTx = (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
-        InternalTransaction tx3 = startRwTxWithStartTimeNotLessThan(node2, tx2.startTimestamp());
+        Catalog catalog3 = getLatestCatalog(node1);
+        assertThat(catalog3.version(), is(catalog2.version() + 1));
+        InternalTransaction tx3 = (InternalTransaction) node2.transactions().begin();
 
         // make sure that transactions are ordered as expected
         assertThat(tx2.startTimestamp().longValue(), greaterThan(tx1.startTimestamp().longValue()));
         assertThat(tx3.startTimestamp().longValue(), greaterThan(tx2.startTimestamp().longValue()));
+
+        Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
@@ -188,13 +196,13 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             long maxTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
 
             // Read-only transactions are not counted,
-            assertThat(timeHolder.minActiveTxBeginTime, greaterThan(readonlyTx.startTimestamp().longValue()));
+            assertThat(timeHolder.minActiveTxBeginTime, greaterThan(ignoredReadonlyTx.startTimestamp().longValue()));
 
             assertThat(timeHolder.minActiveTxBeginTime, greaterThanOrEqualTo(minTime));
             assertThat(timeHolder.minActiveTxBeginTime, lessThanOrEqualTo(maxTime));
         });
 
-        readonlyTx.rollback();
+        ignoredReadonlyTx.rollback();
     }
 
     @Test
@@ -268,15 +276,5 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }, 1000, waitTime);
 
         assertTrue(compacted, "The earliest catalog version does not match. Wait time ms=" + waitTime);
-    }
-
-    private static InternalTransaction startRwTxWithStartTimeNotLessThan(IgniteImpl ignite, HybridTimestamp timestamp) {
-        ignite.clock().update(timestamp);
-
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin();
-
-        assertThat(tx.startTimestamp().longValue(), greaterThan(timestamp.longValue()));
-
-        return tx; 
     }
 }

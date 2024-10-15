@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.tx;
 
 /**
- * Provides the minimum required catalog timestamp among all active RW transactions started locally.
+ * Provides a timestamp corresponding to the activation time of the
+ * earliest catalog version that can be used by active local RW transactions.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ActiveLocalTxMinimumRequiredCatalogTimeProvider {
     /**
-     * Returns the minimum required catalog timestamp among all active RW transactions started locally,
+     * Returns a timestamp corresponding to the activation time of the
+     * earliest catalog version that active local RW transactions can use,
      * or the current time if there are no active RW transactions.
      */
     long minimumRequiredTime();
