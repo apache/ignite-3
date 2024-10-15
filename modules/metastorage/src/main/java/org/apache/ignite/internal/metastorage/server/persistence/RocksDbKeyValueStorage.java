@@ -92,8 +92,6 @@ import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.apache.ignite.internal.metastorage.server.Watch;
-import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;

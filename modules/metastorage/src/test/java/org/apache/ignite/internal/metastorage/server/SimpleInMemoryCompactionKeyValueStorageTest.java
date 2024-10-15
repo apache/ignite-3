@@ -25,7 +25,7 @@ public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompact
     }
 
     @Override
-    public void testSaveCompactionRevisionAndRestart() {
+    void testSaveCompactionRevisionAndRestart() {
         // No-op. In-memory storage implementation loses the data upon restart.
     }
 }

@@ -62,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -141,36 +140,52 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void setIndexAndTerm(long index, long term) {
-        synchronized (mux) {
+        rwLock.writeLock().lock();
+
+        try {
             this.index = index;
             this.term = term;
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
     @Override
     public @Nullable IndexWithTerm getIndexWithTerm() {
-        synchronized (mux) {
+        rwLock.writeLock().lock();
+
+        try {
             if (index == 0) {
                 return null;
             }
 
             return new IndexWithTerm(index, term);
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
     @Override
     public void saveConfiguration(byte[] configuration, long index, long term) {
-        synchronized (mux) {
+        rwLock.writeLock().lock();
+
+        try {
             this.configuration = configuration;
 
             setIndexAndTerm(index, term);
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
     @Override
     public byte @Nullable [] getConfiguration() {
-        synchronized (mux) {
+        rwLock.writeLock().lock();
+
+        try {
             return configuration;
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -757,7 +772,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void clear() {
-        synchronized (mux) {
+        rwLock.writeLock().lock();
+
+        try {
             this.index = 0;
             this.term = 0;
             this.configuration = null;
@@ -773,6 +790,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             this.revToTsMap.clear();
 
             this.updatedEntries.clear();
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
