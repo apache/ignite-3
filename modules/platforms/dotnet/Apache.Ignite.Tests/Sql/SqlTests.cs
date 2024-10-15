@@ -526,6 +526,19 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestMaxDecimalScale()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (10 / ?)", 3m);
+            IIgniteTuple res = await resultSet.SingleAsync();
+
+            var bigDecimal = (BigDecimal)res[0]!;
+
+            Assert.AreEqual(32757, bigDecimal.Scale);
+            Assert.AreEqual(13603, bigDecimal.UnscaledValue.GetByteCount());
+            StringAssert.StartsWith("3.3333333333", bigDecimal.ToString());
+        }
+
+        [Test]
         public async Task TestStatementTimeZoneWithAllZones([Values(true, false)] bool useNodaTime)
         {
             using var client = await IgniteClient.StartAsync(GetConfig() with { LoggerFactory = NullLoggerFactory.Instance });
