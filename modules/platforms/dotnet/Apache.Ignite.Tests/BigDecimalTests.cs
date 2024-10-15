@@ -94,6 +94,9 @@ public class BigDecimalTests
     [Test]
     [TestCase(0, 0, 0)]
     [TestCase(1, 1, 0)]
+    [TestCase(12.3456, 123456, 4)]
+    [TestCase(12.34560, 123456, 4)]
+    [TestCase(.1, 1, 1)]
     public void TestUnscaledValueAndScale(decimal val, long expectedUnscaled, short expectedScale)
     {
         var bigDecimal = new BigDecimal(val);
