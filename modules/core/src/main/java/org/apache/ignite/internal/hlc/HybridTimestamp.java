@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.JavaLoggerFormatter.DATE_FORMATTER
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneId;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -119,6 +120,15 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public static long hybridTimestampToLong(@Nullable HybridTimestamp timestamp) {
         return timestamp == null ? NULL_HYBRID_TIMESTAMP : timestamp.time;
+    }
+
+    /**
+     * Restores a timestamp converted to bytes using {@link #toBytes()}.
+     *
+     * @param bytes Byte array representing a timestamp.
+     */
+    public static HybridTimestamp fromBytes(byte[] bytes) {
+        return hybridTimestamp(ByteUtils.bytesToLong(bytes));
     }
 
     /**
@@ -238,5 +248,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         } else {
             return new HybridTimestamp(getPhysical() + 1, 0);
         }
+    }
+
+    /**
+     * Returns a byte array representing this timestamp.
+     */
+    public byte[] toBytes() {
+        return ByteUtils.longToBytes(longValue());
     }
 }
