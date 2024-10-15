@@ -522,13 +522,12 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 FACTORY,
                 raftConfiguration,
                 peersAndLearners(clusterServices, isServerAddress, nodes),
-                true,
                 executor,
                 logicalTopologyService,
                 eventsClientListener,
                 notifyOnSubscription,
                 commandsMarshaller
-        ).join();
+        );
     }
 
     private static PeersAndLearners peersAndLearners(

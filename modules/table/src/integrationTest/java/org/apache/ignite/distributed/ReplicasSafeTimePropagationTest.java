@@ -28,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -192,14 +190,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
     }
 
     private void startCluster(Map<String, PartialNode> cluster) throws Exception {
-        Collection<CompletableFuture<Void>> startingFutures = new ArrayList<>(cluster.size());
         for (PartialNode node : cluster.values()) {
-            startingFutures.add(node.start());
+            node.start();
         }
-
-        CompletableFuture<Void> clusterReadyFuture = CompletableFuture.allOf(startingFutures.toArray(CompletableFuture[]::new));
-
-        assertThat(clusterReadyFuture, willCompleteSuccessfully());
     }
 
     /**
@@ -265,7 +258,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             this.nodeName = nodeName;
         }
 
-        CompletableFuture<Void> start() throws Exception {
+        void start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -292,32 +285,28 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             TxManager txManagerMock = mock(TxManager.class);
 
-            return raftManager.startRaftGroupNode(
-                            new RaftNodeId(GROUP_ID, new Peer(nodeName)),
-                            fromConsistentIds(cluster.keySet()),
-                            new PartitionListener(
-                                    txManagerMock,
-                                    mock(PartitionDataStorage.class),
-                                    mock(StorageUpdateHandler.class),
-                                    mock(TxStateStorage.class),
-                                    mock(PendingComparableValuesTracker.class),
-                                    mock(PendingComparableValuesTracker.class),
-                                    mock(CatalogService.class),
-                                    mock(SchemaRegistry.class),
-                                    clockService,
-                                    mock(IndexMetaStorage.class),
-                                    clusterService.topologyService().localMember().id(),
-                                    mock(MinimumRequiredTimeCollectorService.class)
-                            ),
-                            RaftGroupEventsListener.noopLsnr,
-                            RaftGroupOptions.defaults()
-                                    .serverDataPath(workingDir.metaPath())
-                                    .setLogStorageFactory(partitionsLogStorageFactory)
-                    )
-                    .thenApply(raftClient -> {
-                        this.raftClient = raftClient;
-                        return null;
-                    });
+            this.raftClient = raftManager.startRaftGroupNode(
+                    new RaftNodeId(GROUP_ID, new Peer(nodeName)),
+                    fromConsistentIds(cluster.keySet()),
+                    new PartitionListener(
+                            txManagerMock,
+                            mock(PartitionDataStorage.class),
+                            mock(StorageUpdateHandler.class),
+                            mock(TxStateStorage.class),
+                            mock(PendingComparableValuesTracker.class),
+                            mock(PendingComparableValuesTracker.class),
+                            mock(CatalogService.class),
+                            mock(SchemaRegistry.class),
+                            clockService,
+                            mock(IndexMetaStorage.class),
+                            clusterService.topologyService().localMember().id(),
+                            mock(MinimumRequiredTimeCollectorService.class)
+                    ),
+                    RaftGroupEventsListener.noopLsnr,
+                    RaftGroupOptions.defaults()
+                            .serverDataPath(workingDir.metaPath())
+                            .setLogStorageFactory(partitionsLogStorageFactory)
+            );
         }
 
         void stop() throws Exception {

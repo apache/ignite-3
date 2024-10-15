@@ -187,7 +187,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 any(RaftGroupOptions.class),
                 any(TopologyAwareRaftGroupServiceFactory.class))
         )
-                .thenReturn(completedFuture(raftClient));
+                .thenReturn(raftClient);
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
