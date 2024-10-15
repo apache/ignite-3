@@ -46,3 +46,20 @@ Running tests themselves:
 ```bash
 $ pytest
 ```
+
+## Documentation
+
+Do not forget to install documentation requirements: 
+```bash
+$ pip install -r requirements/docs.txt
+```
+
+After this, you can generate documentation using following commands:
+
+```bash
+$ cd docs
+$ make html
+```
+
+The resulting documentation can be found in `docs/_build/html`. If you want to open the documentation locally, you can
+open the index of the documentation `docs/_build/html/index.html` using any modern browser.
