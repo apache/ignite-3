@@ -95,7 +95,7 @@ public class LogicalNode extends ClusterNodeImpl {
                 node.nodeMetadata(),
                 userAttributes == null ? emptyMap() : userAttributes,
                 systemAttributes == null ? emptyMap() : systemAttributes,
-                storageProfiles
+                storageProfiles == null ? emptyList() : storageProfiles
         );
     }
 
