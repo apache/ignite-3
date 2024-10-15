@@ -461,11 +461,17 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             static void Test(decimal val, int scale, decimal? expected = null)
             {
-                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBigDecimal(val, scale));
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
                 var res = reader.GetBigDecimal(0, scale).ToDecimal();
 
                 Assert.AreEqual(expected ?? val, res);
             }
+        }
+
+        [Test]
+        public void TestBigDecimal()
+        {
+            Assert.Fail("TODO");
         }
 
         [Test]
@@ -697,7 +703,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendBytesNullable(null);
                     b.AppendGuidNullable(guid);
                     b.AppendGuidNullable(null);
-                    b.AppendBigDecimalNullable(1, 3);
+                    b.AppendDecimalNullable(1, 3);
+                    b.AppendDecimalNullable(null, 3);
+                    b.AppendBigDecimalNullable(new BigDecimal(1), 3);
                     b.AppendBigDecimalNullable(null, 3);
                     b.AppendDateNullable(date);
                     b.AppendDateNullable(null);
@@ -734,18 +742,20 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetGuidNullable(17));
             Assert.AreEqual(1, reader.GetBigDecimalNullable(18, 3)!.Value.ToDecimal());
             Assert.IsNull(reader.GetBigDecimalNullable(19, 3));
-            Assert.AreEqual(date, reader.GetDateNullable(20));
-            Assert.IsNull(reader.GetDateNullable(21));
-            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(22));
-            Assert.IsNull(reader.GetTimeNullable(23));
-            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(24));
-            Assert.IsNull(reader.GetDateTimeNullable(25));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(26));
-            Assert.IsNull(reader.GetTimestampNullable(27));
-            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(28));
-            Assert.IsNull(reader.GetDurationNullable(29));
-            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(30));
-            Assert.IsNull(reader.GetPeriodNullable(31));
+            Assert.AreEqual(1, reader.GetBigDecimalNullable(20, 3)!.Value.ToDecimal());
+            Assert.IsNull(reader.GetBigDecimalNullable(21, 3));
+            Assert.AreEqual(date, reader.GetDateNullable(22));
+            Assert.IsNull(reader.GetDateNullable(23));
+            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(24));
+            Assert.IsNull(reader.GetTimeNullable(25));
+            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(26));
+            Assert.IsNull(reader.GetDateTimeNullable(27));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(28));
+            Assert.IsNull(reader.GetTimestampNullable(29));
+            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(30));
+            Assert.IsNull(reader.GetDurationNullable(31));
+            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(32));
+            Assert.IsNull(reader.GetPeriodNullable(33));
         }
 
         [Test]
