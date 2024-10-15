@@ -241,7 +241,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder()
                     .pageSize(2)
-                    .perPartitionParallelOperations(4)
+                    .perPartitionParallelOperations(1)
                     .build();
 
             streamFut = withReceiver

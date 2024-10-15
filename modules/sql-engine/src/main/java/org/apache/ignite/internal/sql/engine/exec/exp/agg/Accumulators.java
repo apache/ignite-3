@@ -37,9 +37,9 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
@@ -109,7 +109,7 @@ public class Accumulators {
             case BIGINT:
                 return () -> DecimalAvg.FACTORY.apply(0);
             case DECIMAL:
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200 Add support for interval types.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17373 Add support for interval types.
                 return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
             case DOUBLE:
             case REAL:
@@ -341,7 +341,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, precision, scale);
+            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteMath.decimalDivide(sum, cnt, precision, scale);
         }
 
         /** {@inheritDoc} */

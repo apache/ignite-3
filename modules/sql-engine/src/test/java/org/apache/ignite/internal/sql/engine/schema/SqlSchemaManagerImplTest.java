@@ -80,6 +80,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.RowTypeUtils;
@@ -105,11 +106,14 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
     private SqlSchemaManagerImpl sqlSchemaManager;
+    private SqlStatisticManager sqlStatisticManager;
 
     @BeforeEach
     void init() {
+        sqlStatisticManager = tableId -> 10_000L;
+
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
-        sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
+        sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 200);
 
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }

@@ -67,8 +67,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Returns an entry by the given key and bounded by the given revision.
      *
-     * <p>Let's consider examples of the work of the method and compaction of the metastore. Let's assume that we have keys with revisions
-     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastore.</p>
+     * <p>Let's consider examples of the work of the method and compaction of the metastorage. Let's assume that we have keys with
+     * revisions "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastorage.</p>
      * <ul>
      *     <li>Compaction revision is {@code 1}.
      *     <ul>
@@ -112,21 +112,91 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * </ul>
      *
      * @param key Key.
-     * @param revUpperBound The upper bound of revision.
+     * @param revUpperBound Upper bound of revision (inclusive).
      * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
      *      {@link #setCompactionRevision compacted} one.
      */
     Entry get(byte[] key, long revUpperBound);
 
     /**
-     * Returns all entries corresponding to the given key and bounded by given revisions.
-     * All these entries are ordered by revisions and have the same key.
-     * The lower bound and the upper bound are inclusive.
+     * Returns all entries (ordered by revisions) corresponding to the given key and bounded by given revisions.
      *
-     * @param key The key.
-     * @param revLowerBound The lower bound of revision.
-     * @param revUpperBound The upper bound of revision.
-     * @return Entries corresponding to the given key.
+     * <p>Let's consider examples of the work of the method and compaction of the metastorage. Let's assume that we have keys with
+     * revisions "foo" [2, 4] and "bar" [2, 4 (tombstone)], and the key "some" has never been in the metastorage.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>get("foo", 1, 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 1, 2) - will return a single value with revision 2.</li>
+     *         <li>get("foo", 1, 3) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1, 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 1, 2) - will return a single value with revision 2.</li>
+     *         <li>get("bar", 1, 3) - will return a single value with revision 2.</li>
+     *         <li>get("some", 1, 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 1, 2) - will return an empty list.</li>
+     *         <li>get("some", 1, 3) - will return an empty list.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>get("foo", 1, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 1, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 3, 3) - will return an empty list.</li>
+     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
+     *         <li>get("bar", 1, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 1, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3, 3) - will return an empty list.</li>
+     *         <li>get("bar", 3, 4) - will return a single value with revision 4.</li>
+     *         <li>get("some", 1, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2, 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3, 3) - will return an empty list.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>get("foo", 1, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 3, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
+     *         <li>get("foo", 4, 4) - will return a single value with revision 4.</li>
+     *         <li>get("bar", 1, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 3, 4) - will return a single value with revision 4.</li>
+     *         <li>get("bar", 4, 4) - will return a single value with revision 4.</li>
+     *         <li>get("some", 2, 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 3, 4) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 4, 4) - will return an empty list.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 4}.
+     *     <ul>
+     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
+     *         <li>get("foo", 4, 4) - will return a single value with revision 4.</li>
+     *         <li>get("foo", 4, 5) - will return a single value with revision 4.</li>
+     *         <li>get("foo", 5, 5) - will return an empty list.</li>
+     *         <li>get("bar", 3, 4) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 4, 4) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 4, 5) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("bar", 5, 5) - will return an empty list.</li>
+     *         <li>get("some", 3, 4) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 4, 4) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 4, 5) - a {@link CompactedException} will be thrown.</li>
+     *         <li>get("some", 5, 5) - will return an empty list.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
+     * @param key Key.
+     * @param revLowerBound Lower bound of revision (inclusive).
+     * @param revUpperBound Upper bound of revision (inclusive).
+     * @throws CompactedException If no entries could be found and the {@code revLowerBound} is less than or equal to the last
+     *      {@link #setCompactionRevision compacted} one.
      */
     List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
@@ -143,7 +213,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Returns entries corresponding to the given keys and bounded by the given revision.
      *
      * @param keys Not empty keys.
-     * @param revUpperBound Upper bound of revision.
+     * @param revUpperBound Upper bound of revision (inclusive).
      * @throws CompactedException If getting any of the individual entries would have thrown this exception as if
      *      {@link #get(byte[], long)} was used.
      * @see #get(byte[], long)
@@ -215,21 +285,31 @@ public interface KeyValueStorage extends ManuallyCloseable {
     StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
 
     /**
-     * Returns cursor by entries which correspond to the given keys range.
+     * Returns cursor by latest entries which correspond to the given keys range.
+     *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked. Also, each entry will be the
+     * only one with the most recent revision.</p>
+     *
+     * <p>Never throws {@link CompactedException} as well as cursor methods.</p>
      *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
-     * @return Cursor by entries which correspond to the given keys range.
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      */
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
 
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
      *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked. And also each record will be
+     * one and with a revision less than or equal to the {@code revUpperBound}.</p>
+     *
+     * <p>Cursor methods never throw {@link CompactedException}.</p>
+     *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
-     * @param revUpperBound Upper bound of revision.
-     * @return Cursor by entries which correspond to the given keys range.
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
+     * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last {@link #setCompactionRevision compacted}
+     *      one.
      */
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound);
 
@@ -237,7 +317,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.
      *
      * @param keyFrom Start key of range (inclusive).
-     * @param keyTo Last key of range (exclusive).
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      * @param rev Start revision number.
      */
     void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener);
@@ -245,8 +325,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Registers a watch listener for the provided key.
      *
-     * @param key Meta Storage key.
-     * @param rev Starting Meta Storage revision.
+     * @param key Key.
+     * @param rev Start revision number.
      * @param listener Listener which will be notified for each update.
      */
     void watchExact(byte[] key, long rev, WatchListener listener);
@@ -254,8 +334,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Registers a watch listener for the provided keys.
      *
-     * @param keys Meta Storage keys.
-     * @param rev Starting Meta Storage revision.
+     * @param keys Not empty keys.
+     * @param rev Start revision number.
      * @param listener Listener which will be notified for each update.
      */
     void watchExact(Collection<byte[]> keys, long rev, WatchListener listener);
@@ -263,7 +343,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Starts all registered watches.
      *
-     * <p>Before calling this method, watches will not receive any updates.
+     * <p>Before calling this method, watches will not receive any updates.</p>
      *
      * @param startRevision Revision to start processing updates from.
      * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the

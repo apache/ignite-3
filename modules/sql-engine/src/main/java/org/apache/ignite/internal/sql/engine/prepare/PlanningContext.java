@@ -25,6 +25,7 @@ import com.google.common.collect.Multimap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
@@ -40,22 +41,30 @@ import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
+import org.apache.calcite.prepare.Prepare;
+import org.apache.calcite.prepare.Prepare.PreparingTable;
+import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.Metadata;
 import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.UnboundMetadata;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
@@ -255,7 +264,7 @@ public final class PlanningContext implements Context {
         }
 
         //noinspection NestedAssignment
-        return catalogReader = new CalciteCatalogReader(
+        return catalogReader = new IgniteCatalogReader(
                 CalciteSchema.from(rootSchema),
                 CalciteSchema.from(dfltSchema).path(null),
                 IgniteTypeFactory.INSTANCE, CALCITE_CONNECTION_CONFIG);
@@ -308,6 +317,44 @@ public final class PlanningContext implements Context {
     /** Returns {@code true} if planning is taking place within an explicit transaction. */
     public boolean explicitTx() {
         return explicitTx;
+    }
+
+    /** Present Catalog reader with supporting snapshot of rows count for tables. */
+    private static class IgniteCatalogReader extends CalciteCatalogReader {
+        private final HashMap<String, Double> cacheSizeOfTables = new HashMap<>();
+
+        public IgniteCatalogReader(CalciteSchema rootSchema, List<String> defaultSchema, RelDataTypeFactory typeFactory,
+                CalciteConnectionConfig config) {
+            super(rootSchema, defaultSchema, typeFactory, config);
+        }
+
+        // It's a copy-paste of original method with adding cache for table size to have statistic snapshot for whole planing stage.
+        @Override
+        public PreparingTable getTable(final List<String> names) {
+            CalciteSchema.TableEntry entry = SqlValidatorUtil.getTableEntry(this, names);
+            if (entry != null) {
+                Table table = entry.getTable();
+                if (table instanceof Wrapper) {
+                    final Prepare.PreparingTable relOptTable =
+                            ((Wrapper) table).unwrap(Prepare.PreparingTable.class);
+                    if (relOptTable != null) {
+                        return relOptTable;
+                    }
+                }
+                Double rowCount = null;
+                if (table instanceof IgniteDataSource) {
+                    IgniteDataSource ds = (IgniteDataSource) table;
+                    rowCount = cacheSizeOfTables.computeIfAbsent(
+                            ds.name(),
+                            k -> ds.getStatistic().getRowCount()
+                    );
+                }
+
+                return RelOptTableImpl.create(this,
+                        table.getRowType(typeFactory), entry, rowCount);
+            }
+            return null;
+        }
     }
 
     /**

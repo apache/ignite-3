@@ -234,6 +234,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 false
         );
 
+        raftClientNoInitialNotify.refreshLeader().get();
+
         List<NetworkAddress> clientAddress = findLocalAddresses(clientPort, clientPort + 1);
         assertEquals(1, clientAddress.size());
         clusterServices.put(clientAddress.get(0), clientClusterService);
@@ -289,10 +291,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertNull(leaderRefNoInitialNotify.get());
 
         // Forcing the leader change by stopping the actual leader.
-        var raftServiceToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
-        raftServiceToStop.stopRaftNodes(GROUP_ID);
+        var raftServerToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
+        raftServerToStop.stopRaftNodes(GROUP_ID);
         ComponentContext componentContext = new ComponentContext();
-        assertThat(raftServiceToStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(raftServerToStop.stopAsync(componentContext), willCompleteSuccessfully());
 
         afterNodeStop(leader.name());
 
@@ -305,16 +307,16 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertThat(stopFuture, willCompleteSuccessfully());
 
         // Waiting for the notifications to check.
-        if (!leader.address().equals(new NetworkAddress("localhost", PORT_BASE))) {
+        if (leader.address().port() != PORT_BASE) {
             // leaderRef is updated through raftClient hosted on PORT_BASE, thus if corresponding node was stopped (and it will be stopped
             // if it occurred to be a leader) leaderRef won't be updated.
             assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
         }
         assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), WAIT_TIMEOUT_MILLIS));
 
-        log.info("New Leader: " + leaderRef.get());
+        log.info("New Leader: " + leaderRefNoInitialNotify.get());
 
-        afterLeaderChange(leaderRef.get().name());
+        afterLeaderChange(leaderRefNoInitialNotify.get().name());
 
         raftClientNoInitialNotify.refreshLeader().get();
 
