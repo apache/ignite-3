@@ -51,7 +51,7 @@ internal static class ColumnTypeExtensions
         ColumnType.Int64 => typeof(long),
         ColumnType.Float => typeof(float),
         ColumnType.Double => typeof(double),
-        ColumnType.Decimal => typeof(decimal),
+        ColumnType.Decimal => typeof(BigDecimal),
         ColumnType.Date => typeof(LocalDate),
         ColumnType.Time => typeof(LocalTime),
         ColumnType.Datetime => typeof(LocalDateTime),
