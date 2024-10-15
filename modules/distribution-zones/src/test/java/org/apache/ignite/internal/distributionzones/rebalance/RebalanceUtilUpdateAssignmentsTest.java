@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -87,7 +88,7 @@ import org.mockito.quality.Strictness;
 public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtilUpdateAssignmentsTest.class);
 
-    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = new KeyValueUpdateContext(0, 0, HybridTimestamp.MIN_VALUE);
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 

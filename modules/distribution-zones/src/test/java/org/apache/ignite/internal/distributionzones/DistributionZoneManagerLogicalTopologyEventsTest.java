@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +46,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     private static final LogicalNode NODE_2 = new LogicalNode(randomUUID(), "name2", new NetworkAddress("localhost", 123));
 
-    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = new KeyValueUpdateContext(0, 0, HybridTimestamp.MIN_VALUE);
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 
     private final UUID clusterId = randomUUID();
 

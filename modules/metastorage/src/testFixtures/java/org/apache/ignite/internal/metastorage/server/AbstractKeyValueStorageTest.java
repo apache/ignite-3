@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,11 +40,6 @@ public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest
     @AfterEach
     public void tearDown() throws Exception {
         storage.close();
-    }
-
-    /** Creates a Meta Storage context based on a timestamp. Index and term will be {@code 0}. */
-    protected static KeyValueUpdateContext msContext(HybridTimestamp timestamp) {
-        return new KeyValueUpdateContext(0, 0, timestamp);
     }
 
     /**

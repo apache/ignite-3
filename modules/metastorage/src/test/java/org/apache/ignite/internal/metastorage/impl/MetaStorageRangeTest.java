@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -66,7 +67,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
 
     abstract KeyValueStorage getStorage(Path path);
 
-    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = new KeyValueUpdateContext(0, 0, HybridTimestamp.MIN_VALUE);
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {

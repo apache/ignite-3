@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Operation context for update operations in {@link KeyValueStorage}. Includes operation timestamp and necessary metadata in terms of an
@@ -41,5 +42,13 @@ public class KeyValueUpdateContext {
         this.index = index;
         this.term = term;
         this.timestamp = timestamp;
+    }
+
+    /**
+     * Returns a context instance with {@code 0} index and term values.
+     */
+    @TestOnly
+    public static KeyValueUpdateContext kvContext(HybridTimestamp timestamp) {
+        return new KeyValueUpdateContext(0, 0, timestamp);
     }
 }
