@@ -461,7 +461,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             static void Test(decimal val, int scale, decimal? expected = null)
             {
-                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBigDecimal(val, scale));
                 var res = reader.GetBigDecimal(0, scale).ToDecimal();
 
                 Assert.AreEqual(expected ?? val, res);
@@ -697,8 +697,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendBytesNullable(null);
                     b.AppendGuidNullable(guid);
                     b.AppendGuidNullable(null);
-                    b.AppendDecimalNullable(1, 3);
-                    b.AppendDecimalNullable(null, 3);
+                    b.AppendBigDecimalNullable(1, 3);
+                    b.AppendBigDecimalNullable(null, 3);
                     b.AppendDateNullable(date);
                     b.AppendDateNullable(null);
                     b.AppendTimeNullable(dateTime.TimeOfDay, TemporalTypes.MaxTimePrecision);
