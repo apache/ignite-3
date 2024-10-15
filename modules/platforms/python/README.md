@@ -49,12 +49,12 @@ $ pytest
 
 ## Documentation
 
-Do not forget to install documentation requirements: 
+Install documentation requirements: 
 ```bash
 $ pip install -r requirements/docs.txt
 ```
 
-After this, you can generate documentation using following commands:
+Generate documentation:
 
 ```bash
 $ cd docs
