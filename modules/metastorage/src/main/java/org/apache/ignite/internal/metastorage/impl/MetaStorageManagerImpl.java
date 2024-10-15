@@ -755,15 +755,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
-        return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
+        return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
     }
 
     @Override
     public Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound) {
-        byte[] rangeStart = keyPrefix.bytes();
-        byte[] rangeEnd = storage.nextKey(rangeStart);
+        return inBusyLock(busyLock, () -> {
+            byte[] rangeStart = keyPrefix.bytes();
+            byte[] rangeEnd = storage.nextKey(rangeStart);
 
-        return storage.range(rangeStart, rangeEnd, revUpperBound);
+            return storage.range(rangeStart, rangeEnd, revUpperBound);
+        });
     }
 
     @Override
@@ -907,21 +909,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return range(keyFrom, keyTo, false);
-    }
-
-    /**
-     * Retrieves entries for the given key range in lexicographic order.
-     *
-     * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
-     */
-    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
         if (!busyLock.enterBusy()) {
             return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, false)));
         } finally {
             busyLock.leaveBusy();
         }
