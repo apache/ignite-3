@@ -473,9 +473,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             const int scale = 100;
 
-            var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale));
+            var res = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale);
 
+            var ex = Assert.Throws<OverflowException>(() => res.ToDecimal());
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
@@ -484,9 +484,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var magnitude = Enumerable.Range(1, 100).Select(_ => (byte)250).ToArray();
 
-            var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0));
+            var res = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0);
 
+            var ex = Assert.Throws<OverflowException>(() => res.ToDecimal());
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
@@ -785,7 +785,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(long.MaxValue, reader.GetObject(4, ColumnType.Int64));
             Assert.AreEqual(float.MaxValue, reader.GetObject(5, ColumnType.Float));
             Assert.AreEqual(double.MaxValue, reader.GetObject(6, ColumnType.Double));
-            Assert.AreEqual(decimal.One, reader.GetObject(7, ColumnType.Decimal));
+            Assert.AreEqual(new BigDecimal(1), reader.GetObject(7, ColumnType.Decimal));
             Assert.AreEqual("foo", reader.GetObject(8, ColumnType.String));
             Assert.AreEqual(guid, reader.GetObject(9, ColumnType.Uuid));
             Assert.AreEqual(bytes, reader.GetObject(10, ColumnType.ByteArray));
@@ -835,7 +835,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(long.MaxValue, reader.GetObject(12));
             Assert.AreEqual(float.MaxValue, reader.GetObject(15));
             Assert.AreEqual(double.MaxValue, reader.GetObject(18));
-            Assert.AreEqual(decimal.One, reader.GetObject(21));
+            Assert.AreEqual(new BigDecimal(1), reader.GetObject(21));
             Assert.AreEqual("foo", reader.GetObject(24));
             Assert.AreEqual(guid, reader.GetObject(27));
             Assert.AreEqual(bytes, reader.GetObject(30));
