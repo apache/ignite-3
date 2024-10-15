@@ -47,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -334,7 +333,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
-        assertNull(cause.getCause()); // No stack trace by default.
+        assertNotNull(cause.getCause());
+        String hint = cause.getCause().getMessage();
+
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
     @Test
@@ -347,7 +349,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
-        assertNull(cause.getCause()); // No stack trace by default.
+        assertNotNull(cause.getCause());
+        String hint = cause.getCause().getMessage();
+
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
     @ParameterizedTest
@@ -535,7 +540,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
         assertTraceableException(cause, ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage);
 
-        assertNull(cause.getCause()); // No stack trace by default.
+        assertNotNull(cause.getCause());
+        String hint = cause.getCause().getMessage();
+
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
     private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
@@ -758,7 +766,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
-        assertNull(cause.getCause()); // No stack trace by default.
+        assertNotNull(cause.getCause());
+        String hint = cause.getCause().getMessage();
+
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
     private void testEchoArg(Object arg) {

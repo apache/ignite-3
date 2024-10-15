@@ -560,7 +560,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
-            packer.packNil();
+            packer.packString("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true");
         }
 
         // Extensions.
