@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import datetime
 import decimal
 import uuid
@@ -22,53 +23,53 @@ from pyignite3 import native_type_code
 
 __version__ = '3.0.0-beta2'
 
-# PEP 249 is supported
 apilevel = '2.0'
+"""PEP 249 is supported"""
 
-# Threads may share the module, but not connections.
 threadsafety = 1
+"""Threads may share the module, but not connections"""
 
-# Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
+"""Parameter style is a question mark, e.g. '...WHERE name=?'"""
 
-# Null constant
 NULL = None
+"""Null constant"""
 
-# Boolean type
 BOOLEAN = bool
+"""Boolean type"""
 
-# Integer type
 INT = int
+"""Integer type"""
 
-# Floating point type
 FLOAT = float
+"""Floating point type"""
 
-# String type
 STRING = str
+"""String type"""
 
-# Binary type
 BINARY = bytes
+"""Binary type"""
 
-# Big number (Decimal) type
 NUMBER = decimal.Decimal
+"""Big number (Decimal) type"""
 
-# Date type
 DATE = datetime.date
+"""Date type"""
 
-# Time type
 TIME = datetime.time
+"""Time type"""
 
-# Date-Time type
 DATETIME = datetime.datetime
+"""Date-Time type"""
 
-# Duration type
 DURATION = datetime.timedelta
+"""Duration type"""
 
-# UUID type
 UUID = uuid.UUID
+"""UUID type"""
 
-# This type object is used to describe the “Row ID” column in a database.
 ROWID = UUID
+"""This type object is used to describe the “Row ID” column in a database."""
 
 
 class TIMESTAMP(float):
