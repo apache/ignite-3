@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -60,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
@@ -173,6 +175,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         lenient().when(messagingService.respond(any(ClusterNode.class), any(NetworkMessage.class), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
+        lenient().when(cmgManager.clusterState()).thenReturn(completedFuture(usualClusterState));
+
         manager = new SystemDisasterRecoveryManagerImpl(
                 thisNodeName,
                 topologyService,
@@ -180,6 +186,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 vaultManager,
                 restarter,
                 metastorageMaintenance,
+                cmgManager,
                 new ConstantClusterIdSupplier(clusterId)
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
@@ -235,6 +242,26 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         ClusterResetException ex = assertWillThrow(action.resetCluster(manager, List.of(thisNodeName, "abc")), ClusterResetException.class);
         assertThat(ex.getMessage(), is("Some of proposed CMG nodes are not online: [abc]."));
+    }
+
+    @Test
+    void resetClusterRepairingCmgUsesCurrentCmgNodesIfNotSpecified() {
+        int replicationFactor = 1;
+
+        ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
+
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        prepareNodeStateForClusterReset();
+
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
+                .thenReturn(completedFuture(successResponseMessage));
+
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(null, replicationFactor);
+        assertThat(future, willCompleteSuccessfully());
+
+        verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
+
+        assertThat(messageCaptor.getValue().newCmgNodes(), is(usualClusterState.cmgNodes()));
     }
 
     @ParameterizedTest
@@ -620,6 +647,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     void resetClusterWithMgRequiresPositiveMgReplicationFactor(int metastorageReplicationFactor) {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+
         ClusterResetException ex = assertWillThrow(
                 manager.resetClusterRepairingMetastorage(List.of(thisNodeName), metastorageReplicationFactor),
                 ClusterResetException.class
