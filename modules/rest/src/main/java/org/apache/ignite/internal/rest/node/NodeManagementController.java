@@ -23,6 +23,7 @@ import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.api.node.NodeInfo;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.api.node.NodeState;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 
 /**
  * REST endpoint allows to read node state.
@@ -55,8 +56,8 @@ public class NodeManagementController implements NodeManagementApi, RestFactory 
     }
 
     @Override
-    public String version() {
-        return IgniteProductVersion.CURRENT_VERSION.toString();
+    public NodeVersion version() {
+        return new NodeVersion(IgniteProductVersion.CURRENT_VERSION.toString(), IgniteProductVersion.CURRENT_PRODUCT);
     }
 
     @Override

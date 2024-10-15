@@ -21,6 +21,7 @@ import org.apache.ignite.internal.cli.call.cliconfig.profile.ProfileList;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatus;
+import org.apache.ignite.internal.cli.call.node.version.NodeVersion;
 import org.apache.ignite.internal.cli.config.Profile;
 import org.apache.ignite.internal.cli.config.ini.IniProfile;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
@@ -44,5 +45,6 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
         add(SqlQueryResult.class, new SqlQueryResultDecorator(false));
         add(ClusterStatus.class, new ClusterStatusDecorator());
         add(NodeStatus.class, new NodeStatusDecorator());
+        add(NodeVersion.class, new NodeVersionDecorator());
     }
 }
