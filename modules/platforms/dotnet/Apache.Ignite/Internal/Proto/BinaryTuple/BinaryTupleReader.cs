@@ -253,7 +253,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="index">Index.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <returns>Value.</returns>
-        public BigDecimal GetDecimal(int index, int scale) => GetDecimalNullable(index, scale) ?? ThrowNullElementException<BigDecimal>(index);
+        public BigDecimal GetBigDecimal(int index, int scale) => GetBigDecimalNullable(index, scale) ?? ThrowNullElementException<BigDecimal>(index);
+
+        /// <summary>
+        /// Gets a big decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public BigDecimal? GetBigDecimalNullable(int index, int scale) => ReadDecimal(Seek(index), scale);
+
+        /// <summary>
+        /// Gets a big decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public decimal GetDecimal(int index, int scale) => GetBigDecimal(index, scale).ToDecimal();
 
         /// <summary>
         /// Gets a decimal value.
@@ -261,7 +277,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="index">Index.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <returns>Value.</returns>
-        public BigDecimal? GetDecimalNullable(int index, int scale) => ReadDecimal(Seek(index), scale);
+        public decimal? GetDecimalNullable(int index, int scale) => GetBigDecimalNullable(index, scale)?.ToDecimal();
 
         /// <summary>
         /// Gets a local date value.
@@ -439,7 +455,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Double => GetDoubleNullable(index),
                 ColumnType.Uuid => GetGuidNullable(index),
                 ColumnType.String => GetStringNullable(index),
-                ColumnType.Decimal => GetDecimalNullable(index, scale),
+                ColumnType.Decimal => GetBigDecimalNullable(index, scale),
                 ColumnType.ByteArray => GetBytesNullable(index),
                 ColumnType.Date => GetDateNullable(index),
                 ColumnType.Time => GetTimeNullable(index),

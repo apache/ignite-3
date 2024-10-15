@@ -97,6 +97,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetTimestampNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestampNullable))!;
         private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
         private static readonly MethodInfo GetDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimalNullable))!;
+        private static readonly MethodInfo GetBigDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBigDecimal))!;
+        private static readonly MethodInfo GetBigDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBigDecimalNullable))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytesNullable))!;
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
@@ -158,6 +160,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(LocalDateTime?), GetDateTimeNullable },
             { typeof(Instant), GetTimestamp },
             { typeof(Instant?), GetTimestampNullable },
+            { typeof(BigDecimal), GetBigDecimal },
+            { typeof(BigDecimal?), GetBigDecimalNullable },
             { typeof(decimal), GetDecimal },
             { typeof(decimal?), GetDecimalNullable },
             { typeof(byte[]), GetBytes }
