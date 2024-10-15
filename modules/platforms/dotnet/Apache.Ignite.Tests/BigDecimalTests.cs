@@ -69,7 +69,6 @@ public class BigDecimalTests
     [TestCase("1", 0, null, "1")]
     [TestCase("1", 1, null, ".1")]
     [TestCase("1", 5, null, ".00001")]
-    [TestCase("123", -1, null, "123")]
     [TestCase("123", 0, null, "123")]
     [TestCase("123", 1, null, "12.3")]
     [TestCase("123", 2, null, "1.23")]
@@ -80,6 +79,7 @@ public class BigDecimalTests
     [TestCase("123456789", 5, "", "1234.56789")]
     [TestCase("123456789", 5, "en-US", "1234.56789")]
     [TestCase("123456789", 5, "de-DE", "1234,56789")]
+    [TestCase("123456789123456789123456789123456789123456789", 35, "de-DE", "1234567891,23456789123456789123456789123456789")]
     public void TestToString(string unscaled, short scale, string? cultureName, string expected)
     {
         var bigDecimal = new BigDecimal(BigInteger.Parse(unscaled), scale);

@@ -45,10 +45,8 @@ public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
     /// Initializes a new instance of the <see cref="BigDecimal"/> struct.
     /// </summary>
     /// <param name="value">Decimal value.</param>
-    public BigDecimal(decimal value)
-    {
+    public BigDecimal(decimal value) =>
         (UnscaledValue, Scale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, maxScale: short.MaxValue);
-    }
 
     /// <summary>
     /// Gets the unscaled value.
