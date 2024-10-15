@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +55,18 @@ public class RaftGroupConfiguration implements Serializable {
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
         this.oldLearners = oldLearners == null ? null : List.copyOf(oldLearners);
+    }
+
+    /**
+     * Creates a {@link RaftGroupConfiguration} instance from {@link CommittedConfiguration}.
+     */
+    public static RaftGroupConfiguration fromCommittedConfiguration(CommittedConfiguration config) {
+        return new RaftGroupConfiguration(
+                config.peers(),
+                config.learners(),
+                config.oldPeers(),
+                config.oldLearners()
+        );
     }
 
     /**

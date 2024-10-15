@@ -525,9 +525,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         try {
             storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(
-                        new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
-                );
+                storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
                 storage.lastApplied(config.index(), config.term());
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 

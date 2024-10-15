@@ -42,7 +42,7 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
     private final @Nullable RaftOutter.SnapshotMeta startupSnapshotMeta;
 
     /**
-     * Constructor.
+     * Constructor. We will try to read a snapshot meta here.
      *
      * @param storage Key-value storage instance.
      */
