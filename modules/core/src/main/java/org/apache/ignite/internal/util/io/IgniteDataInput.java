@@ -96,6 +96,35 @@ public interface IgniteDataInput extends DataInput {
     int read(byte[] b, int off, int len) throws IOException;
 
     /**
+     * Reads a length (that is, a non-negative integer that will most likely be small).
+     *
+     * @throws IOException If something goes wrong.
+     */
+    int readLength() throws IOException;
+
+    /**
+     * Reads a long value as a varint.
+     *
+     * @throws IOException If something goes wrong.
+     * @see IgniteDataOutput#writeVarInt(long)
+     */
+    long readVarInt() throws IOException;
+
+    /**
+     * Reads an int value as a varint.
+     *
+     * @throws IOException If something goes wrong.
+     * @see IgniteDataOutput#writeVarInt(long)
+     */
+    default int readVarIntAsInt() throws IOException {
+        long val = readVarInt();
+        if (val < Integer.MIN_VALUE || val > Integer.MAX_VALUE) {
+            throw new IOException("The value is expected to fit into int range, but it doesn't: " + val);
+        }
+        return (int) val;
+    }
+
+    /**
      * Reads array of {@code byte}s.
      *
      * @return Array.

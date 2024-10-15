@@ -30,9 +30,11 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
@@ -173,7 +175,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         var clusterNodes2 = Set.of(NODE_1, NODE_2);
 
-        clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2, clusterId)));
+        clusterStateStorage.put(
+                LOGICAL_TOPOLOGY_KEY,
+                VersionedSerialization.toBytes(
+                        new LogicalTopologySnapshot(10L, clusterNodes2, clusterId),
+                        LogicalTopologySnapshotSerializer.INSTANCE
+                )
+        );
 
         topology.fireTopologyLeap();
 
@@ -194,7 +202,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         var clusterNodes2 = Set.of(NODE_1, NODE_2);
 
-        clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2, clusterId)));
+        clusterStateStorage.put(
+                LOGICAL_TOPOLOGY_KEY,
+                VersionedSerialization.toBytes(
+                        new LogicalTopologySnapshot(10L, clusterNodes2, clusterId),
+                        LogicalTopologySnapshotSerializer.INSTANCE
+                )
+        );
 
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytesKeepingOrder(11L), HybridTimestamp.MIN_VALUE);
 

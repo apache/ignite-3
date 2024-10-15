@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.topology.api;
 
-import java.util.Collections;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,6 +28,8 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a logical node in a cluster.
@@ -57,11 +61,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param address Node address.
      */
     public LogicalNode(UUID id, String name, NetworkAddress address) {
-        super(id, name, address);
-
-        this.userAttributes = Collections.emptyMap();
-        this.systemAttributes = Collections.emptyMap();
-        this.storageProfiles = Collections.emptyList();
+        this(id, name, address, null, emptyMap(), emptyMap(), emptyList());
     }
 
     /**
@@ -71,28 +71,32 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param userAttributes  Node attributes defined in configuration.
      */
     public LogicalNode(ClusterNode clusterNode, Map<String, String> userAttributes) {
-        this(clusterNode, userAttributes, Collections.emptyMap(), Collections.emptyList());
+        this(clusterNode, userAttributes, emptyMap(), emptyList());
     }
 
     /**
      * Constructor.
      *
-     * @param clusterNode Represents a node in a cluster.
+     * @param node Represents a node in a cluster.
      * @param userAttributes Node attributes defined in configuration.
      * @param systemAttributes Internal node attributes provided by system components at startup.
      * @param storageProfiles List of storage profiles, which the node supports.
      */
     public LogicalNode(
-            ClusterNode clusterNode,
+            ClusterNode node,
             Map<String, String> userAttributes,
             Map<String, String> systemAttributes,
             List<String> storageProfiles
     ) {
-        super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
-
-        this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
-        this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
-        this.storageProfiles = storageProfiles;
+        this(
+                node.id(),
+                node.name(),
+                node.address(),
+                node.nodeMetadata(),
+                userAttributes == null ? emptyMap() : userAttributes,
+                systemAttributes == null ? emptyMap() : systemAttributes,
+                storageProfiles
+        );
     }
 
     /**
@@ -101,7 +105,23 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
-        this(clusterNode, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList());
+        this(clusterNode, emptyMap(), emptyMap(), emptyList());
+    }
+
+    LogicalNode(
+            UUID id,
+            String name,
+            NetworkAddress address,
+            @Nullable NodeMetadata nodeMetadata,
+            Map<String, String> userAttributes,
+            Map<String, String> systemAttributes,
+            List<String> storageProfiles
+    ) {
+        super(id, name, address, nodeMetadata);
+
+        this.userAttributes = userAttributes;
+        this.systemAttributes = systemAttributes;
+        this.storageProfiles = storageProfiles;
     }
 
     /**

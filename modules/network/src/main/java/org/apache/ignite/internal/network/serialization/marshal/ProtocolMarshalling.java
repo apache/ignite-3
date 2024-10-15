@@ -21,7 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
-import org.apache.ignite.internal.util.io.VarInts;
+import org.apache.ignite.internal.util.io.NaiveVarInts;
 
 /**
  * Protocol-wide elements marshalling.
@@ -31,28 +31,28 @@ class ProtocolMarshalling {
     static final int MAX_LENGTH_BYTE_COUNT = 4;
 
     static void writeDescriptorOrCommandId(int id, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(id, output);
+        NaiveVarInts.writeUnsignedInt(id, output);
     }
 
     static int readDescriptorOrCommandId(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return NaiveVarInts.readUnsignedInt(input);
     }
 
     static void writeObjectId(int id, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(id, output);
+        NaiveVarInts.writeUnsignedInt(id, output);
     }
 
     static int readObjectId(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return NaiveVarInts.readUnsignedInt(input);
     }
 
 
     static void writeLength(int length, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(length, output);
+        NaiveVarInts.writeUnsignedInt(length, output);
     }
 
     static int readLength(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return NaiveVarInts.readUnsignedInt(input);
     }
 
     static void writeFixedLengthBitSet(BitSet bitset, int bitSetLength, DataOutput output) throws IOException {

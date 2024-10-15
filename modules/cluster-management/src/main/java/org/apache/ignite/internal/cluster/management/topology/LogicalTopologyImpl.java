@@ -22,8 +22,6 @@ import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +36,10 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageMan
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,7 +74,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private LogicalTopologySnapshot readLogicalTopology() {
         byte[] bytes = storage.get(LOGICAL_TOPOLOGY_KEY);
 
-        return bytes == null ? LogicalTopologySnapshot.INITIAL : fromBytes(bytes);
+        return bytes == null ? LogicalTopologySnapshot.INITIAL
+                : VersionedSerialization.fromBytes(bytes, LogicalTopologySnapshotSerializer.INSTANCE);
     }
 
     @Override
@@ -152,7 +153,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private void saveSnapshotToStorage(LogicalTopologySnapshot newTopology) {
-        storage.put(LOGICAL_TOPOLOGY_KEY, toBytes(newTopology));
+        storage.put(LOGICAL_TOPOLOGY_KEY, VersionedSerialization.toBytes(newTopology, LogicalTopologySnapshotSerializer.INSTANCE));
     }
 
     @Override

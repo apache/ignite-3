@@ -20,12 +20,17 @@ package org.apache.ignite.internal.util.io;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import org.apache.ignite.internal.util.VarIntUtils;
 
 /**
- * Utils to read/write variable length ints.
+ * Utils to read/write naive variable length ints.
+ *
+ * <p>The 'naivety' relates to a simple algorithm. The naive varints produce more compact results than the 'general purpose' varints
+ * (see {@link VarIntUtils}) when the input integer is approximately between 127 and 254, so they seem to be more appropriate
+ * for small values (like lengths of short strings and collections).
  */
-public class VarInts {
-    private VarInts() {
+public class NaiveVarInts {
+    private NaiveVarInts() {
     }
 
     /**
