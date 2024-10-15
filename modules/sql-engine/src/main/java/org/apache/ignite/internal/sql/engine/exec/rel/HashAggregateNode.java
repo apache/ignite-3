@@ -20,19 +20,23 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
@@ -44,15 +48,14 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
-    /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
-
     private final RowFactory<RowT> rowFactory;
 
     /** A bit set that contains fields included in all grouping sets. */
     private final ImmutableBitSet allFields;
 
     private final List<Grouping> groupings;
+
+    private final List<AccumulatorWrapper<RowT>> accs;
 
     private int requested;
 
@@ -71,7 +74,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         super(ctx);
 
         this.type = type;
-        this.accFactory = accFactory;
         this.rowFactory = rowFactory;
 
         assert grpSets.size() <= Byte.MAX_VALUE : "Too many grouping sets";
@@ -79,6 +81,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         ImmutableBitSet.Builder b = ImmutableBitSet.builder();
 
         groupings = new ArrayList<>(grpSets.size());
+        accs = accFactory != null ? accFactory.get() : Collections.emptyList();
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
@@ -257,7 +260,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(allFields, handler, row);
+            aggRow.update(accs, allFields, handler, row);
         }
 
         /**
@@ -278,7 +281,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 GroupKey grpKey = entry.getKey();
                 AggregateRow<RowT> aggRow = entry.getValue();
 
-                Object[] fields = aggRow.createOutput(allFields, grpId);
+                Object[] fields = aggRow.createOutput(type, accs, allFields, grpId);
 
                 int j = 0;
                 int k = 0;
@@ -287,7 +290,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                aggRow.writeTo(fields, allFields, grpId);
+                aggRow.writeTo(type, accs, fields, allFields, grpId);
 
                 RowT row = rowFactory.create(fields);
 
@@ -299,15 +302,18 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private AggregateRow<RowT> create() {
-            List<AccumulatorWrapper<RowT>> wrappers;
+            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
 
-            if (accFactory == null) {
-                wrappers = Collections.emptyList();
-            } else {
-                wrappers = accFactory.get();
+            for (int i = 0; i < accs.size(); i++) {
+                AccumulatorWrapper<RowT> acc = accs.get(i);
+                if (acc.isDistinct()) {
+                    distinctSets.put(i, new HashSet<>());
+                }
             }
 
-            return new AggregateRow<>(wrappers, type);
+            AccumulatorsState state = new AccumulatorsState(accs.size());
+
+            return new AggregateRow<>(state, distinctSets);
         }
 
         private boolean isEmpty() {

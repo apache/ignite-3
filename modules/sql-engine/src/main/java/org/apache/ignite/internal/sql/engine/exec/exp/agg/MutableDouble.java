@@ -17,25 +17,41 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
- * Adapter that provides means to convert accumulator arguments and return types.
+ * Mutable variant of {@link Double} used by some {@link Accumulator}.
  */
-public interface AccumulatorWrapper<RowT> {
+final class MutableDouble extends Number {
 
-    /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
-    boolean isDistinct();
+    private static final long serialVersionUID = -7021424478810048306L;
 
-    /** Returns the accumulator function. */
-    Accumulator accumulator();
+    private double value;
 
-    /**
-     * Creates accumulator arguments from the given row. If this method returns {@code null},
-     * then the accumulator function should not be applied to the given row.
-     */
-    Object @Nullable [] getArguments(RowT row);
+    /** Adds the given value to this double. */
+    public void add(double v) {
+        value += v;
+    }
 
-    /** Converts accumulator result. */
-    Object convertResult(@Nullable Object result);
+    /** {@inheritDoc} */
+    @Override
+    public int intValue() {
+        return (int) value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long longValue() {
+        return (long) value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public float floatValue() {
+        return (float) value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double doubleValue() {
+        return value;
+    }
 }

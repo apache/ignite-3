@@ -17,25 +17,36 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import org.jetbrains.annotations.Nullable;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.DoubleAvg;
+import org.junit.jupiter.api.Test;
 
 /**
- * Adapter that provides means to convert accumulator arguments and return types.
+ * Tests for {@code AVG(DOUBLE)} accumulator function.
  */
-public interface AccumulatorWrapper<RowT> {
+public class DoubleAvgAccumulatorTest {
 
-    /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
-    boolean isDistinct();
+    @Test
+    public void test() {
+        StatefulAccumulator acc = newCall();
 
-    /** Returns the accumulator function. */
-    Accumulator accumulator();
+        acc.add(3.0d);
+        acc.add(new Object[]{null});
+        acc.add(1.0d);
 
-    /**
-     * Creates accumulator arguments from the given row. If this method returns {@code null},
-     * then the accumulator function should not be applied to the given row.
-     */
-    Object @Nullable [] getArguments(RowT row);
+        assertEquals(2.0d, acc.end());
+    }
 
-    /** Converts accumulator result. */
-    Object convertResult(@Nullable Object result);
+    @Test
+    public void empty() {
+        StatefulAccumulator acc = newCall();
+
+        assertNull(acc.end());
+    }
+
+    private StatefulAccumulator newCall() {
+        return new StatefulAccumulator(DoubleAvg.FACTORY);
+    }
 }

@@ -17,25 +17,34 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Adapter that provides means to convert accumulator arguments and return types.
+ * A helper class for testing accumulator functions.
  */
-public interface AccumulatorWrapper<RowT> {
+public final class StatefulAccumulator {
 
-    /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
-    boolean isDistinct();
+    private final Accumulator accumulator;
 
-    /** Returns the accumulator function. */
-    Accumulator accumulator();
+    private final AccumulatorsState state = new AccumulatorsState(1);
 
-    /**
-     * Creates accumulator arguments from the given row. If this method returns {@code null},
-     * then the accumulator function should not be applied to the given row.
-     */
-    Object @Nullable [] getArguments(RowT row);
+    private final AccumulatorsState result = new AccumulatorsState(1);
 
-    /** Converts accumulator result. */
-    Object convertResult(@Nullable Object result);
+    public StatefulAccumulator(Supplier<? extends Accumulator> supplier) {
+        this(supplier.get());
+    }
+
+    public StatefulAccumulator(Accumulator accumulator) {
+        this.accumulator = accumulator;
+    }
+
+    public void add(Object... args) {
+        accumulator.add(state, args);
+    }
+
+    public @Nullable Object end() {
+        accumulator.end(state, result);
+        return result.get();
+    }
 }
