@@ -620,89 +620,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private boolean isPartitionOperation(int opCode) {
-        return opCode == ClientOp.TABLES_GET ||
-                opCode == ClientOp.TUPLE_UPSERT ||
-                opCode == ClientOp.TUPLE_GET ||
-                opCode == ClientOp.TUPLE_UPSERT_ALL ||
-                opCode == ClientOp.TUPLE_GET_ALL ||
-                opCode == ClientOp.TUPLE_GET_AND_UPSERT ||
-                opCode == ClientOp.TUPLE_INSERT ||
-                opCode == ClientOp.TUPLE_INSERT_ALL ||
-                opCode == ClientOp.TUPLE_REPLACE ||
-                opCode == ClientOp.TUPLE_REPLACE_EXACT ||
-                opCode == ClientOp.TUPLE_GET_AND_REPLACE ||
-                opCode == ClientOp.TUPLE_DELETE ||
-                opCode == ClientOp.TUPLE_DELETE_ALL ||
-                opCode == ClientOp.TUPLE_DELETE_EXACT ||
-                opCode == ClientOp.TUPLE_DELETE_ALL_EXACT ||
-                opCode == ClientOp.TUPLE_GET_AND_DELETE ||
-                opCode == ClientOp.TUPLE_CONTAINS_KEY ||
-                opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
-    }
-
-    private void processOperationInternal(
-            ChannelHandlerContext ctx,
-            ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            long requestId,
-            int opCode
-    ) {
-        out.packLong(requestId);
-        writeFlags(out, ctx, false, false);
-
-        // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
-        int observableTimestampIdx = out.reserveLong();
-
-        CompletableFuture fut;
-
-        try {
-            fut = processOperation(in, out, opCode, requestId);
-        } catch (IgniteInternalCheckedException e) {
-            fut = CompletableFuture.failedFuture(e);
-        }
-
-        if (fut == null) {
-            // Operation completed synchronously.
-            in.close();
-            out.setLong(observableTimestampIdx, observableTimestamp(out));
-            write(out, ctx);
-
-            if (LOG.isTraceEnabled()) {
-                LOG.trace("Client request processed synchronously [id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
-            }
-
-            metrics.requestsProcessedIncrement();
-            metrics.requestsActiveDecrement();
-        } else {
-            var reqId = requestId;
-            var op = opCode;
-
-            fut.whenComplete((Object res, Object err) -> {
-                in.close();
-                metrics.requestsActiveDecrement();
-
-                if (err != null) {
-                    out.close();
-                    writeError(reqId, op, (Throwable) err, ctx, false);
-
-                    metrics.requestsFailedIncrement();
-                } else {
-                    out.setLong(observableTimestampIdx, observableTimestamp(out));
-                    write(out, ctx);
-
-                    metrics.requestsProcessedIncrement();
-
-                    if (LOG.isTraceEnabled()) {
-                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
-                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
-                    }
-                }
-            });
-        }
-    }
-
     private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
@@ -878,6 +795,89 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
+        }
+    }
+
+    private boolean isPartitionOperation(int opCode) {
+        return opCode == ClientOp.TABLES_GET
+                || opCode == ClientOp.TUPLE_UPSERT
+                || opCode == ClientOp.TUPLE_GET
+                || opCode == ClientOp.TUPLE_UPSERT_ALL
+                || opCode == ClientOp.TUPLE_GET_ALL
+                || opCode == ClientOp.TUPLE_GET_AND_UPSERT
+                || opCode == ClientOp.TUPLE_INSERT
+                || opCode == ClientOp.TUPLE_INSERT_ALL
+                || opCode == ClientOp.TUPLE_REPLACE
+                || opCode == ClientOp.TUPLE_REPLACE_EXACT
+                || opCode == ClientOp.TUPLE_GET_AND_REPLACE
+                || opCode == ClientOp.TUPLE_DELETE
+                || opCode == ClientOp.TUPLE_DELETE_ALL
+                || opCode == ClientOp.TUPLE_DELETE_EXACT
+                || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+                || opCode == ClientOp.TUPLE_GET_AND_DELETE
+                || opCode == ClientOp.TUPLE_CONTAINS_KEY
+                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+    }
+
+    private void processOperationInternal(
+            ChannelHandlerContext ctx,
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            long requestId,
+            int opCode
+    ) {
+        out.packLong(requestId);
+        writeFlags(out, ctx, false, false);
+
+        // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
+        int observableTimestampIdx = out.reserveLong();
+
+        CompletableFuture fut;
+
+        try {
+            fut = processOperation(in, out, opCode, requestId);
+        } catch (IgniteInternalCheckedException e) {
+            fut = CompletableFuture.failedFuture(e);
+        }
+
+        if (fut == null) {
+            // Operation completed synchronously.
+            in.close();
+            out.setLong(observableTimestampIdx, observableTimestamp(out));
+            write(out, ctx);
+
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("Client request processed synchronously [id=" + requestId + ", op=" + opCode
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            }
+
+            metrics.requestsProcessedIncrement();
+            metrics.requestsActiveDecrement();
+        } else {
+            var reqId = requestId;
+            var op = opCode;
+
+            fut.whenComplete((Object res, Object err) -> {
+                in.close();
+                metrics.requestsActiveDecrement();
+
+                if (err != null) {
+                    out.close();
+                    writeError(reqId, op, (Throwable) err, ctx, false);
+
+                    metrics.requestsFailedIncrement();
+                } else {
+                    out.setLong(observableTimestampIdx, observableTimestamp(out));
+                    write(out, ctx);
+
+                    metrics.requestsProcessedIncrement();
+
+                    if (LOG.isTraceEnabled()) {
+                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
+                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                    }
+                }
+            });
         }
     }
 
