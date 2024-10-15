@@ -211,11 +211,12 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             @Nullable List<String> proposedCmgNodeNames,
             int metastorageReplicationFactor
     ) {
-        return resetClusterInternal(proposedCmgNodeNames, metastorageReplicationFactor);
+        return proposedCmgNodeNamesOrCurrentIfNull(proposedCmgNodeNames)
+                .thenCompose(cmgNodeNames -> resetClusterInternal(cmgNodeNames, metastorageReplicationFactor));
     }
 
     private CompletableFuture<Void> resetClusterInternal(
-            @Nullable List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
         try {
@@ -226,7 +227,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private CompletableFuture<Void> doResetCluster(
-            @Nullable List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
@@ -243,17 +244,6 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
-
-        return proposedCmgNodeNamesOrCurrentIfNull(proposedCmgNodeNames)
-                .thenCompose(cmgNodeNames -> sendMessages(cmgNodeNames, clusterState, metastorageReplicationFactor, nodesInTopology));
-    }
-
-    private CompletableFuture<Void> sendMessages(
-            Collection<String> proposedCmgNodeNames,
-            ClusterState clusterState,
-            @Nullable Integer metastorageReplicationFactor,
-            Collection<ClusterNode> nodesInTopology
-    ) {
         ResetClusterMessage message = buildResetClusterMessageForReset(
                 proposedCmgNodeNames,
                 clusterState,
@@ -292,13 +282,13 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         }
     }
 
-    private static void ensureNoRepetitions(List<String> proposedCmgNodeNames) {
+    private static void ensureNoRepetitions(Collection<String> proposedCmgNodeNames) {
         if (new HashSet<>(proposedCmgNodeNames).size() != proposedCmgNodeNames.size()) {
             throw new ClusterResetException("New CMG node names have repetitions: " + proposedCmgNodeNames + ".");
         }
     }
 
-    private void ensureContainsThisNodeName(List<String> proposedCmgNodeNames) {
+    private void ensureContainsThisNodeName(Collection<String> proposedCmgNodeNames) {
         if (!proposedCmgNodeNames.contains(thisNodeName)) {
             throw new ClusterResetException("Current node is not contained in the new CMG, so it cannot conduct a cluster reset.");
         }
@@ -311,7 +301,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static void ensureAllProposedCmgNodesAreInTopology(
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Collection<ClusterNode> nodesInTopology
     ) {
         Set<String> namesOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
