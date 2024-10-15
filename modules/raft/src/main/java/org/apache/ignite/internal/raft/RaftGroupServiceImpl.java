@@ -747,7 +747,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         .getConstructor(String.class)
                         .newInstance(compactedThrowable.throwableMessage());
 
-                fut.completeExceptionally(new IgniteInternalException(retryContext.errorTraceId(), INTERNAL_ERR, restoredTh));
+                fut.completeExceptionally(restoredTh);
             } catch (Exception e) {
                 LOG.warn("Cannot restore throwable from user's state machine. "
                         + "Check if throwable " + compactedThrowable.throwableClassName()
@@ -758,9 +758,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 ));
             }
         } else if (th instanceof SMFullThrowable) {
-            fut.completeExceptionally(new IgniteInternalException(
-                    retryContext.errorTraceId(), INTERNAL_ERR, ((SMFullThrowable) th).throwable()
-            ));
+            fut.completeExceptionally(((SMFullThrowable) th).throwable());
         } else {
             assert false : th;
         }
