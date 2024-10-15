@@ -241,6 +241,8 @@ namespace Apache.Ignite.Tests.Compute
             await Test(-123.456m);
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
+            await Test(new BigDecimal(long.MinValue, 10));
+            await Test(new BigDecimal(long.MaxValue, 20));
 
             await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");

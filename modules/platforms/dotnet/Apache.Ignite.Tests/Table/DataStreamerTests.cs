@@ -66,6 +66,7 @@ public class DataStreamerTests : IgniteTestsBase
         float.MaxValue,
         double.MinValue,
         decimal.One,
+        new BigDecimal(1234, 2),
         new LocalDate(1234, 5, 6),
         new LocalTime(12, 3, 4, 567),
         new LocalDateTime(1234, 5, 6, 7, 8, 9),
