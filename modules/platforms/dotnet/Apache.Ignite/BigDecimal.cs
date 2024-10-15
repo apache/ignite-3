@@ -25,6 +25,10 @@ using Internal.Proto.BinaryTuple;
 
 /// <summary>
 /// Big decimal.
+/// <para />
+/// Ignite supports values with up to <see cref="short.MaxValue"/> precision (in tables, SQL, Compute, and other APIs).
+/// .NET <see cref="decimal"/> has 28-29 digit precision and can not represent all values that Ignite supports.
+/// This type fills the gap.
 /// </summary>
 public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
 {
