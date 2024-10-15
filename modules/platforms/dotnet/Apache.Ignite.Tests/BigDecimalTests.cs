@@ -77,7 +77,9 @@ public class BigDecimalTests
     [TestCase("0", 1, null, "0")]
     [TestCase("1", 0, null, "1")]
     [TestCase("1", 1, null, ".1")]
+    [TestCase("1", -1, null, "10")]
     [TestCase("1", 5, null, ".00001")]
+    [TestCase("123", -2, null, "12300")]
     [TestCase("123", 0, null, "123")]
     [TestCase("123", 1, null, "12.3")]
     [TestCase("123", 2, null, "1.23")]
@@ -116,6 +118,12 @@ public class BigDecimalTests
 
     [Test]
     public void TestCompareTo()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestNegativeScale()
     {
         Assert.Fail("TODO");
     }

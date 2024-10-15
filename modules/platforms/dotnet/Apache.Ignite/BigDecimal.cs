@@ -35,8 +35,6 @@ public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
     /// <param name="scale">Scale.</param>
     public BigDecimal(BigInteger unscaledValue, short scale)
     {
-        IgniteArgumentCheck.Ensure(scale >= 0, nameof(scale), "Scale must be non-negative.");
-
         UnscaledValue = unscaledValue;
         Scale = scale;
     }
