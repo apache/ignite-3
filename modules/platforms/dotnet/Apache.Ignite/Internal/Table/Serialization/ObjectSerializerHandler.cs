@@ -425,6 +425,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 type = nullableType;
             }
 
+            if (type == typeof(decimal) && column.Type == ColumnType.Decimal)
+            {
+                return;
+            }
+
             type = type.UnwrapEnum();
 
             if (type != columnType)
