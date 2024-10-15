@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -850,7 +851,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                 ? keysIdx.tailMap(keyFrom)
                 : keysIdx.subMap(keyFrom, keyTo);
 
-        return subMap.entrySet().stream()
+        List<Entry> entries = subMap.entrySet().stream()
                 .map(e -> {
                     byte[] key = e.getKey();
                     long[] keyRevisions = toLongArray(e.getValue());
@@ -872,6 +873,29 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     return EntryImpl.toEntry(key, revision, value);
                 })
                 .filter(e -> !e.empty())
-                .collect(collectingAndThen(toList(), Cursor::fromIterable));
+                .collect(toList());
+
+        Iterator<Entry> iterator = entries.iterator();
+
+        UUID cursorId = UUID.randomUUID();
+        long compactionRevisionOnCreateIterator = compactionRevision;
+
+        readOperationForCompactionTracker.track(cursorId, compactionRevisionOnCreateIterator);
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                readOperationForCompactionTracker.untrack(cursorId, compactionRevisionOnCreateIterator);
+            }
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Entry next() {
+                return iterator.next();
+            }
+        };
     }
 }

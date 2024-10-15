@@ -63,6 +63,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1458,7 +1459,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
+        UUID cursorId = UUID.randomUUID();
         long compactionRevisionBeforeCreateCursor = compactionRevision;
+
+        readOperationForCompactionTracker.track(cursorId, compactionRevision);
 
         return new RocksIteratorAdapter<>(iterator) {
             /** Cached entry used to filter "empty" values. */
@@ -1523,6 +1527,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             @Override
             public void close() {
+                readOperationForCompactionTracker.untrack(cursorId, compactionRevisionBeforeCreateCursor);
+
                 super.close();
 
                 RocksUtils.closeAll(readOpts, upperBound);

@@ -538,6 +538,17 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long getCompactionRevision();
 
     /**
+     * Returns a future that will complete when all read operations that were started before {@code revisionExcluded}.
+     *
+     * <p>Current method is expected to be invoked after {@link #setCompactionRevision} on the same revision.</p>
+     *
+     * <p>Future completes without exception.</p>
+     *
+     * @param revisionExcluded Compaction revision of interest.
+     */
+    CompletableFuture<Void> readOperationsFuture(long revisionExcluded);
+
+    /**
      * Returns checksum corresponding to the revision.
      *
      * @param revision Revision.
