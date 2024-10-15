@@ -1148,7 +1148,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             return messagesFactory.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(time)
-                    .minimumActiveTxTime(clockService.nowLong())
+                    .activeTxMinimumRequiredTime(clockService.nowLong())
                     .partitions(availablePartitions)
                     .build();
         }

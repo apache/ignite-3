@@ -22,7 +22,7 @@ package org.apache.ignite.internal.tx;
  * earliest catalog version that can be used by active local RW transactions.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ActiveLocalTxMinimumRequiredCatalogTimeProvider {
+public interface ActiveLocalTxMinimumRequiredTimeProvider {
     /**
      * Returns a timestamp corresponding to the activation time of the
      * earliest catalog version that active local RW transactions can use,

@@ -168,21 +168,21 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(catalog1.time()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog1.time()));
         });
 
         tx1.rollback();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(catalog2.time()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog2.time()));
         });
 
         tx2.commit();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(catalog3.time()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog3.time()));
         });
 
         tx3.rollback();
@@ -196,10 +196,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             long maxTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
 
             // Read-only transactions are not counted,
-            assertThat(timeHolder.minActiveTxBeginTime, greaterThan(ignoredReadonlyTx.startTimestamp().longValue()));
+            assertThat(timeHolder.txMinRequiredTime, greaterThan(ignoredReadonlyTx.startTimestamp().longValue()));
 
-            assertThat(timeHolder.minActiveTxBeginTime, greaterThanOrEqualTo(minTime));
-            assertThat(timeHolder.minActiveTxBeginTime, lessThanOrEqualTo(maxTime));
+            assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));
+            assertThat(timeHolder.txMinRequiredTime, lessThanOrEqualTo(maxTime));
         });
 
         ignoredReadonlyTx.rollback();

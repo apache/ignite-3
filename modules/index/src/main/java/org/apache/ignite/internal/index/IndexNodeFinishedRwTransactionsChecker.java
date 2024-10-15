@@ -42,7 +42,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
-import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredCatalogTimeProvider;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -52,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
-public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumRequiredCatalogTimeProvider,
+public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumRequiredTimeProvider,
         IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
@@ -163,14 +163,14 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
                 return clock.now().longValue();
             }
 
-            minRequiredVer = entry.getKey();;
+            minRequiredVer = entry.getKey();
         } finally {
             readWriteLock.writeLock().unlock();
         }
 
         Catalog catalog = catalogService.catalog(minRequiredVer);
 
-        assert catalog != null : "ver=" + minRequiredVer;
+        assert catalog != null : "minRequiredVer=" + minRequiredVer;
 
         return catalog.time();
     }
