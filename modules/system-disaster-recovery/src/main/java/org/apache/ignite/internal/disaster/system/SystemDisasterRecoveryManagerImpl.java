@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
@@ -84,6 +86,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     /** This executor spawns a thread per task and should only be used for very rare tasks. */
     private final Executor restartExecutor;
 
+    private final ClusterManagementGroupManager cmgManager;
+
     /** Constructor. */
     public SystemDisasterRecoveryManagerImpl(
             String thisNodeName,
@@ -92,6 +96,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             VaultManager vaultManager,
             ServerRestarter restarter,
             MetastorageGroupMaintenance metastorageGroupMaintenance,
+            ClusterManagementGroupManager cmgManager,
             ClusterIdSupplier clusterIdSupplier
     ) {
         this.thisNodeName = thisNodeName;
@@ -99,6 +104,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         this.messagingService = messagingService;
         this.restarter = restarter;
         this.metastorageGroupMaintenance = metastorageGroupMaintenance;
+        this.cmgManager = cmgManager;
         this.clusterIdSupplier = clusterIdSupplier;
 
         storage = new SystemDisasterRecoveryStorage(vaultManager);
@@ -240,10 +246,18 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
-        Collection<String> cmgNodeNames = proposedCmgNodeNames == null ? clusterState.cmgNodes() : proposedCmgNodeNames;
+        return proposedCmgNodeNamesOrCurrentIfNull(proposedCmgNodeNames)
+                .thenCompose(cmgNodeNames -> sendMessages(cmgNodeNames, clusterState, metastorageReplicationFactor, nodesInTopology));
+    }
 
+    private CompletableFuture<Void> sendMessages(
+            Collection<String> proposedCmgNodeNames,
+            ClusterState clusterState,
+            @Nullable Integer metastorageReplicationFactor,
+            Collection<ClusterNode> nodesInTopology
+    ) {
         ResetClusterMessage message = buildResetClusterMessageForReset(
-                cmgNodeNames,
+                proposedCmgNodeNames,
                 clusterState,
                 metastorageReplicationFactor,
                 nodesInTopology
@@ -258,7 +272,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
                     boolean repairMg = metastorageReplicationFactor != null;
 
-                    if (enoughResponsesAreSuccesses(repairMg, cmgNodeNames, responseFutures)) {
+                    if (enoughResponsesAreSuccesses(repairMg, proposedCmgNodeNames, responseFutures)) {
                         restarter.initiateRestart();
 
                         return null;
@@ -266,6 +280,12 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                         throw new ClusterResetException(errorMessageForNotEnoughSuccesses(repairMg, responseFutures));
                     }
                 }, restartExecutor);
+    }
+
+    private CompletableFuture<Collection<String>> proposedCmgNodeNamesOrCurrentIfNull(@Nullable List<String> proposedCmgNodeNames) {
+        return proposedCmgNodeNames != null
+                ? completedFuture(proposedCmgNodeNames)
+                : cmgManager.clusterState().thenApply(ClusterState::cmgNodes);
     }
 
     private static void ensureReplicationFactorIsPositiveIfGiven(@Nullable Integer metastorageReplicationFactor) {

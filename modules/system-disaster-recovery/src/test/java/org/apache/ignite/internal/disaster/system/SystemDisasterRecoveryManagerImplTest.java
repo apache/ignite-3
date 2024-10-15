@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -60,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
@@ -173,6 +175,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         lenient().when(messagingService.respond(any(ClusterNode.class), any(NetworkMessage.class), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
+        lenient().when(cmgManager.clusterState()).thenReturn(completedFuture(usualClusterState));
+
         manager = new SystemDisasterRecoveryManagerImpl(
                 thisNodeName,
                 topologyService,
@@ -180,6 +186,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 vaultManager,
                 restarter,
                 metastorageMaintenance,
+                cmgManager,
                 new ConstantClusterIdSupplier(clusterId)
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
