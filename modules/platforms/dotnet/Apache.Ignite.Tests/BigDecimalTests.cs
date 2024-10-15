@@ -28,11 +28,16 @@ using NUnit.Framework;
 public class BigDecimalTests
 {
     [Test]
-    public void TestToDecimal()
+    [TestCase(0, 0, 0)]
+    [TestCase(1, 0, 1)]
+    [TestCase(1, 1, 0.1)]
+    [TestCase(1, 5, 0.00001)]
+    [TestCase(12345678912345, 6, 12345678.912345)]
+    public void TestToDecimal(long unscaled, short scale, decimal expected)
     {
-        var bigDecimal = new BigDecimal(BigInteger.Parse("1234567890"), 5);
+        var bigDecimal = new BigDecimal(new BigInteger(unscaled), scale);
 
-        Assert.AreEqual(12345.6789m, bigDecimal.ToDecimal());
+        Assert.AreEqual(expected, bigDecimal.ToDecimal());
     }
 
     [Test]
