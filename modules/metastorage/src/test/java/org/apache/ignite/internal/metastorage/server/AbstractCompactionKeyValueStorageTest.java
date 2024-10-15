@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -107,6 +108,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(4, 6/* Tombstone */), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision1() {
         storage.compact(1);
@@ -116,6 +121,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision2() {
         storage.compact(2);
@@ -125,6 +134,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision3() {
         storage.compact(3);
@@ -134,6 +147,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision4() {
         storage.compact(4);
@@ -143,6 +160,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(6), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision5() {
         storage.compact(5);
@@ -152,6 +173,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(6), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} for a specific single revision, to simplify testing, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevision6() {
         storage.compact(6);
@@ -161,6 +186,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#compact(long)} as if it were called for each revision sequentially, see examples in the method
+     * description. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactRevisionSequentially() {
         testCompactRevision1();
@@ -171,6 +200,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         testCompactRevision6();
     }
 
+    /**
+     * Tests that after the storage is recovered, compacted keys will not be returned. Keys with their revisions are added in
+     * {@link #setUp()}.
+     */
     @Test
     void testRevisionsAfterRestart() {
         storage.compact(6);
@@ -186,6 +219,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(), collectRevisions(SOME_KEY));
     }
 
+    /**
+     * Tests stopping the compaction. Since it is impossible to predict what the result will be if you stop somewhere in the middle of the
+     * compaction, it is easiest to stop before the compaction starts. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testCompactBeforeStopIt() {
         storage.stopCompaction();
@@ -280,6 +317,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(-1, storage.getCompactionRevision());
     }
 
+    /**
+     * Tests {@link Entry#timestamp()} for a key that will be fully removed from storage after compaction. This case would be suitable for
+     * the {@link #BAR_KEY}, since its last revision is a tombstone. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testEntryOperationTimestampAfterCompaction() {
         storage.compact(6);
@@ -339,6 +380,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(timestamp3.subtractPhysicalTime(1)));
     }
 
+    /**
+     * Tests that {@link KeyValueStorage#get(byte[])} will not throw the {@link CompactedException} for all keys after compacting to the
+     * penultimate repository revision. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testGetSingleEntryLatestAndCompaction() {
         storage.setCompactionRevision(6);
@@ -348,6 +393,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrow(() -> storage.get(NOT_EXISTS_KEY));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long)} using examples from the description only for the {@link #FOO_KEY} for which the last
+     * revision is <b>not</b> tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are
+     * added in {@link #setUp()}.
+     */
     @Test
     void testGetSingleEntryAndCompactionForFooKey() {
         // FOO_KEY has revisions: [1, 3, 5].
@@ -376,6 +426,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long)} using examples from the description only for the {@link #BAR_KEY} for which the last
+     * revision is tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are added in
+     * {@link #setUp()}.
+     */
     @Test
     void testGetSingleEntryAndCompactionForBarKey() {
         // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
@@ -404,6 +459,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 7);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long)} using examples from the description only for the {@link #NOT_EXISTS_KEY} for which
+     * was never present in the storage. Only one key is considered so that the tests are not too long. Keys with their revisions are added
+     * in {@link #setUp()}.
+     */
     @Test
     void testGetSingleEntryAndCompactionForNotExistsKey() {
         storage.setCompactionRevision(1);
@@ -431,6 +491,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(NOT_EXISTS_KEY, 7);
     }
 
+    /**
+     * Tests that {@link KeyValueStorage#getAll(List)} will not throw the {@link CompactedException} for all keys after compacting to the
+     * penultimate repository revision. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testGetAllLatestAndCompaction() {
         storage.setCompactionRevision(6);
@@ -438,6 +502,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrow(() -> storage.getAll(List.of(FOO_KEY, BAR_KEY, NOT_EXISTS_KEY)));
     }
 
+    /**
+     * Tests {@link KeyValueStorage#getAll(List, long)} using examples from the description only for the {@link #FOO_KEY} for which the
+     * last revision is <b>not</b> tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are
+     * added in {@link #setUp()}.
+     */
     @Test
     void testGetAllAndCompactionForFooKey() {
         // FOO_KEY has revisions: [1, 3, 5].
@@ -466,6 +535,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetAll(5, FOO_KEY);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#getAll(List, long)} using examples from the description only for the {@link #BAR_KEY} for which the
+     * last revision is tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are added in
+     * {@link #setUp()}.
+     */
     @Test
     void testGetAllAndCompactionForBarKey() {
         // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
@@ -494,6 +568,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetAll(7, BAR_KEY);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#getAll(List, long)} using examples from the description only for the {@link #NOT_EXISTS_KEY} for which
+     * was never present in the storage. Only one key is considered so that the tests are not too long. Keys with their revisions are added
+     * in {@link #setUp()}.
+     */
     @Test
     void testGetAllAndCompactionForNotExistsKey() {
         storage.setCompactionRevision(1);
@@ -521,6 +600,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetAll(7, NOT_EXISTS_KEY);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#getAll(List, long)} using examples from the description for several keys at once; it is enough to
+     * consider only two cases of compaction. Only one key is considered so that the tests are not too long. Keys with their revisions are
+     * added in {@link #setUp()}.
+     */
     @Test
     void testGetAllAndCompactionForMultipleKeys() {
         storage.setCompactionRevision(1);
@@ -535,6 +619,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetAll(6, FOO_KEY, BAR_KEY, NOT_EXISTS_KEY);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long, long)} using examples from the description only for the {@link #FOO_KEY} for which
+     * the last revision is <b>not</b> tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions
+     * are added in {@link #setUp()}.
+     */
     @Test
     void testGetListAndCompactionForFooKey() {
         // FOO_KEY has revisions: [1, 3, 5].
@@ -592,6 +681,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertThrowsCompactedExceptionForGetList(FOO_KEY, 6, 7);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long, long)} using examples from the description only for the {@link #BAR_KEY} for which
+     * the last revision is tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are added
+     * in {@link #setUp()}.
+     */
     @Test
     void testGetListAndCompactionForBarKey() {
         // BAR_KEY has revisions: [1, 2, 5 (tombstone)].
@@ -651,6 +745,11 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowsCompactedExceptionForGetList(BAR_KEY, 7, 7);
     }
 
+    /**
+     * Tests {@link KeyValueStorage#get(byte[], long, long)} using examples from the description only for the {@link #NOT_EXISTS_KEY} for
+     * which was never present in the storage. Only one key is considered so that the tests are not too long. Keys with their revisions are
+     * added in {@link #setUp()}.
+     */
     @Test
     void testGetListAndCompactionForNotExistsKey() {
         storage.setCompactionRevision(1);
@@ -689,6 +788,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowsCompactedExceptionForGetList(NOT_EXISTS_KEY, 7, 7);
     }
 
+    /**
+     * Tests that {@link KeyValueStorage#range(byte[], byte[])} and cursor methods will not throw {@link CompactedException} after
+     * compacting to the penultimate revision. The key is chosen randomly. Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testRangeLatestAndCompaction() {
         storage.setCompactionRevision(6);
@@ -701,6 +804,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         });
     }
 
+    /**
+     * Tests {@link KeyValueStorage#range(byte[], byte[], long)} and cursor methods as described in the method. The key is chosen randomly.
+     * Keys with their revisions are added in {@link #setUp()}.
+     */
     @Test
     void testRangeAndCompaction() {
         try (Cursor<Entry> cursorBeforeSetCompactionRevision = storage.range(FOO_KEY, null, 5)) {
@@ -722,6 +829,70 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
+    /**
+     * Tests {@link KeyValueStorage#range(byte[], byte[])} and {@link KeyValueStorage#range(byte[], byte[], long)} for the case when
+     * cursors should or should not return the last element after compaction. For {@link #FOO_KEY} and {@link #BAR_KEY}, the last revisions
+     * are 5, a regular entry and a tombstone. Keys with their revisions are added in {@link #setUp()}.
+     *
+     * <p>Consider the situation:</p>
+     * <ul>
+     *     <li>Made {@link KeyValueStorage#setCompactionRevision(long) KeyValueStorage.setCompactionRevision(5)}.</li>
+     *     <li>Waited for all cursors to end with revision {@code 5} or less.</li>
+     *     <li>Made {@link KeyValueStorage#compact(long) KeyValueStorage.compact(5)}.</li>
+     *     <li>Invoke {@link KeyValueStorage#range} for last revision and revision {@code 6} for {@link #FOO_KEY} and {@link #BAR_KEY}.
+     *     <ul>
+     *         <li>For {@link #FOO_KEY}, we need to return a entry with revision {@code 5}, since it will not be removed from the storage
+     *         after compaction.</li>
+     *         <li>For {@link #BAR_KEY}, we should not return anything, since the key will be deleted after compaction.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     */
+    @Test
+    void testRangeAndCompactionForCaseReadLastEntries() {
+        storage.setCompactionRevision(5);
+
+        try (
+                Cursor<Entry> rangeFooKeyCursorLatest = storage.range(FOO_KEY, storage.nextKey(FOO_KEY));
+                Cursor<Entry> rangeFooKeyCursorBounded = storage.range(FOO_KEY, storage.nextKey(FOO_KEY), 6);
+                Cursor<Entry> rangeBarKeyCursorLatest = storage.range(BAR_KEY, storage.nextKey(BAR_KEY));
+                Cursor<Entry> rangeBarKeyCursorBounded = storage.range(BAR_KEY, storage.nextKey(BAR_KEY), 6)
+        ) {
+            // Must see the latest revision of the FOO_KEY as it will not be removed from storage by the compaction.
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorBounded));
+
+            // Must not see the latest revision of the BAR_KEY, as it will have to be removed from the storage by the compaction.
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorLatest));
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorBounded));
+        }
+    }
+
+    /**
+     * Tests {@link KeyValueStorage#range(byte[], byte[])} and {@link KeyValueStorage#range(byte[], byte[], long)} for the case when they
+     * were invoked on a revision (for example, on revision {@code 5}) before invoking
+     * {@link KeyValueStorage#setCompactionRevision(long) KeyValueStorage.setCompactionRevision(5)} but before invoking
+     * {@link KeyValueStorage#compact(long) KeyValueStorage.compact(5)}. Such cursors should return entries since nothing should be
+     * removed yet until they are completed. Keys are chosen for convenience. Keys with their revisions are added in {@link #setUp()}.
+     */
+    @Test
+    void testRangeAfterSetCompactionRevisionButBeforeStartCompaction() {
+        try (
+                Cursor<Entry> rangeFooKeyCursorLatest = storage.range(FOO_KEY, storage.nextKey(FOO_KEY));
+                Cursor<Entry> rangeFooKeyCursorBounded = storage.range(FOO_KEY, storage.nextKey(FOO_KEY), 5);
+                Cursor<Entry> rangeBarKeyCursorLatest = storage.range(BAR_KEY, storage.nextKey(BAR_KEY));
+                Cursor<Entry> rangeBarKeyCursorBounded = storage.range(BAR_KEY, storage.nextKey(BAR_KEY), 5)
+        ) {
+            storage.setCompactionRevision(5);
+
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorBounded));
+
+            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorLatest));
+            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorBounded));
+        }
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -734,6 +905,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
 
         return revisions;
+    }
+
+    private List<Long> collectRevisions(Cursor<Entry> cursor) {
+        return cursor.stream().map(Entry::revision).collect(toList());
     }
 
     private static byte[] fromString(String s) {
