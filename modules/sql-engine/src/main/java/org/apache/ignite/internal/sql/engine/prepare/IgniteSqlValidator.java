@@ -731,6 +731,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // if we already know the type, no need to re-derive
         RelDataType type = getValidatedNodeTypeIfKnown(expr);
         if (type != null) {
+            if (expr instanceof SqlDynamicParam) {
+                // Validated node type may be reassigned by the operators return type inference strategy and
+                // operands checker. Both of them are ot aware about DynamicParamState we use for validation,
+                // thus we need to update return type even if it was already assigned.
+                setDynamicParamType((SqlDynamicParam) expr, type);
+            }
+
             return type;
         }
 
