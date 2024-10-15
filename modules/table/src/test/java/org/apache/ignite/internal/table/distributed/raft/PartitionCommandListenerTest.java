@@ -312,7 +312,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                     .primaryReplicaNodeName("primary")
                     .primaryReplicaNodeId(UUID.randomUUID())
                     .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
-                    .safeTime(clockService.now())
                     .build();
 
             commandListener.onWrite(List.of(writeCommandCommandClosure(raftIndex.incrementAndGet(), 1, command)).iterator());

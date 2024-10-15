@@ -23,13 +23,12 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Command to write the primary replica change to the replication group.
  */
 @Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
-public interface PrimaryReplicaChangeCommand extends SafeTimePropagatingCommand {
+public interface PrimaryReplicaChangeCommand extends WriteCommand {
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
     long leaseStartTime();
 
