@@ -55,6 +55,7 @@ public partial class LinqTests : IgniteTestsBase
 
     private IRecordView<PocoDouble> PocoDoubleView { get; set; } = null!;
 
+    // TODO: Same tests with BigDecimal
     private IRecordView<PocoDecimal> PocoDecimalView { get; set; } = null!;
 
     private IRecordView<PocoString> PocoStringView { get; set; } = null!;
