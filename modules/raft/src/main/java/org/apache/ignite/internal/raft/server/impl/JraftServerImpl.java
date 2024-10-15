@@ -872,5 +872,12 @@ public class JraftServerImpl implements RaftServer {
 
             listener.onLeaderStart();
         }
+
+        @Override
+        public void onLeaderStop(Status status) {
+            super.onLeaderStop(status);
+
+            listener.onLeaderStop();
+        }
     }
 }

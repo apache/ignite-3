@@ -96,4 +96,11 @@ public interface RaftGroupListener {
     default void onLeaderStart() {
         // No-op.
     }
+
+    /**
+     * Invoked when the belonging node stops being the leader of the group.
+     */
+    default void onLeaderStop() {
+        // No-op.
+    }
 }
