@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
@@ -185,7 +186,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
 
         // TODO: IGNITE-15723 After a component factory is implemented, need to get rid of reflection here.
         var storage = (SimpleInMemoryKeyValueStorage) getFieldValue(node.metaStorageManager, MetaStorageManagerImpl.class, "storage");
-        var watchProcessor = (WatchProcessor) getFieldValue(storage, SimpleInMemoryKeyValueStorage.class, "watchProcessor");
+        var watchProcessor = (WatchProcessor) getFieldValue(storage, AbstractKeyValueStorage.class, "watchProcessor");
 
         CompletableFuture<Void> notificationFuture = getFieldValue(watchProcessor, WatchProcessor.class, "notificationFuture");
         if (notificationFuture != null) {
