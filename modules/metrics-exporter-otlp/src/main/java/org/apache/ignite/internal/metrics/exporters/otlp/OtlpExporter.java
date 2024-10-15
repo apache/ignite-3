@@ -51,6 +51,7 @@ import org.apache.ignite.internal.network.ssl.KeystoreLoader;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Otlp(OpenTelemetry) metrics exporter.
@@ -103,6 +104,11 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
     @Override
     public String name() {
         return EXPORTER_NAME;
+    }
+
+    @TestOnly
+    void exporter(MetricExporter exporter) {
+        this.exporter = exporter;
     }
 
     private static Supplier<Map<String, String>> headers(NamedListView<? extends HeadersView> headers) {

@@ -41,6 +41,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
 }
 

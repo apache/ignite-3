@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.metrics.exporters.otlp;
 
+import static io.opentelemetry.sdk.metrics.data.AggregationTemporality.CUMULATIVE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singleton;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.common.Clock;
@@ -27,16 +29,21 @@ import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.metrics.export.CollectionRegistration;
 import io.opentelemetry.sdk.metrics.internal.data.ImmutableDoublePointData;
 import io.opentelemetry.sdk.metrics.internal.data.ImmutableGaugeData;
+import io.opentelemetry.sdk.metrics.internal.data.ImmutableHistogramData;
+import io.opentelemetry.sdk.metrics.internal.data.ImmutableHistogramPointData;
 import io.opentelemetry.sdk.metrics.internal.data.ImmutableLongPointData;
 import io.opentelemetry.sdk.metrics.internal.data.ImmutableMetricData;
 import io.opentelemetry.sdk.resources.Resource;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
@@ -121,6 +128,24 @@ class MetricProducer implements CollectionRegistration {
                             "",
                             ImmutableGaugeData.create(
                                     singleton(ImmutableDoublePointData.create(epochNanos, epochNanos, Attributes.empty(), metric0.value()))
+                            )
+                    ));
+                } else if (metric instanceof DistributionMetric) {
+                    DistributionMetric metric0 = (DistributionMetric) metric;
+
+                    result.add(ImmutableMetricData.createDoubleHistogram(
+                            resource,
+                            scope,
+                            metric.name(),
+                            metric.description(),
+                            "",
+                            ImmutableHistogramData.create(
+                                    CUMULATIVE,
+                                    List.of(ImmutableHistogramPointData.create(
+                                            epochNanos, epochNanos, Attributes.empty(), Double.NaN, false, Double.NaN, false, Double.NaN,
+                                            Arrays.stream(metric0.bounds()).asDoubleStream().boxed().collect(toUnmodifiableList()),
+                                            Arrays.stream(metric0.value()).boxed().collect(toUnmodifiableList())
+                                    ))
                             )
                     ));
                 }
