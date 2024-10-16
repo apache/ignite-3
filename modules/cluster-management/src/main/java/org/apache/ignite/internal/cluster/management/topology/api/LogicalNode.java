@@ -88,15 +88,7 @@ public class LogicalNode extends ClusterNodeImpl {
             Map<String, String> systemAttributes,
             List<String> storageProfiles
     ) {
-        this(
-                node.id(),
-                node.name(),
-                node.address(),
-                node.nodeMetadata(),
-                userAttributes == null ? emptyMap() : userAttributes,
-                systemAttributes == null ? emptyMap() : systemAttributes,
-                storageProfiles == null ? emptyList() : storageProfiles
-        );
+        this(node.id(), node.name(), node.address(), node.nodeMetadata(), userAttributes, systemAttributes, storageProfiles);
     }
 
     /**
