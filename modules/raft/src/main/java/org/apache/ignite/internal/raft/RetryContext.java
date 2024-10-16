@@ -27,7 +27,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents a context containing data for {@code RaftGroupServiceImpl#sendWithRetry} methods.
  *
- * <p>Not thread-safe.
+ * <p>Not thread-safe. It is expected that every context is confined within a single {@code sendWithRetry} chain and, therefore,
+ * happens-before relationship (i.e. visibility of changes to the mutable state) is achieved through consecutive {@code Executor.submit}
+ * calls.
  */
 class RetryContext {
     private Peer targetPeer;
