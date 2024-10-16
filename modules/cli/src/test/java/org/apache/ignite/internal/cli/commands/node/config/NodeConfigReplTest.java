@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.converters;
+package org.apache.ignite.internal.cli.commands.node.config;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import picocli.CommandLine;
-import picocli.CommandLine.TypeConversionException;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.DisplayName;
 
-/**
- * Converter for @{link URL}.
- */
-public class UrlConverter implements CommandLine.ITypeConverter<URL> {
+/** Tests "node config" REPL commands. */
+@DisplayName("node config REPL")
+class NodeConfigReplTest extends NodeConfigTest {
     @Override
-    public URL convert(String value) throws Exception {
-        try {
-            return new URL(value);
-        } catch (MalformedURLException e) {
-            throw new TypeConversionException("Invalid URL '" + value + "' (" + e.getMessage() + ")");
-        }
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
     }
 }
