@@ -58,6 +58,8 @@ public partial class LinqTests : IgniteTestsBase
     // TODO: Same tests with BigDecimal
     private IRecordView<PocoDecimal> PocoDecimalView { get; set; } = null!;
 
+    private IRecordView<PocoBigDecimal> PocoBigDecimalView { get; set; } = null!;
+
     private IRecordView<PocoString> PocoStringView { get; set; } = null!;
 
     [OneTimeSetUp]
@@ -81,8 +83,11 @@ public partial class LinqTests : IgniteTestsBase
         PocoLongView = (await Client.Tables.GetTableAsync(TableInt64Name))!.GetRecordView<PocoLong>();
         PocoFloatView = (await Client.Tables.GetTableAsync(TableFloatName))!.GetRecordView<PocoFloat>();
         PocoDoubleView = (await Client.Tables.GetTableAsync(TableDoubleName))!.GetRecordView<PocoDouble>();
-        PocoDecimalView = (await Client.Tables.GetTableAsync(TableDecimalName))!.GetRecordView<PocoDecimal>();
         PocoStringView = (await Client.Tables.GetTableAsync(TableStringName))!.GetRecordView<PocoString>();
+
+        var tableDecimal = await Client.Tables.GetTableAsync(TableDecimalName);
+        PocoDecimalView = tableDecimal!.GetRecordView<PocoDecimal>();
+        PocoBigDecimalView = tableDecimal.GetRecordView<PocoBigDecimal>();
 
         for (int i = 0; i < Count; i++)
         {
@@ -737,6 +742,8 @@ public partial class LinqTests : IgniteTestsBase
     private record PocoDouble(double Key, double? Val);
 
     private record PocoDecimal(decimal Key, decimal? Val);
+
+    private record PocoBigDecimal(BigDecimal Key, BigDecimal? Val);
 
     private record PocoString(string Key, string? Val);
 
