@@ -188,10 +188,19 @@ class ClientComputeJobPackerUnpackerTest {
     }
 
     @Test
-    void packInvalidPojo() {
+    void packInvalidPojoStatic() {
         assertThrows(
                 MarshallingException.class,
                 () -> packJobResult(new StaticFieldPojo(), null, messagePacker),
+                "Can't pack object"
+        );
+    }
+
+    @Test
+    void packInvalidPojoEmpty() {
+        assertThrows(
+                MarshallingException.class,
+                () -> packJobResult(new Object(), null, messagePacker),
                 "Can't pack object"
         );
     }
