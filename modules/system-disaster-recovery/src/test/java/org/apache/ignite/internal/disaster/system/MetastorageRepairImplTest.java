@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
@@ -157,13 +158,33 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void proceedsIfParticipatingNodesAppearLaterThanRepairStarts() {
+    void proceedsIfParticipatingNodesAppearAsValidatedLaterThanRepairStarts() {
         when(cmgManager.validatedNodes()).thenReturn(completedFuture(Set.of()));
         doAnswer(invocation -> {
             LogicalTopologyEventListener listener = invocation.getArgument(0);
 
             listener.onNodeValidated(new LogicalNode(node1));
             listener.onNodeValidated(new LogicalNode(node2));
+
+            return null;
+        }).when(logicalTopology).addEventListener(any());
+
+        willRespondWithIndexAndTerm(node1, 10, 1);
+
+        assertThat(repair.repair(Set.of(node1.name()), 1), willSucceedIn(3, SECONDS));
+    }
+
+    @Test
+    void proceedsIfParticipatingNodesAppearAsJoinedLaterThanRepairStarts() {
+        when(cmgManager.validatedNodes()).thenReturn(completedFuture(Set.of()));
+        doAnswer(invocation -> {
+            LogicalTopologyEventListener listener = invocation.getArgument(0);
+
+            LogicalNode joinedNode1 = new LogicalNode(node1);
+            LogicalNode joinedNode2 = new LogicalNode(node2);
+
+            listener.onNodeJoined(joinedNode1, new LogicalTopologySnapshot(1, Set.of(joinedNode1)));
+            listener.onNodeJoined(joinedNode2, new LogicalTopologySnapshot(2, Set.of(joinedNode1, joinedNode2)));
 
             return null;
         }).when(logicalTopology).addEventListener(any());
