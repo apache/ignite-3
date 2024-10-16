@@ -30,7 +30,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -89,6 +91,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -932,6 +935,65 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
     }
 
+    @Test
+    public void txMinimumRequiredTime() {
+        MessagingService messagingService = mock(MessagingService.class);
+
+        IndexNodeFinishedRwTransactionsChecker checker =
+                new IndexNodeFinishedRwTransactionsChecker(catalogManager, messagingService, clock);
+
+        int catalogsCount = 5;
+        int txPerCatalogCount = 100;
+
+        List<HybridTimestamp> txsBeginTime = new ArrayList<>(catalogsCount * txPerCatalogCount);
+
+        int initCatalogVersion = catalogManager.latestCatalogVersion();
+
+        for (int c = 0; c < catalogsCount; c++) {
+            await(catalogManager.execute(TestCommand.ok()));
+
+            for (int i = 0; i < txPerCatalogCount; i++) {
+                checker.inUpdateRwTxCountLock(() -> {
+                    HybridTimestamp ts = clockService.now();
+                    txsBeginTime.add(ts);
+                    checker.incrementRwTxCount(ts);
+
+                    return null;
+                });
+            }
+        }
+
+        // Sequentially decrease the transaction counter and check the minimum required time.
+        int expectedCatalogVersion = initCatalogVersion;
+
+        for (int n = 0; n < txsBeginTime.size(); n++) {
+            if (n % txPerCatalogCount == 0) {
+                ++expectedCatalogVersion;
+            }
+
+            Catalog catalog = catalogManager.catalog(expectedCatalogVersion);
+            assertNotNull(catalog);
+
+            assertThat("i=" + n + ", expVer=" + expectedCatalogVersion, checker.minimumRequiredTime(), is(catalog.time()));
+
+            HybridTimestamp txTs = txsBeginTime.get(n);
+
+            checker.inUpdateRwTxCountLock(() -> {
+                checker.decrementRwTxCount(txTs);
+
+                return null;
+            });
+        }
+
+        // No active transactions - method must return current time.
+        long ts1 = clock.nowLong();
+        long time = checker.minimumRequiredTime();
+        long ts2 = clock.nowLong();
+
+        assertThat(ts2, greaterThan(time));
+        assertThat(ts1, lessThan(time));
+    }
+
     private Catalog prepareCatalogWithTables() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -1054,7 +1116,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 schemaSyncService,
                 topologyService,
                 ForkJoinPool.commonPool(),
-                clockService::now,
+                clockService::nowLong,
                 minTimeCollector
         );
 
@@ -1148,7 +1210,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             return messagesFactory.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(time)
-                    .minimumActiveTxTime(clockService.nowLong())
+                    .activeTxMinimumRequiredTime(clockService.nowLong())
                     .partitions(availablePartitions)
                     .build();
         }
