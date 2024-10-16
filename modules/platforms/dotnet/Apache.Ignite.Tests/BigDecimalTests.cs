@@ -140,8 +140,10 @@ public class BigDecimalTests
         var x = new BigDecimal(100, 0);
         var y = new BigDecimal(10, -1);
 
+        // Similar to Java BigDecimal.
         Assert.AreNotEqual(x, y);
         Assert.AreEqual(0, x.CompareTo(y));
+        Assert.AreEqual(x.ToString(), y.ToString());
     }
 
     [Test]
