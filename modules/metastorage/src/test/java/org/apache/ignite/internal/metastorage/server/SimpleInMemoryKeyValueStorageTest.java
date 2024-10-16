@@ -23,7 +23,7 @@ package org.apache.ignite.internal.metastorage.server;
 class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new SimpleInMemoryKeyValueStorage("test");
+        return new SimpleInMemoryKeyValueStorage(NODE_NAME);
     }
 
     @Override

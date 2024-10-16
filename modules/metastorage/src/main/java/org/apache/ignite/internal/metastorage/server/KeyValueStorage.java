@@ -420,7 +420,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      * @see #stopCompaction()
      * @see #setCompactionRevision(long)
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     void compact(long revision);
 
@@ -513,10 +513,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision to save.
+     * @param context Operation's context.
      * @throws MetaStorageException If there is an error while saving a compaction revision.
      * @see #setCompactionRevision(long)
      */
-    void saveCompactionRevision(long revision);
+    void saveCompactionRevision(long revision, KeyValueUpdateContext context);
 
     /**
      * Sets the compaction revision, but does not save it, after invoking this method the metastorage read methods will throw a
@@ -525,7 +526,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision.
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     void setCompactionRevision(long revision);
 
@@ -533,7 +534,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
      *
      * @see #setCompactionRevision(long)
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     long getCompactionRevision();
 
