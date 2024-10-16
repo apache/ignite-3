@@ -138,6 +138,7 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -195,6 +196,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
 
+    private @Nullable DefaultLogStorageFactory persistentLogStorageFactory;
     /** Test info. */
     private TestInfo testInfo;
 
@@ -246,6 +248,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         stoppedCounter.set(0);
 
         TestUtils.assertAllJraftThreadsStopped();
+
+        if (persistentLogStorageFactory != null) {
+            persistentLogStorageFactory.stopAsync();
+        }
 
         log.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
             + (Utils.monotonicMs() - testStartMs) + " ms.");
@@ -3902,39 +3908,35 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        DefaultLogStorageFactory persistentLogStorageFactory = startPersistentLogStorageFactory();
+        persistentLogStorageFactory = startPersistentLogStorageFactory();
 
-        try {
-            cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
 
-            for (TestPeer peer : peers) {
-                assertTrue(cluster.start(peer));
-            }
-
-            waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
-
-            // This makes majority go.
-            cluster.stop(originalLeaderPeer.getPeerId());
-
-            cluster.getNode(forcedLeaderPeer.getPeerId()).resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
-            assertThat(cluster.waitAndGetLeader().getLeaderId(), is(forcedLeaderPeer.getPeerId()));
-
-            assertThat(lastLogIndexAt(forcedLeaderPeer), is(configFromResetIndex));
-
-            Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
-            cluster.setNodeOptionsCustomizer(installExternalIndex);
-
-            assertTrue(cluster.start(originalLeaderPeer));
-
-            assertFalse(
-                    waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(5)),
-                    "Ex-leader has become a leader again"
-            );
-
-            assertTrue(cluster.getNode(forcedLeaderPeer.getPeerId()).isLeader(), "Forced leader must remain a leader");
-        } finally {
-            persistentLogStorageFactory.stopAsync();
+        for (TestPeer peer : peers) {
+            assertTrue(cluster.start(peer));
         }
+
+        waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
+
+        // This makes majority go.
+        cluster.stop(originalLeaderPeer.getPeerId());
+
+        cluster.getNode(forcedLeaderPeer.getPeerId()).resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+        assertThat(cluster.waitAndGetLeader().getLeaderId(), is(forcedLeaderPeer.getPeerId()));
+
+        assertThat(lastLogIndexAt(forcedLeaderPeer), is(configFromResetIndex));
+
+        Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
+        cluster.setNodeOptionsCustomizer(installExternalIndex);
+
+        assertTrue(cluster.start(originalLeaderPeer));
+
+        assertFalse(
+                waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(5)),
+                "Ex-leader has become a leader again"
+        );
+
+        assertTrue(cluster.getNode(forcedLeaderPeer.getPeerId()).isLeader(), "Forced leader must remain a leader");
     }
 
     private DefaultLogStorageFactory startPersistentLogStorageFactory() {
@@ -3971,47 +3973,43 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        DefaultLogStorageFactory persistentLogStorageFactory = startPersistentLogStorageFactory();
+        persistentLogStorageFactory = startPersistentLogStorageFactory();
 
-        try {
-            cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
 
-            for (TestPeer peer : peers) {
-                assertTrue(cluster.start(peer));
-            }
-
-            waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
-
-            // This makes majority go.
-            cluster.stop(originalLeaderPeer.getPeerId());
-
-            Node forcedLeaderNode = cluster.getNode(forcedLeaderPeer.getPeerId());
-            forcedLeaderNode.resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
-            Node node = cluster.waitAndGetLeader();
-            assertThat(node.getLeaderId(), is(forcedLeaderPeer.getPeerId()));
-
-            Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
-            cluster.setNodeOptionsCustomizer(installExternalIndex);
-
-            assertTrue(cluster.start(originalLeaderPeer));
-
-            CompletableFuture<Void> configChanged = new CompletableFuture<>();
-            forcedLeaderNode.changePeersAndLearners(
-                    new Configuration(Set.of(forcedLeaderPeer.getPeerId(), originalLeaderPeer.getPeerId())),
-                    node.getCurrentTerm(),
-                    completeFutureClosure(configChanged)
-            );
-            assertThat(configChanged, willCompleteSuccessfully());
-
-            forcedLeaderNode.transferLeadershipTo(originalLeaderPeer.getPeerId());
-
-            assertTrue(
-                    waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)),
-                    "Original leader was not able to become a leader after reset"
-            );
-        } finally {
-            persistentLogStorageFactory.stopAsync();
+        for (TestPeer peer : peers) {
+            assertTrue(cluster.start(peer));
         }
+
+        waitTillFirstConfigLogEntryIsReplicated(forcedLeaderPeer);
+
+        // This makes majority go.
+        cluster.stop(originalLeaderPeer.getPeerId());
+
+        Node forcedLeaderNode = cluster.getNode(forcedLeaderPeer.getPeerId());
+        forcedLeaderNode.resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+        Node node = cluster.waitAndGetLeader();
+        assertThat(node.getLeaderId(), is(forcedLeaderPeer.getPeerId()));
+
+        Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
+        cluster.setNodeOptionsCustomizer(installExternalIndex);
+
+        assertTrue(cluster.start(originalLeaderPeer));
+
+        CompletableFuture<Void> configChanged = new CompletableFuture<>();
+        forcedLeaderNode.changePeersAndLearners(
+                new Configuration(Set.of(forcedLeaderPeer.getPeerId(), originalLeaderPeer.getPeerId())),
+                node.getCurrentTerm(),
+                completeFutureClosure(configChanged)
+        );
+        assertThat(configChanged, willCompleteSuccessfully());
+
+        forcedLeaderNode.transferLeadershipTo(originalLeaderPeer.getPeerId());
+
+        assertTrue(
+                waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)),
+                "Original leader was not able to become a leader after reset"
+        );
     }
 
     private NodeOptions createNodeOptions(int nodeIdx) {
