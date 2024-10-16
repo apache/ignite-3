@@ -111,9 +111,9 @@ public class LogicalNode extends ClusterNodeImpl {
     ) {
         super(id, name, address, nodeMetadata);
 
-        this.userAttributes = userAttributes;
-        this.systemAttributes = systemAttributes;
-        this.storageProfiles = storageProfiles;
+        this.userAttributes = Map.copyOf(userAttributes);
+        this.systemAttributes = Map.copyOf(systemAttributes);
+        this.storageProfiles = List.copyOf(storageProfiles);
     }
 
     /**

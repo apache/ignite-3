@@ -80,7 +80,7 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
             map.put(in.readUTF(), in.readUTF());
         }
 
-        return Map.copyOf(map);
+        return map;
     }
 
     private static List<String> readStringList(IgniteDataInput in) throws IOException {
@@ -91,6 +91,6 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
             list.add(in.readUTF());
         }
 
-        return List.copyOf(list);
+        return list;
     }
 }
