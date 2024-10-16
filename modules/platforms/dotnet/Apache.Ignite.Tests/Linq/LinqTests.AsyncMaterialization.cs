@@ -305,12 +305,12 @@ public partial class LinqTests
 
         var key = new BigDecimal(6);
 
-        var primitive = query
+        BigDecimal? primitive = query
             .Where(x => x.Key == key)
             .Select(x => x.Val)
             .Single();
 
-        var poco = query.Single(x => x.Key == key);
+        PocoBigDecimal poco = query.Single(x => x.Key == key);
 
         Assert.AreEqual(key, primitive);
         Assert.AreEqual(key, poco.Key);
