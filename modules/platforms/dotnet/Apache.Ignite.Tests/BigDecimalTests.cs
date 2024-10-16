@@ -151,6 +151,14 @@ public class BigDecimalTests
     [Test]
     public void TestCompareTo()
     {
-        Assert.Fail("TODO");
+        var x = new BigDecimal(1234, 1000);
+        var y = new BigDecimal(1235, 1000);
+
+        Assert.AreEqual(-1, x.CompareTo(y));
+        Assert.AreEqual(1, y.CompareTo(x));
+        Assert.IsTrue(x < y);
+        Assert.IsTrue(x <= y);
+        Assert.IsTrue(y > x);
+        Assert.IsTrue(y >= x);
     }
 }
