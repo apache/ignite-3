@@ -101,7 +101,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
      * default precision and scale by wrapping dynamic param placeholder with CAST operation.
       */
     @ParameterizedTest
-    @ValueSource(ints = {30, 60, 120})
+    @ValueSource(ints = {10, 20, 30, 60, 120})
     void testMetadataTypesForDecimalDynamicParameters(int precision) {
         int scale = precision / 2;
         Object param = SqlTestUtils.generateValueByType(ColumnType.DECIMAL, precision, scale);
