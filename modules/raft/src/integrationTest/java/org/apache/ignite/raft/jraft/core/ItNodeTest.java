@@ -250,7 +250,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         TestUtils.assertAllJraftThreadsStopped();
 
         if (persistentLogStorageFactory != null) {
-            persistentLogStorageFactory.stopAsync();
+            assertThat(persistentLogStorageFactory.stopAsync(), willCompleteSuccessfully());
         }
 
         log.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
