@@ -653,7 +653,7 @@ namespace Apache.Ignite.Tests.Table
                 Float: 32.32f,
                 Double: 64.64,
                 Uuid: Guid.NewGuid(),
-                Decimal: new BigDecimal(123456789, 100));
+                Decimal: new BigDecimal(123456789, 2));
 
             await pocoView.UpsertAsync(null, poco);
 
