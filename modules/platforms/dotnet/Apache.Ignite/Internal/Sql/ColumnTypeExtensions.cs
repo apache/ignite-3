@@ -58,6 +58,14 @@ internal static class ColumnTypeExtensions
     };
 
     /// <summary>
+    /// Gets alternative CLR type for a give column type.
+    /// </summary>
+    /// <param name="columnType">Column type.</param>
+    /// <returns>CLR type, or null when there is no alternative type.</returns>
+    public static Type? ToClrTypeAlternative(this ColumnType columnType) =>
+        columnType == ColumnType.Decimal ? typeof(decimal) : null;
+
+    /// <summary>
     /// Gets corresponding .NET type.
     /// </summary>
     /// <param name="columnType">SQL column type.</param>
