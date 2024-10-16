@@ -498,11 +498,6 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     }
 
     @Override
-    public void writeLength(int length) throws IOException {
-        NaiveVarInts.writeUnsignedInt(length, this);
-    }
-
-    @Override
     public void writeVarInt(long val) throws IOException {
         VarIntUtils.writeVarInt(val, this);
     }

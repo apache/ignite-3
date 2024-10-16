@@ -29,6 +29,7 @@ import org.apache.ignite.internal.util.VarIntUtils;
  * (see {@link VarIntUtils}) when the input integer is approximately between 127 and 254, so they seem to be more appropriate
  * for small values (like lengths of short strings and collections).
  */
+// TODO: IGNITE-23461 remove this class, use VarIntUtils instead.
 public class NaiveVarInts {
     private NaiveVarInts() {
     }

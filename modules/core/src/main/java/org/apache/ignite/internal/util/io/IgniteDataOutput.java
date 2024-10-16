@@ -76,14 +76,6 @@ public interface IgniteDataOutput extends DataOutput {
     void cleanup();
 
     /**
-     * Writes a length (that is, an integer that is non-negative and that will most probably be small). Should be used to write lengths
-     * of strings and collections.
-     *
-     * @param length Length to write.
-     */
-    void writeLength(int length) throws IOException;
-
-    /**
      * Writes a long value as a varint. Non-negative values and -1 are encoded efficiently with respect to compactness.
      * Negative values (like -2) take a lot more space.
      *

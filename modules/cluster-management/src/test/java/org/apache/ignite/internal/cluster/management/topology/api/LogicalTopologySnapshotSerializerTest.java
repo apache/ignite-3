@@ -62,9 +62,9 @@ class LogicalTopologySnapshotSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++Q3wCAe++QwHvvkO+uv7K776t3gEAAAAAAAAABW5vZGUxBWhvc3QxuhcBCnJlc3QtaG9zdDFSvQMBBHVr"
-                + "ZXkFdXZhbDEBBHNrZXkFc3ZhbDECBXByb2YxBXByb2YyAe++QwHvvkO+uv7K776t3gAAAAAAAAAABW5vZGUwBWhvc3QwuRcBCnJlc3QtaG9zdDBRvAMBBHVr"
-                + "ZXkFdXZhbDABBHNrZXkFc3ZhbDACBXByb2YxBXByb2YyAQAAAAAAAAACAAAAAAAAAA==");
+        byte[] bytes = Base64.getDecoder().decode("Ae++Q3wDAe++QwHvvkO+uv7K776t3gAAAAAAAAAABW5vZGUwBWhvc3QwuRcBCnJlc3QtaG9zdDBRvAMCBHVrZ"
+                + "XkFdXZhbDACBHNrZXkFc3ZhbDADBXByb2YxBXByb2YyAe++QwHvvkO+uv7K776t3gEAAAAAAAAABW5vZGUxBWhvc3QxuhcBCnJlc3QtaG9zdDFSvQMCBH"
+                + "VrZXkFdXZhbDECBHNrZXkFc3ZhbDEDBXByb2YxBXByb2YyAQAAAAAAAAACAAAAAAAAAA==");
         LogicalTopologySnapshot restoredSnapshot = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredSnapshot.version(), is(123L));

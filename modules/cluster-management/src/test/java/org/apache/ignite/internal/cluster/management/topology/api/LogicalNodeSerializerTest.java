@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 import java.util.Base64;
 import java.util.List;
@@ -58,12 +59,12 @@ class LogicalNodeSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwHvvkPoQLK5f7PnI2HFnx9yzze6BHRlc3QEaG9zdLkXAQhleHQtaG9zdLoXuxcBBHVrZXkEdXZhbAEEc"
-                + "2tleQRzdmFsAQdwcm9maWxl");
+        byte[] bytes = Base64.getDecoder().decode("Ae++QwHvvkPvzauQeFY0EiFDZYcJutz+BHRlc3QEaG9zdLkXAQhleHQtaG9zdLoXuxcCBHVrZXkEdXZhbAI"
+                + "Ec2tleQRzdmFsAgdwcm9maWxl");
 
         LogicalNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertThat(restoredNode.id(), equalTo(UUID.fromString("23e7b37f-b9b2-40e8-ba37-cf721f9fc561")));
+        assertThat(restoredNode.id(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));

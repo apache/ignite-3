@@ -53,7 +53,10 @@ class LocalStateStorageTest {
 
     @Test
     void serializationAndDeserialization() {
-        LocalState originalState = new LocalState(Set.of("a", "b"), ClusterTag.randomClusterTag(CMG_MESSAGES_FACTORY, "cluster"));
+        LocalState originalState = new LocalState(
+                Set.of("a", "b"),
+                ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(0x12345678L, 0x87654321L))
+        );
 
         storage.saveLocalState(originalState);
 
@@ -66,13 +69,13 @@ class LocalStateStorageTest {
 
     @Test
     void v1CanBeDeserialized() {
-        vault.put(ByteArray.fromString("cmg_state"), Base64.getDecoder().decode("Ae++QwIBYgFhB2NsdXN0ZXLISSiHAp8QaYmdEJ8HD2mK"));
+        vault.put(new ByteArray("cmg_state"), Base64.getDecoder().decode("Ae++QwMBYQFiB2NsdXN0ZXLvzauQeFY0EiFDZYcJutz+"));
 
         LocalState localState = storage.getLocalState();
 
         assertThat(localState, is(notNullValue()));
         assertThat(localState.cmgNodeNames(), containsInAnyOrder("a", "b"));
         assertThat(localState.clusterTag().clusterName(), is("cluster"));
-        assertThat(localState.clusterTag().clusterId(), is(UUID.fromString("69109f02-8728-49c8-8a69-0f079f109d89")));
+        assertThat(localState.clusterTag().clusterId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
     }
 }

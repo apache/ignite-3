@@ -101,7 +101,7 @@ class LocalStateStorage {
 
         @Override
         protected void writeExternalData(LocalState state, IgniteDataOutput out) throws IOException {
-            out.writeLength(state.cmgNodeNames().size());
+            out.writeVarInt(state.cmgNodeNames().size());
             for (String cmgNodeName : state.cmgNodeNames()) {
                 out.writeUTF(cmgNodeName);
             }
@@ -112,7 +112,7 @@ class LocalStateStorage {
 
         @Override
         protected LocalState readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-            int cmgNodesCount = in.readLength();
+            int cmgNodesCount = in.readVarIntAsInt();
             Set<String> cmgNodeNames = new HashSet<>(cmgNodesCount);
             for (int i = 0; i < cmgNodesCount; i++) {
                 cmgNodeNames.add(in.readUTF());

@@ -46,14 +46,14 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
         writeStringToStringMap(node.userAttributes(), out);
         writeStringToStringMap(node.systemAttributes(), out);
 
-        out.writeLength(node.storageProfiles().size());
+        out.writeVarInt(node.storageProfiles().size());
         for (String profile : node.storageProfiles()) {
             out.writeUTF(profile);
         }
     }
 
     private static void writeStringToStringMap(Map<String, String> map, IgniteDataOutput output) throws IOException {
-        output.writeLength(map.size());
+        output.writeVarInt(map.size());
 
         for (Entry<String, String> entry : map.entrySet()) {
             output.writeUTF(entry.getKey());
@@ -73,7 +73,7 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
     }
 
     private static Map<String, String> readStringToStringMap(IgniteDataInput in) throws IOException {
-        int size = in.readLength();
+        int size = in.readVarIntAsInt();
 
         var map = new HashMap<String, String>(IgniteUtils.capacity(size));
         for (int i = 0; i < size; i++) {
@@ -84,7 +84,7 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
     }
 
     private static List<String> readStringList(IgniteDataInput in) throws IOException {
-        int size = in.readLength();
+        int size = in.readVarIntAsInt();
 
         var list = new ArrayList<String>(size);
         for (int i = 0; i < size; i++) {

@@ -49,26 +49,24 @@ public class ClusterStatePersistentSerializer extends VersionedSerializer<Cluste
         out.writeUuid(state.clusterTag().clusterId());
         writeNullableString(state.initialClusterConfiguration(), out);
 
-        out.writeLength(state.formerClusterIds() == null ? 0 : state.formerClusterIds().size());
-        if (state.formerClusterIds() != null) {
-            for (UUID clusterId : state.formerClusterIds()) {
+        List<UUID> formerClusterIds = state.formerClusterIds();
+        out.writeVarInt(formerClusterIds == null ? -1 : formerClusterIds.size());
+        if (formerClusterIds != null) {
+            for (UUID clusterId : formerClusterIds) {
                 out.writeUuid(clusterId);
             }
         }
     }
 
     private static void writeStringSet(Set<String> strings, IgniteDataOutput out) throws IOException {
-        out.writeLength(strings.size());
+        out.writeVarInt(strings.size());
         for (String str : strings) {
             out.writeUTF(str);
         }
     }
 
     private static void writeNullableString(@Nullable String str, IgniteDataOutput out) throws IOException {
-        int lengthOrMinusOne = str == null ? -1 : str.length();
-        int lengthPlusOneOrZero = lengthOrMinusOne + 1;
-
-        out.writeLength(lengthPlusOneOrZero);
+        out.writeVarInt(str == null ? -1 : str.length());
         if (str != null) {
             out.writeByteArray(str.getBytes(UTF_8));
         }
@@ -87,7 +85,7 @@ public class ClusterStatePersistentSerializer extends VersionedSerializer<Cluste
     }
 
     private static Set<String> readStringSet(IgniteDataInput in) throws IOException {
-        int size = in.readLength();
+        int size = in.readVarIntAsInt();
 
         Set<String> result = new HashSet<>(size);
         for (int i = 0; i < size; i++) {
@@ -98,18 +96,18 @@ public class ClusterStatePersistentSerializer extends VersionedSerializer<Cluste
     }
 
     private static @Nullable String readNullableString(IgniteDataInput in) throws IOException {
-        int lengthPlusOne = in.readLength();
-        if (lengthPlusOne == 0) {
+        int lengthOrMinusOne = in.readVarIntAsInt();
+        if (lengthOrMinusOne == -1) {
             return null;
         }
 
-        return new String(in.readByteArray(lengthPlusOne - 1), UTF_8);
+        return new String(in.readByteArray(lengthOrMinusOne), UTF_8);
     }
 
     private static @Nullable List<UUID> readFormerClusterIds(IgniteDataInput in) throws IOException {
-        int length = in.readLength();
+        int length = in.readVarIntAsInt();
 
-        if (length == 0) {
+        if (length == -1) {
             return null;
         }
 

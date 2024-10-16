@@ -39,7 +39,7 @@ public class LogicalTopologySnapshotSerializer extends VersionedSerializer<Logic
     protected void writeExternalData(LogicalTopologySnapshot snapshot, IgniteDataOutput out) throws IOException {
         out.writeVarInt(snapshot.version());
 
-        out.writeLength(snapshot.nodes().size());
+        out.writeVarInt(snapshot.nodes().size());
         for (LogicalNode node : snapshot.nodes()) {
             logicalNodeSerializer.writeExternal(node, out);
         }
@@ -51,7 +51,7 @@ public class LogicalTopologySnapshotSerializer extends VersionedSerializer<Logic
     protected LogicalTopologySnapshot readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         long version = in.readVarInt();
 
-        int nodesCount = in.readLength();
+        int nodesCount = in.readVarIntAsInt();
         Set<LogicalNode> nodes = new HashSet<>(IgniteUtils.capacity(nodesCount));
         for (int i = 0; i < nodesCount; i++) {
             nodes.add(logicalNodeSerializer.readExternal(in));

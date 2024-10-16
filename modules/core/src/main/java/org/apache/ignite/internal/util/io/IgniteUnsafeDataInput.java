@@ -705,11 +705,6 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
     }
 
     @Override
-    public int readLength() throws IOException {
-        return NaiveVarInts.readUnsignedInt(this);
-    }
-
-    @Override
     public long readVarInt() throws IOException {
         return VarIntUtils.readVarInt(this);
     }

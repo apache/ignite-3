@@ -73,8 +73,8 @@ class ClusterStatePersistentSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwIBYgFhAgFkAWMFMy4wLjAHY2x1c3RlcvhGbRduRD8oLN12T9EKWrQHY29uZmlnAtdL7vnifn6qO"
-                + "V5Q9FrLfI1NQa0T767bzcYX+S2FjCyM");
+        byte[] bytes = Base64.getDecoder().decode("Ae++QwMBYQFiAwFjAWQFMy4wLjAHY2x1c3Rlcp1Ct7dR35ELuoeboFbabrgHY29uZmlnAztFBahaoEfJtxGam"
+                + "Q6WXJNFRfruL76Bv254dP54iF6V");
         ClusterState restoredState = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredState.cmgNodes(), containsInAnyOrder("a", "b"));
@@ -83,7 +83,7 @@ class ClusterStatePersistentSerializerTest {
         assertThat(restoredState.initialClusterConfiguration(), is("config"));
         assertThat(
                 restoredState.formerClusterIds(),
-                contains(UUID.fromString("aa7e7ee2-f9ee-4bd7-8d7c-cb5af4505e39"), UUID.fromString("cddbaeef-13ad-414d-8c2c-8c852df917c6"))
+                contains(UUID.fromString("c947a05a-a805-453b-935c-960e999a11b7"), UUID.fromString("bf81be2f-eefa-4545-955e-8878fe74786e"))
         );
     }
 }
