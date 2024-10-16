@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.rest.api.node;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
@@ -37,8 +35,7 @@ public class NodeVersion {
     /**
      * Construct NodeVersion DTO.
      */
-    @JsonCreator
-    public NodeVersion(@JsonProperty("version") String version, @JsonProperty("product") String product) {
+    private NodeVersion(String version, String product) {
         this.version = version;
         this.product = product;
     }
@@ -51,5 +48,48 @@ public class NodeVersion {
     @JsonGetter("product")
     public String product() {
         return product;
+    }
+
+    /** Constructs new builder. */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /** Builder class. */
+    public static class Builder {
+        private String version;
+
+        private String product;
+
+        /**
+         * Sets version.
+         *
+         * @param version Version.
+         * @return This instance.
+         */
+        public Builder version(String version) {
+            this.version = version;
+            return this;
+        }
+
+        /**
+         * Sets product.
+         *
+         * @param product Product name.
+         * @return This instance.
+         */
+        public Builder product(String product) {
+            this.product = product;
+            return this;
+        }
+
+        /**
+         * Builds version object.
+         *
+         * @return Constructed version object.
+         */
+        public NodeVersion build() {
+            return new NodeVersion(version, product);
+        }
     }
 }

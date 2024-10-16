@@ -26,6 +26,7 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
@@ -41,14 +42,14 @@ public class NodeVersionCall implements Call<UrlCallInput, NodeVersion> {
     @Override
     public CallOutput<NodeVersion> execute(UrlCallInput input) {
         try {
-            var nodeVersion = getNodeVersion(input.getUrl());
-            return success(new NodeVersion(nodeVersion.getVersion(), nodeVersion.getProduct()));
+            return success(getNodeVersion(input.getUrl()));
         } catch (ApiException | IllegalArgumentException e) {
             return failure(new IgniteCliApiException(e, input.getUrl()));
         }
     }
 
-    private org.apache.ignite.rest.client.model.NodeVersion getNodeVersion(String url) throws ApiException {
-        return new NodeManagementApi(clientFactory.getClient(url)).nodeVersion();
+    private NodeVersion getNodeVersion(String url) throws ApiException {
+        var nodeVersion = new NodeManagementApi(clientFactory.getClient(url)).nodeVersion();
+        return NodeVersion.builder().version(nodeVersion.getVersion()).product(nodeVersion.getProduct()).build();
     }
 }

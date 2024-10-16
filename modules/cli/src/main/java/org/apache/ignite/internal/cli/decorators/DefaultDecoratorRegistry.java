@@ -21,13 +21,13 @@ import org.apache.ignite.internal.cli.call.cliconfig.profile.ProfileList;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatus;
-import org.apache.ignite.internal.cli.call.node.version.NodeVersion;
 import org.apache.ignite.internal.cli.config.Profile;
 import org.apache.ignite.internal.cli.config.ini.IniProfile;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.sql.SqlQueryResult;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 
 /**
  * Default set of {@link Decorator}.

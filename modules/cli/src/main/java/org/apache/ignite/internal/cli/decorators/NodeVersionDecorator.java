@@ -19,9 +19,9 @@ package org.apache.ignite.internal.cli.decorators;
 
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 
-import org.apache.ignite.internal.cli.call.node.version.NodeVersion;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 
 /**
  * Decorator for {@link NodeVersion}.

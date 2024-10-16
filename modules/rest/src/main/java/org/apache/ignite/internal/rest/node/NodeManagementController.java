@@ -57,7 +57,10 @@ public class NodeManagementController implements NodeManagementApi, RestFactory 
 
     @Override
     public NodeVersion version() {
-        return new NodeVersion(IgniteProductVersion.CURRENT_VERSION.toString(), IgniteProductVersion.CURRENT_PRODUCT);
+        return NodeVersion.builder()
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .product(IgniteProductVersion.CURRENT_PRODUCT)
+                .build();
     }
 
     @Override
