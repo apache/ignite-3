@@ -144,6 +144,8 @@ public class BigDecimalTests
         Assert.AreNotEqual(x, y);
         Assert.AreEqual(0, x.CompareTo(y));
         Assert.AreEqual(x.ToString(), y.ToString());
+        Assert.AreEqual(100, x.ToDecimal());
+        Assert.AreEqual(100, y.ToDecimal());
     }
 
     [Test]
