@@ -1032,11 +1032,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    private RaftGroupService startOneOffRaftGroupService(PeersAndLearners newConfiguration)
-            throws NodeStoppingException {
-        return raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, newConfiguration);
-    }
-
     @TestOnly
     public CompletableFuture<MetaStorageServiceImpl> metaStorageService() {
         return metaStorageSvcFut;

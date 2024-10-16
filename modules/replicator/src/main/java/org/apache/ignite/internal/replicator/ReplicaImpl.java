@@ -320,7 +320,8 @@ public class ReplicaImpl implements Replica {
     @Override
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
-        return raftClient.unsubscribeLeader();
+        return raftClient.unsubscribeLeader()
+                .thenAccept(v -> raftClient.shutdown());
     }
 
     /** {@inheritDoc} */
