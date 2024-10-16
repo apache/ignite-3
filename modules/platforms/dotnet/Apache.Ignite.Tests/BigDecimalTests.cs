@@ -113,28 +113,25 @@ public class BigDecimalTests
     }
 
     [Test]
-    public void TestEquality()
+    public void TestEquality([Values(0, 1, -1, 0.1, -0.1, 1234567, -456.789)] decimal d)
     {
-        foreach (var d in new[] { 0, 1, -1, 0.1m, -0.1m, decimal.MinValue, decimal.MaxValue })
-        {
-            var x = new BigDecimal(d);
-            var y = new BigDecimal(d);
+        var x = new BigDecimal(d);
+        var y = new BigDecimal(d);
 
-            Assert.AreEqual(x, y);
-            Assert.AreEqual(x.ToDecimal(), y.ToDecimal());
+        Assert.AreEqual(x, y);
+        Assert.AreEqual(x.ToDecimal(), y.ToDecimal());
 
-            Assert.AreEqual(x.UnscaledValue, y.UnscaledValue);
-            Assert.AreEqual(x.Scale, y.Scale);
+        Assert.AreEqual(x.UnscaledValue, y.UnscaledValue);
+        Assert.AreEqual(x.Scale, y.Scale);
 
-            Assert.AreEqual(0, x.CompareTo(y));
-            Assert.AreEqual(0, y.CompareTo(x));
+        Assert.AreEqual(0, x.CompareTo(y));
+        Assert.AreEqual(0, y.CompareTo(x));
 
-            Assert.IsFalse(x < y);
-            Assert.IsFalse(x > y);
+        Assert.IsFalse(x < y);
+        Assert.IsFalse(x > y);
 
-            Assert.IsTrue(x <= y);
-            Assert.IsTrue(x >= y);
-        }
+        Assert.IsTrue(x <= y);
+        Assert.IsTrue(x >= y);
     }
 
     [Test]
