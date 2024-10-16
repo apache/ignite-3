@@ -528,7 +528,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestMaxDecimalScale()
         {
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (10 / ?)", 3m);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (10 / ?::decimal)", 3m);
             IIgniteTuple res = await resultSet.SingleAsync();
 
             var bigDecimal = (BigDecimal)res[0]!;

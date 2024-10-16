@@ -472,8 +472,12 @@ public class SqlTestUtils {
             case DOUBLE:
                 BigDecimal doubleValue = new BigDecimal(requireNonNull(value).toString());
                 return rexBuilder.makeLiteral(doubleValue, typeFactory.createSqlType(SqlTypeName.DOUBLE));
-            case DECIMAL:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
+            case DECIMAL: {
+                int precision = typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+                int scale = ((BigDecimal) value).scale();
+
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale));
+            }
             case DATE:
                 LocalDate localDate = (LocalDate) value;
                 int epochDay = (int) requireNonNull(localDate).toEpochDay();

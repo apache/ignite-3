@@ -30,6 +30,12 @@ SELECT 0.3::DECIMAL(3, 5);
 statement error: Numeric field overflow. A field with precision 3, scale 3 must round to an absolute value less than 1.
 SELECT -1::DECIMAL(3, 3);
 
+statement error: Numeric field overflow. A field with precision 3, scale 3 must round to an absolute value less than 1.
+SELECT 1::DECIMAL(3, 3);
+
+statement error: Numeric field overflow. A field with precision 32767, scale 32767 must round to an absolute value less than 1.
+SELECT 1::DECIMAL(32767, 32767);
+
 # the first cast produces must report an error
 statement error: Numeric field overflow. A field with precision 3, scale 0 must round to an absolute value less than 10^3.
 SELECT 9999999::DECIMAL(3)::DECIMAL(4, 2);
@@ -60,22 +66,22 @@ SELECT CAST(${val} AS DECIMAL);
 query T
 SELECT CAST(100.1::DECIMAL(4, 1) AS DECIMAL);
 ----
-100.1
+100
 
 query T
 SELECT CAST(100.1::REAL AS DECIMAL);
 ----
-100.1
+100
 
 query T
 SELECT CAST(100.1::FLOAT AS DECIMAL);
 ----
-100.1
+100
 
 query T
 SELECT CAST(100.1::DOUBLE AS DECIMAL);
 ----
-100.1
+100
 
 query T
 SELECT CAST(100.1234::DOUBLE AS DECIMAL(7, 2));
