@@ -20,6 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
@@ -84,6 +86,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     /** This executor spawns a thread per task and should only be used for very rare tasks. */
     private final Executor restartExecutor;
 
+    private final ClusterManagementGroupManager cmgManager;
+
     /** Constructor. */
     public SystemDisasterRecoveryManagerImpl(
             String thisNodeName,
@@ -92,6 +96,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             VaultManager vaultManager,
             ServerRestarter restarter,
             MetastorageGroupMaintenance metastorageGroupMaintenance,
+            ClusterManagementGroupManager cmgManager,
             ClusterIdSupplier clusterIdSupplier
     ) {
         this.thisNodeName = thisNodeName;
@@ -99,6 +104,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         this.messagingService = messagingService;
         this.restarter = restarter;
         this.metastorageGroupMaintenance = metastorageGroupMaintenance;
+        this.cmgManager = cmgManager;
         this.clusterIdSupplier = clusterIdSupplier;
 
         storage = new SystemDisasterRecoveryStorage(vaultManager);
@@ -195,19 +201,24 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> resetCluster(List<String> proposedCmgNodeNames) {
+        if (proposedCmgNodeNames == null) {
+            return failedFuture(new ClusterResetException("Proposed CMG node names can't be null."));
+        }
+
         return resetClusterInternal(proposedCmgNodeNames, null);
     }
 
     @Override
     public CompletableFuture<Void> resetClusterRepairingMetastorage(
-            List<String> proposedCmgNodeNames,
+            @Nullable List<String> proposedCmgNodeNames,
             int metastorageReplicationFactor
     ) {
-        return resetClusterInternal(proposedCmgNodeNames, metastorageReplicationFactor);
+        return proposedCmgNodeNamesOrCurrentIfNull(proposedCmgNodeNames)
+                .thenCompose(cmgNodeNames -> resetClusterInternal(cmgNodeNames, metastorageReplicationFactor));
     }
 
     private CompletableFuture<Void> resetClusterInternal(
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             @Nullable Integer metastorageReplicationFactor
     ) {
         try {
@@ -217,19 +228,22 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         }
     }
 
-    private CompletableFuture<Void> doResetCluster(List<String> proposedCmgNodeNames, @Nullable Integer metastorageReplicationFactor) {
-        ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
+    private CompletableFuture<Void> doResetCluster(
+            Collection<String> proposedCmgNodeNames,
+            @Nullable Integer metastorageReplicationFactor
+    ) {
+        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
 
         ensureNoRepetitions(proposedCmgNodeNames);
         ensureContainsThisNodeName(proposedCmgNodeNames);
 
-        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
         ensureAllProposedCmgNodesAreInTopology(proposedCmgNodeNames, nodesInTopology);
+
+        ensureReplicationFactorIsPositiveIfGiven(metastorageReplicationFactor);
         ensureReplicationFactorFitsTopologyIfGiven(metastorageReplicationFactor, nodesInTopology);
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
-
         ResetClusterMessage message = buildResetClusterMessageForReset(
                 proposedCmgNodeNames,
                 clusterState,
@@ -256,19 +270,25 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 }, restartExecutor);
     }
 
+    private CompletableFuture<Collection<String>> proposedCmgNodeNamesOrCurrentIfNull(@Nullable List<String> proposedCmgNodeNames) {
+        return proposedCmgNodeNames != null
+                ? completedFuture(proposedCmgNodeNames)
+                : cmgManager.clusterState().thenApply(ClusterState::cmgNodes);
+    }
+
     private static void ensureReplicationFactorIsPositiveIfGiven(@Nullable Integer metastorageReplicationFactor) {
         if (metastorageReplicationFactor != null && metastorageReplicationFactor <= 0) {
             throw new ClusterResetException("Metastorage replication factor must be positive.");
         }
     }
 
-    private static void ensureNoRepetitions(List<String> proposedCmgNodeNames) {
+    private static void ensureNoRepetitions(Collection<String> proposedCmgNodeNames) {
         if (new HashSet<>(proposedCmgNodeNames).size() != proposedCmgNodeNames.size()) {
             throw new ClusterResetException("New CMG node names have repetitions: " + proposedCmgNodeNames + ".");
         }
     }
 
-    private void ensureContainsThisNodeName(List<String> proposedCmgNodeNames) {
+    private void ensureContainsThisNodeName(Collection<String> proposedCmgNodeNames) {
         if (!proposedCmgNodeNames.contains(thisNodeName)) {
             throw new ClusterResetException("Current node is not contained in the new CMG, so it cannot conduct a cluster reset.");
         }
@@ -281,7 +301,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static void ensureAllProposedCmgNodesAreInTopology(
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Collection<ClusterNode> nodesInTopology
     ) {
         Set<String> namesOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
@@ -358,7 +378,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private static boolean enoughResponsesAreSuccesses(
             boolean repairMg,
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Map<String, CompletableFuture<NetworkMessage>> responseFutures
     ) {
         if (repairMg) {
@@ -369,7 +389,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private static boolean isMajorityOfCmgAreSuccesses(
-            List<String> proposedCmgNodeNames,
+            Collection<String> proposedCmgNodeNames,
             Map<String, CompletableFuture<NetworkMessage>> responseFutures
     ) {
         Set<String> newCmgNodesSet = new HashSet<>(proposedCmgNodeNames);

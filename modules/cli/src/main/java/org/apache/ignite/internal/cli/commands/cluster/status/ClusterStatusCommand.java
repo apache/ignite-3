@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -47,7 +46,6 @@ public class ClusterStatusCommand extends BaseCommand implements Callable<Intege
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
-                .decorator(new ClusterStatusDecorator())
         );
     }
 }

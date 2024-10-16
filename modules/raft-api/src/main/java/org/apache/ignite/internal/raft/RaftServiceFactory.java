@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -35,9 +34,9 @@ public interface RaftServiceFactory<T extends RaftGroupService> {
      * @param raftConfiguration Raft configuration.
      * @param raftClientExecutor Client executor.
      * @param commandsMarshaller Marshaller that should be used to serialize commands.
-     * @return Future that contains client when completes.
+     * @return New Raft client.
      */
-    CompletableFuture<T> startRaftGroupService(
+    T startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,

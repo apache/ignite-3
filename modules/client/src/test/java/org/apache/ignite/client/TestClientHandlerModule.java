@@ -235,7 +235,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 clockService,
                                                 new AlwaysSyncedSchemaSyncService(),
                                                 new TestLowWatermark()
-                                        )
+                                        ),
+                                        Runnable::run
                                 )
                         );
                     }

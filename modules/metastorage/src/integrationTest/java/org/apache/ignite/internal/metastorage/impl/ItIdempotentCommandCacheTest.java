@@ -525,12 +525,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 .fromConsistentIds(nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet()));
 
         try {
-            CompletableFuture<RaftGroupService> raftServiceFuture = node.raftManager
+            return node.raftManager
                     .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
-
-            assertThat(raftServiceFuture, willCompleteSuccessfully());
-
-            return raftServiceFuture.join();
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.client;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.ClusterService;
@@ -63,7 +62,7 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TopologyAwareRaftGroupService> startRaftGroupService(
+    public TopologyAwareRaftGroupService startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,
@@ -76,7 +75,6 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
                 raftMessagesFactory,
                 raftConfiguration,
                 peersAndLearners,
-                true,
                 raftClientExecutor,
                 logicalTopologyService,
                 eventsClientListener,
