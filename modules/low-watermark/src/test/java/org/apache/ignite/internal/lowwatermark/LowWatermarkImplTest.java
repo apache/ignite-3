@@ -69,7 +69,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
@@ -134,7 +133,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         var lowWatermark = new HybridTimestamp(10, 10);
 
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
-                .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark)));
+                .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, lowWatermark.toBytes()));
 
         assertThat(this.lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -189,7 +188,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(vaultManager, lwmChangedListener);
 
-        inOrder.verify(vaultManager, timeout(1_000)).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
+        inOrder.verify(vaultManager, timeout(1_000)).put(LOW_WATERMARK_VAULT_KEY, newLowWatermarkCandidate.toBytes());
 
         inOrder.verify(lwmChangedListener, timeout(1_000)).notify(any());
 

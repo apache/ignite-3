@@ -20,18 +20,22 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 
@@ -42,9 +46,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
-    /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
-
     private final RowFactory<RowT> rowFactory;
 
     private final ImmutableBitSet grpSet;
@@ -52,6 +53,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private final Comparator<RowT> comp;
 
     private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
+
+    private final List<AccumulatorWrapper<RowT>> accs;
 
     private RowT prevRow;
 
@@ -85,10 +88,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert Objects.nonNull(comp);
 
         this.type = type;
-        this.accFactory = accFactory;
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+        this.accs = accFactory != null ? accFactory.get() : Collections.emptyList();
 
         init();
     }
@@ -210,10 +213,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private boolean hasAccumulators() {
-        return accFactory != null;
-    }
-
     private Group newGroup(RowT r) {
         final Object[] grpKeys = new Object[grpSet.cardinality()];
         List<Integer> fldIdxs = grpSet.asList();
@@ -248,16 +247,25 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
-            List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
-            aggRow = new AggregateRow<>(wrappers, type);
+            AccumulatorsState state = new AccumulatorsState(accs.size());
+
+            Int2ObjectArrayMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            for (int i = 0; i < accs.size(); i++) {
+                AccumulatorWrapper<RowT> acc = accs.get(i);
+                if (acc.isDistinct()) {
+                    distinctSets.put(i, new HashSet<>());
+                }
+            }
+
+            aggRow = new AggregateRow<>(state, distinctSets);
         }
 
         private void add(RowT row) {
-            aggRow.update(grpSet, context().rowHandler(), row);
+            aggRow.update(accs, grpSet, context().rowHandler(), row);
         }
 
         private RowT row() {
-            Object[] fields = aggRow.createOutput(grpSet, AggregateRow.NO_GROUP_ID);
+            Object[] fields = aggRow.createOutput(type, accs, grpSet, AggregateRow.NO_GROUP_ID);
 
             int i = 0;
 
@@ -265,7 +273,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            aggRow.writeTo(fields, grpSet, AggregateRow.NO_GROUP_ID);
+            aggRow.writeTo(type, accs, fields, grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }

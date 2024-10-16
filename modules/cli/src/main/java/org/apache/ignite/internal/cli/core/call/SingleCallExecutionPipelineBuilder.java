@@ -26,7 +26,6 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
-import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 
 /** Builder for {@link CallExecutionPipeline}. */
 public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
@@ -41,7 +40,7 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     private PrintWriter errOutput = wrapOutputStream(System.err);
 
-    private Decorator<T, TerminalOutput> decorator = new DefaultDecorator<>();
+    private Decorator<T, TerminalOutput> decorator;
 
     private boolean verbose;
 

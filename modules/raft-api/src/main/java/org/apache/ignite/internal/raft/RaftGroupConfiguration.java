@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft;
+package org.apache.ignite.internal.raft;
 
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A RAFT group configuration at which it was committed.
+ * A POJO for a RAFT group configuration, could be used to by other modules. Not used by a RAFT module itself.
  */
-// TODO: IGNITE-18405 - rename this to avoid mentioning RAFT
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
 
@@ -37,12 +37,10 @@ public class RaftGroupConfiguration implements Serializable {
     @IgniteToStringInclude
     private final List<String> learners;
 
-    @Nullable
     @IgniteToStringInclude
-    private final List<String> oldPeers;
-    @Nullable
+    private final @Nullable List<String> oldPeers;
     @IgniteToStringInclude
-    private final List<String> oldLearners;
+    private final @Nullable List<String> oldLearners;
 
     /**
      * Creates a new instance.
@@ -57,6 +55,18 @@ public class RaftGroupConfiguration implements Serializable {
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
         this.oldLearners = oldLearners == null ? null : List.copyOf(oldLearners);
+    }
+
+    /**
+     * Creates a {@link RaftGroupConfiguration} instance from {@link CommittedConfiguration}.
+     */
+    public static RaftGroupConfiguration fromCommittedConfiguration(CommittedConfiguration config) {
+        return new RaftGroupConfiguration(
+                config.peers(),
+                config.learners(),
+                config.oldPeers(),
+                config.oldLearners()
+        );
     }
 
     /**
@@ -82,8 +92,7 @@ public class RaftGroupConfiguration implements Serializable {
      *
      * @return Old peers.
      */
-    @Nullable
-    public List<String> oldPeers() {
+    public @Nullable List<String> oldPeers() {
         return oldPeers;
     }
 
@@ -92,8 +101,7 @@ public class RaftGroupConfiguration implements Serializable {
      *
      * @return Old learners.
      */
-    @Nullable
-    public List<String> oldLearners() {
+    public @Nullable List<String> oldLearners() {
         return oldLearners;
     }
 

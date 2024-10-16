@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThan;
@@ -87,7 +88,7 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
 
         HybridTimestamp opTs = clock.now();
 
-        storage.put(key(0), keyValue(0, 1), opTs);
+        storage.put(key(0), keyValue(0, 1), kvContext(opTs));
 
         // Ensure watch listener is called.
         assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));
