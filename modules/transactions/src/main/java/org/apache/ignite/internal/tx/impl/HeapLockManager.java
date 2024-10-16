@@ -385,7 +385,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private static LockException abandonedLockException(UUID locker, UUID holder) {
         return new LockException(ACQUIRE_LOCK_ERR,
-                "Failed to acquire a lock due to \"abandoned\" state [locker=" + locker + ", holder=" + holder + ']');
+                "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
     }
 
     public interface Releasable {
