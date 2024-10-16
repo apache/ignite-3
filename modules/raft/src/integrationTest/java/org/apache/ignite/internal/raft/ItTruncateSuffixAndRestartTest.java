@@ -163,7 +163,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
         final Loza raftMgr;
 
-        private @Nullable CompletableFuture<RaftGroupService> serviceFuture;
+        private @Nullable RaftGroupService raftGroupService;
 
         private TestRaftGroupListener raftGroupListener;
 
@@ -207,7 +207,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             raftGroupListener = new TestRaftGroupListener();
 
             try {
-                serviceFuture = raftMgr.startRaftGroupNode(
+                raftGroupService = raftMgr.startRaftGroupNode(
                         new RaftNodeId(GROUP_ID, new Peer(nodeName)),
                         raftGroupConfiguration,
                         raftGroupListener,
@@ -222,15 +222,16 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         RaftGroupService getService() {
-            assertNotNull(serviceFuture);
-            assertThat(serviceFuture, willCompleteSuccessfully());
+            assertNotNull(raftGroupService);
 
-            return serviceFuture.join();
+            return raftGroupService;
         }
 
         void stopService() {
-            if (serviceFuture != null) {
-                serviceFuture = null;
+            if (raftGroupService != null) {
+                raftGroupService.shutdown();
+
+                raftGroupService = null;
 
                 try {
                     raftMgr.stopRaftNode(new RaftNodeId(GROUP_ID, new Peer(nodeName)));

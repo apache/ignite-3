@@ -560,7 +560,7 @@ namespace Apache.Ignite.Tests.Table
                 ["DateTime"] = dt,
                 ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
                 ["Blob"] = new byte[] { 1, 2, 3 },
-                ["Decimal"] = 123.456m,
+                ["Decimal"] = new BigDecimal(123.456m),
                 ["Boolean"] = true
             };
 

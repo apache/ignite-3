@@ -77,8 +77,8 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(completedFuture(raftGroupService));
+        when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
 
         return Stream.of(

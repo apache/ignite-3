@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.Serializable;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -237,17 +239,15 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private ValidationResult validateNode(JoinRequestCommand command) {
-        ClusterNode node = command.node().asClusterNode();
-
         Optional<LogicalNode> previousVersion = logicalTopology.getLogicalTopology().nodes()
                 .stream()
-                .filter(n -> n.name().equals(node.name()))
+                .filter(n -> n.name().equals(command.node().name()))
                 .findAny();
 
         if (previousVersion.isPresent()) {
             LogicalNode previousNode = previousVersion.get();
 
-            if (previousNode.id().equals(node.id())) {
+            if (previousNode.id().equals(command.node().id())) {
                 return ValidationResult.successfulResult();
             } else {
                 // Remove the previous node from the Logical Topology in case we haven't received the disappeared event yet.
@@ -255,25 +255,15 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             }
         }
 
-        LogicalNode logicalNode = new LogicalNode(
-                node,
-                command.node().userAttributes(),
-                command.node().systemAttributes(),
-                command.node().storageProfiles()
-        );
+        LogicalNode logicalNode = logicalNodeFromClusterNodeMessage(command.node());
 
         return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
     }
 
     private ValidationResult completeValidation(JoinReadyCommand command) {
-        ClusterNode node = command.node().asClusterNode();
+        ClusterNodeMessage clusterNodeMessage = command.node();
 
-        LogicalNode logicalNode = new LogicalNode(
-                node,
-                command.node().userAttributes(),
-                command.node().systemAttributes(),
-                command.node().storageProfiles()
-        );
+        LogicalNode logicalNode = logicalNodeFromClusterNodeMessage(clusterNodeMessage);
 
         if (validationManager.isNodeValidated(logicalNode)) {
             ValidationResult validationResponse = validationManager.completeValidation(logicalNode);
@@ -284,8 +274,20 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return validationResponse;
         } else {
-            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", node));
+            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step",
+                    clusterNodeMessage.asClusterNode()));
         }
+    }
+
+    private static LogicalNode logicalNodeFromClusterNodeMessage(ClusterNodeMessage message) {
+        ClusterNode node = message.asClusterNode();
+
+        return new LogicalNode(
+                node,
+                requireNonNullElse(message.userAttributes(), emptyMap()),
+                requireNonNullElse(message.systemAttributes(), emptyMap()),
+                requireNonNullElse(message.storageProfiles(), emptyList())
+        );
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
@@ -293,7 +295,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
         Set<LogicalNode> logicalNodes = nodes.stream()
-                .map(n -> new LogicalNode(n, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList()))
+                .map(n -> new LogicalNode(n, emptyMap(), emptyMap(), emptyList()))
                 .collect(Collectors.toSet());
 
         logicalTopology.removeNodes(logicalNodes);

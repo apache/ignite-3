@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -185,7 +184,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 any(RaftGroupOptions.class),
                 any(TopologyAwareRaftGroupServiceFactory.class))
         )
-                .thenReturn(completedFuture(raftGroupService));
+                .thenReturn(raftGroupService);
 
         when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
         when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());

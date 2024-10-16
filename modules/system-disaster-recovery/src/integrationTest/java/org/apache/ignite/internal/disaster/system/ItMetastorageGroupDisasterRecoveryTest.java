@@ -240,8 +240,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
     private static RaftGroupService metastorageGroupClient(IgniteImpl ignite)
             throws NodeStoppingException, ExecutionException, InterruptedException, TimeoutException {
         PeersAndLearners config = PeersAndLearners.fromConsistentIds(Set.of(ignite.name()));
-        CompletableFuture<RaftGroupService> future = ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config);
-        return future.get(10, SECONDS);
+        return ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config);
     }
 
     private static String leaderName(RaftGroupService mgClient0) {

@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-
 /**
- * Provides the minimum begin time among all active RW transactions started locally.
+ * Provides a timestamp corresponding to the activation time of the
+ * earliest catalog version that can be used by active local RW transactions.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ActiveLocalTxMinimumBeginTimeProvider {
+public interface ActiveLocalTxMinimumRequiredTimeProvider {
     /**
-     * Returns the minimum begin time among all active RW transactions started locally,
+     * Returns a timestamp corresponding to the activation time of the
+     * earliest catalog version that active local RW transactions can use,
      * or the current time if there are no active RW transactions.
      */
-    HybridTimestamp minimumBeginTime();
+    long minimumRequiredTime();
 }
