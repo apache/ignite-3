@@ -428,9 +428,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
-        private final Map<UUID, Lock> ixLocksOwners = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<UUID, Lock> ixLocksOwners = new ConcurrentHashMap<>();
         private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> sLocksWaiters = new HashMap<>();
-        private final Map<UUID, Lock> sLocksOwners = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<UUID, Lock> sLocksOwners = new ConcurrentHashMap<>();
 
         private final LockKey lockKey;
 
@@ -485,7 +485,25 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     try {
                         if (!ixLocksOwners.isEmpty()) {
-                            assert !ixLocksOwners.containsKey(txId) : "Unsupported coarse lock upgrade mode: IX -> S";
+                            if (ixLocksOwners.containsKey(txId)) {
+                                // IX-locks can't be modified under the striped lock.
+                                if (ixLocksOwners.size() == 1) {
+                                    // Safe to upgrade.
+                                    track(txId, this); // Double track.
+                                    Lock lock = new Lock(lockKey, lockMode, txId);
+                                    sLocksOwners.putIfAbsent(txId, lock);
+                                    return completedFuture(lock);
+                                } else {
+                                    // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
+                                    for (Lock lock : ixLocksOwners.values()) {
+                                        if (!lock.txId().equals(txId)) {
+                                            return failedFuture(lockException(txId, lock.txId()));
+                                        }
+                                    }
+                                }
+
+                                assert false : "Should not reach here";
+                            }
 
                             UUID holderTx = ixLocksOwners.keySet().iterator().next();
                             CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
@@ -535,19 +553,21 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             if (sLocksOwners.containsKey(txId)) {
                                 // S-locks can't be modified under the striped lock.
                                 if (sLocksOwners.size() == 1) {
-                                    // Safe to re-enter.
+                                    // Safe to upgrade.
                                     track(txId, this); // Double track.
                                     Lock lock = new Lock(lockKey, lockMode, txId);
-                                    Lock prev = ixLocksOwners.putIfAbsent(txId, lock);
+                                    ixLocksOwners.putIfAbsent(txId, lock);
                                     return completedFuture(lock);
                                 } else {
-                                    // Concurrent transactions attempt to upgrade to SIX. Deny lock attempt.
-                                    for (Lock lock : ixLocksOwners.values()) {
+                                    // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
+                                    for (Lock lock : sLocksOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
                                             return failedFuture(lockException(txId, lock.txId()));
                                         }
                                     }
                                 }
+
+                                assert false : "Should not reach here";
                             }
 
                             UUID holderTx = sLocksOwners.keySet().iterator().next();

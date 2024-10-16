@@ -156,12 +156,8 @@ public class CoarseGrainedLockManagerTest {
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
         assertTrue(fut1.isDone());
 
-        try {
-            lockManager.acquire(txId1, lockKey(), LockMode.S);
-            fail();
-        } catch (AssertionError e) {
-            // Expected.
-        }
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut2.isDone());
 
         lockManager.releaseAll(txId1);
     }
@@ -176,6 +172,23 @@ public class CoarseGrainedLockManagerTest {
         assertTrue(fut2.isDone());
 
         lockManager.releaseAll(txId1);
+    }
+
+    @Test
+    public void testUpgradeMulti() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey(), LockMode.IX);
+        assertTrue(fut2.isDone());
+
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertThrowsWithCause(fut3::join, LockException.class);
+
+        lockManager.releaseAll(txId1);
+        lockManager.releaseAll(txId2);
     }
 
     @Test
@@ -215,6 +228,78 @@ public class CoarseGrainedLockManagerTest {
 
         CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.S);
         assertTrue(fut2.isDone());
+
+        lockManager.releaseAll(txId1);
+    }
+
+    @Test
+    public void testUpgradeAndLockRequest() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut2.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertFalse(fut3.isDone());
+
+        lockManager.releaseAll(txId1);
+
+        fut3.join();
+
+        lockManager.releaseAll(txId2);
+    }
+
+    @Test
+    public void testUpgradeAndLockRequestReverse() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut2.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertFalse(fut3.isDone());
+
+        lockManager.releaseAll(txId1);
+
+        fut3.join();
+
+        lockManager.releaseAll(txId2);
+    }
+
+    @Test
+    public void testUpgradeAndLockRequest2() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut2.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, lockKey(), LockMode.IX);
+        assertThrowsWithCause(fut3::join, LockException.class);
+
+        lockManager.releaseAll(txId1);
+    }
+
+    @Test
+    public void testUpgradeAndLockRequestReverse2() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.S);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut2.isDone());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, lockKey(), LockMode.IX);
+        assertThrowsWithCause(fut3::join, LockException.class);
 
         lockManager.releaseAll(txId1);
     }
