@@ -96,7 +96,8 @@ public interface IgniteDataInput extends DataInput {
     int read(byte[] b, int off, int len) throws IOException;
 
     /**
-     * Reads a length (that is, a non-negative integer that will most likely be small).
+     * Reads a length (that is, a non-negative integer that will most likely be small). It's usually used to encode lengths
+     * of strings and collections.
      *
      * @throws IOException If something goes wrong.
      */
