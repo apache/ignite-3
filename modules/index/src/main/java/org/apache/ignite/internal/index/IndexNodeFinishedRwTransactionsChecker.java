@@ -152,14 +152,16 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
 
     @Override
     public long minimumRequiredTime() {
-        readWriteLock.writeLock().lock();
-
         int minRequiredVer;
+
+        readWriteLock.writeLock().lock();
 
         try {
             Entry<Integer, Long> entry = txCountByCatalogVersion.firstEntry();
 
             if (entry == null) {
+                // Write lock guarantees that this timestamp will be less
+                // than the begin time of any concurrently started transaction.
                 return clock.now().longValue();
             }
 
