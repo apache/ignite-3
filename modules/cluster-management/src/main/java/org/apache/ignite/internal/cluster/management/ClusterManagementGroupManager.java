@@ -86,6 +86,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -773,21 +774,21 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         assert serverPeer != null;
 
         try {
-            return raftManager
-                    .startRaftGroupNodeAndWaitNodeReadyFuture(
-                            raftNodeId(serverPeer),
-                            raftConfiguration,
-                            new CmgRaftGroupListener(
-                                    clusterStateStorageMgr,
-                                    logicalTopology,
-                                    validationManager,
-                                    this::onLogicalTopologyChanged,
-                                    clusterIdStore
-                            ),
-                            this::onElectedAsLeader,
-                            raftGroupOptionsConfigurer
-                    )
-                    .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
+            RaftGroupService service = raftManager.startRaftGroupNodeAndWaitNodeReady(
+                    raftNodeId(serverPeer),
+                    raftConfiguration,
+                    new CmgRaftGroupListener(
+                            clusterStateStorageMgr,
+                            logicalTopology,
+                            validationManager,
+                            this::onLogicalTopologyChanged,
+                            clusterIdStore
+                    ),
+                    this::onElectedAsLeader,
+                    raftGroupOptionsConfigurer
+            );
+
+            return completedFuture(new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
             return failedFuture(e);
         }

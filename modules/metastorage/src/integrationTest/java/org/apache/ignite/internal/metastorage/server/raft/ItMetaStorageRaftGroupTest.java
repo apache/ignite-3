@@ -480,38 +480,35 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 groupOptions3
         );
 
-        metaStorageRaftGrpSvc1 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(0),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
-        ));
+        );
 
-        metaStorageRaftGrpSvc2 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(1),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
-        ));
+        );
 
-        metaStorageRaftGrpSvc3 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(2),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
-                true,
                 executor,
                 commandsMarshaller
-        ));
+        );
 
         assertTrue(waitForCondition(
                         () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
@@ -525,12 +522,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         raftServersRaftGroups.add(new Pair<>(metaStorageRaftSrv3, metaStorageRaftGrpSvc3));
 
         return raftServersRaftGroups;
-    }
-
-    private static RaftGroupService waitForRaftGroupServiceSafely(CompletableFuture<RaftGroupService> future) {
-        assertThat(future, willCompleteSuccessfully());
-
-        return future.join();
     }
 
     /**

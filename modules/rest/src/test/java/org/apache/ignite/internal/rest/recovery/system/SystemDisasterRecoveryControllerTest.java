@@ -85,7 +85,7 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
         when(systemDisasterRecoveryManager.resetCluster(List.of("a", "b", "c"))).thenReturn(nullCompletedFuture());
 
         HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
-                new ResetClusterRequest(List.of("a", "b", "c"))
+                new ResetClusterRequest(List.of("a", "b", "c"), null)
         );
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
@@ -95,11 +95,46 @@ class SystemDisasterRecoveryControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void initiatesCmgRepairRepairingMetastorageWithCmgNodeNamesSpecified() {
+        int replicationFactor = 1;
+        List<String> cmgNodeNames = List.of("a", "b", "c");
+
+        when(systemDisasterRecoveryManager.resetClusterRepairingMetastorage(cmgNodeNames, replicationFactor))
+                .thenReturn(nullCompletedFuture());
+
+        HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
+                new ResetClusterRequest(cmgNodeNames, replicationFactor)
+        );
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+        verify(systemDisasterRecoveryManager).resetClusterRepairingMetastorage(cmgNodeNames, replicationFactor);
+    }
+
+    @Test
+    void initiatesCmgRepairRepairingMetastorageWithCmgNodeNamesNotSpecified() {
+        int replicationFactor = 1;
+
+        when(systemDisasterRecoveryManager.resetClusterRepairingMetastorage(null, replicationFactor))
+                .thenReturn(nullCompletedFuture());
+
+        HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
+                new ResetClusterRequest(null, replicationFactor)
+        );
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+        verify(systemDisasterRecoveryManager).resetClusterRepairingMetastorage(null, replicationFactor);
+    }
+
+    @Test
     void resetClusterPassesClusterResetExceptionToClient() {
         when(systemDisasterRecoveryManager.resetCluster(any())).thenReturn(failedFuture(new ClusterResetException("Oops")));
 
         HttpRequest<ResetClusterRequest> post = HttpRequest.POST("/reset",
-                new ResetClusterRequest(List.of("a", "b", "c"))
+                new ResetClusterRequest(List.of("a", "b", "c"), null)
         );
 
         HttpClientResponseException ex = assertThrows(HttpClientResponseException.class, () -> client.toBlocking().exchange(post));

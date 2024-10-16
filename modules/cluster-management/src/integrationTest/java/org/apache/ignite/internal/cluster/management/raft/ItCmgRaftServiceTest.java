@@ -142,14 +142,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
                 Peer serverPeer = configuration.peer(localMember().name());
 
-                CompletableFuture<RaftGroupService> raftService;
+                RaftGroupService raftService;
 
                 if (serverPeer == null) {
                     raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -164,9 +164,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     );
                 }
 
-                assertThat(raftService, willCompleteSuccessfully());
-
-                this.raftService = new CmgRaftService(raftService.join(), clusterService, logicalTopology);
+                this.raftService = new CmgRaftService(raftService, clusterService, logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
