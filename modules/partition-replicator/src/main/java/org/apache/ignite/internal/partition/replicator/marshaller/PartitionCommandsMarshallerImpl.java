@@ -64,6 +64,6 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
      */
     @Override
     public int readRequiredCatalogVersion(ByteBuffer raw) {
-        return VarIntUtils.readVarInt(raw);
+        return (int) VarIntUtils.readVarInt(raw);
     }
 }

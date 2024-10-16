@@ -17,14 +17,13 @@
 
 package org.apache.ignite.network;
 
-import java.io.Serializable;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a node in a cluster.
  */
-public interface ClusterNode extends Serializable {
+public interface ClusterNode {
     /**
      * Returns the node's local ID.
      *
