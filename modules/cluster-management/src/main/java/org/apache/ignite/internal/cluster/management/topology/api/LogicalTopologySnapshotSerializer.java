@@ -33,7 +33,7 @@ public class LogicalTopologySnapshotSerializer extends VersionedSerializer<Logic
     /** Serializer instance. */
     public static final LogicalTopologySnapshotSerializer INSTANCE = new LogicalTopologySnapshotSerializer();
 
-    private final LogicalNodeSerializer logicalNodeSerializer = new LogicalNodeSerializer();
+    private final LogicalNodeSerializer logicalNodeSerializer = LogicalNodeSerializer.INSTANCE;
 
     @Override
     protected void writeExternalData(LogicalTopologySnapshot snapshot, IgniteDataOutput out) throws IOException {
