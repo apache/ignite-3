@@ -33,8 +33,6 @@ import org.apache.ignite.internal.util.CompletableFutures;
  * Tracker of read operations from metastorage or its storage. Used to track the completion of read operations before start local
  * compaction of metastorage.
  *
- * <p>Thread safe, but component that uses it must synchronize {@link #track} and {@link #collect} the with each other.</p>
- *
  * <p>Expected usage:</p>
  * <ul>
  *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the compaction revision that is currently

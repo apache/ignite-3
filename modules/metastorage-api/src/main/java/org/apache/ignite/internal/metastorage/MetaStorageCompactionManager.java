@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -102,4 +103,16 @@ public interface MetaStorageCompactionManager extends IgniteComponent {
      * @see #saveCompactionRevisionLocally(long)
      */
     long getCompactionRevisionLocally();
+
+    /**
+     * Returns a future that will complete when all read operations (from leader and locally) that were started before
+     * {@code revisionExcluded}.
+     *
+     * <p>Current method is expected to be invoked after {@link #setCompactionRevisionLocally} on the same revision.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param revisionExcluded Compaction revision of interest.
+     */
+    CompletableFuture<Void> readOperationsFuture(long revisionExcluded);
 }

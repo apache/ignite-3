@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;

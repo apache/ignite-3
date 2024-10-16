@@ -78,14 +78,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
 
-    /**
-     * Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}.
-     *
-     * <p>We don't need to synchronize {@link ReadOperationForCompactionTracker#track} and
-     * {@link ReadOperationForCompactionTracker#collect} because it's enough for us to synchronize {@link #range} and
-     * {@link #setCompactionRevision}. New cursors will throw {@link CompactedException} for compacted revision and we will only need to
-     * wait for the previous ones.</p>
-     */
+    /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
     protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
     /**
