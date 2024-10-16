@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.ignite.internal.network.ClusterNodeSerializer;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -74,7 +75,7 @@ public class LogicalNodeSerializer extends VersionedSerializer<LogicalNode> {
     private static Map<String, String> readStringToStringMap(IgniteDataInput in) throws IOException {
         int size = in.readLength();
 
-        var map = new HashMap<String, String>(size);
+        var map = new HashMap<String, String>(IgniteUtils.capacity(size));
         for (int i = 0; i < size; i++) {
             map.put(in.readUTF(), in.readUTF());
         }

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -51,7 +52,7 @@ public class LogicalTopologySnapshotSerializer extends VersionedSerializer<Logic
         long version = in.readVarInt();
 
         int nodesCount = in.readLength();
-        Set<LogicalNode> nodes = new HashSet<>(nodesCount);
+        Set<LogicalNode> nodes = new HashSet<>(IgniteUtils.capacity(nodesCount));
         for (int i = 0; i < nodesCount; i++) {
             nodes.add(logicalNodeSerializer.readExternal(in));
         }
