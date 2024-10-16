@@ -519,7 +519,23 @@ namespace Apache.Ignite.Tests.Sql
             await using var resultSet = await Client.Sql.ExecuteAsync(null, "select cast((10 / ?) as decimal(20, 5))", 3m);
             IIgniteTuple res = await resultSet.SingleAsync();
 
-            Assert.AreEqual(3.33333m, res[0]);
+            var bigDecimal = (BigDecimal)res[0]!;
+
+            Assert.AreEqual(3.33333m, bigDecimal.ToDecimal());
+            Assert.AreEqual(5, bigDecimal.Scale);
+        }
+
+        [Test]
+        public async Task TestMaxDecimalScale()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (10 / ?)", 3m);
+            IIgniteTuple res = await resultSet.SingleAsync();
+
+            var bigDecimal = (BigDecimal)res[0]!;
+
+            Assert.AreEqual(32757, bigDecimal.Scale);
+            Assert.AreEqual(13603, bigDecimal.UnscaledValue.GetByteCount());
+            StringAssert.StartsWith("3.3333333333", bigDecimal.ToString());
         }
 
         [Test]
