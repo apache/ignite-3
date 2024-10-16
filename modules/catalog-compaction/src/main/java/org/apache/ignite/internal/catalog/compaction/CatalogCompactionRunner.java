@@ -301,13 +301,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             allPartitions
                     );
 
-                    LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}].", txMinRequiredTime);
+                    LOG.debug("Propagate minimum required tx time to replicas [timestamp={}].", txMinRequiredTime);
 
                     CompletableFuture<Void> propagateToReplicasFut =
                             propagateTimeToNodes(txMinRequiredTime, topologySnapshot.nodes())
                                     .whenComplete((ignore, ex) -> {
                                         if (ex != null) {
-                                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                                            LOG.warn("Failed to propagate minimum required tx time to replicas.", ex);
                                         }
                                     });
 
