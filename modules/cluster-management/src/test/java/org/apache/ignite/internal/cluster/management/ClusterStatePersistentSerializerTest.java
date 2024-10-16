@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.UUID.randomUUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -43,9 +42,12 @@ class ClusterStatePersistentSerializerTest {
                 .cmgNodes(Set.of("a", "b"))
                 .metaStorageNodes(Set.of("c", "d"))
                 .version("3.0.0")
-                .clusterTag(ClusterTag.randomClusterTag(CMG_MESSAGES_FACTORY, "cluster"))
+                .clusterTag(ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)))
                 .initialClusterConfiguration("config")
-                .formerClusterIds(List.of(randomUUID(), randomUUID()))
+                .formerClusterIds(List.of(
+                        new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
+                        new UUID(0xFEDCBA0987654321L, 0x1234567890ABCDEFL)
+                ))
                 .build();
 
         byte[] bytes = VersionedSerialization.toBytes(originalState, serializer);
@@ -60,7 +62,7 @@ class ClusterStatePersistentSerializerTest {
                 .cmgNodes(Set.of("a", "b"))
                 .metaStorageNodes(Set.of("c", "d"))
                 .version("3.0.0")
-                .clusterTag(ClusterTag.randomClusterTag(CMG_MESSAGES_FACTORY, "cluster"))
+                .clusterTag(ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)))
                 .initialClusterConfiguration(null)
                 .formerClusterIds(null)
                 .build();
@@ -73,17 +75,19 @@ class ClusterStatePersistentSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwMBYQFiAwFjAWQFMy4wLjAHY2x1c3Rlcp1Ct7dR35ELuoeboFbabrgHY29uZmlnAztFBahaoEfJtxGam"
-                + "Q6WXJNFRfruL76Bv254dP54iF6V");
+        byte[] bytes = Base64.getDecoder().decode("Ae++QwMCYgJhAwJkAmMGMy4wLjAIY2x1c3Rlcu/Nq5B4VjQSIUNlhwm63P4HY29uZmlnA+/Nq5B4VhI0IUN"
+                + "lhwm63P4hQ2WHCbrc/u/Nq5B4VjQS");
         ClusterState restoredState = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredState.cmgNodes(), containsInAnyOrder("a", "b"));
         assertThat(restoredState.metaStorageNodes(), containsInAnyOrder("c", "d"));
         assertThat(restoredState.version(), is("3.0.0"));
+        assertThat(restoredState.clusterTag().clusterName(), is("cluster"));
+        assertThat(restoredState.clusterTag().clusterId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredState.initialClusterConfiguration(), is("config"));
         assertThat(
                 restoredState.formerClusterIds(),
-                contains(UUID.fromString("c947a05a-a805-453b-935c-960e999a11b7"), UUID.fromString("bf81be2f-eefa-4545-955e-8878fe74786e"))
+                contains(new UUID(0x3412567890ABCDEFL, 0xFEDCBA0987654321L), new UUID(0xFEDCBA0987654321L, 0x1234567890ABCDEFL))
         );
     }
 }
