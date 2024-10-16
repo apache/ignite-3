@@ -139,6 +139,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
         Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
+        Assert.AreEqual(new BigDecimal( 8.7m), reader.GetValue("DECIMAL"));
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
         Assert.AreEqual(Guid, reader.GetGuid("UUID"));
         Assert.IsTrue(reader.GetBoolean("BOOLEAN"));
