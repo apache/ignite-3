@@ -135,13 +135,17 @@ public class BigDecimalTests
     }
 
     [Test]
-    public void TestCompareTo()
+    public void TestSameValueDifferentScaleAreNotEqual()
     {
-        Assert.Fail("TODO");
+        var x = new BigDecimal(100, 0);
+        var y = new BigDecimal(10, -1);
+
+        Assert.AreNotEqual(x, y);
+        Assert.AreEqual(0, x.CompareTo(y));
     }
 
     [Test]
-    public void TestNegativeScale()
+    public void TestCompareTo()
     {
         Assert.Fail("TODO");
     }
