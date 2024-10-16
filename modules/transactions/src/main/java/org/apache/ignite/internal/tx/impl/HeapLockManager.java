@@ -255,10 +255,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         List<Lock> result = new ArrayList<>();
 
-        for (Releasable lockState : lockStates) {
-            Lock lock = lockState.lock(txId);
-            if (lock != null) {
-                result.add(lock);
+        if (lockStates != null) {
+            for (Releasable lockState : lockStates) {
+                Lock lock = lockState.lock(txId);
+                if (lock != null) {
+                    result.add(lock);
+                }
             }
         }
 
