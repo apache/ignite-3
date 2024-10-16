@@ -49,6 +49,7 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -144,25 +145,23 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
 
         Catalog catalog1 = getLatestCatalog(node2);
-        InternalTransaction tx1 = (InternalTransaction) node0.transactions().begin();
+
+        Transaction tx1 = node0.transactions().begin();
 
         // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
         Catalog catalog2 = getLatestCatalog(node0);
         assertThat(catalog2.version(), is(catalog1.version() + 1));
-        InternalTransaction tx2 = (InternalTransaction) node1.transactions().begin();
-        InternalTransaction ignoredReadonlyTx =
-                (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
+        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
+        List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
+                .map(node -> (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true)))
+                .collect(Collectors.toList());
 
         // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
         Catalog catalog3 = getLatestCatalog(node1);
         assertThat(catalog3.version(), is(catalog2.version() + 1));
-        InternalTransaction tx3 = (InternalTransaction) node2.transactions().begin();
-
-        // make sure that transactions are ordered as expected
-        assertThat(tx2.startTimestamp().longValue(), greaterThan(tx1.startTimestamp().longValue()));
-        assertThat(tx3.startTimestamp().longValue(), greaterThan(tx2.startTimestamp().longValue()));
+        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
@@ -178,14 +177,14 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             assertThat(timeHolder.txMinRequiredTime, is(catalog2.time()));
         });
 
-        tx2.commit();
+        txs2.forEach(Transaction::commit);
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
             assertThat(timeHolder.txMinRequiredTime, is(catalog3.time()));
         });
 
-        tx3.rollback();
+        txs3.forEach(Transaction::rollback);
 
         // Since there are no active RW transactions in the cluster, the minimum time will be min(now()) across all nodes.
         compactors.forEach(compactor -> {
@@ -196,13 +195,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             long maxTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
 
             // Read-only transactions are not counted,
-            assertThat(timeHolder.txMinRequiredTime, greaterThan(ignoredReadonlyTx.startTimestamp().longValue()));
+            ignoredReadonlyTxs.forEach(tx -> {
+                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.startTimestamp().longValue()));
+            });
 
             assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));
             assertThat(timeHolder.txMinRequiredTime, lessThanOrEqualTo(maxTime));
         });
 
-        ignoredReadonlyTx.rollback();
+        ignoredReadonlyTxs.forEach(Transaction::rollback);
     }
 
     @Test

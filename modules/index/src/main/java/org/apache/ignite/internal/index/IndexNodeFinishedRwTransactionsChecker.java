@@ -157,7 +157,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
         int minRequiredVer;
 
         try {
-            Entry<Integer, Long> entry = txCountByCatalogVersion.lastEntry();
+            Entry<Integer, Long> entry = txCountByCatalogVersion.firstEntry();
 
             if (entry == null) {
                 return clock.now().longValue();
