@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -876,14 +875,15 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         Iterator<Entry> iterator = entries.iterator();
 
-        UUID cursorId = UUID.randomUUID();
+        long readOperationId = readOperationIdGeneratorForTracker++;
         long compactionRevisionOnCreateIterator = compactionRevision;
 
-        readOperationForCompactionTracker.track(cursorId, compactionRevisionOnCreateIterator);
+        readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
+
         return new Cursor<>() {
             @Override
             public void close() {
-                readOperationForCompactionTracker.untrack(cursorId, compactionRevisionOnCreateIterator);
+                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionOnCreateIterator);
             }
 
             @Override

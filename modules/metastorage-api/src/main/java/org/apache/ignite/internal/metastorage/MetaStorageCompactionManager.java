@@ -106,13 +106,13 @@ public interface MetaStorageCompactionManager extends IgniteComponent {
 
     /**
      * Returns a future that will complete when all read operations (from leader and locally) that were started before
-     * {@code revisionExcluded}.
+     * {@code compactionRevisionExcluded} will be completed.
      *
-     * <p>Current method is expected to be invoked after {@link #setCompactionRevisionLocally} on the same revision.</p>
+     * <p>Should be invoked after {@link #setCompactionRevisionLocally} on the same revision.</p>
      *
      * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
      *
-     * @param revisionExcluded Compaction revision of interest.
+     * @param compactionRevisionExcluded Compaction revision of interest.
      */
-    CompletableFuture<Void> readOperationsFuture(long revisionExcluded);
+    CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
 }

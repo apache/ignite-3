@@ -372,17 +372,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
         var startSendReadActionRequestFuture = new CompletableFuture<Void>();
-        var continueSendReadActionRequestFuture = new CompletableFuture<>();
+        var continueSendReadActionRequestFuture = new CompletableFuture<Void>();
 
-        ((DefaultMessagingService) clusterService.messagingService()).dropMessages((recipientConsistentId, message) -> {
-            if (message instanceof ReadActionRequest) {
-                startSendReadActionRequestFuture.complete(null);
-
-                assertThat(continueSendReadActionRequestFuture, willCompleteSuccessfully());
-            }
-
-            return false;
-        });
+        listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
 
         CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
         Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
@@ -399,6 +391,38 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         continueSendReadActionRequestFuture.complete(null);
         assertThat(readOperationsFuture, willCompleteSuccessfully());
+        assertThat(readFromLeaderOperationFuture, willCompleteSuccessfully());
+    }
+
+    /**
+     * Tests that read operations from the leader and local ones created after {@link MetaStorageManagerImpl#setCompactionRevisionLocally}
+     * will not affect future from {@link MetaStorageManagerImpl#readOperationsFuture} on a new compaction revision.
+     *
+     * <p>Due to the difficulty of testing all reading from leader methods at once, we test each of them separately.</p>
+     */
+    @ParameterizedTest
+    @MethodSource("readFromLeaderOperations")
+    void testReadOperationsFutureForReadOperationAfterSetCompactionRevision(ReadFromLeaderAction readFromLeaderAction) throws Exception {
+        assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
+
+        metaStorageManager.setCompactionRevisionLocally(1);
+
+        var startSendReadActionRequestFuture = new CompletableFuture<Void>();
+        var continueSendReadActionRequestFuture = new CompletableFuture<Void>();
+
+        listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
+
+        CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
+        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
+
+        assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
+
+        assertTrue(metaStorageManager.readOperationsFuture(1).isDone());
+
+        getLocallyCursor.close();
+
+        continueSendReadActionRequestFuture.complete(null);
         assertThat(readFromLeaderOperationFuture, willCompleteSuccessfully());
     }
 
@@ -434,6 +458,21 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                         ReadFromLeaderAction.readAsync((metastore, key) -> subscribeToList(metastore.prefix(key, 3)))
                 ))
         );
+    }
+
+    private void listenReadActionRequest(
+            CompletableFuture<Void> startSendReadActionRequestFuture,
+            CompletableFuture<Void> continueSendReadActionRequestFuture
+    ) {
+        ((DefaultMessagingService) clusterService.messagingService()).dropMessages((recipientConsistentId, message) -> {
+            if (message instanceof ReadActionRequest) {
+                startSendReadActionRequestFuture.complete(null);
+
+                assertThat(continueSendReadActionRequestFuture, willCompleteSuccessfully());
+            }
+
+            return false;
+        });
     }
 
     private static CompletableFuture<Void> waitFor(int timeout, TimeUnit unit) {

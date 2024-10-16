@@ -942,6 +942,39 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
+    /**
+     * Tests that cursors created after {@link KeyValueStorage#setCompactionRevision} will not affect future from
+     * {@link KeyValueStorage#readOperationsFuture} on a new compaction revision.
+     */
+    @Test
+    void testReadOperationsFutureForReadOperationAfterSetCompactionRevision() throws Exception {
+        Cursor<Entry> rangeBeforeSetCompactionRevision = storage.range(FOO_KEY, FOO_KEY);
+        Cursor<Entry> rangeAfterSetCompactionRevision0 = null;
+        Cursor<Entry> rangeAfterSetCompactionRevision1 = null;
+
+        try {
+            storage.setCompactionRevision(3);
+
+            rangeAfterSetCompactionRevision0 = storage.range(FOO_KEY, FOO_KEY);
+            rangeAfterSetCompactionRevision1 = storage.range(FOO_KEY, FOO_KEY, 5);
+
+            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            assertFalse(readOperationsFuture.isDone());
+
+            rangeBeforeSetCompactionRevision.close();
+            assertTrue(readOperationsFuture.isDone());
+
+            rangeAfterSetCompactionRevision0.close();
+            rangeAfterSetCompactionRevision1.close();
+        } catch (Throwable t) {
+            IgniteUtils.closeAll(
+                    rangeBeforeSetCompactionRevision,
+                    rangeAfterSetCompactionRevision0,
+                    rangeAfterSetCompactionRevision1
+            );
+        }
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 

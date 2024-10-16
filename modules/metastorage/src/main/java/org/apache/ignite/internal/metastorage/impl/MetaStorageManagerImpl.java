@@ -40,6 +40,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
@@ -193,6 +194,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     /** Tracks only reads from the leader, local reads are tracked by the storage itself. */
     private final ReadOperationForCompactionTracker readOperationFromLeaderForCompactionTracker = new ReadOperationForCompactionTracker();
+
+    /** Read operation ID generator for {@link #readOperationIdGeneratorForTracker}. */
+    private final AtomicLong readOperationIdGeneratorForTracker = new AtomicLong();
 
     /**
      * The constructor.
@@ -1149,18 +1153,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public CompletableFuture<Void> readOperationsFuture(long revisionExcluded) {
+    public CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded) {
         return inBusyLock(
                 busyLock,
                 () -> allOf(
-                        readOperationFromLeaderForCompactionTracker.collect(revisionExcluded),
-                        storage.readOperationsFuture(revisionExcluded)
+                        readOperationFromLeaderForCompactionTracker.collect(compactionRevisionExcluded),
+                        storage.readOperationsFuture(compactionRevisionExcluded)
                 )
         );
     }
 
     private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
-        UUID readOperationId = UUID.randomUUID();
+        long readOperationId = readOperationIdGeneratorForTracker.getAndIncrement();
         long compactionRevision = storage.getCompactionRevision();
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
@@ -1177,7 +1181,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(Supplier<Publisher<Entry>> readFromLeader) {
-        UUID readOperationId = UUID.randomUUID();
+        long readOperationId = readOperationIdGeneratorForTracker.getAndIncrement();
         long compactionRevision = storage.getCompactionRevision();
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);

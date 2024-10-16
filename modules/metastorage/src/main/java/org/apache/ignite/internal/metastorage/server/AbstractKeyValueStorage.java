@@ -82,6 +82,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
     /**
+     * Used to generate read operation ID for {@link #readOperationForCompactionTracker}.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    protected long readOperationIdGeneratorForTracker;
+
+    /**
      * Constructor.
      *
      * @param nodeName Node name.
@@ -265,8 +272,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public CompletableFuture<Void> readOperationsFuture(long revisionExcluded) {
-        return readOperationForCompactionTracker.collect(revisionExcluded);
+    public CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded) {
+        return readOperationForCompactionTracker.collect(compactionRevisionExcluded);
     }
 
     /** Notifies of revision update. Must be called under the {@link #rwLock}. */
