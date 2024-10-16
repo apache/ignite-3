@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
+
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -46,7 +49,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
-    private static final NativeType DECIMAL_DYN_PARAM_DEFAULT = NativeTypes.decimalOf(28, 6);
+    private static final NativeType DECIMAL_DYN_PARAM_DEFAULT = NativeTypes.decimalOf(
+            DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
+    );
 
     private static Stream<Arguments> lhsNonDecimal() {
         return Stream.of(

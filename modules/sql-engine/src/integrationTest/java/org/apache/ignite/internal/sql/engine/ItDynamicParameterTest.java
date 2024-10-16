@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
@@ -35,6 +37,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -82,8 +85,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite SQL doesn't support precision more than 3 for temporal types.
         if (type == ColumnType.TIME || type == ColumnType.TIMESTAMP || type == ColumnType.DATETIME) {
             param = SqlTestUtils.generateValueByType(type, 3, -1);
-        } else if (type == ColumnType.DECIMAL) { // by default derived type of parameter of type BigDecimal is DECIMAL(28, 6)
-            param = SqlTestUtils.generateValueByType(type, 28, 6);
+        } else if (type == ColumnType.DECIMAL) {
+            param = SqlTestUtils.generateValueByType(type, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE);
         } else {
             param = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
         }
@@ -97,9 +100,10 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * By default derived type of parameter of type BigDecimal is DECIMAL(28, 6). This test makes sure it's possible to go beyond
-     * default precision and scale by wrapping dynamic param placeholder with CAST operation.
-      */
+     * By default derived type of parameter of type BigDecimal is DECIMAL({@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_PRECISION},
+     * {@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_SCALE}). This test makes sure it's possible to go beyond default precision and scale
+     * by wrapping dynamic param placeholder with CAST operation.
+     */
     @ParameterizedTest
     @ValueSource(ints = {10, 20, 30, 60, 120})
     void testMetadataTypesForDecimalDynamicParameters(int precision) {

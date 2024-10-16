@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -230,7 +233,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT ?", BigDecimal.ONE)
-                        .parameterTypes(nullable(NativeTypes.decimalOf(28, 6)))
+                        .parameterTypes(nullable(NativeTypes.decimalOf(DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE)))
                         .ok(),
 
                 checkStatement()

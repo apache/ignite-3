@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
@@ -50,7 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
     private static final IgniteSchema SCHEMA = createSchemaWithTwoColumnTable(NativeTypes.STRING, NativeTypes.STRING);
 
-    private static final NativeType DECIMAL_DYN_PARAM_DEFAULT = NativeTypes.decimalOf(28, 6);
+    private static final NativeType DECIMAL_DYN_PARAM_DEFAULT = NativeTypes.decimalOf(
+            DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
+    );
 
     /** CASE operands from columns. */
     @ParameterizedTest
