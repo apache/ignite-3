@@ -1304,7 +1304,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    lockManager,
+                    () -> lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
