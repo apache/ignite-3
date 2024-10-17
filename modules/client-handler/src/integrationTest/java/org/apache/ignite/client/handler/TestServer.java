@@ -138,7 +138,8 @@ public class TestServer {
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                Runnable::run
         );
 
         module.startAsync(componentContext).join();

@@ -1111,7 +1111,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
-                lowWatermark
+                lowWatermark,
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         restComponent = createRestComponent(name);

@@ -60,6 +60,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -91,8 +92,8 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -489,14 +490,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         ongoingOperationsById.put(operationId, operationFuture);
 
-        metaStorageManager.put(RECOVERY_TRIGGER_KEY, ByteUtils.toBytes(request));
+        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE));
 
         return operationFuture;
     }
 
     /**
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
-     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long)}.
+     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long, HybridTimestamp)}.
      */
     private void handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
@@ -506,7 +507,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         DisasterRecoveryRequest request;
         try {
-            request = ByteUtils.fromBytes(requestBytes);
+            request = VersionedSerialization.fromBytes(requestBytes, DisasterRecoveryRequestSerializer.INSTANCE);
         } catch (Exception e) {
             LOG.warn("Unable to deserialize disaster recovery request.", e);
 

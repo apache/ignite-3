@@ -39,6 +39,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -111,6 +112,9 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 // Real/Float got mixed up.
                 .filter(t -> t != SqlTypeName.FLOAT)
                 .map(TYPE_FACTORY::createSqlType)
+                // tests in this class indifferent to particular precision and scale for DECIMAL type,
+                // therefor let's choose prec and scale which will be more convenient for test case generation
+                .map(type -> SqlTypeUtil.isDecimal(type) ? decimalDynParamType() : type)
                 .collect(Collectors.toList());
 
         List<Arguments> arguments = new ArrayList<>();
@@ -493,5 +497,11 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
             return Objects.equals(actualCondition, expectedCondition);
         }
+    }
+
+    private static RelDataType decimalDynParamType() {
+        return TYPE_FACTORY.createSqlType(
+                SqlTypeName.DECIMAL, IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION, IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE
+        );
     }
 }

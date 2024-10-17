@@ -544,24 +544,31 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Appends a decimal.
+        /// Appends a big decimal.
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale)
+        public void AppendBigDecimal(BigDecimal value, int scale)
         {
-            var (unscaled, actualScale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale);
+            var valueScale = value.Scale;
+            var unscaledValue = value.UnscaledValue;
 
-            PutShort(actualScale);
-            PutNumber(unscaled);
+            if (valueScale > scale)
+            {
+                unscaledValue /= BigInteger.Pow(10, valueScale - scale);
+                valueScale = (short)scale;
+            }
+
+            PutShort(valueScale);
+            PutNumber(unscaledValue);
         }
 
         /// <summary>
-        /// Appends a decimal.
+        /// Appends a nullable big decimal.
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimalNullable(decimal? value, int scale)
+        public void AppendBigDecimalNullable(BigDecimal? value, int scale)
         {
             if (value == null)
             {
@@ -569,9 +576,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                AppendDecimal(value.Value, scale);
+                AppendBigDecimal(value.Value, scale);
             }
         }
+
+        /// <summary>
+        /// Appends a decimal.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendDecimal(decimal value, int scale) =>
+            AppendBigDecimal(new BigDecimal(value), scale);
+
+        /// <summary>
+        /// Appends a nullable decimal.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendDecimalNullable(decimal? value, int scale) =>
+            AppendBigDecimalNullable(value == null ? null : new BigDecimal(value.Value), scale);
 
         /// <summary>
         /// Appends a date.
@@ -824,7 +847,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case ColumnType.Decimal:
-                    AppendDecimal((decimal)value, scale);
+                    if (value is decimal dec)
+                    {
+                        AppendDecimal(dec, scale);
+                    }
+                    else
+                    {
+                        AppendBigDecimal((BigDecimal)value, scale);
+                    }
+
                     break;
 
                 case ColumnType.Date:
@@ -922,9 +953,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case decimal dec:
-                    var scale = GetDecimalScale(dec);
-                    AppendTypeAndScale(ColumnType.Decimal, scale);
-                    AppendDecimal(dec, scale);
+                    var bigDec0 = new BigDecimal(dec);
+                    AppendTypeAndScale(ColumnType.Decimal, bigDec0.Scale);
+                    AppendBigDecimal(bigDec0, bigDec0.Scale);
+                    break;
+
+                case BigDecimal bigDec:
+                    AppendTypeAndScale(ColumnType.Decimal, bigDec.Scale);
+                    AppendBigDecimal(bigDec, bigDec.Scale);
                     break;
 
                 case LocalDate localDate:
@@ -1072,6 +1108,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     break;
 
+                case BigDecimal:
+                    AppendTypeAndSize(ColumnType.Decimal, collection.Length);
+                    foreach (var item in collection)
+                    {
+                        AppendBigDecimal((BigDecimal)(object)item!, int.MaxValue);
+                    }
+
+                    break;
+
                 case LocalDate:
                     AppendTypeAndSize(ColumnType.Date, collection.Length);
                     foreach (var item in collection)
@@ -1192,14 +1237,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void Dispose()
         {
             _buffer.Dispose();
-        }
-
-        private static int GetDecimalScale(decimal value)
-        {
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-
-            return (bits[3] & 0x00FF0000) >> 16;
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));

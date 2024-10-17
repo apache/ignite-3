@@ -35,6 +35,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -42,6 +43,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.ConnectException;
@@ -92,6 +96,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
@@ -101,6 +106,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -621,6 +628,75 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         CompletableFuture<Long> fut = service.readIndex();
 
         assertThat(fut, willThrowFast(TimeoutException.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"ESHUTDOWN", "EHOSTDOWN", "ENODESHUTDOWN"})
+    public void testRetryOnErrorWithUnavailablePeers(RaftError error) {
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
+
+        // Verify that we tried to send the message to every node.
+        NODES.forEach(node -> verify(messagingService, atLeastOnce()).invoke(
+                argThat((ClusterNode target) -> target != null && target.name().equals(node.consistentId())),
+                any(ReadActionRequest.class),
+                anyLong()
+        ));
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"UNKNOWN", "EINTERNAL", "ENOENT"})
+    public void testRetryOnErrorWithTimeout(RaftError error) {
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"EPERM"})
+    public void testRetryOnErrorWithUpdateLeader(RaftError error) {
+        when(messagingService.invoke(
+                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(0).consistentId())),
+                any(ReadActionRequest.class),
+                anyLong())
+        )
+                .thenReturn(completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .leaderId(NODES.get(NODES.size() - 1).consistentId())
+                        .build()));
+
+        when(messagingService.invoke(
+                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(NODES.size() - 1).consistentId())),
+                any(ReadActionRequest.class),
+                anyLong())
+        )
+                .thenReturn(completedFuture(FACTORY.actionResponse().result(null).build()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        assertThat(service.leader(), is(NODES.get(0)));
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willBe(nullValue()));
+
+        // Check that the leader was updated as well.
+        assertThat(service.leader(), is(NODES.get(NODES.size() - 1)));
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers) {

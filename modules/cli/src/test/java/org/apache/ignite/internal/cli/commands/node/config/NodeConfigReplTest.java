@@ -15,9 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto.pojo;
+package org.apache.ignite.internal.cli.commands.node.config;
 
-/** Child POJO. */
-public class ChildPojo extends ParentPojo {
-    public int childField;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.DisplayName;
+
+/** Tests "node config" REPL commands. */
+@DisplayName("node config REPL")
+class NodeConfigReplTest extends NodeConfigTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
 }

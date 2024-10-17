@@ -35,6 +35,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
@@ -101,6 +102,19 @@ public class MetastorageRepairImpl implements MetastorageRepair {
         LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
             @Override
             public void onNodeValidated(LogicalNode validatedNode) {
+                LOG.info("Node (awaited by Metastorage repair) has been validated in CMG: {}", validatedNode.name());
+
+                markNodeAsAdded(validatedNode);
+            }
+
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                LOG.info("Node (awaited by Metastorage repair) has joined the cluster: {}", joinedNode.name());
+
+                markNodeAsAdded(joinedNode);
+            }
+
+            private void markNodeAsAdded(LogicalNode validatedNode) {
                 cumulativeValidatedNodeNames.add(validatedNode.name());
 
                 if (isSuperset(cumulativeValidatedNodeNames, nodeNames)) {
@@ -110,6 +124,8 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
             @Override
             public void onNodeInvalidated(LogicalNode invalidatedNode) {
+                LOG.info("Node (awaited by Metastorage repair) has been invalidated in CMG: {}", invalidatedNode.name());
+
                 cumulativeValidatedNodeNames.remove(invalidatedNode.name());
             }
         };
@@ -121,6 +137,9 @@ public class MetastorageRepairImpl implements MetastorageRepair {
                     Set<String> validatedNodeNames = validatedNodes.stream()
                             .map(ClusterNode::name)
                             .collect(toSet());
+
+                    LOG.info("Nodes (awaited by Metastorage repair) that are currently validated/joined in CMG: {}", validatedNodeNames);
+
                     if (isSuperset(validatedNodeNames, nodeNames)) {
                         future.complete(null);
                     }
@@ -144,6 +163,8 @@ public class MetastorageRepairImpl implements MetastorageRepair {
     }
 
     private CompletableFuture<Map<String, IndexWithTerm>> startMetastorageRepair(Set<String> participatingNodeNames) {
+        LOG.info("Sending StartMetastorageRepair requests to {}", participatingNodeNames);
+
         StartMetastorageRepairRequest request = messagesFactory.startMetastorageRepairRequest().build();
 
         Map<String, CompletableFuture<StartMetastorageRepairResponse>> responses = new HashMap<>();

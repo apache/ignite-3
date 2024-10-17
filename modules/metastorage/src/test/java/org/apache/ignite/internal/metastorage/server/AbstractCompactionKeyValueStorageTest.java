@@ -26,17 +26,21 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,9 +49,14 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,6 +78,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     Path workDir;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock);
 
     @Override
     @BeforeEach
@@ -107,6 +118,12 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(1, 2, 5/* Tombstone */), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6/* Tombstone */), collectRevisions(SOME_KEY));
+    }
+
+    @Override
+    @AfterEach
+    public void tearDown() throws Exception {
+        closeAllManually(super::tearDown, clusterTime);
     }
 
     /**
@@ -255,47 +272,64 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testSaveCompactionRevisionDoesNotChangeRevisionInMemory() {
-        storage.saveCompactionRevision(0);
-        assertEquals(-1, storage.getCompactionRevision());
+    void testSaveCompactionRevision() {
+        HybridTimestamp now0 = clock.now();
+        HybridTimestamp now1 = clock.now();
 
-        storage.saveCompactionRevision(1);
+        startListenUpdateSafeTime();
+
+        storage.saveCompactionRevision(0, new KeyValueUpdateContext(1, 1, now0));
         assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
+        assertThat(clusterTime.waitFor(now0), willCompleteSuccessfully());
+
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(2, 2, now1));
+        assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(2, 2), storage.getIndexWithTerm());
+        assertThat(clusterTime.waitFor(now1), willCompleteSuccessfully());
     }
 
     @Test
     void testSaveCompactionRevisionAndRestart() throws Exception {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         restartStorage();
 
+        // No safe time check as it is only saved with revision update.
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
     void testSaveCompactionRevisionInSnapshot() {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         Path snapshotDir = workDir.resolve("snapshot");
 
+        // No safe time check as it is only saved with revision update.
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
         assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
 
+        // No safe time check as it is only saved with revision update.
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
     void testSaveCompactionRevisionInSnapshotAndRestart() throws Exception {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         Path snapshotDir = workDir.resolve("snapshot");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         restartStorage();
 
+        // No safe time check as it is only saved with revision update.
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
@@ -894,6 +928,83 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
+    @Test
+    void testReadOperationsFutureWithoutReadOperations() {
+        assertTrue(storage.readOperationsFuture(0).isDone());
+        assertTrue(storage.readOperationsFuture(1).isDone());
+    }
+
+    /**
+     * Tests {@link KeyValueStorage#readOperationsFuture} as expected in use.
+     * <ul>
+     *     <li>Create read operations, we only need cursors since reading one entry or a batch is synchronized with
+     *     {@link KeyValueStorage#setCompactionRevision}.</li>
+     *     <li>Set a new compaction revision via {@link KeyValueStorage#setCompactionRevision}.</li>
+     *     <li>Wait for the completion of read operations on the new compaction revision.</li>
+     * </ul>
+     *
+     * <p>The keys are chosen randomly. Keys with their revisions are added in {@link #setUp()}.</p>
+     */
+    @Test
+    void testReadOperationsFuture() throws Exception {
+        Cursor<Entry> range0 = storage.range(FOO_KEY, FOO_KEY);
+        Cursor<Entry> range1 = storage.range(BAR_KEY, BAR_KEY, 5);
+
+        try {
+            storage.setCompactionRevision(3);
+
+            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            assertFalse(readOperationsFuture.isDone());
+
+            range0.stream().forEach(entry -> {});
+            assertFalse(readOperationsFuture.isDone());
+
+            range1.stream().forEach(entry -> {});
+            assertFalse(readOperationsFuture.isDone());
+
+            range0.close();
+            assertFalse(readOperationsFuture.isDone());
+
+            range1.close();
+            assertTrue(readOperationsFuture.isDone());
+        } catch (Throwable t) {
+            IgniteUtils.closeAll(range0, range1);
+        }
+    }
+
+    /**
+     * Tests that cursors created after {@link KeyValueStorage#setCompactionRevision} will not affect future from
+     * {@link KeyValueStorage#readOperationsFuture} on a new compaction revision.
+     */
+    @Test
+    void testReadOperationsFutureForReadOperationAfterSetCompactionRevision() throws Exception {
+        Cursor<Entry> rangeBeforeSetCompactionRevision = storage.range(FOO_KEY, FOO_KEY);
+        Cursor<Entry> rangeAfterSetCompactionRevision0 = null;
+        Cursor<Entry> rangeAfterSetCompactionRevision1 = null;
+
+        try {
+            storage.setCompactionRevision(3);
+
+            rangeAfterSetCompactionRevision0 = storage.range(FOO_KEY, FOO_KEY);
+            rangeAfterSetCompactionRevision1 = storage.range(FOO_KEY, FOO_KEY, 5);
+
+            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            assertFalse(readOperationsFuture.isDone());
+
+            rangeBeforeSetCompactionRevision.close();
+            assertTrue(readOperationsFuture.isDone());
+
+            rangeAfterSetCompactionRevision0.close();
+            rangeAfterSetCompactionRevision1.close();
+        } catch (Throwable t) {
+            IgniteUtils.closeAll(
+                    rangeBeforeSetCompactionRevision,
+                    rangeAfterSetCompactionRevision0,
+                    rangeAfterSetCompactionRevision1
+            );
+        }
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -975,6 +1086,19 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                 () -> storage.get(key, revLowerBound, revUpperBound),
                 () -> String.format("key=%s, revLowerBound=%s, revUpperBound=%s", toUtf8String(key), revLowerBound, revUpperBound)
         );
+    }
+
+    private void startListenUpdateSafeTime() {
+        storage.startWatches(storage.revision() + 1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                clusterTime.updateSafeTime(newSafeTime);
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+            }
+        });
     }
 
     private static String toUtf8String(byte[]... keys) {

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
@@ -104,10 +103,18 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
      */
     private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
-    /** Last update index. */
+    /**
+     * Last update index.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
     private long index;
 
-    /** Last update term. */
+    /**
+     * Last update term.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
     private long term;
 
     /** Last saved configuration. */
@@ -574,7 +581,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     Map.copyOf(revToTsMap),
                     revsIdxCopy,
                     rev,
-                    savedCompactionRevision
+                    savedCompactionRevision,
+                    term,
+                    index
             );
 
             byte[] snapshotBytes = ByteUtils.toBytes(snapshot);
@@ -620,6 +629,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             rev = snapshot.rev;
             compactionRevision = snapshot.savedCompactionRevision;
             savedCompactionRevision = snapshot.savedCompactionRevision;
+            term = snapshot.term;
+            index = snapshot.index;
         } catch (Throwable t) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, t);
         } finally {
@@ -751,7 +762,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision) {
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
         assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
@@ -760,6 +771,14 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             assertCompactionRevisionLessThanCurrent(revision, rev);
 
             savedCompactionRevision = revision;
+
+            setIndexAndTerm(context.index, context.term);
+
+            if (!areWatchesEnabled) {
+                return;
+            }
+
+            watchProcessor.advanceSafeTime(context.timestamp);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -850,7 +869,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                 ? keysIdx.tailMap(keyFrom)
                 : keysIdx.subMap(keyFrom, keyTo);
 
-        return subMap.entrySet().stream()
+        List<Entry> entries = subMap.entrySet().stream()
                 .map(e -> {
                     byte[] key = e.getKey();
                     long[] keyRevisions = toLongArray(e.getValue());
@@ -872,6 +891,30 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     return EntryImpl.toEntry(key, revision, value);
                 })
                 .filter(e -> !e.empty())
-                .collect(collectingAndThen(toList(), Cursor::fromIterable));
+                .collect(toList());
+
+        Iterator<Entry> iterator = entries.iterator();
+
+        long readOperationId = readOperationIdGeneratorForTracker++;
+        long compactionRevisionOnCreateIterator = compactionRevision;
+
+        readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
+
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionOnCreateIterator);
+            }
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Entry next() {
+                return iterator.next();
+            }
+        };
     }
 }

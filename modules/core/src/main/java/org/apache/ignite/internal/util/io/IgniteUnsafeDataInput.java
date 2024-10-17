@@ -32,7 +32,6 @@ import java.io.InputStream;
 import java.io.UTFDataFormatException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.VarIntUtils;
 
 /**
  * Data input based on {@code Unsafe} operations.
@@ -465,10 +465,10 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
     /** {@inheritDoc} */
     @Override
     public UUID readUuid() throws IOException {
-        int length = readByte();
-        byte[] bytes = readByteArray(length);
+        long high = readLong();
+        long low = readLong();
 
-        return UUID.fromString(new String(bytes, StandardCharsets.UTF_8));
+        return new UUID(high, low);
     }
 
     /** {@inheritDoc} */
@@ -704,6 +704,11 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
         }
     }
 
+    @Override
+    public long readVarInt() throws IOException {
+        return VarIntUtils.readVarInt(this);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String readLine() throws IOException {
@@ -740,7 +745,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
     /** {@inheritDoc} */
     @Override
     public String readUTF() throws IOException {
-        return readUtfBody(VarInts.readUnsignedInt(this));
+        return readUtfBody(readVarIntAsInt());
     }
 
     /**

@@ -261,7 +261,8 @@ public class TestServer implements AutoCloseable {
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
-                        new TestLowWatermark()
+                        new TestLowWatermark(),
+                        Runnable::run
                 );
 
         module.startAsync(componentContext).join();

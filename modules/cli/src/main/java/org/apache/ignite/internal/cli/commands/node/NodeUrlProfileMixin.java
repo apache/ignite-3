@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
@@ -35,7 +35,7 @@ import picocli.CommandLine.Option;
  */
 public class NodeUrlProfileMixin {
     /** Node URL option. */
-    @Option(names = NODE_URL_OPTION, description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    @Option(names = NODE_URL_OPTION, description = NODE_URL_OPTION_DESC, converter = RestEndpointUrlConverter.class)
     private URL nodeUrl;
 
     /** Profile to get default values from. */

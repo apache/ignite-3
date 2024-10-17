@@ -59,7 +59,7 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
-        public static readonly JobDescriptor<string, decimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
+        public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
 
         public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
@@ -241,6 +241,8 @@ namespace Apache.Ignite.Tests.Compute
             await Test(-123.456m);
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
+            await Test(new BigDecimal(long.MinValue, 10));
+            await Test(new BigDecimal(long.MaxValue, 20));
 
             await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");
@@ -259,6 +261,11 @@ namespace Apache.Ignite.Tests.Compute
 
                 IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val);
                 object res = await resExec.GetResultAsync();
+
+                if (res is BigDecimal bigDecimal && val is decimal)
+                {
+                    res = bigDecimal.ToDecimal();
+                }
 
                 Assert.AreEqual(val, res);
 
@@ -709,7 +716,7 @@ namespace Apache.Ignite.Tests.Compute
                 expected = decimal.Round(expected, scale);
             }
 
-            Assert.AreEqual(expected, resVal);
+            Assert.AreEqual(expected, resVal.ToDecimal());
         }
 
         [Test]

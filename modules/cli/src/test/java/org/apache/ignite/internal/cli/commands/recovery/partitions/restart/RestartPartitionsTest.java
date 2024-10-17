@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.restart;
+package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
@@ -28,7 +28,6 @@ import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.JsonBody.json;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.restart.RestartPartitionsCommand;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

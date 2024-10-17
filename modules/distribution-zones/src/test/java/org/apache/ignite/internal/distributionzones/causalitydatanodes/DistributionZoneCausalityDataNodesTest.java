@@ -69,6 +69,7 @@ import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -85,7 +86,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -1284,7 +1285,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         long topVer = topology.getLogicalTopology().version() + 1;
 
-        clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(topVer, nodes)));
+        clusterStateStorage.put(
+                LOGICAL_TOPOLOGY_KEY,
+                VersionedSerialization.toBytes(
+                        new LogicalTopologySnapshot(topVer, nodes),
+                        LogicalTopologySnapshotSerializer.INSTANCE
+                )
+        );
 
         topology.fireTopologyLeap();
 
