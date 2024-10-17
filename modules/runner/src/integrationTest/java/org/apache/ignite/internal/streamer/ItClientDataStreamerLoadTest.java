@@ -64,7 +64,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME, 1, 4);
+        createTable(TABLE_NAME, 1, 10);
     }
 
     @BeforeEach
@@ -74,6 +74,11 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @Test
     public void testHighLoad() {
+        // 4 partitions, 1 parallel ops = ~40s
+        // 10 partitions, 1 parallel ops = ~23s
+        // 10 partitions, 4 parallel ops = ~25s
+        // 10 partitions, 2 parallel ops = ~24s
+
         RecordView<Tuple> view = defaultTable().recordView();
         view.upsert(null, tuple(2, "_"));
         view.upsert(null, tuple(3, "baz"));
@@ -82,7 +87,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
-                    .perPartitionParallelOperations(1)
+                    .perPartitionParallelOperations(2)
                     .build();
 
             streamerFut = view.streamData(publisher, options);
