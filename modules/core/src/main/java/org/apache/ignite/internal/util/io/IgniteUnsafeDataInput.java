@@ -745,7 +745,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
     /** {@inheritDoc} */
     @Override
     public String readUTF() throws IOException {
-        return readUtfBody(NaiveVarInts.readUnsignedInt(this));
+        return readUtfBody(readVarIntAsInt());
     }
 
     /**

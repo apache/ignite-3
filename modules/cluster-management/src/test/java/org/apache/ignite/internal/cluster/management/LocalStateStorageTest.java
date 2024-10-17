@@ -55,7 +55,7 @@ class LocalStateStorageTest {
     void serializationAndDeserialization() {
         LocalState originalState = new LocalState(
                 Set.of("a", "b"),
-                ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(0x12345678L, 0x87654321L))
+                ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L))
         );
 
         storage.saveLocalState(originalState);
@@ -69,7 +69,7 @@ class LocalStateStorageTest {
 
     @Test
     void v1CanBeDeserialized() {
-        vault.put(new ByteArray("cmg_state"), Base64.getDecoder().decode("Ae++QwMBYQFiB2NsdXN0ZXLvzauQeFY0EiFDZYcJutz+"));
+        vault.put(new ByteArray("cmg_state"), Base64.getDecoder().decode("Ae++QwMCYQJiCGNsdXN0ZXLvzauQeFY0EiFDZYcJutz+"));
 
         LocalState localState = storage.getLocalState();
 

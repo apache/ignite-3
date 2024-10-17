@@ -36,7 +36,7 @@ class LogicalNodeSerializerTest {
     @Test
     void serializationAndDeserialization() {
         LogicalNode originalNode = new LogicalNode(
-                UUID.randomUUID(),
+                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
                 new NodeMetadata("ext-host", 3001, 3002),
@@ -59,8 +59,8 @@ class LogicalNodeSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwHvvkPvzauQeFY0EiFDZYcJutz+BHRlc3QEaG9zdLkXAQhleHQtaG9zdLoXuxcCBHVrZXkEdXZhbAI"
-                + "Ec2tleQRzdmFsAgdwcm9maWxl");
+        byte[] bytes = Base64.getDecoder().decode("Ae++QwHvvkPvzauQeFY0EiFDZYcJutz+BXRlc3QFaG9zdLkXAQlleHQtaG9zdLoXuxcCBXVrZXkFdXZhbAI"
+                + "Fc2tleQVzdmFsAghwcm9maWxl");
 
         LogicalNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
 

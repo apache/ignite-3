@@ -719,7 +719,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
      * @throws IOException In case of error.
      */
     private void writeUtf(String s, int utfLen) throws IOException {
-        NaiveVarInts.writeUnsignedInt(utfLen, this);
+        writeVarInt(utfLen);
 
         if (utfLen == s.length()) {
             writeAsciiStringBytes(s);

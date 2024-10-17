@@ -34,7 +34,7 @@ class ClusterNodeSerializerTest {
     @Test
     void serializationAndDeserialization() {
         ClusterNode originalNode = new ClusterNodeImpl(
-                UUID.randomUUID(),
+                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
                 new NodeMetadata("ext-host", 3001, 3002)
@@ -51,11 +51,11 @@ class ClusterNodeSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++Q5FHweYb0PNweo7gWHuyYaUEdGVzdARob3N0uRcBCGV4dC1ob3N0uhe7Fw==");
+        byte[] bytes = Base64.getDecoder().decode("Ae++Q+/Nq5B4VjQSIUNlhwm63P4FdGVzdAVob3N0uRcBCWV4dC1ob3N0uhe7Fw==");
 
         ClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertThat(restoredNode.id(), equalTo(UUID.fromString("70f3d01b-e6c1-4791-a561-b27b58e08e7a")));
+        assertThat(restoredNode.id(), equalTo(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredNode.name(), equalTo("test"));
         assertThat(restoredNode.address(), equalTo(new NetworkAddress("host", 3000)));
         assertThat(restoredNode.nodeMetadata(), equalTo(new NodeMetadata("ext-host", 3001, 3002)));
