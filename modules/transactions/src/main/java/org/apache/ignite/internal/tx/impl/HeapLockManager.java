@@ -468,7 +468,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 return lock;
             }
 
-            int idx = Math.abs(txId.hashCode()) % stripes.length;
+            int idx = Math.floorMod(spread(txId.hashCode()), stripes.length);
 
             stripes[idx].readLock().lock();
 

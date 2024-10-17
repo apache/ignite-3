@@ -23,7 +23,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * ReadWriteLock with striping mechanics. Compared to {@link ReentrantReadWriteLock} it has slightly improved performance of
@@ -70,14 +69,12 @@ public class StripedCompositeReadWriteLock implements ReadWriteLock {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Lock readLock() {
         return locks[curIdx()].readLock();
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Lock writeLock() {
         return writeLock;
@@ -228,7 +225,6 @@ public class StripedCompositeReadWriteLock implements ReadWriteLock {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Condition newCondition() {
             throw new UnsupportedOperationException();
