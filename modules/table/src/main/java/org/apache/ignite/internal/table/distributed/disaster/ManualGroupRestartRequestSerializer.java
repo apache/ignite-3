@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -66,7 +67,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
     private static Set<String> readStringSet(IgniteDataInput in) throws IOException {
         int size = in.readVarIntAsInt();
 
-        Set<String> result = new HashSet<>(size);
+        Set<String> result = new HashSet<>(IgniteUtils.capacity(size));
         for (int i = 0; i < size; i++) {
             result.add(in.readUTF());
         }

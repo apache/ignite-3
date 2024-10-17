@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -53,7 +53,8 @@ class DisasterRecoveryRequestSerializer extends VersionedSerializer<DisasterReco
         MANUAL_GROUP_UPDATE(0, ManualGroupUpdateRequestSerializer.INSTANCE),
         MANUAL_GROUP_RESTART(1, ManualGroupRestartRequestSerializer.INSTANCE);
 
-        private static final Map<Integer, Operation> valuesByCode = Arrays.stream(values()).collect(toMap(op -> op.code, identity()));
+        private static final Map<Integer, Operation> valuesByCode = Arrays.stream(values())
+                .collect(toUnmodifiableMap(op -> op.code, identity()));
 
         private final int code;
         private final VersionedSerializer<DisasterRecoveryRequest> serializer;

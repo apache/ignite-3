@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -35,7 +36,7 @@ class DisasterRecoveryRequestsSerialization {
     static Set<Integer> readVarIntSet(IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
-        Set<Integer> set = new HashSet<>();
+        Set<Integer> set = new HashSet<>(IgniteUtils.capacity(length));
         for (int i = 0; i < length; i++) {
             set.add(in.readVarIntAsInt());
         }
