@@ -270,4 +270,3 @@ tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "
 tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
 
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }
-opentelemetry-exporter-logging-otlp = { module = "io.opentelemetry:opentelemetry-exporter-logging-otlp", version.ref = "otel" }

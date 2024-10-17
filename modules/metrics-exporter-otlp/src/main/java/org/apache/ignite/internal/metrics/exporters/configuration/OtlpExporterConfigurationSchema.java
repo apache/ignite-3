@@ -56,4 +56,9 @@ public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema
     @ConfigValue
     @SslConfigurationValidator
     public SslConfigurationSchema ssl;
+
+    /** Method used to compress payloads. */
+    @OneOf({"none", "gzip"})
+    @Value(hasDefault = true)
+    public String compression = "gzip";
 }

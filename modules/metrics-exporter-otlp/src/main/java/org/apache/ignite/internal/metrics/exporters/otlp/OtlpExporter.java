@@ -149,7 +149,17 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
         String path = "/";
 
         if (view.protocol().equals(PROTOCOL_HTTP_PROTOBUF)) {
-            path = nullOrBlank(uri.getPath()) ? "/v1/metrics" : uri.getPath();
+            if (!nullOrBlank(uri.getPath())) {
+                path = uri.getPath();
+            }
+
+            if (!path.endsWith("v1/metrics")) {
+                if (!path.endsWith("/")) {
+                    path += "/";
+                }
+
+                path += "v1/metrics";
+            }
         }
 
         try {
@@ -163,7 +173,8 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
         if (view.protocol().equals(PROTOCOL_GRPC)) {
             OtlpGrpcMetricExporterBuilder builder = OtlpGrpcMetricExporter.builder()
                     .setEndpoint(createEndpoint(view))
-                    .setHeaders(headers(view.headers()));
+                    .setHeaders(headers(view.headers()))
+                    .setCompression(view.compression());
 
             SslView sslView = view.ssl();
 
@@ -179,7 +190,8 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
 
         OtlpHttpMetricExporterBuilder builder = OtlpHttpMetricExporter.builder()
                 .setEndpoint(createEndpoint(view))
-                .setHeaders(headers(view.headers()));
+                .setHeaders(headers(view.headers()))
+                .setCompression(view.compression());
 
         SslView sslView = view.ssl();
 
