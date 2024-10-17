@@ -22,9 +22,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
@@ -44,10 +42,12 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxMetaSerializer;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
@@ -111,8 +111,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.tableId = tableStorage.id;
         this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
-                .putShort((short) partitionId)
+                .putShort(shortPartitionId(partitionId))
                 .array();
+    }
+
+    private static short shortPartitionId(int intValue) {
+        //noinspection NumericCastThatLosesPrecision
+        return (short) intValue;
     }
 
     /**
@@ -141,7 +146,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                 byte[] txMetaBytes = sharedStorage.db().get(txIdToKey(txId));
 
-                return txMetaBytes == null ? null : fromBytes(txMetaBytes);
+                return txMetaBytes == null ? null : deserializeTxMeta(txMetaBytes);
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
@@ -152,11 +157,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         });
     }
 
+    private static TxMeta deserializeTxMeta(byte[] txMetaBytes) {
+        return VersionedSerialization.fromBytes(txMetaBytes, TxMetaSerializer.INSTANCE);
+    }
+
     @Override
     public void putForRebalance(UUID txId, TxMeta txMeta) {
         busy(() -> {
             try {
-                sharedStorage.db().put(txIdToKey(txId), toBytes(txMeta));
+                sharedStorage.db().put(txIdToKey(txId), serializeTxMeta(txMeta));
 
                 return null;
             } catch (RocksDBException e) {
@@ -169,6 +178,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         });
     }
 
+    private static byte[] serializeTxMeta(TxMeta txMeta) {
+        return VersionedSerialization.toBytes(txMeta, TxMetaSerializer.INSTANCE);
+    }
+
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
         return updateData(writeBatch -> {
@@ -179,15 +192,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             boolean result;
 
             if (txMetaExistingBytes == null && txStateExpected == null) {
-                writeBatch.put(txIdBytes, toBytes(txMeta));
+                writeBatch.put(txIdBytes, serializeTxMeta(txMeta));
 
                 result = true;
             } else {
                 if (txMetaExistingBytes != null) {
-                    TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
+                    TxMeta txMetaExisting = deserializeTxMeta(txMetaExistingBytes);
 
                     if (txMetaExisting.txState() == txStateExpected) {
-                        writeBatch.put(txIdBytes, toBytes(txMeta));
+                        writeBatch.put(txIdBytes, serializeTxMeta(txMeta));
 
                         result = true;
                     } else {
@@ -229,7 +242,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }, commandIndex, commandTerm);
     }
 
-    private <T> T updateData(WriteClosure writeClosure, long commandIndex, long commandTerm) {
+    private <T> T updateData(WriteClosure<?> writeClosure, long commandIndex, long commandTerm) {
         return (T) busy(() -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 Object result = writeClosure.apply(writeBatch);
@@ -262,7 +275,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             // This lower bound is the lowest possible key that goes after "lastAppliedIndexAndTermKey".
             byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BIG_ENDIAN)
                     .putInt(tableId)
-                    .putShort((short) partitionId)
+                    .putShort(shortPartitionId(partitionId))
                     .put((byte) 0)
                     .array();
             byte[] upperBound = partitionEndPrefix();
@@ -289,7 +302,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 @Override
                 protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
                     UUID key = keyToTxId(keyBytes);
-                    TxMeta txMeta = fromBytes(valueBytes);
+                    TxMeta txMeta = deserializeTxMeta(valueBytes);
 
                     return new IgniteBiTuple<>(key, txMeta);
                 }
@@ -369,22 +382,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return bytes;
     }
 
-    /**
-     * Reads the value of {@link #lastAppliedIndex} from the storage.
-     *
-     * @param readOptions Read options to be used for reading.
-     * @return The value of last applied index.
-     */
-    private long readLastAppliedIndex(ReadOptions readOptions) {
-        byte[] bytes = readLastAppliedIndexAndTerm(readOptions);
-
-        if (bytes == null) {
-            return 0;
-        }
-
-        return bytesToLong(bytes);
-    }
-
     private byte @Nullable [] readLastAppliedIndexAndTerm(ReadOptions readOptions) {
         try {
             return sharedStorage.db().get(readOptions, lastAppliedIndexAndTermKey);
@@ -417,27 +414,27 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     private byte[] partitionStartPrefix() {
         return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
-                .putShort((short) (partitionId))
+                .putShort(shortPartitionId(partitionId))
                 .array();
     }
 
     private byte[] partitionEndPrefix() {
         return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
-                .putShort((short) (partitionId + 1))
+                .putShort(shortPartitionId(partitionId + 1))
                 .array();
     }
 
     private byte[] txIdToKey(UUID txId) {
         return ByteBuffer.allocate(FULL_KEY_SIZE_BYES).order(BIG_ENDIAN)
                 .putInt(tableId)
-                .putShort((short) partitionId)
+                .putShort(shortPartitionId(partitionId))
                 .putLong(txId.getMostSignificantBits())
                 .putLong(txId.getLeastSignificantBits())
                 .array();
     }
 
-    private UUID keyToTxId(byte[] bytes) {
+    private static UUID keyToTxId(byte[] bytes) {
         long msb = bytesToLong(bytes, PREFIX_SIZE_BYTES);
         long lsb = bytesToLong(bytes, PREFIX_SIZE_BYTES + Long.BYTES);
 
