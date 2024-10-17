@@ -884,6 +884,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
                                     if (e instanceof TimeoutException) {
+                                        long lastResponseAge = System.currentTimeMillis() - lastReceiveMillis;
+
+                                        if (lastResponseAge < heartbeatTimeout) {
+                                            // The last response was received within the timeout, so the connection is still alive.
+                                            // Ignore the timeout from heartbeat message.
+                                            return null;
+                                        }
+
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
                                         close(new IgniteClientConnectionException(
