@@ -22,6 +22,9 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.OneOf;
 
+/**
+ * Configuration schema for deadlock prevention policy.
+ */
 @Config
 public class DeadlockPreventionPolicyConfigurationSchema {
     @OneOf({"NATURAL", "REVERSED", "NONE"})

@@ -25,7 +25,6 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.replicator.ReplicaService;
 
 /**
  * Configuration schema for transactions.

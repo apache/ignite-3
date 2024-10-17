@@ -33,10 +33,22 @@ public class DeadlockPreventionPolicyImpl implements DeadlockPreventionPolicy {
 
     private final long waitTimeout;
 
+    /**
+     * Constructor.
+     *
+     * @param txIdComparator Comparator name.
+     * @param waitTimeout Wait timeout.
+     */
     public DeadlockPreventionPolicyImpl(String txIdComparator, long waitTimeout) {
         this(TxIdComparators.valueOf(requireNonNull(txIdComparator)), waitTimeout);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param txIdComparator Comparator name as {@link TxIdComparators} element.
+     * @param waitTimeout Wait timeout.
+     */
     public DeadlockPreventionPolicyImpl(TxIdComparators txIdComparator, long waitTimeout) {
         switch (txIdComparator) {
             case NATURAL: {
@@ -69,6 +81,9 @@ public class DeadlockPreventionPolicyImpl implements DeadlockPreventionPolicy {
         return waitTimeout;
     }
 
+    /**
+     * Enum of names of transaction ID comparators.
+     */
     public enum TxIdComparators {
         NATURAL,
         REVERSE,
