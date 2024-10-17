@@ -747,6 +747,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
+                name,
                 clusterSvc,
                 logicalTopologyService,
                 tableManager,
