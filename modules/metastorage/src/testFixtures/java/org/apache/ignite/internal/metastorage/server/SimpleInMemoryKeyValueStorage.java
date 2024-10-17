@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.NOT_FOUND;
@@ -870,7 +869,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                 ? keysIdx.tailMap(keyFrom)
                 : keysIdx.subMap(keyFrom, keyTo);
 
-        return subMap.entrySet().stream()
+        List<Entry> entries = subMap.entrySet().stream()
                 .map(e -> {
                     byte[] key = e.getKey();
                     long[] keyRevisions = toLongArray(e.getValue());
@@ -892,6 +891,30 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     return EntryImpl.toEntry(key, revision, value);
                 })
                 .filter(e -> !e.empty())
-                .collect(collectingAndThen(toList(), Cursor::fromIterable));
+                .collect(toList());
+
+        Iterator<Entry> iterator = entries.iterator();
+
+        long readOperationId = readOperationIdGeneratorForTracker++;
+        long compactionRevisionOnCreateIterator = compactionRevision;
+
+        readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
+
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionOnCreateIterator);
+            }
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Entry next() {
+                return iterator.next();
+            }
+        };
     }
 }
