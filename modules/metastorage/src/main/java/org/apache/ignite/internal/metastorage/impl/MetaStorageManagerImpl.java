@@ -1127,11 +1127,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public void saveCompactionRevisionLocally(long revision) {
-        inBusyLock(busyLock, () -> storage.saveCompactionRevision(revision));
-    }
-
-    @Override
     public void setCompactionRevisionLocally(long revision) {
         inBusyLock(busyLock, () -> storage.setCompactionRevision(revision));
     }

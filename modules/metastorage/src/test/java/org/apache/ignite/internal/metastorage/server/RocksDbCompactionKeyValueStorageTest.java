@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+        return new RocksDbKeyValueStorage(NODE_NAME, workDir.resolve("storage"), new NoOpFailureManager());
     }
 
     @Test
