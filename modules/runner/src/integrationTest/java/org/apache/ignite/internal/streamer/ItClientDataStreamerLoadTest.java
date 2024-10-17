@@ -23,12 +23,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,10 +38,29 @@ import org.junit.jupiter.api.Test;
 /**
  * Common test logic for data streamer - client and server APIs.
  */
-public abstract class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
+public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table";
 
-    abstract Ignite ignite();
+    private static IgniteClient client;
+
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
+    @BeforeAll
+    public static void startClient() {
+        client = IgniteClient.builder().addresses("localhost").build();
+    }
+
+    @AfterAll
+    public static void stopClient() {
+        client.close();
+    }
+
+    private static Ignite ignite() {
+        return client;
+    }
 
     @BeforeAll
     public void createTable() {
@@ -80,7 +101,7 @@ public abstract class ItClientDataStreamerLoadTest extends ClusterPerClassIntegr
         assertNotNull(view.get(null, tupleKey(10_000)));
     }
 
-    private Table defaultTable() {
+    private static Table defaultTable() {
         return ignite().tables().table(TABLE_NAME);
     }
 
