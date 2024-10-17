@@ -30,8 +30,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 class ManualGroupRestartRequest implements DisasterRecoveryRequest {
-    private static final long serialVersionUID = 0L;
-
     private final UUID operationId;
 
     private final int zoneId;
@@ -85,6 +83,10 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     public Set<String> nodeNames() {
         return nodeNames;
+    }
+
+    long assignmentsTimestamp() {
+        return assignmentsTimestamp;
     }
 
     @Override
