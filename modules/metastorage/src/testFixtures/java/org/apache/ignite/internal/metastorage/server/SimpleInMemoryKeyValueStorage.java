@@ -103,10 +103,18 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
      */
     private final NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new ConcurrentSkipListMap<>();
 
-    /** Last update index. */
+    /**
+     * Last update index.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
     private long index;
 
-    /** Last update term. */
+    /**
+     * Last update term.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
     private long term;
 
     /** Last saved configuration. */
@@ -573,7 +581,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     Map.copyOf(revToTsMap),
                     revsIdxCopy,
                     rev,
-                    savedCompactionRevision
+                    savedCompactionRevision,
+                    term,
+                    index
             );
 
             byte[] snapshotBytes = ByteUtils.toBytes(snapshot);
@@ -619,6 +629,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             rev = snapshot.rev;
             compactionRevision = snapshot.savedCompactionRevision;
             savedCompactionRevision = snapshot.savedCompactionRevision;
+            term = snapshot.term;
+            index = snapshot.index;
         } catch (Throwable t) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, t);
         } finally {
@@ -750,7 +762,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision) {
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
         assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
@@ -759,6 +771,14 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             assertCompactionRevisionLessThanCurrent(revision, rev);
 
             savedCompactionRevision = revision;
+
+            setIndexAndTerm(context.index, context.term);
+
+            if (!areWatchesEnabled) {
+                return;
+            }
+
+            watchProcessor.advanceSafeTime(context.timestamp);
         } finally {
             rwLock.writeLock().unlock();
         }

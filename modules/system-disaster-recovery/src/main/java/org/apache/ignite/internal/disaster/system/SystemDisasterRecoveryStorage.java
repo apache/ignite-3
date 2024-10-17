@@ -22,12 +22,14 @@ import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,7 +74,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
      *     the cluster yet).
      */
     public @Nullable ClusterState readClusterState() {
-        return readFromVault(CLUSTER_STATE_VAULT_KEY);
+        VaultEntry entry = vault.get(CLUSTER_STATE_VAULT_KEY);
+        return entry != null ? VersionedSerialization.fromBytes(entry.value(), ClusterStatePersistentSerializer.INSTANCE) : null;
     }
 
     private <T> @Nullable T readFromVault(ByteArray key) {
@@ -81,7 +84,7 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     }
 
     void saveClusterState(ClusterState clusterState) {
-        vault.put(CLUSTER_STATE_VAULT_KEY, ByteUtils.toBytes(clusterState));
+        vault.put(CLUSTER_STATE_VAULT_KEY, VersionedSerialization.toBytes(clusterState, ClusterStatePersistentSerializer.INSTANCE));
     }
 
     boolean isInitConfigApplied() {

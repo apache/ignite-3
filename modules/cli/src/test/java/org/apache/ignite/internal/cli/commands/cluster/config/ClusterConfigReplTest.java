@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.cli.commands.cluster.config;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.junit.jupiter.api.DisplayName;
 
-/**
- * Provides the minimum begin time among all active RW transactions started locally.
- */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ActiveLocalTxMinimumBeginTimeProvider {
-    /**
-     * Returns the minimum begin time among all active RW transactions started locally,
-     * or the current time if there are no active RW transactions.
-     */
-    HybridTimestamp minimumBeginTime();
+/** Tests "cluster config" REPL commands. */
+@DisplayName("cluster config REPL")
+class ClusterConfigReplTest extends ClusterConfigTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
 }

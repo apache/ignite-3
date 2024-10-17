@@ -192,8 +192,17 @@ public class Jobs {
     public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
         @Override
         public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
+            return completedFuture(new PojoResult().setLongValue(getSum(arg)));
+        }
+
+        private static long getSum(@Nullable PojoArg arg) {
             var numberFromStr = Integer.parseInt(arg.strValue);
-            return completedFuture(new PojoResult().setLongValue(arg.intValue + numberFromStr));
+            var sum = arg.intValue + numberFromStr;
+            if (arg.childPojo != null) {
+                return sum + getSum(arg.getChildPojo());
+            } else {
+                return sum;
+            }
         }
     }
 
@@ -201,6 +210,7 @@ public class Jobs {
     public static class PojoArg {
         String strValue;
         int intValue;
+        PojoArg childPojo;
 
         public PojoArg() {
         }
@@ -220,6 +230,15 @@ public class Jobs {
 
         public PojoArg setIntValue(int intValue) {
             this.intValue = intValue;
+            return this;
+        }
+
+        public PojoArg getChildPojo() {
+            return childPojo;
+        }
+
+        public PojoArg setChildPojo(PojoArg value) {
+            this.childPojo = value;
             return this;
         }
 

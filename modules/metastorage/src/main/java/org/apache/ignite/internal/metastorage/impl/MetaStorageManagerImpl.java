@@ -1038,11 +1038,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    private RaftGroupService startOneOffRaftGroupService(PeersAndLearners newConfiguration)
-            throws NodeStoppingException {
-        return raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, newConfiguration);
-    }
-
     @TestOnly
     public CompletableFuture<MetaStorageServiceImpl> metaStorageService() {
         return metaStorageSvcFut;
@@ -1135,11 +1130,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public void compactLocally(long revision) {
         inBusyLock(busyLock, () -> storage.compact(revision));
-    }
-
-    @Override
-    public void saveCompactionRevisionLocally(long revision) {
-        inBusyLock(busyLock, () -> storage.saveCompactionRevision(revision));
     }
 
     @Override

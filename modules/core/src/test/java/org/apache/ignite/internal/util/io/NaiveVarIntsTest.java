@@ -33,11 +33,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class VarIntsTest {
+class NaiveVarIntsTest {
     @ParameterizedTest
     @MethodSource("intRangeBorders")
     void writesIntsWithCorrectLengths(IntWriteSpec spec) throws Exception {
-        byte[] bytes = writeToBytes(output -> VarInts.writeUnsignedInt(spec.value, output));
+        byte[] bytes = writeToBytes(output -> NaiveVarInts.writeUnsignedInt(spec.value, output));
 
         assertThat(bytes.length, is(spec.expectedLength));
     }
@@ -73,8 +73,8 @@ class VarIntsTest {
     @ParameterizedTest
     @MethodSource("intRangeBorders")
     void writesAndReadsInts(IntWriteSpec spec) throws Exception {
-        byte[] bytes = writeToBytes(output -> VarInts.writeUnsignedInt(spec.value, output));
-        int result = readIntFromBytesConsuming(bytes, VarInts::readUnsignedInt);
+        byte[] bytes = writeToBytes(output -> NaiveVarInts.writeUnsignedInt(spec.value, output));
+        int result = readIntFromBytesConsuming(bytes, NaiveVarInts::readUnsignedInt);
 
         assertThat(result, is(spec.value));
     }

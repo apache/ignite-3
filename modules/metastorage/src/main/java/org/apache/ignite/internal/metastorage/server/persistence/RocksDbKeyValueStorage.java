@@ -590,7 +590,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         validateNoChecksumConflict(newRev, newChecksum);
         revisionToChecksum.put(batch, revisionBytes, longToBytes(newChecksum));
 
-        data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, context.index, context.term));
+        addIndexAndTermToWriteBatch(batch, context);
 
         db.write(defaultWriteOptions, batch);
 
@@ -1264,7 +1264,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision) {
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
         assert revision >= 0 : revision;
 
         rwLock.writeLock().lock();
@@ -1274,7 +1274,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
 
+            addIndexAndTermToWriteBatch(batch, context);
+
             db.write(defaultWriteOptions, batch);
+
+            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+                watchProcessor.advanceSafeTime(context.timestamp);
+            }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
         } finally {
@@ -1533,5 +1539,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 RocksUtils.closeAll(readOpts, upperBound);
             }
         };
+    }
+
+    private void addIndexAndTermToWriteBatch(WriteBatch batch, KeyValueUpdateContext context) throws RocksDBException {
+        data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, context.index, context.term));
     }
 }

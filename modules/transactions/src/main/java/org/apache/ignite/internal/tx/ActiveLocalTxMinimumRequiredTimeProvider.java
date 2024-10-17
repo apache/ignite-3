@@ -15,9 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto.pojo;
+package org.apache.ignite.internal.tx;
 
-/** Parent POJO. */
-public class ParentPojo {
-    public int parentField;
+/**
+ * Provides a timestamp corresponding to the activation time of the
+ * earliest catalog version that can be used by active local RW transactions.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ActiveLocalTxMinimumRequiredTimeProvider {
+    /**
+     * Returns a timestamp corresponding to the activation time of the
+     * earliest catalog version that active local RW transactions can use,
+     * or the current time if there are no active RW transactions.
+     */
+    long minimumRequiredTime();
 }

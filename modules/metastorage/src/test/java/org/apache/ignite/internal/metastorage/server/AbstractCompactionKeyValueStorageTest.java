@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,10 +49,14 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,6 +78,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     Path workDir;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock);
 
     @Override
     @BeforeEach
@@ -111,6 +118,12 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(1, 2, 5/* Tombstone */), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6/* Tombstone */), collectRevisions(SOME_KEY));
+    }
+
+    @Override
+    @AfterEach
+    public void tearDown() throws Exception {
+        closeAllManually(super::tearDown, clusterTime);
     }
 
     /**
@@ -259,47 +272,64 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testSaveCompactionRevisionDoesNotChangeRevisionInMemory() {
-        storage.saveCompactionRevision(0);
-        assertEquals(-1, storage.getCompactionRevision());
+    void testSaveCompactionRevision() {
+        HybridTimestamp now0 = clock.now();
+        HybridTimestamp now1 = clock.now();
 
-        storage.saveCompactionRevision(1);
+        startListenUpdateSafeTime();
+
+        storage.saveCompactionRevision(0, new KeyValueUpdateContext(1, 1, now0));
         assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
+        assertThat(clusterTime.waitFor(now0), willCompleteSuccessfully());
+
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(2, 2, now1));
+        assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(2, 2), storage.getIndexWithTerm());
+        assertThat(clusterTime.waitFor(now1), willCompleteSuccessfully());
     }
 
     @Test
     void testSaveCompactionRevisionAndRestart() throws Exception {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         restartStorage();
 
+        // No safe time check as it is only saved with revision update.
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
     void testSaveCompactionRevisionInSnapshot() {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         Path snapshotDir = workDir.resolve("snapshot");
 
+        // No safe time check as it is only saved with revision update.
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
         assertEquals(-1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
 
+        // No safe time check as it is only saved with revision update.
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
     void testSaveCompactionRevisionInSnapshotAndRestart() throws Exception {
-        storage.saveCompactionRevision(1);
+        storage.saveCompactionRevision(1, new KeyValueUpdateContext(1, 1, clock.now()));
 
         Path snapshotDir = workDir.resolve("snapshot");
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         restartStorage();
 
+        // No safe time check as it is only saved with revision update.
         storage.restoreSnapshot(snapshotDir);
         assertEquals(1, storage.getCompactionRevision());
+        assertEquals(new IndexWithTerm(1, 1), storage.getIndexWithTerm());
     }
 
     @Test
@@ -1056,6 +1086,19 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                 () -> storage.get(key, revLowerBound, revUpperBound),
                 () -> String.format("key=%s, revLowerBound=%s, revUpperBound=%s", toUtf8String(key), revLowerBound, revUpperBound)
         );
+    }
+
+    private void startListenUpdateSafeTime() {
+        storage.startWatches(storage.revision() + 1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                clusterTime.updateSafeTime(newSafeTime);
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+            }
+        });
     }
 
     private static String toUtf8String(byte[]... keys) {

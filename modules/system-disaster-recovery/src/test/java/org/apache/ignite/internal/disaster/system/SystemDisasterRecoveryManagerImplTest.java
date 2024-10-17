@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.testframework.asserts.CompletableFuture
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -63,6 +62,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
@@ -91,6 +91,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -214,7 +215,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         VaultEntry entry = vaultManager.get(CLUSTER_STATE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
-        ClusterState savedState = fromBytes(entry.value());
+        ClusterState savedState = VersionedSerialization.fromBytes(entry.value(), ClusterStatePersistentSerializer.INSTANCE);
         assertThat(savedState, is(equalTo(usualClusterState)));
     }
 
@@ -285,7 +286,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void putClusterState() {
-        vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
+        vaultManager.put(
+                CLUSTER_STATE_VAULT_KEY,
+                VersionedSerialization.toBytes(usualClusterState, ClusterStatePersistentSerializer.INSTANCE)
+        );
     }
 
     private void markInitConfigApplied() {

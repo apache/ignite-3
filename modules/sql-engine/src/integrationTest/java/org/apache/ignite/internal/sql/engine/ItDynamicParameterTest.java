@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
@@ -35,6 +37,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -56,6 +59,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
@@ -81,15 +85,58 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite SQL doesn't support precision more than 3 for temporal types.
         if (type == ColumnType.TIME || type == ColumnType.TIMESTAMP || type == ColumnType.DATETIME) {
             param = SqlTestUtils.generateValueByType(type, 3, -1);
+        } else if (type == ColumnType.DECIMAL) {
+            param = SqlTestUtils.generateValueByType(type, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE);
         } else {
             param = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(type);
         }
+
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
         // ToDo https://issues.apache.org/jira/browse/IGNITE-23130 Typeof for TIMESTAMP return not well formed name.
         assertTrue(type0.replace('_', ' ').startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
+    }
+
+    /**
+     * By default derived type of parameter of type BigDecimal is DECIMAL({@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_PRECISION},
+     * {@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_SCALE}). This test makes sure it's possible to go beyond default precision and scale
+     * by wrapping dynamic param placeholder with CAST operation.
+     */
+    @ParameterizedTest
+    @ValueSource(ints = {10, 20, 30, 60, 120})
+    void testMetadataTypesForDecimalDynamicParameters(int precision) {
+        int scale = precision / 2;
+        Object param = SqlTestUtils.generateValueByType(ColumnType.DECIMAL, precision, scale);
+
+        String typeString = decimalTypeString(precision, scale);
+
+        assertQuery("SELECT typeof(CAST(? as " + typeString + "))")
+                .withParams(param)
+                .returns(typeString)
+                .check();
+
+        assertQuery("SELECT typeof(?::" + typeString + ")")
+                .withParams(param)
+                .returns(typeString)
+                .check();
+
+        assertQuery("SELECT CAST(? as " + typeString + ")")
+                .withParams(param)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(precision).scale(scale))
+                .returns(param)
+                .check();
+
+        assertQuery("SELECT ?::" + typeString)
+                .withParams(param)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(precision).scale(scale))
+                .returns(param)
+                .check();
+    }
+
+    private static String decimalTypeString(int precision, int scale) {
+        return format("DECIMAL({}, {})", precision, scale);
     }
 
     @Test

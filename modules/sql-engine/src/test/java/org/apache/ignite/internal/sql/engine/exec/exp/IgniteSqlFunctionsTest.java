@@ -23,7 +23,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -33,8 +32,6 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.function.Supplier;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
@@ -171,15 +168,6 @@ public class IgniteSqlFunctionsTest {
         );
     }
 
-    /** Access of dynamic parameter value - parameter is not transformed. */
-    @Test
-    public void testToBigDecimalFromObject() {
-        Object value = new BigDecimal("100.1");
-        int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
-
-        assertSame(value, IgniteSqlFunctions.toBigDecimal(value, defaultPrecision, 0));
-    }
-
     /** Tests for decimal conversion function. */
     @ParameterizedTest
     @CsvSource({
@@ -231,6 +219,8 @@ public class IgniteSqlFunctionsTest {
             "10.00, 3, 1, 10.0",
 
             "100.0, 3, 1, overflow",
+
+            "1, 32767, 32767, overflow",
 
             "100.01, 4, 1, 100.0",
             "100.01, 4, 0, 100",
