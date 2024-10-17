@@ -187,7 +187,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns col2 = result2.get(1);
         RexLiteral lit2 = (RexLiteral) col2.columns().get(0).get(0);
-        assertEquals(SqlTypeName.VARCHAR, lit2.getType().getSqlTypeName());
+        assertEquals(SqlTypeName.CHAR, lit2.getType().getSqlTypeName());
     }
 
     @Test

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.type.NativeTypes;
  *
  * <p>These constants is just shortcuts for variable length types to use in tests.
  */
+@SuppressWarnings("WeakerAccess")
 public final class Types {
 
     public static final NativeType DECIMAL_1_0 = NativeTypes.decimalOf(1, 0);
@@ -188,7 +189,11 @@ public final class Types {
 
     public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
 
+    public static final NativeType VARCHAR_1 = NativeTypes.stringOf(1);
+    public static final NativeType VARCHAR_3 = NativeTypes.stringOf(3);
+    public static final NativeType VARCHAR_5 = NativeTypes.stringOf(5);
     public static final NativeType VARCHAR_128 = NativeTypes.stringOf(128);
+    public static final NativeType VARCHAR_DEFAULT = NativeTypes.stringOf(-1);
 
     public static final NativeType VARBINARY_128 = NativeTypes.blobOf(128);
 

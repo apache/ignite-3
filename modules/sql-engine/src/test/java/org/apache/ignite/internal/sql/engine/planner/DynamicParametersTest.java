@@ -197,7 +197,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 "diff", null, 1)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), CAST(?1):INTEGER, ?2))"),
+                        .project("CASE(=($t0, ?0), 0, CASE(IS NULL($t1), CAST(?1):INTEGER, ?2))"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
@@ -211,7 +211,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 "diff", 1, null)
                         .parameterTypes(nullableStr, nullableInt, nullType)
-                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), ?1, CAST(?2):INTEGER))"),
+                        .project("CASE(=($t0, ?0), 0, CASE(IS NULL($t1), ?1, CAST(?2):INTEGER))"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
