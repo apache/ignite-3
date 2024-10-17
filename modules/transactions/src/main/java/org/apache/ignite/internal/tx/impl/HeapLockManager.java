@@ -125,7 +125,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Constructor.
      */
     public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        this(deadlockPreventionPolicy, SLOTS, SLOTS, new HeapUnboundedLockManager());
+        this(deadlockPreventionPolicy, SLOTS, SLOTS, new HeapUnboundedLockManager(deadlockPreventionPolicy));
     }
 
     /**
