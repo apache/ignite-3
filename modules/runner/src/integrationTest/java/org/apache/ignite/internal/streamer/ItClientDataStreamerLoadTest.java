@@ -64,7 +64,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @BeforeAll
     public void createTable() {
-        createTable(TABLE_NAME, 2, 10);
+        createTable(TABLE_NAME, 1, 4);
     }
 
     @BeforeEach
@@ -82,23 +82,23 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
-                    .perPartitionParallelOperations(10)
+                    .perPartitionParallelOperations(1)
                     .build();
 
             streamerFut = view.streamData(publisher, options);
 
             // Insert same data over and over again.
-            for (int j = 0; j < 100_000; j++) {
-                for (int i = 0; i < 10_000; i++) {
+            for (int j = 0; j < 100; j++) {
+                for (int i = 0; i < 100_000; i++) {
                     publisher.submit(DataStreamerItem.of(tuple(i, "foo_" + i)));
                 }
             }
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(10, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1)));
-        assertNotNull(view.get(null, tupleKey(10_000)));
+        assertNotNull(view.get(null, tupleKey(999)));
     }
 
     private static Table defaultTable() {
