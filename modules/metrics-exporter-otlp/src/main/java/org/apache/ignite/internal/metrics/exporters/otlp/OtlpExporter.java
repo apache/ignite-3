@@ -146,24 +146,28 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
 
     private static String createEndpoint(OtlpExporterView view) {
         URI uri = URI.create(view.endpoint());
-        String path = "/";
+        StringBuilder sb = new StringBuilder();
 
         if (view.protocol().equals(PROTOCOL_HTTP_PROTOBUF)) {
-            if (!nullOrBlank(uri.getPath())) {
-                path = uri.getPath();
+            String basePath = uri.getPath();
+
+            if (!nullOrBlank(basePath)) {
+                sb.append(basePath);
             }
 
-            if (!path.endsWith("v1/metrics")) {
-                if (!path.endsWith("/")) {
-                    path += "/";
+            if (!basePath.endsWith("v1/metrics")) {
+                if (!basePath.endsWith("/")) {
+                    sb.append('/');
                 }
 
-                path += "v1/metrics";
+                sb.append("v1/metrics");
             }
+        } else {
+            sb.append('/');
         }
 
         try {
-            return new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), path, null, null).toString();
+            return new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), sb.toString(), null, null).toString();
         } catch (URISyntaxException e) {
             throw new RuntimeException("Unexpected exception creating URL.", e);
         }
