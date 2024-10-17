@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
+    implementation project(':ignite-rest-api')
     openapiSpec(project(path: ':ignite-rest-api', configuration: 'openapiSpec'))
 
     implementation libs.tree.sitter
@@ -135,7 +136,7 @@ configurations {
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
-task copyOpenapiDefinition(type: Copy) {
+def copyOpenapiDefinition = tasks.register('copyOpenapiDefinition', Copy) {
     from configurations.openapiSpec
     into(layout.buildDirectory.dir("customOpenapiDefinition"))
 }
@@ -144,25 +145,25 @@ pmdMain {
     excludes = ["**/org/apache/ignite/rest/client/**"]
 }
 
-task generateApiClient(type: GenerateTask) {
-    generatorName="java"
+tasks.register('generateApiClient', GenerateTask) {
+    dependsOn copyOpenapiDefinition
+
+    generatorName = "java"
     inputs.dir layout.buildDirectory.dir("customOpenapiDefinition")
-    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
-    apiPackage="org.apache.ignite.rest.client.api"
-    invokerPackage="org.apache.ignite.rest.client.invoker"
-    modelPackage="org.apache.ignite.rest.client.model"
+    inputSpec = layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
+    apiPackage = "org.apache.ignite.rest.client.api"
+    invokerPackage = "org.apache.ignite.rest.client.invoker"
+    modelPackage = "org.apache.ignite.rest.client.model"
     outputDir = generatedClientDir.get().asFile.toString()
-    generateModelTests=false
-    generateApiTests=false
-    languageSpecificPrimitives=["boolean", "int", "float", "double", "char", "byte", "short", "long"]
+    generateModelTests = false
+    generateApiTests = false
+    languageSpecificPrimitives = ["boolean", "int", "float", "double", "char", "byte", "short", "long"]
     configOptions = [
-        "openApiNullable": "false",
-        "supportStreaming": "false",
-        "library": "okhttp-gson"
+            "openApiNullable" : "false",
+            "supportStreaming": "false",
+            "library"         : "okhttp-gson"
     ]
 }
-
-generateApiClient.dependsOn copyOpenapiDefinition
 
 idea.module {
     sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
@@ -176,7 +177,7 @@ compileJava {
     source generatedClientDir.get().dir('src/main/java')
 }
 
-task generateAutocompletionScript(type: JavaExec) {
+def generateAutocompletionScript = tasks.register('generateAutocompletionScript', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set("picocli.AutoComplete")
     systemProperty("picocli.autocomplete.systemExitOnError", "")

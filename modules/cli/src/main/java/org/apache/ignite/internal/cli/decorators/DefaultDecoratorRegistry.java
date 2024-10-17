@@ -27,6 +27,7 @@ import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.sql.SqlQueryResult;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 
 /**
  * Default set of {@link Decorator}.
@@ -44,5 +45,6 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
         add(SqlQueryResult.class, new SqlQueryResultDecorator(false));
         add(ClusterStatus.class, new ClusterStatusDecorator());
         add(NodeStatus.class, new NodeStatusDecorator());
+        add(NodeVersion.class, new NodeVersionDecorator());
     }
 }
