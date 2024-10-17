@@ -24,9 +24,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema.DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -465,8 +465,7 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool(),
-                    () -> DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL
+                    ForkJoinPool.commonPool()
             );
 
             assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -480,7 +479,8 @@ public class ItTxTestCluster {
                     clock,
                     partitionOperationsExecutor,
                     replicationConfiguration,
-                    executor
+                    executor,
+                    () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
             ));
 
             replicaServices.put(nodeName, replicaSvc);
@@ -1022,7 +1022,8 @@ public class ItTxTestCluster {
                 clientClock,
                 partitionOperationsExecutor,
                 replicationConfiguration,
-                executor
+                executor,
+                () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
         ));
 
         LOG.info("The client has been started");

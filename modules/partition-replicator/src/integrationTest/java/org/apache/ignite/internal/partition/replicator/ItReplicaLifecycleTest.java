@@ -32,12 +32,12 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema.DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -1141,7 +1141,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
                     replicationConfiguration,
-                    threadPoolsManager.commonScheduler()
+                    threadPoolsManager.commonScheduler(),
+                    () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -1242,8 +1243,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
-                    t -> converter.get().apply(t),
-                    () -> DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL
+                    t -> converter.get().apply(t)
             );
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

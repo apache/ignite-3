@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -752,12 +753,15 @@ public class IgniteImpl implements Ignite {
                 replicationConfig
         );
 
+        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
+
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                () -> txConfig.replicaOperationRetryInterval().value()
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
@@ -772,8 +776,6 @@ public class IgniteImpl implements Ignite {
 
         partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
-
-        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -790,8 +792,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                threadPoolsManager.tableIoExecutor(),
-                () -> txConfig.txnOperationRetryInterval().value()
+                threadPoolsManager.tableIoExecutor()
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
@@ -918,11 +919,14 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                txConfig.deadlockPreventionPolicy().waitTimeout().value()
-        );
-        LockManager lockMgr = new HeapLockManager(deadlockPreventionPolicy);
+        Supplier<LockManager> lockManagerFactory = () -> {
+            DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
+            );
+
+            return new HeapLockManager(deadlockPreventionPolicy);
+        };
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -931,7 +935,7 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
-                lockMgr,
+                lockManagerFactory,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
@@ -965,7 +969,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
                 replicaMgr,
-                lockMgr,
+                lockManagerFactory,
                 replicaSvc,
                 txManager,
                 dataStorageMgr,

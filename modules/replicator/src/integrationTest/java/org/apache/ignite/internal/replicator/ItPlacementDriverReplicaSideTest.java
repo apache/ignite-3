@@ -228,8 +228,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager,
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool(),
-                    () -> 50L
+                    ForkJoinPool.commonPool()
             );
 
             replicaManagers.put(nodeName, replicaManager);

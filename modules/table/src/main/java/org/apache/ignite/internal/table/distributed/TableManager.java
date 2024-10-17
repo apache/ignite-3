@@ -252,7 +252,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final ReplicaManager replicaMgr;
 
     /** Lock manager. */
-    private final LockManager lockMgr;
+    private LockManager lockMgr;
+
+    private final Supplier<LockManager> lockManagerFactory;
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
@@ -435,7 +437,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param txCfg Transaction configuration.
      * @param storageUpdateConfig Storage update handler configuration.
      * @param replicaMgr Replica manager.
-     * @param lockMgr Lock manager.
+     * @param lockManagerFactory Lock manager factory.
      * @param replicaSvc Replica service.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
@@ -462,7 +464,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TopologyService topologyService,
             MessageSerializationRegistry messageSerializationRegistry,
             ReplicaManager replicaMgr,
-            LockManager lockMgr,
+            Supplier<LockManager> lockManagerFactory,
             ReplicaService replicaSvc,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
@@ -491,7 +493,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
-        this.lockMgr = lockMgr;
+        this.lockManagerFactory = lockManagerFactory;
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
@@ -607,6 +609,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            lockMgr = lockManagerFactory.get();
+
             mvGc.start();
 
             transactionStateResolver.start();

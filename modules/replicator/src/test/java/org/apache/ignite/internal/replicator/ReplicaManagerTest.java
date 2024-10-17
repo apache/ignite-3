@@ -136,8 +136,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftManager,
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
-                ForkJoinPool.commonPool(),
-                () -> 50L
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

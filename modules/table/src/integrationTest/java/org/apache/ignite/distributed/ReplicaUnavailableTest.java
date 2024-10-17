@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema.DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
@@ -216,8 +215,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool(),
-                () -> DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL
+                ForkJoinPool.commonPool()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

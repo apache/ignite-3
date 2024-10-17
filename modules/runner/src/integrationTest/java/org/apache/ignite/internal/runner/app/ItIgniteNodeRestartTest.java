@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -41,7 +42,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema.DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -460,7 +460,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfiguration,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
         );
 
         var lockManager = new HeapLockManager();
@@ -577,8 +578,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
-                threadPoolsManager.tableIoExecutor(),
-                () -> DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL
+                threadPoolsManager.tableIoExecutor()
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

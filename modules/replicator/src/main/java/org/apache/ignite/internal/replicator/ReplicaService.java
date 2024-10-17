@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
@@ -49,14 +50,15 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Retry timeout. */
-    private static final int RETRY_TIMEOUT_MILLIS = 10;
+    /** Default timeout for retrying replica operation. */
+    public static final int DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL = 10;
 
     /** Message service. */
     private final MessagingService messagingService;
@@ -76,6 +78,8 @@ public class ReplicaService {
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    private final Lazy<Integer> replicaOperationRetryIntervalMs;
+
     /**
      * The constructor of replica client.
      *
@@ -94,7 +98,8 @@ public class ReplicaService {
                 clock,
                 ForkJoinPool.commonPool(),
                 replicationConfiguration,
-                null
+                null,
+                () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
         );
     }
 
@@ -112,13 +117,15 @@ public class ReplicaService {
             HybridClock clock,
             Executor partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
-            @Nullable ScheduledExecutorService retryExecutor
+            @Nullable ScheduledExecutorService retryExecutor,
+            Supplier<Integer> replicaOperationRetryIntervalMsSupplier
     ) {
         this.messagingService = messagingService;
         this.clock = clock;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicationConfiguration = replicationConfiguration;
         this.retryExecutor = retryExecutor;
+        this.replicaOperationRetryIntervalMs = new Lazy<>(replicaOperationRetryIntervalMsSupplier);
     }
 
     /**
@@ -244,7 +251,7 @@ public class ReplicaService {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
                                     () -> partitionOperationsExecutor.execute(() -> res.completeExceptionally(errResp.throwable())),
-                                    RETRY_TIMEOUT_MILLIS, MILLISECONDS);
+                                    replicaOperationRetryIntervalMs.get(), MILLISECONDS);
                         } else {
                             res.completeExceptionally(errResp.throwable());
                         }
