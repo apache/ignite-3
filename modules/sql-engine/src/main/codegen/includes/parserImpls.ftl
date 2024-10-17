@@ -699,3 +699,43 @@ SqlNode SqlCommitTransaction() :
        return new IgniteSqlCommitTransaction(s.end(this));
     }
 }
+
+SqlNode SqlKillCommand() :
+{
+    final Span s;
+    final SqlNode objectId;
+    final IgniteSqlKillWaitMode waitMode;
+}
+{
+    <KILL> { s = span(); }
+    (
+      <QUERY> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
+      {
+         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.QUERY, (SqlLiteral) objectId, waitMode);
+      }
+      |
+      <TRANSACTION> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
+      {
+         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.TRANSACTION, (SqlLiteral) objectId, waitMode);
+      }
+      |
+      <COMPUTE> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
+      {
+         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.COMPUTE, (SqlLiteral) objectId, waitMode);
+      }
+    )
+}
+IgniteSqlKillWaitMode SqlKillWaitMode():
+{
+    IgniteSqlKillWaitMode waitMode = IgniteSqlKillWaitMode.IMPLICIT_MODE;
+}
+{
+    (
+      <NO> <WAIT> {
+        waitMode = IgniteSqlKillWaitMode.NO_WAIT;
+      }
+    )*
+    {
+      return waitMode;
+    }
+}
