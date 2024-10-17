@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -40,6 +40,8 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
 
     /** Snapshot meta, constructed from the storage data and raft group configuration at startup. {@code null} if the storage is empty. */
     private final @Nullable RaftOutter.SnapshotMeta startupSnapshotMeta;
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Constructor. We will try to read a snapshot meta here.
@@ -62,7 +64,7 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
         byte[] configBytes = storage.getConfiguration();
         assert configBytes != null;
 
-        RaftGroupConfiguration configuration = ByteUtils.fromBytes(configBytes);
+        RaftGroupConfiguration configuration = configurationConverter.fromBytes(configBytes);
         assert configuration != null;
 
         return new RaftMessagesFactory().snapshotMeta()
