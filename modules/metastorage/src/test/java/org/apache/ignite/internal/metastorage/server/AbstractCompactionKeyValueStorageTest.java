@@ -52,6 +52,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,6 +117,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         closeAllManually(super::tearDown, clusterTime);
     }
