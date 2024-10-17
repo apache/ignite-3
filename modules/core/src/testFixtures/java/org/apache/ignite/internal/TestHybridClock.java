@@ -81,6 +81,13 @@ public class TestHybridClock implements HybridClock {
         }
     }
 
+    @Override
+    public long currentLong() {
+        long now = currentTime();
+
+        return max(latestTime, now);
+    }
+
     private void notifyUpdateListeners(long newLatestTime) {
         updateListeners.forEach(listener -> listener.onUpdate(newLatestTime));
     }
@@ -88,6 +95,11 @@ public class TestHybridClock implements HybridClock {
     @Override
     public HybridTimestamp now() {
         return hybridTimestamp(nowLong());
+    }
+
+    @Override
+    public HybridTimestamp current() {
+        return hybridTimestamp(currentLong());
     }
 
     /**

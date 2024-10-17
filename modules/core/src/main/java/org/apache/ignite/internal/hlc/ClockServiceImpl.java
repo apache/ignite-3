@@ -44,8 +44,18 @@ public class ClockServiceImpl implements ClockService {
     }
 
     @Override
+    public HybridTimestamp current() {
+        return clock.current();
+    }
+
+    @Override
     public long nowLong() {
         return clock.nowLong();
+    }
+
+    @Override
+    public long currentLong() {
+        return clock.currentLong();
     }
 
     @Override
