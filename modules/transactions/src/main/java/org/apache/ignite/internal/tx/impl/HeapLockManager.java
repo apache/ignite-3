@@ -321,11 +321,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         for (CoarseLockState value : coarseMap.values()) {
-            if (!value.sLocksOwners.isEmpty()) {
+            if (!value.slockOwners.isEmpty()) {
                 return false;
             }
 
-            if (!value.ixLocksOwners.isEmpty()) {
+            if (!value.ixlockOwners.isEmpty()) {
                 return false;
             }
         }
@@ -388,7 +388,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
     }
 
-    public interface Releasable {
+    /**
+     * Common interface for releasing transaction locks.
+     */
+    interface Releasable {
         /**
          * Tries to release a lock.
          *
@@ -420,6 +423,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         boolean coarse();
     }
 
+    /**
+     * Coarse lock.
+     */
     public class CoarseLockState implements Releasable {
         private final ReentrantReadWriteLock[] stripes =
                 new ReentrantReadWriteLock[Math.max(1, Runtime.getRuntime().availableProcessors() / 2)];
@@ -430,9 +436,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
-        private final ConcurrentHashMap<UUID, Lock> ixLocksOwners = new ConcurrentHashMap<>();
-        private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> sLocksWaiters = new HashMap<>();
-        private final ConcurrentHashMap<UUID, Lock> sLocksOwners = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<UUID, Lock> ixlockOwners = new ConcurrentHashMap<>();
+        private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> slockWaiters = new HashMap<>();
+        private final ConcurrentHashMap<UUID, Lock> slockOwners = new ConcurrentHashMap<>();
 
         private final LockKey lockKey;
 
@@ -456,7 +462,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         @Override
         public Lock lock(UUID txId) {
-            Lock lock = ixLocksOwners.get(txId);
+            Lock lock = ixlockOwners.get(txId);
 
             if (lock != null) {
                 return lock;
@@ -467,7 +473,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             stripes[idx].readLock().lock();
 
             try {
-                return sLocksOwners.get(txId);
+                return slockOwners.get(txId);
             } finally {
                 stripes[idx].readLock().unlock();
             }
@@ -478,6 +484,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return true;
         }
 
+        /**
+         * Acquires a lock.
+         *
+         * @param txId Tx id.
+         * @param lockKey Lock key.
+         * @param lockMode Lock mode.
+         * @return The future.
+         */
         public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
             switch (lockMode) {
                 case S:
@@ -486,18 +500,18 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
 
                     try {
-                        if (!ixLocksOwners.isEmpty()) {
-                            if (ixLocksOwners.containsKey(txId)) {
+                        if (!ixlockOwners.isEmpty()) {
+                            if (ixlockOwners.containsKey(txId)) {
                                 // IX-locks can't be modified under the striped lock.
-                                if (ixLocksOwners.size() == 1) {
+                                if (ixlockOwners.size() == 1) {
                                     // Safe to upgrade.
                                     track(txId, this); // Double track.
                                     Lock lock = new Lock(lockKey, lockMode, txId);
-                                    sLocksOwners.putIfAbsent(txId, lock);
+                                    slockOwners.putIfAbsent(txId, lock);
                                     return completedFuture(lock);
                                 } else {
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
-                                    for (Lock lock : ixLocksOwners.values()) {
+                                    for (Lock lock : ixlockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
                                             return failedFuture(lockException(txId, lock.txId()));
                                         }
@@ -507,7 +521,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
-                            UUID holderTx = ixLocksOwners.keySet().iterator().next();
+                            UUID holderTx = ixlockOwners.keySet().iterator().next();
                             CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
                             if (res.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));
@@ -516,12 +530,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             track(txId, this);
 
                             CompletableFuture<Lock> fut = new CompletableFuture<>();
-                            IgniteBiTuple<Lock, CompletableFuture<Lock>> prev = sLocksWaiters.putIfAbsent(txId,
+                            IgniteBiTuple<Lock, CompletableFuture<Lock>> prev = slockWaiters.putIfAbsent(txId,
                                     new IgniteBiTuple<>(new Lock(lockKey, lockMode, txId), fut));
                             return prev == null ? fut : prev.get2();
                         } else {
                             Lock lock = new Lock(lockKey, lockMode, txId);
-                            Lock prev = sLocksOwners.putIfAbsent(txId, lock);
+                            Lock prev = slockOwners.putIfAbsent(txId, lock);
 
                             if (prev == null) {
                                 track(txId, this); // Do not track on reenter.
@@ -536,9 +550,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
 
                 case IX:
-                    int idx = Math.abs(txId.hashCode()) % stripes.length;
+                    int idx = Math.floorMod(spread(txId.hashCode()), stripes.length);
 
-                    while(true) {
+                    while (true) {
                         // This will prevent IX to block S, giving deadlock avoidance.
                         boolean locked = stripes[idx].readLock().tryLock();
 
@@ -551,18 +565,18 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
 
                     try {
-                        if (!sLocksOwners.isEmpty()) {
-                            if (sLocksOwners.containsKey(txId)) {
+                        if (!slockOwners.isEmpty()) {
+                            if (slockOwners.containsKey(txId)) {
                                 // S-locks can't be modified under the striped lock.
-                                if (sLocksOwners.size() == 1) {
+                                if (slockOwners.size() == 1) {
                                     // Safe to upgrade.
                                     track(txId, this); // Double track.
                                     Lock lock = new Lock(lockKey, lockMode, txId);
-                                    ixLocksOwners.putIfAbsent(txId, lock);
+                                    ixlockOwners.putIfAbsent(txId, lock);
                                     return completedFuture(lock);
                                 } else {
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
-                                    for (Lock lock : sLocksOwners.values()) {
+                                    for (Lock lock : slockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
                                             return failedFuture(lockException(txId, lock.txId()));
                                         }
@@ -572,16 +586,16 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
-                            UUID holderTx = sLocksOwners.keySet().iterator().next();
+                            UUID holderTx = slockOwners.keySet().iterator().next();
                             CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
                             if (eventResult.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));
                             } else {
-                                return failedFuture(lockException(txId, holderTx));  // IX locks never wait.
+                                return failedFuture(lockException(txId, holderTx)); // IX locks never wait.
                             }
                         } else {
                             Lock lock = new Lock(lockKey, lockMode, txId);
-                            Lock prev = ixLocksOwners.putIfAbsent(txId, lock);// Avoid overwrite existing lock.
+                            Lock prev = ixlockOwners.putIfAbsent(txId, lock); // Avoid overwrite existing lock.
 
                             if (prev == null) {
                                 track(txId, this); // Do not track on reenter.
@@ -617,9 +631,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     }
 
                     try {
-                        Lock removed = sLocksOwners.remove(lock.txId());
+                        Lock removed = slockOwners.remove(lock.txId());
 
-                        assert removed != null: "Attempt to release not acquired lock: " + lock.txId();
+                        assert removed != null : "Attempt to release not acquired lock: " + lock.txId();
                     } finally {
                         for (ReentrantReadWriteLock l : stripes) {
                             l.writeLock().unlock();
@@ -628,23 +642,23 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     break;
                 case IX:
-                    int idx = Math.abs(lock.txId().hashCode()) % stripes.length;
+                    int idx = Math.floorMod(spread(lock.txId().hashCode()), stripes.length);
 
                     Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> wakeups;
 
                     stripes[idx].readLock().lock();
 
                     try {
-                        var removed = ixLocksOwners.remove(lock.txId());
+                        var removed = ixlockOwners.remove(lock.txId());
 
-                        assert removed != null: "Attempt to release not acquired lock: " + lock.txId();
+                        assert removed != null : "Attempt to release not acquired lock: " + lock.txId();
 
-                        if (sLocksWaiters.isEmpty()) {
+                        if (slockWaiters.isEmpty()) {
                             return; // Nothing to do.
                         }
 
-                        if (!ixLocksOwners.isEmpty()) {
-                            assert sLocksOwners.isEmpty() || sLocksOwners.containsKey(lock.txId());
+                        if (!ixlockOwners.isEmpty()) {
+                            assert slockOwners.isEmpty() || slockOwners.containsKey(lock.txId());
 
                             return; // Nothing to do.
                         }
@@ -652,12 +666,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         // No race here because no new locks can be acquired after releaseAll due to 2-phase locking protocol.
 
                         // Promote waiters to owners.
-                        wakeups = new HashMap<>(sLocksWaiters);
+                        wakeups = new HashMap<>(slockWaiters);
 
-                        sLocksWaiters.clear();
+                        slockWaiters.clear();
 
                         for (IgniteBiTuple<Lock, CompletableFuture<Lock>> value : wakeups.values()) {
-                            sLocksOwners.put(value.getKey().txId(), value.getKey());
+                            slockOwners.put(value.getKey().txId(), value.getKey());
                         }
                     } finally {
                         stripes[idx].readLock().unlock();
@@ -675,7 +689,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     /**
-     * A lock state.
+     * Key lock.
      */
     public class LockState implements Releasable {
         /** Waiters. */
