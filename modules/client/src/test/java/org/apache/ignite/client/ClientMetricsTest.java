@@ -166,7 +166,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
         Function<Integer, Integer> responseDelay = idx -> idx == 4 ? 1000 : 0;
         server = new TestServer(
-                1000,
+                1_000_000,
                 new FakeIgnite(),
                 shouldDropConnection,
                 responseDelay,
@@ -175,7 +175,9 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 null
         );
-        client = clientBuilder().build();
+        client = clientBuilder()
+                .heartbeatInterval(1_000_000)
+                .build();
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(0, metrics().requestsFailed());
@@ -221,7 +223,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, metrics().requestsFailed());
         assertEquals(3, metrics().requestsCompleted());
-        assertEquals(6, metrics().requestsSent());
+        assertEquals(5, metrics().requestsSent());
         assertEquals(1, metrics().requestsRetried());
     }
 

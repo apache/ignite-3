@@ -1464,7 +1464,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
+        long readOperationId = readOperationIdGeneratorForTracker++;
         long compactionRevisionBeforeCreateCursor = compactionRevision;
+
+        readOperationForCompactionTracker.track(readOperationId, compactionRevision);
 
         return new RocksIteratorAdapter<>(iterator) {
             /** Cached entry used to filter "empty" values. */
@@ -1529,6 +1532,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             @Override
             public void close() {
+                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionBeforeCreateCursor);
+
                 super.close();
 
                 RocksUtils.closeAll(readOpts, upperBound);

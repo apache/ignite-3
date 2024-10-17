@@ -30,14 +30,17 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -52,6 +55,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -921,6 +925,83 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
             assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorLatest));
             assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorBounded));
+        }
+    }
+
+    @Test
+    void testReadOperationsFutureWithoutReadOperations() {
+        assertTrue(storage.readOperationsFuture(0).isDone());
+        assertTrue(storage.readOperationsFuture(1).isDone());
+    }
+
+    /**
+     * Tests {@link KeyValueStorage#readOperationsFuture} as expected in use.
+     * <ul>
+     *     <li>Create read operations, we only need cursors since reading one entry or a batch is synchronized with
+     *     {@link KeyValueStorage#setCompactionRevision}.</li>
+     *     <li>Set a new compaction revision via {@link KeyValueStorage#setCompactionRevision}.</li>
+     *     <li>Wait for the completion of read operations on the new compaction revision.</li>
+     * </ul>
+     *
+     * <p>The keys are chosen randomly. Keys with their revisions are added in {@link #setUp()}.</p>
+     */
+    @Test
+    void testReadOperationsFuture() throws Exception {
+        Cursor<Entry> range0 = storage.range(FOO_KEY, FOO_KEY);
+        Cursor<Entry> range1 = storage.range(BAR_KEY, BAR_KEY, 5);
+
+        try {
+            storage.setCompactionRevision(3);
+
+            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            assertFalse(readOperationsFuture.isDone());
+
+            range0.stream().forEach(entry -> {});
+            assertFalse(readOperationsFuture.isDone());
+
+            range1.stream().forEach(entry -> {});
+            assertFalse(readOperationsFuture.isDone());
+
+            range0.close();
+            assertFalse(readOperationsFuture.isDone());
+
+            range1.close();
+            assertTrue(readOperationsFuture.isDone());
+        } catch (Throwable t) {
+            IgniteUtils.closeAll(range0, range1);
+        }
+    }
+
+    /**
+     * Tests that cursors created after {@link KeyValueStorage#setCompactionRevision} will not affect future from
+     * {@link KeyValueStorage#readOperationsFuture} on a new compaction revision.
+     */
+    @Test
+    void testReadOperationsFutureForReadOperationAfterSetCompactionRevision() throws Exception {
+        Cursor<Entry> rangeBeforeSetCompactionRevision = storage.range(FOO_KEY, FOO_KEY);
+        Cursor<Entry> rangeAfterSetCompactionRevision0 = null;
+        Cursor<Entry> rangeAfterSetCompactionRevision1 = null;
+
+        try {
+            storage.setCompactionRevision(3);
+
+            rangeAfterSetCompactionRevision0 = storage.range(FOO_KEY, FOO_KEY);
+            rangeAfterSetCompactionRevision1 = storage.range(FOO_KEY, FOO_KEY, 5);
+
+            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            assertFalse(readOperationsFuture.isDone());
+
+            rangeBeforeSetCompactionRevision.close();
+            assertTrue(readOperationsFuture.isDone());
+
+            rangeAfterSetCompactionRevision0.close();
+            rangeAfterSetCompactionRevision1.close();
+        } catch (Throwable t) {
+            IgniteUtils.closeAll(
+                    rangeBeforeSetCompactionRevision,
+                    rangeAfterSetCompactionRevision0,
+                    rangeAfterSetCompactionRevision1
+            );
         }
     }
 
