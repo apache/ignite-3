@@ -53,7 +53,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     @Override
     public @Nullable ResetClusterMessage readResetClusterMessage() {
-        return readFromVault(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+        VaultEntry entry = vault.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+        return entry != null ? VersionedSerialization.fromBytes(entry.value(), ResetClusterMessagePersistentSerializer.INSTANCE) : null;
     }
 
     @Override
@@ -78,11 +79,6 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
         return entry != null ? VersionedSerialization.fromBytes(entry.value(), ClusterStatePersistentSerializer.INSTANCE) : null;
     }
 
-    private <T> @Nullable T readFromVault(ByteArray key) {
-        VaultEntry entry = vault.get(key);
-        return entry != null ? ByteUtils.fromBytes(entry.value()) : null;
-    }
-
     void saveClusterState(ClusterState clusterState) {
         vault.put(CLUSTER_STATE_VAULT_KEY, VersionedSerialization.toBytes(clusterState, ClusterStatePersistentSerializer.INSTANCE));
     }
@@ -97,7 +93,10 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     }
 
     void saveResetClusterMessage(ResetClusterMessage message) {
-        vault.put(RESET_CLUSTER_MESSAGE_VAULT_KEY, ByteUtils.toBytes(message));
+        vault.put(
+                RESET_CLUSTER_MESSAGE_VAULT_KEY,
+                VersionedSerialization.toBytes(message, ResetClusterMessagePersistentSerializer.INSTANCE)
+        );
     }
 
     @Override

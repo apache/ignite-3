@@ -27,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A POJO for a RAFT group configuration, could be used to by other modules. Not used by a RAFT module itself.
+ * A POJO for a RAFT group configuration, could be used by other modules. Not used by the RAFT module itself.
  */
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
