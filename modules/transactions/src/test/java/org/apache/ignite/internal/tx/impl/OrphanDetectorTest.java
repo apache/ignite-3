@@ -114,7 +114,6 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
                 topologyService,
                 replicaService,
                 placementDriverHelper,
-                lockManager,
                 run -> {
                     resolutionCount.incrementAndGet();
                     run.run();
@@ -125,7 +124,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage.start();
 
-        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
+        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs(), lockManager);
     }
 
     @Test

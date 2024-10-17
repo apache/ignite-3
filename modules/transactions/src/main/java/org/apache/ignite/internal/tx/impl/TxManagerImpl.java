@@ -315,7 +315,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 topologyService,
                 replicaService,
                 placementDriverHelper,
-                lockManager,
                 partitionOperationsExecutor
         );
 
@@ -325,7 +324,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
-                lockManager,
+                txId -> lockManager.releaseAll(txId),
                 clockService,
                 writeIntentSwitchProcessor,
                 resourcesRegistry
@@ -751,7 +750,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             txStateVolatileStorage.start();
 
-            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs(), lockManager);
 
             txCleanupRequestSender.start();
 

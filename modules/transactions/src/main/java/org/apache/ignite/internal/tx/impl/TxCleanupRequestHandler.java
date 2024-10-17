@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
@@ -62,8 +62,8 @@ public class TxCleanupRequestHandler {
     /** Messaging service. */
     private final MessagingService messagingService;
 
-    /** Lock manager. */
-    private final LockManager lockManager;
+    /** Closure releasing the tx locks, tx id is required as a parameter. */
+    private final Consumer<UUID> txLocksReleaseClosure;
 
     private final ClockService clockService;
 
@@ -80,20 +80,20 @@ public class TxCleanupRequestHandler {
      * The constructor.
      *
      * @param messagingService Messaging service.
-     * @param lockManager Lock manager.
+     * @param txLocksReleaseClosure Closure releasing the tx locks, tx id is required as a parameter.
      * @param clockService Clock service.
      * @param writeIntentSwitchProcessor A cleanup processor.
      * @param resourcesRegistry Resources registry.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
-            LockManager lockManager,
+            Consumer<UUID> txLocksReleaseClosure,
             ClockService clockService,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.messagingService = messagingService;
-        this.lockManager = lockManager;
+        this.txLocksReleaseClosure = txLocksReleaseClosure;
         this.clockService = clockService;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
@@ -170,7 +170,7 @@ public class TxCleanupRequestHandler {
     }
 
     private void releaseTxLocks(UUID txId) {
-        lockManager.releaseAll(txId);
+        txLocksReleaseClosure.accept(txId);
     }
 
     private NetworkMessage prepareResponse() {

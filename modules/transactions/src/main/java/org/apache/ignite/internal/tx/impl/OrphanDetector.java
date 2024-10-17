@@ -77,7 +77,7 @@ public class OrphanDetector {
     private final PlacementDriverHelper placementDriverHelper;
 
     /** Lock manager. */
-    private final LockManager lockManager;
+    private LockManager lockManager;
 
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
@@ -100,20 +100,17 @@ public class OrphanDetector {
      * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param placementDriverHelper Placement driver helper.
-     * @param lockManager Lock manager.
      * @param partitionOperationsExecutor Executor is used to start resolution procedure.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriverHelper placementDriverHelper,
-            LockManager lockManager,
             Executor partitionOperationsExecutor
     ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriverHelper = placementDriverHelper;
-        this.lockManager = lockManager;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
@@ -122,8 +119,13 @@ public class OrphanDetector {
      *
      * @param txLocalStateStorage Local transaction state storage.
      * @param checkTxStateIntervalProvider Global provider of configuration check state interval.
+     * @param lockManager Lock manager.
      */
-    public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
+    public void start(
+            VolatileTxStateMetaStorage txLocalStateStorage,
+            ConfigurationValue<Long> checkTxStateIntervalProvider,
+            LockManager lockManager
+    ) {
         this.txLocalStateStorage = txLocalStateStorage;
         this.checkTxStateInterval = checkTxStateIntervalProvider.value();
 
@@ -132,6 +134,8 @@ public class OrphanDetector {
 
             return nullCompletedFuture();
         });
+
+        this.lockManager = lockManager;
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
