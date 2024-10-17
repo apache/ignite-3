@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.index;
 
 import static java.util.Collections.unmodifiableMap;
 
-import java.io.Serializable;
 import java.util.EnumMap;
 import java.util.Map;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -30,20 +29,18 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Immutable index meta, based on the {@link CatalogIndexDescriptor}. */
-public class IndexMeta implements Serializable {
-    private static final long serialVersionUID = 1044129530453957897L;
-
+public class IndexMeta {
     private final int catalogVersion;
 
     private final int indexId;
 
     private final int tableId;
 
+    private final int tableVersionOnIndexCreation;
+
     private final String indexName;
 
     private final MetaIndexStatus currentStatus;
-
-    private final int tableVersionOnIndexCreation;
 
     @IgniteToStringInclude
     private final Map<MetaIndexStatus, MetaIndexStatusChange> statusChanges;
@@ -59,7 +56,7 @@ public class IndexMeta implements Serializable {
      * @param currentStatus Current status of the index
      * @param statusChanges <b>Immutable</b> map of index statuses with change info (for example catalog version) in which they appeared.
      */
-    private IndexMeta(
+    IndexMeta(
             int catalogVersion,
             int indexId,
             int tableId,

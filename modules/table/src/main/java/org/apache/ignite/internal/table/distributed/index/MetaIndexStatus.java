@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toUnmodifiableMap;
+
+import java.util.Arrays;
+import java.util.Map;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Index status as stored in the {@link IndexMeta}. */
@@ -26,35 +31,35 @@ public enum MetaIndexStatus {
      *
      * @see CatalogIndexStatus#REGISTERED
      */
-    REGISTERED,
+    REGISTERED(0),
 
     /**
      * Index was in the process of being built.
      *
      * @see CatalogIndexStatus#BUILDING
      */
-    BUILDING,
+    BUILDING(1),
 
     /**
      * Index has been successfully built and is available for reading from it.
      *
      * @see CatalogIndexStatus#AVAILABLE
      */
-    AVAILABLE,
+    AVAILABLE(2),
 
     /**
      * Available index has started preparing to be removed from the catalog.
      *
      * @see CatalogIndexStatus#STOPPING
      */
-    STOPPING,
+    STOPPING(3),
 
     /**
      * Index has been removed from the catalog, with {@link CatalogIndexStatus#REGISTERED}/{@link CatalogIndexStatus#BUILDING} statuses, but
      * has not yet been destroyed due to a low watermark.
      */
     // TODO: IGNITE-20934 Get rid of such indexes immediately
-    REMOVED,
+    REMOVED(4),
 
     /**
      * Index has been removed from the catalog, with statuses {@link CatalogIndexStatus#AVAILABLE} (on table destruction) or
@@ -62,7 +67,38 @@ public enum MetaIndexStatus {
      *
      * <p>Such an index cannot be used by RW transactions, only by RO transactions with the correct readTimestamp.</p>
      */
-    READ_ONLY;
+    READ_ONLY(5);
+
+    /** Status code. It's persisted and should not be changed for existing statuses. */
+    private final int code;
+
+    private static final Map<Integer, MetaIndexStatus> VALUES_BY_CODE = Arrays.stream(values())
+            .collect(toUnmodifiableMap(s -> s.code, identity()));
+
+    MetaIndexStatus(int code) {
+        this.code = code;
+    }
+
+    /**
+     * Finds status by code.
+     *
+     * @param code Code to use when searching.
+     * @throws IllegalArgumentException If there is no status with the provided code.
+     */
+    static MetaIndexStatus findByCode(int code) {
+        MetaIndexStatus status = VALUES_BY_CODE.get(code);
+
+        if (status == null) {
+            throw new IllegalArgumentException("Unknown code [" + code + "]");
+        }
+
+        return status;
+    }
+
+    /** Returns status code (the code is persisted and should not be changed for existing statuses). */
+    public int code() {
+        return code;
+    }
 
     /** Converts {@link CatalogIndexStatus} to {@link MetaIndexStatus}. */
     public static MetaIndexStatus convert(CatalogIndexStatus catalogIndexStatus) {

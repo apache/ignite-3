@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.S;
 
 /** Information about {@link MetaIndexStatus index status} changes. */
-public class MetaIndexStatusChange implements Serializable {
-    private static final long serialVersionUID = -2837971110813775936L;
-
+public class MetaIndexStatusChange {
     private final int catalogVersion;
 
     private final long activationTs;
