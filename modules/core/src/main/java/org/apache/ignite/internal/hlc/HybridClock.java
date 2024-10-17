@@ -29,11 +29,27 @@ public interface HybridClock {
     long nowLong();
 
     /**
+     * Gets a current timestamp as long. It is a fast way to get timestamp because it does not have to update internal state.
+     * This timestamp is not unique and equal to or less than that value returned by {@link this#nowLong()}.
+     *
+     * @return The hybrid timestamp.
+     */
+    long currentLong();
+
+    /**
      * Creates a timestamp for new event.
      *
      * @return The hybrid timestamp.
      */
     HybridTimestamp now();
+
+    /**
+     * Gets a current timestamp. It is a fast way to get timestamp because it does not have to update internal state.
+     * This timestamp is not unique and equal to or less than that value returned by {@link this#now()}.
+     *
+     * @return The hybrid timestamp.
+     */
+    HybridTimestamp current();
 
     /**
      * Advances the clock in accordance with the request time. If the request time is ahead of the clock,
