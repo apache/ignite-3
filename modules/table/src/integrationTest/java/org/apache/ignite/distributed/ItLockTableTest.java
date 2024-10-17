@@ -45,7 +45,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -149,8 +148,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         new HeapLockManager(
                                 DeadlockPreventionPolicy.NO_OP,
                                 HeapLockManager.SLOTS,
-                                CACHE_SIZE,
-                                new HeapUnboundedLockManager()),
+                                CACHE_SIZE),
                         clockService,
                         generator,
                         placementDriver,
