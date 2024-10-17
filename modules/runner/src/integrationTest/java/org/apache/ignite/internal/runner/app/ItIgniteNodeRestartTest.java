@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema.DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -576,7 +577,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                () -> DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

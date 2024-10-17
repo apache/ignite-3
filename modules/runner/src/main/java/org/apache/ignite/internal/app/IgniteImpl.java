@@ -247,11 +247,13 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.PublicApiThreadingIgniteTransactions;
@@ -590,8 +592,6 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        LockManager lockMgr = new HeapLockManager();
-
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
                 clusterSvc.messagingService(),
                 name,
@@ -773,6 +773,8 @@ public class IgniteImpl implements Ignite {
         partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
+        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
+
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -788,7 +790,8 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                () -> txConfig.txnOperationRetryInterval().value()
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
@@ -882,8 +885,6 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService
         );
 
-        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
                 clusterSvc.messagingService(),
@@ -916,6 +917,12 @@ public class IgniteImpl implements Ignite {
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+
+        DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                txConfig.deadlockPreventionPolicy().waitTimeout().value()
+        );
+        LockManager lockMgr = new HeapLockManager(deadlockPreventionPolicy);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(

@@ -19,7 +19,9 @@ package org.apache.ignite.internal.tx.configuration;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -29,6 +31,9 @@ import org.apache.ignite.configuration.validation.Range;
 public class TransactionConfigurationSchema {
     /** Default checking transaction interval. */
     public static final long DEFAULT_ABANDONED_CHECK_TS = 5_000;
+
+    /** Default interval of transaction operation retry. */
+    public static final long DEFAULT_TRANSACTION_OPERATION_RETRY_INTERVAL = 50;
 
     /** Checking transaction interval. */
     @Range(min = 0)
@@ -54,4 +59,12 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1000)
     public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
+
+    @Value(hasDefault = true)
+    @Range(max = 10_000)
+    @Immutable
+    public long txnOperationRetryInterval = 50;
+
+    @ConfigValue
+    public DeadlockPreventionPolicyConfigurationSchema deadlockPreventionPolicy;
 }

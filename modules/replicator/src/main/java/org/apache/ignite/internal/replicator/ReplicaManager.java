@@ -124,6 +124,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -223,6 +224,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
     private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
+    private final Lazy<Long> txOperationRetryTimeoutMs;
+
     /**
      * Constructor for a replica service.
      *
@@ -260,7 +263,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter,
+            Supplier<Long> txOperationRetryTimeoutMs
     ) {
         this(
                 nodeName,
@@ -277,7 +281,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftManager,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                replicaStartStopExecutor
+                replicaStartStopExecutor,
+                txOperationRetryTimeoutMs
         );
 
         this.groupIdConverter = groupIdConverter;
@@ -316,7 +321,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor
+            Executor replicaStartStopExecutor,
+            Supplier<Long> txOperationRetryTimeoutMs
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -334,6 +340,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
+        this.txOperationRetryTimeoutMs = new Lazy<>(txOperationRetryTimeoutMs);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -620,7 +627,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             if (response == null) {
                                 // Schedule the retry with delay to increase possibility that leases would be refreshed by LeaseTracker
                                 // and new attempt will succeed.
-                                return supplyAsync(() -> null, delayedExecutor(50, TimeUnit.MILLISECONDS))
+                                return supplyAsync(() -> null, delayedExecutor(txOperationRetryTimeoutMs.get(), TimeUnit.MILLISECONDS))
                                         .thenComposeAsync(un -> stopLeaseProlongation(groupId, redirectNodeId, endTime), requestsExecutor);
                             } else {
                                 return completedFuture(((StopLeaseProlongationMessageResponse) response).deniedLeaseExpirationTime());
