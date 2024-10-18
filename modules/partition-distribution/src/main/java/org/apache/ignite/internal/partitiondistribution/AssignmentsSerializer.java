@@ -29,7 +29,7 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
  */
 public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
     /** Serializer instance. */
-    public static AssignmentsSerializer INSTANCE = new AssignmentsSerializer();
+    public static final AssignmentsSerializer INSTANCE = new AssignmentsSerializer();
 
     @Override
     protected void writeExternalData(Assignments assignments, IgniteDataOutput out) throws IOException {
