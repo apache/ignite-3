@@ -115,7 +115,7 @@ class CreateTableTest {
         Query query1 = createTable().name("table1").addColumn("col1", INTEGER)
                 .zone("zone1");
         String sql = query1.toString(); // zone param is lowercase
-        assertThat(sql, is("CREATE TABLE table1 (col1 int) WITH PRIMARY_ZONE='ZONE1';")); // zone result is uppercase
+        assertThat(sql, is("CREATE TABLE table1 (col1 int) ZONE ZONE1;")); // zone result is uppercase
     }
 
     @Test

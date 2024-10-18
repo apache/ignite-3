@@ -53,8 +53,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
-@Warmup(iterations = 10, time = 2)
-@Measurement(iterations = 20, time = 2)
+@Warmup(iterations = 1, time = 1)
+@Measurement(iterations = 1, time = 1)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
@@ -92,7 +92,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 sql.executeScript(
                         "CREATE ZONE single_partition_zone WITH replicas = 1, partitions = 1;"
-                                + "CREATE TABLE test (id INT PRIMARY KEY, val DATE) WITH primary_zone = single_partition_zone;"
+                                + "CREATE TABLE test (id INT PRIMARY KEY, val DATE) zone single_partition_zone;"
                                 + "CREATE INDEX test_val_idx ON test(val);"
                 );
 

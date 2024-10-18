@@ -186,7 +186,7 @@ class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
             });
 
             CompletableFuture<Void> tableCreationFuture = runAsync(() -> cluster.doInSession(NODE_1_INDEX, session -> {
-                executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar) WITH primary_zone='TEST_ZONE'", session);
+                executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar) zone TEST_ZONE", session);
             }));
 
             assertThat(tableCreationFuture, willTimeoutIn(1, SECONDS));

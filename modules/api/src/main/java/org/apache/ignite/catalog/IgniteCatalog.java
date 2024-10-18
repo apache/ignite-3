@@ -109,7 +109,7 @@ import org.apache.ignite.table.Table;
  * <pre>
  *    CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=1, REPLICAS=3, STORAGE_PROFILES='default';
  *    CREATE TABLE IF NOT EXISTS table_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a', \
- *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';
+ *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE='ZONE_TEST';
  *    CREATE INDEX IF NOT EXISTS ix_pojo ON table_test (f_name, l_name desc);
  * </pre>
  * And here's the equivalent definition using builders:

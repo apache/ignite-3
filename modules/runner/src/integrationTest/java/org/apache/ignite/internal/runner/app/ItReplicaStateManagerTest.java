@@ -78,7 +78,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
                         ZONE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE));
 
         node0.sql().execute(null,
-                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'", tableName,
+                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) ZONE %s", tableName,
                         ZONE_NAME
                 )
         );

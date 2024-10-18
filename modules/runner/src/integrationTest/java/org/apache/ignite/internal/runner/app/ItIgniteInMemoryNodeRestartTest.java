@@ -366,7 +366,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                 name, replicas, partitions, DEFAULT_AIMEM_PROFILE_NAME));
         sql.execute(null, "CREATE TABLE " + name
                 + " (id INT PRIMARY KEY, name VARCHAR)"
-                + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+                + " ZONE ZONE_" + name.toUpperCase() + ";");
 
         for (int i = 0; i < 100; i++) {
             sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

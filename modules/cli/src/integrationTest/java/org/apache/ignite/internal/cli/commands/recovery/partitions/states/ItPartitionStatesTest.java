@@ -61,7 +61,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     public static void createTables() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
             sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%1$s'", name));
+            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
         sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));

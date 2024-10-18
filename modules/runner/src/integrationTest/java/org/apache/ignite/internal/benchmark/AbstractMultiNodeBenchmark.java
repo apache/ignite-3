@@ -132,7 +132,7 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nzone " + ZONE_NAME;
 
         getAllFromCursor(
                 await(igniteImpl.queryEngine().queryAsync(

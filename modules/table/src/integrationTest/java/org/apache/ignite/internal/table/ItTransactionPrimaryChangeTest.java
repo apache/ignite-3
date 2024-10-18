@@ -69,7 +69,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     @BeforeEach
     public void setup() throws Exception {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'";
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone TEST_ZONE";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
