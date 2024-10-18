@@ -310,7 +310,7 @@ data: {
       "SqlAlterZone()",
       "SqlStartTransaction()",
       "SqlCommitTransaction()",
-      "SqlKillCommand()",
+      "SqlKill()",
     ]
 
     # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.
