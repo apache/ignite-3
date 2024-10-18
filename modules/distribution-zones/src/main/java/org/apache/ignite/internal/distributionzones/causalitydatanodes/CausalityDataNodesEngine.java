@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -46,10 +45,12 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.distributionzones.LogicalTopologySetSerializer;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /**
  * Causality data nodes engine. Contains logic for obtaining zone's data nodes with causality token.
@@ -188,7 +190,7 @@ public class CausalityDataNodesEngine {
                     return emptySet();
                 }
 
-                Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
+                Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
                 Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
@@ -227,7 +229,9 @@ public class CausalityDataNodesEngine {
                 return emptySet();
             }
 
-            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(
+                    VersionedSerialization.fromBytes(dataNodesEntry.value(), DataNodesMapSerializer.INSTANCE)
+            );
             long scaleUpTriggerRevision = bytesToLongKeepingOrder(scaleUpChangeTriggerKey.value());
             long scaleDownTriggerRevision = bytesToLongKeepingOrder(scaleDownChangeTriggerKey.value());
 
@@ -410,7 +414,7 @@ public class CausalityDataNodesEngine {
         if (!topologyEntry.empty()) {
             byte[] newerLogicalTopologyBytes = topologyEntry.value();
 
-            newerLogicalTopology = fromBytes(newerLogicalTopologyBytes);
+            newerLogicalTopology = deserializeLogicalTopologySet(newerLogicalTopologyBytes);
 
             newerTopologyRevision = topologyEntry.revision();
 
@@ -426,7 +430,7 @@ public class CausalityDataNodesEngine {
                 } else {
                     byte[] olderLogicalTopologyBytes = topologyEntry.value();
 
-                    olderLogicalTopology = fromBytes(olderLogicalTopologyBytes);
+                    olderLogicalTopology = deserializeLogicalTopologySet(olderLogicalTopologyBytes);
                 }
 
                 CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);
@@ -456,6 +460,10 @@ public class CausalityDataNodesEngine {
         }
 
         return 0;
+    }
+
+    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**
