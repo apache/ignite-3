@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Index status as stored in the {@link IndexMeta}. */
@@ -71,13 +72,14 @@ public enum MetaIndexStatus {
     private static final MetaIndexStatus[] VALUES_INDEXED_BY_CODE;
 
     static {
-        long distinctCodes = Arrays.stream(values()).map(s -> s.code).distinct().count();
-        assert distinctCodes == values().length : "There are duplicate codes";
-
         int maxCode = -1;
+        Set<Integer> seenCodes = new HashSet<>();
         for (MetaIndexStatus status : values()) {
             assert status.code >= 0 : status + " has a negative code";
             maxCode = Math.max(maxCode, status.code);
+
+            boolean added = seenCodes.add(status.code);
+            assert added : "Duplicate status code for: " + status;
         }
 
         VALUES_INDEXED_BY_CODE = new MetaIndexStatus[maxCode + 1];
