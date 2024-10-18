@@ -23,9 +23,9 @@ import jakarta.inject.Inject;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
@@ -46,6 +46,9 @@ class ItMetricCallsTest extends CliIntegrationTest {
 
     @Inject
     NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
+
+    @Inject
+    ClusterMetricSourceEnableCall clusterMetricSourceEnableCall;
 
     @Test
     @DisplayName("Should display metric sources when cluster is up and running")
@@ -89,7 +92,7 @@ class ItMetricCallsTest extends CliIntegrationTest {
     @DisplayName("Should display error message when enabling nonexistent metric source and is cluster up and running")
     void nodeMetricEnable() {
         // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
+        var input = MetricSourceEnableCallInput.builder()
                 .endpointUrl(NODE_URL)
                 .srcName("no.such.metric")
                 .enable(true)
@@ -106,7 +109,7 @@ class ItMetricCallsTest extends CliIntegrationTest {
     @DisplayName("Should display error message when disabling nonexistent metric source and is cluster up and running")
     void nodeMetricDisable() {
         // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
+        var input = MetricSourceEnableCallInput.builder()
                 .endpointUrl(NODE_URL)
                 .srcName("no.such.metric")
                 .enable(false)
@@ -114,6 +117,40 @@ class ItMetricCallsTest extends CliIntegrationTest {
 
         // When
         CallOutput<String> output = nodeMetricSourceEnableCall.execute(input);
+
+        // Then
+        assertThat(output.hasError()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should display error message when enabling nonexistent metric source and cluster is up and running")
+    void clusterMetricEnable() {
+        // Given
+        var input = MetricSourceEnableCallInput.builder()
+                .endpointUrl(NODE_URL)
+                .srcName("no.such.metric")
+                .enable(true)
+                .build();
+
+        // When
+        CallOutput<String> output = clusterMetricSourceEnableCall.execute(input);
+
+        // Then
+        assertThat(output.hasError()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should display error message when disabling nonexistent metric source and cluster is up and running")
+    void clusterMetricDisable() {
+        // Given
+        var input = MetricSourceEnableCallInput.builder()
+                .endpointUrl(NODE_URL)
+                .srcName("no.such.metric")
+                .enable(false)
+                .build();
+
+        // When
+        CallOutput<String> output = clusterMetricSourceEnableCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isTrue();

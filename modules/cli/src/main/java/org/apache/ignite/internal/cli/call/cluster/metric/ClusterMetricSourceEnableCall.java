@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.node.metric;
+package org.apache.ignite.internal.cli.call.cluster.metric;
 
 import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
 import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
@@ -26,27 +26,27 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.rest.client.api.NodeMetricApi;
+import org.apache.ignite.rest.client.api.ClusterMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Enables or disables metric source. */
 @Singleton
-public class NodeMetricSourceEnableCall implements Call<MetricSourceEnableCallInput, String> {
+public class ClusterMetricSourceEnableCall implements Call<MetricSourceEnableCallInput, String> {
     private final ApiClientFactory clientFactory;
 
-    public NodeMetricSourceEnableCall(ApiClientFactory clientFactory) {
+    public ClusterMetricSourceEnableCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
     @Override
     public CallOutput<String> execute(MetricSourceEnableCallInput input) {
-        NodeMetricApi api = createApiClient(input);
+        ClusterMetricApi api = createApiClient(input);
 
         try {
             if (input.getEnable()) {
-                api.enableNodeMetric(input.getSrcName());
+                api.enableClusterMetric(input.getSrcName());
             } else {
-                api.disableNodeMetric(input.getSrcName());
+                api.disableClusterMetric(input.getSrcName());
             }
             String message = input.getEnable() ? "enabled" : "disabled";
             return success("Metric source was " + message + " successfully");
@@ -55,7 +55,7 @@ public class NodeMetricSourceEnableCall implements Call<MetricSourceEnableCallIn
         }
     }
 
-    private NodeMetricApi createApiClient(MetricSourceEnableCallInput input) {
-        return new NodeMetricApi(clientFactory.getClient(input.getEndpointUrl()));
+    private ClusterMetricApi createApiClient(MetricSourceEnableCallInput input) {
+        return new ClusterMetricApi(clientFactory.getClient(input.getEndpointUrl()));
     }
 }
