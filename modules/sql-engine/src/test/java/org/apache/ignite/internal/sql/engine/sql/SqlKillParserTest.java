@@ -93,5 +93,4 @@ public class SqlKillParserTest extends AbstractParserTest {
                 () -> parse(stmt)
         );
     }
-
 }
