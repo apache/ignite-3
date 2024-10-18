@@ -74,19 +74,22 @@ public class SqlKillParserTest extends AbstractParserTest {
             "KILL QUERY 1",
             "KILL QUERY 1.1",
             "KILL QUERY 1 NO WAIT",
+            "KILL QUERY 'id' NO WAIT NO WAIT",
 
             "KILL TRANSACTION 1",
             "KILL TRANSACTION 1",
             "KILL TRANSACTION 1.1 NO WAIT",
+            "KILL COMPUTE 'id' NO WAIT NO WAIT",
 
             "KILL COMPUTE 1",
             "KILL COMPUTE 1.1",
             "KILL COMPUTE 1 NO WAIT",
+            "KILL COMPUTE 'id' NO WAIT NO WAIT",
     })
     public void killStatementNonStringObjectId(String stmt) {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"1",
+                "Failed to parse query: Encountered \"",
                 () -> parse(stmt)
         );
     }
