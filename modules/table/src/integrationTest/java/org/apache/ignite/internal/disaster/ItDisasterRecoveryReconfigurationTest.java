@@ -77,6 +77,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsSerializer;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -89,7 +90,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -455,7 +456,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
-                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
+                            return blockedAssignments.equals(deserializeAssignments(toByteArray(operation.value())));
                         }
                     }
                 }
@@ -463,6 +464,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         }
 
         return false;
+    }
+
+    private static Assignments deserializeAssignments(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, AssignmentsSerializer.INSTANCE);
     }
 
     private void waitForPartitionState(IgniteImpl node0, GlobalPartitionStateEnum expectedState) throws InterruptedException {
