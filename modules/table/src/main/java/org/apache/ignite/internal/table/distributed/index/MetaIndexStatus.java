@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
-
-import java.util.Arrays;
-import java.util.Map;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Index status as stored in the {@link IndexMeta}. */
@@ -72,8 +67,20 @@ public enum MetaIndexStatus {
     /** Status code. It's persisted and should not be changed for existing statuses. */
     private final int code;
 
-    private static final Map<Integer, MetaIndexStatus> VALUES_BY_CODE = Arrays.stream(values())
-            .collect(toUnmodifiableMap(s -> s.code, identity()));
+    private static final MetaIndexStatus[] VALUES_INDEXED_BY_CODE;
+
+    static {
+        int maxCode = -1;
+        for (MetaIndexStatus status : values()) {
+            assert status.code >= 0 : status + " has a negative code";
+            maxCode = Math.max(maxCode, status.code);
+        }
+
+        VALUES_INDEXED_BY_CODE = new MetaIndexStatus[maxCode + 1];
+        for (MetaIndexStatus status : values()) {
+            VALUES_INDEXED_BY_CODE[status.code] = status;
+        }
+    }
 
     MetaIndexStatus(int code) {
         this.code = code;
@@ -86,7 +93,7 @@ public enum MetaIndexStatus {
      * @throws IllegalArgumentException If there is no status with the provided code.
      */
     static MetaIndexStatus findByCode(int code) {
-        MetaIndexStatus status = VALUES_BY_CODE.get(code);
+        MetaIndexStatus status = VALUES_INDEXED_BY_CODE[code];
 
         if (status == null) {
             throw new IllegalArgumentException("Unknown code [" + code + "]");
