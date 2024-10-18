@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -461,7 +460,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         VaultEntry entry = vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
-        ResetClusterMessage savedMessage = fromBytes(entry.value());
+        ResetClusterMessage savedMessage = VersionedSerialization.fromBytes(
+                entry.value(),
+                ResetClusterMessagePersistentSerializer.INSTANCE
+        );
 
         assertThatResetClusterMessageContentIsAsExpected(savedMessage, mgRepair);
     }
