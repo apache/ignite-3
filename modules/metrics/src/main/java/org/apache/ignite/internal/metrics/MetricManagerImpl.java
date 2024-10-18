@@ -24,9 +24,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -60,6 +62,10 @@ public class MetricManagerImpl implements MetricManager {
 
     private MetricConfiguration metricConfiguration;
 
+    private Supplier<UUID> clusterIdSupplier;
+
+    private String nodeName;
+
     /**
      * Constructor.
      */
@@ -79,10 +85,14 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public void configure(MetricConfiguration metricConfiguration) {
+    public void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName) {
         assert this.metricConfiguration == null : "Metric manager must be configured only once, on the start of the node";
+        assert this.clusterIdSupplier == null : "Metric manager must be configured only once, on the start of the node";
+        assert this.nodeName == null : "Metric manager must be configured only once, on the start of the node";
 
         this.metricConfiguration = metricConfiguration;
+        this.clusterIdSupplier = clusterIdSupplier;
+        this.nodeName = nodeName;
     }
 
     @Override
@@ -111,7 +121,7 @@ public class MetricManagerImpl implements MetricManager {
         this.availableExporters = new HashMap<>();
 
         for (MetricExporter<?> exporter : exporters) {
-            exporter.start(metricsProvider, null);
+            exporter.start(metricsProvider, null, clusterIdSupplier, nodeName);
 
             availableExporters.put(exporter.name(), exporter);
             enabledMetricExporters.put(exporter.name(), exporter);
@@ -197,7 +207,7 @@ public class MetricManagerImpl implements MetricManager {
         if (exporter != null) {
             enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
                 try {
-                    exporter.start(metricsProvider, exporterConfiguration);
+                    exporter.start(metricsProvider, exporterConfiguration, clusterIdSupplier, nodeName);
 
                     return exporter;
                 } catch (Exception e) {
