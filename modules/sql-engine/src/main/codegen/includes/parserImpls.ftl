@@ -704,38 +704,47 @@ SqlNode SqlKillCommand() :
 {
     final Span s;
     final SqlNode objectId;
+    final IgniteSqlKillObjectType objectType;
     final IgniteSqlKillWaitMode waitMode;
 }
 {
-    <KILL> { s = span(); }
-    (
-      <QUERY> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
-      {
-         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.QUERY, (SqlLiteral) objectId, waitMode);
-      }
-      |
-      <TRANSACTION> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
-      {
-         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.TRANSACTION, (SqlLiteral) objectId, waitMode);
-      }
-      |
-      <COMPUTE> { objectId = StringLiteral(); waitMode = SqlKillWaitMode(); }
-      {
-         return new IgniteSqlKill(s.end(this), IgniteSqlKillObjectType.COMPUTE, (SqlLiteral) objectId, waitMode);
-      }
-    )
+    <KILL> {
+        s = span();
+        objectType = SqlKillObjectType();
+        objectId = StringLiteral();
+        waitMode = SqlKillWaitMode();
+    }
+    {
+        return new IgniteSqlKill(s.end(this), objectType, (SqlLiteral) objectId, waitMode);
+    }
 }
+
+IgniteSqlKillObjectType SqlKillObjectType():
+{
+    final IgniteSqlKillObjectType objectType;
+}
+{
+    (
+        <QUERY> { objectType = IgniteSqlKillObjectType.QUERY; }
+        |
+        <TRANSACTION> { objectType = IgniteSqlKillObjectType.TRANSACTION; }
+        |
+        <COMPUTE> { objectType = IgniteSqlKillObjectType.COMPUTE; }
+    )
+    {
+        return objectType;
+    }
+}
+
 IgniteSqlKillWaitMode SqlKillWaitMode():
 {
     IgniteSqlKillWaitMode waitMode = IgniteSqlKillWaitMode.IMPLICIT_MODE;
 }
 {
     (
-      <NO> <WAIT> {
-        waitMode = IgniteSqlKillWaitMode.NO_WAIT;
-      }
+        <NO> <WAIT> { waitMode = IgniteSqlKillWaitMode.NO_WAIT; }
     )*
     {
-      return waitMode;
+        return waitMode;
     }
 }
