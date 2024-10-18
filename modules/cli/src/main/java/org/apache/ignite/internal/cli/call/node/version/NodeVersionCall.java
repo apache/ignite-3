@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.cli.call.node.version;
 
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
+
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Call to get node version. */
 @Singleton
-public class NodeVersionCall implements Call<UrlCallInput, String> {
+public class NodeVersionCall implements Call<UrlCallInput, NodeVersion> {
     private final ApiClientFactory clientFactory;
 
     public NodeVersionCall(ApiClientFactory clientFactory) {
@@ -37,15 +40,16 @@ public class NodeVersionCall implements Call<UrlCallInput, String> {
     }
 
     @Override
-    public CallOutput<String> execute(UrlCallInput input) {
+    public CallOutput<NodeVersion> execute(UrlCallInput input) {
         try {
-            return DefaultCallOutput.success(getNodeVersion(input.getUrl()));
+            return success(getNodeVersion(input.getUrl()));
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
+            return failure(new IgniteCliApiException(e, input.getUrl()));
         }
     }
 
-    private String getNodeVersion(String url) throws ApiException {
-        return new NodeManagementApi(clientFactory.getClient(url)).nodeVersion();
+    private NodeVersion getNodeVersion(String url) throws ApiException {
+        var nodeVersion = new NodeManagementApi(clientFactory.getClient(url)).nodeVersion();
+        return NodeVersion.builder().version(nodeVersion.getVersion()).product(nodeVersion.getProduct()).build();
     }
 }

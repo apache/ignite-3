@@ -19,14 +19,17 @@ package org.apache.ignite.internal.cli.commands.version;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.junit.jupiter.api.DisplayName;
+import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
+import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.junit.jupiter.api.Test;
 
-class ItVersionCommandTest extends CliIntegrationTest {
+class CliVersionTest extends CliCommandTestBase {
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliCommand.class;
+    }
 
     @Test
-    @DisplayName("Should print cli version that is got from pom.xml")
     void printVersion() {
         // When
         execute("--version");
@@ -35,7 +38,7 @@ class ItVersionCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Apache Ignite CLI ver")
+                () -> assertOutputMatches("Apache Ignite CLI version [1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
         );
     }
 }

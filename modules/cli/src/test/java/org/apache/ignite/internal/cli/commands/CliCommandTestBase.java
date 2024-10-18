@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,6 +119,10 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     protected void assertOutputContains(String... expectedOutput) {
         List<Matcher<? super String>> matchers = Arrays.stream(expectedOutput).map(Matchers::containsString).collect(toList());
         assertThat("Unexpected command output", sout.toString(), allOf(matchers));
+    }
+
+    protected void assertOutputMatches(String regex) {
+        assertThat("Unexpected command output", sout.toString(), matchesRegex(regex));
     }
 
     protected void assertOutputIsEmpty() {

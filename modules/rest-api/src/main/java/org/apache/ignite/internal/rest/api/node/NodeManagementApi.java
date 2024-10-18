@@ -63,9 +63,9 @@ public interface NodeManagementApi {
             description = "Gets the version of Apache Ignite the node uses."
     )
     @ApiResponse(responseCode = "200", description = "Node version.",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeVersion.class)))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.PROBLEM_JSON)
-    String version();
+    NodeVersion version();
 }

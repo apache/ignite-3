@@ -29,6 +29,9 @@ public class IgniteProperties {
     /** Ignite product version. */
     public static final String VERSION = "ignite.version";
 
+    /** Ignite product name. */
+    public static final String PRODUCT = "ignite.product";
+
     /** Properties file path. */
     private static final String FILE_PATH = "ignite.properties";
 
