@@ -113,10 +113,11 @@ def buildDotNet = tasks.register('buildDotNet', Exec) {
     "/p:Version=${project.version}"
 }
 
-def zipNuGet = tasks.register('zipNuGet', Zip) {
+//noinspection ConfigurationAvoidance since sign task doesn't support task provider
+task zipNuGet(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-nuget.zip"
 
-    from("$buildDir/nupkg") {
+    from ("$buildDir/nupkg") {
         include "*.nupkg"
         include "*.snupkg"
     }
@@ -124,10 +125,11 @@ def zipNuGet = tasks.register('zipNuGet', Zip) {
     dependsOn buildNuGet
 }
 
-def zipCppClient = tasks.register('zipCppClient', Zip) {
+//noinspection ConfigurationAvoidance since sign task doesn't support task provider
+task zipCppClient(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-cpp.zip"
 
-    from("$projectDir/cpp") {
+    from ("$projectDir/cpp") {
         exclude "CMakeFiles"
         exclude "pom.xml"
         exclude "StyleGuide.md"
