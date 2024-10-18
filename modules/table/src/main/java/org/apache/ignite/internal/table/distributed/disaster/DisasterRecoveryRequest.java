@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.io.Serializable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -25,7 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * General interface for disaster recovery requests.
  */
-interface DisasterRecoveryRequest extends Serializable {
+interface DisasterRecoveryRequest {
     /**
      * Returns an ID of the operation, associated with request.
      */

@@ -1,0 +1,5 @@
+# these packages are required for documentation building
+# (look up the prebuilt docs in `docs/generated`)
+
+-r install.txt
+Sphinx==8.1.3

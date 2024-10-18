@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
  * Abstract test for {@link KeyValueStorage}.
  */
 public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest {
+    protected static final String NODE_NAME = "test";
+
     protected KeyValueStorage storage;
 
     @BeforeEach

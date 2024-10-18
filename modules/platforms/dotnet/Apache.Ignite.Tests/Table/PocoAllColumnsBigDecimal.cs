@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.converters;
+namespace Apache.Ignite.Tests.Table
+{
+    using System;
+    using System.Diagnostics.CodeAnalysis;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import picocli.CommandLine;
-import picocli.CommandLine.TypeConversionException;
-
-/**
- * Converter for @{link URL}.
- */
-public class UrlConverter implements CommandLine.ITypeConverter<URL> {
-    @Override
-    public URL convert(String value) throws Exception {
-        try {
-            return new URL(value);
-        } catch (MalformedURLException e) {
-            throw new TypeConversionException("Invalid URL '" + value + "' (" + e.getMessage() + ")");
-        }
-    }
+    /// <summary>
+    /// Test user object.
+    /// </summary>
+    [SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
+    [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
+    [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
+    public record PocoAllColumnsBigDecimal(
+        long Key,
+        string? Str,
+        sbyte Int8,
+        short Int16,
+        int Int32,
+        long Int64,
+        float Float,
+        double Double,
+        Guid Uuid,
+        BigDecimal Decimal);
 }

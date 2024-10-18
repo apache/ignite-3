@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.StringIntrospection;
+import org.apache.ignite.internal.util.VarIntUtils;
 
 /**
  * Data output based on {@code Unsafe} operations.
@@ -428,10 +428,8 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     /** {@inheritDoc} */
     @Override
     public void writeUuid(UUID val) throws IOException {
-        byte[] bytes = val.toString().getBytes(StandardCharsets.US_ASCII);
-
-        writeByte(bytes.length);
-        writeByteArray(bytes);
+        writeLong(val.getMostSignificantBits());
+        writeLong(val.getLeastSignificantBits());
     }
 
     /** {@inheritDoc} */
@@ -497,6 +495,11 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
         off = 0;
 
         out = null;
+    }
+
+    @Override
+    public void writeVarInt(long val) throws IOException {
+        VarIntUtils.writeVarInt(val, this);
     }
 
     /** {@inheritDoc} */
@@ -716,7 +719,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
      * @throws IOException In case of error.
      */
     private void writeUtf(String s, int utfLen) throws IOException {
-        VarInts.writeUnsignedInt(utfLen, this);
+        writeVarInt(utfLen);
 
         if (utfLen == s.length()) {
             writeAsciiStringBytes(s);

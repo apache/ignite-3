@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_OLD_CLUSTER_URL_OPTION_DESC;
 
 import java.net.URL;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import picocli.CommandLine.Option;
 
 /** Arguments for 'recovery cluster migrate' command. */
@@ -32,7 +32,7 @@ public class MigrateToClusterMixin {
     @Option(
             names = RECOVERY_OLD_CLUSTER_URL_OPTION,
             description = RECOVERY_OLD_CLUSTER_URL_OPTION_DESC,
-            converter = UrlConverter.class,
+            converter = RestEndpointUrlConverter.class,
             required = true
     )
     private URL oldClusterUrl;
@@ -41,7 +41,7 @@ public class MigrateToClusterMixin {
     @Option(
             names = RECOVERY_NEW_CLUSTER_URL_OPTION,
             description = RECOVERY_NEW_CLUSTER_URL_OPTION_DESC,
-            converter = UrlConverter.class,
+            converter = RestEndpointUrlConverter.class,
             required = true
     )
     private URL newClusterUrl;

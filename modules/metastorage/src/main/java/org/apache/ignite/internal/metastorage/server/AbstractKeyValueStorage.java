@@ -43,7 +43,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /** Abstract implementation of {@link KeyValueStorage}. */
@@ -78,6 +77,16 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected long compactionRevision = -1;
 
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
+
+    /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
+    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+    /**
+     * Used to generate read operation ID for {@link #readOperationForCompactionTracker}.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    protected long readOperationIdGeneratorForTracker;
 
     /**
      * Constructor.
@@ -145,17 +154,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGetAll(keys, revUpperBound);
-        } finally {
-            rwLock.readLock().unlock();
-        }
-    }
-
-    @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
-        rwLock.readLock().lock();
-
-        try {
-            return range(keyFrom, keyTo, rev);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -271,6 +269,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         Predicate<byte[]> exactPredicate = k -> KEY_COMPARATOR.compare(k, key) == 0;
 
         watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
+    }
+
+    @Override
+    public CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded) {
+        return readOperationForCompactionTracker.collect(compactionRevisionExcluded);
     }
 
     /** Notifies of revision update. Must be called under the {@link #rwLock}. */

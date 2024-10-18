@@ -61,6 +61,23 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
+    void childPojoJob(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = node(targetNodeIdx);
+
+        // When run job with provided pojo result class.
+        PojoResult result = client().compute().execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
+                new PojoArg().setStrValue("1").setChildPojo(new PojoArg().setStrValue("1"))
+        );
+
+        // Then the job returns the expected result.
+        assertThat(result.getLongValue(), is(2L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
     void pojoJobWithDifferentClass(int targetNodeIdx) {
         // Given target node.
         var targetNode = node(targetNodeIdx);
