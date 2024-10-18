@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -78,6 +78,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Table size. TODO make it configurable IGNITE-20694
      */
     public static final int SLOTS = 131072;
+
+    /**
+     * Striped lock concurrency.
+     */
+    private static final int CONCURRENCY = Runtime.getRuntime().availableProcessors() / 2;
 
     /**
      * Empty slots.
@@ -427,14 +432,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Coarse lock.
      */
     public class CoarseLockState implements Releasable {
-        private final ReentrantReadWriteLock[] stripes =
-                new ReentrantReadWriteLock[Math.max(1, Runtime.getRuntime().availableProcessors() / 2)];
-
-        {
-            for (int i = 0; i < stripes.length; i++) {
-                stripes[i] = new ReentrantReadWriteLock();
-            }
-        }
+        private final StripedCompositeReadWriteLock stripedLock = new StripedCompositeReadWriteLock(CONCURRENCY);
 
         private final ConcurrentHashMap<UUID, Lock> ixlockOwners = new ConcurrentHashMap<>();
         private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> slockWaiters = new HashMap<>();
@@ -468,14 +466,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 return lock;
             }
 
-            int idx = Math.floorMod(spread(txId.hashCode()), stripes.length);
+            int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
 
-            stripes[idx].readLock().lock();
+            stripedLock.readLock(idx).lock();
 
             try {
                 return slockOwners.get(txId);
             } finally {
-                stripes[idx].readLock().unlock();
+                stripedLock.readLock(idx).unlock();
             }
         }
 
@@ -495,9 +493,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
             switch (lockMode) {
                 case S:
-                    for (ReentrantReadWriteLock lock : stripes) {
-                        lock.writeLock().lock();
-                    }
+                    stripedLock.writeLock().lock();
 
                     try {
                         if (!ixlockOwners.isEmpty()) {
@@ -544,17 +540,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             return completedFuture(lock);
                         }
                     } finally {
-                        for (ReentrantReadWriteLock lock : stripes) {
-                            lock.writeLock().unlock();
-                        }
+                        stripedLock.writeLock().unlock();
                     }
 
                 case IX:
-                    int idx = Math.floorMod(spread(txId.hashCode()), stripes.length);
+                    int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
 
                     while (true) {
                         // This will prevent IX to block S, giving deadlock avoidance.
-                        boolean locked = stripes[idx].readLock().tryLock();
+                        boolean locked = stripedLock.readLock(idx).tryLock();
 
                         // Striped lock is held for short time. Can spin wait here.
                         if (!locked) {
@@ -604,7 +598,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             return completedFuture(lock);
                         }
                     } finally {
-                        stripes[idx].readLock().unlock();
+                        stripedLock.readLock(idx).unlock();
                     }
 
                 default:
@@ -626,27 +620,23 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             switch (lock.lockMode()) {
                 case S:
-                    for (ReentrantReadWriteLock l : stripes) {
-                        l.writeLock().lock();
-                    }
+                    stripedLock.writeLock().lock();
 
                     try {
                         Lock removed = slockOwners.remove(lock.txId());
 
                         assert removed != null : "Attempt to release not acquired lock: " + lock.txId();
                     } finally {
-                        for (ReentrantReadWriteLock l : stripes) {
-                            l.writeLock().unlock();
-                        }
+                        stripedLock.writeLock().unlock();
                     }
 
                     break;
                 case IX:
-                    int idx = Math.floorMod(spread(lock.txId().hashCode()), stripes.length);
+                    int idx = Math.floorMod(spread(lock.txId().hashCode()), CONCURRENCY);
 
                     Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> wakeups;
 
-                    stripes[idx].readLock().lock();
+                    stripedLock.readLock(idx).lock();
 
                     try {
                         var removed = ixlockOwners.remove(lock.txId());
@@ -674,7 +664,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             slockOwners.put(value.getKey().txId(), value.getKey());
                         }
                     } finally {
-                        stripes[idx].readLock().unlock();
+                        stripedLock.readLock(idx).unlock();
                     }
 
                     for (Entry<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> entry : wakeups.entrySet()) {

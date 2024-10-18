@@ -74,6 +74,16 @@ public class StripedCompositeReadWriteLock implements ReadWriteLock {
         return locks[curIdx()].readLock();
     }
 
+    /**
+     * Get a lock by stripe.
+     *
+     * @param idx Stripe index.
+     * @return The lock.
+     */
+    public Lock readLock(int idx) {
+        return locks[idx].readLock();
+    }
+
     /** {@inheritDoc} */
     @Override
     public Lock writeLock() {
