@@ -1022,7 +1022,7 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        qryEngine = new SqlQueryProcessor(
+        qryEngine = new SqlQueryProcessor(name,
                 clusterSvc,
                 logicalTopologyService,
                 distributedTblMgr,
@@ -1044,6 +1044,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
+
+        systemViewManager.register(qryEngine);
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
@@ -1350,12 +1352,9 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
-                                resourceVacuumManager
+                                resourceVacuumManager,
+                                systemViewManager
                         );
-
-                        // The system view manager comes last because other components
-                        // must register system views before it starts.
-                        lifecycleManager.startComponentAsync(systemViewManager, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }

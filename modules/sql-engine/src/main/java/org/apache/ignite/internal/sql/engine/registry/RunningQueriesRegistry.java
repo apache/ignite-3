@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
+package org.apache.ignite.internal.sql.engine.registry;
 
 import java.util.UUID;
-import java.util.function.Consumer;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.systemview.api.SystemView;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Context that allows to get explicit transaction provided by user or start implicit one.
+ * Registry of running queries.
  */
-public interface QueryTransactionContext {
-    /** Returns explicit transaction or start implicit one. */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
+public interface RunningQueriesRegistry {
+    QueryInfoTracker register(String schema, String sql, @Nullable UUID txId);
 
-    /** Updates tracker of latest time observed by client. */
-    void updateObservableTime(HybridTimestamp time);
+    QueryInfoTracker registerScript(String schema, String sql, @Nullable UUID txId);
 
-    /** Returns explicit transaction if one was provided by user. */
-    @Nullable QueryTransactionWrapper explicitTx();
-
-    default void setImplicitTxStartCallback(Consumer<UUID> callback) {
-        // No-op by default.
-    }
+    SystemView<?> systemView();
 }
