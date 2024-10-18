@@ -242,7 +242,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         if (waiting == 0) {
             source.request(waiting = IN_BUFFER_SIZE);
-        } else if (waiting == -1 && buff.isEmpty()) {
+        } else if (!hasMoreRows) {
             closeAsync();
         }
     }
