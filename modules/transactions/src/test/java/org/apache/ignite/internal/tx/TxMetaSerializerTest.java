@@ -33,11 +33,25 @@ class TxMetaSerializerTest {
     private final TxMetaSerializer serializer = new TxMetaSerializer();
 
     @Test
-    void serializationAndDeserialization() {
+    void serializationAndDeserializationWithoutNulls() {
+        TxMeta originalMeta = new TxMeta(
+                TxState.COMMITTED,
+                List.of(new TablePartitionId(1000, 15), new TablePartitionId(2000, 25)),
+                HybridTimestamp.MAX_VALUE
+        );
+
+        byte[] bytes = VersionedSerialization.toBytes(originalMeta, serializer);
+        TxMeta restoredMeta = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredMeta, equalTo(originalMeta));
+    }
+
+    @Test
+    void serializationAndDeserializationWithNulls() {
         TxMeta originalMeta = new TxMeta(
                 TxState.ABANDONED,
                 List.of(new TablePartitionId(1000, 15), new TablePartitionId(2000, 25)),
-                HybridTimestamp.MAX_VALUE
+                null
         );
 
         byte[] bytes = VersionedSerialization.toBytes(originalMeta, serializer);
