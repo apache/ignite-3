@@ -743,7 +743,7 @@ IgniteSqlKillWaitMode SqlKillWaitMode():
 {
     (
         <NO> <WAIT> { waitMode = IgniteSqlKillWaitMode.NO_WAIT; }
-    )*
+    )?
     {
         return waitMode;
     }
