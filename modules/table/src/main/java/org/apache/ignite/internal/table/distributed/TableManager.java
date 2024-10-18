@@ -74,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -299,7 +298,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, HybridTimestamp)}.
+     * <p>Only explicitly updated in {@link #createTableLocally(long, CatalogTableDescriptor, CatalogZoneDescriptor, CompletableFuture,
+     * boolean, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -2139,51 +2139,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 revision,
                                 isRecovery,
                                 assignmentsTimestamp
-                        ).thenAccept(v -> {
-                            CompletableFuture<ReplicaMeta> primaryReplicaFuture = getPrimaryReplica(replicaGrpId);
-
-                            isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
-                                if (!isPrimary) {
-                                    return;
-                                }
-
-                                primaryReplicaFuture.thenAccept(replicaMeta -> {
-                                    TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
-                                            .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicaGrpId);
-
-                                    ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(pendingAssignments.toBytes())
-                                            .order(BinaryTuple.ORDER);
-
-                                    BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                                            .elementCount(pendingAssignments.nodes().size())
-                                            .tuple(pendingAssignmentsBytes)
-                                            .build();
-
-                                    ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY
-                                            .changePeersAndLearnersReplicaRequest()
-                                            .groupId(partitionIdMessage)
-                                            .pendingAssignments(pendingAssignmentsMessage)
-                                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                            .build();
-
-                                    UUID localNodeId = localNode().id();
-
-                                    replicaMgr.replica(replicaGrpId).thenAccept(primaryReplica -> metaStorageMgr
-                                            .get(pendingPartAssignmentsKey(replicaGrpId))
-                                            .thenAccept(latestPendingAssignmentsEntry -> {
-                                                // Do not change peers of the raft group if this is a stale event.
-                                                // Note that we start raft node before for the sake of the consistency in a
-                                                // starting and stopping raft nodes.
-                                                if (revision < latestPendingAssignmentsEntry.revision()) {
-                                                    return;
-                                                }
-
-                                                primaryReplica.processRequest(request, localNodeId);
-                                            })
-                                    );
-                                });
-                            });
-                        });
+                        ).thenAccept(v -> executeIfLocalNodeIsPrimaryForGroup(
+                                replicaGrpId,
+                                replicaMeta -> sendChangePeersAndLearnersRequest(
+                                        replicaMeta,
+                                        replicaGrpId,
+                                        pendingAssignments,
+                                        revision
+                                )
+                        ));
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -2307,6 +2271,54 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private void executeIfLocalNodeIsPrimaryForGroup(ReplicationGroupId groupId, Consumer<ReplicaMeta> toExecute) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = getPrimaryReplica(groupId);
+
+        isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
+            if (!isPrimary) {
+                return;
+            }
+
+            primaryReplicaFuture.thenAccept(toExecute);
+        });
+    }
+
+    private void sendChangePeersAndLearnersRequest(
+            ReplicaMeta replicaMeta,
+            TablePartitionId replicationGroupId,
+            Assignments newConfiguration,
+            long currentRevision
+    ) {
+        TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
+                .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
+
+        ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(newConfiguration.toBytes())
+                .order(BinaryTuple.ORDER);
+
+        BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
+                .elementCount(newConfiguration.nodes().size())
+                .tuple(pendingAssignmentsBytes)
+                .build();
+
+        ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY
+                .changePeersAndLearnersReplicaRequest()
+                .groupId(partitionIdMessage)
+                .pendingAssignments(pendingAssignmentsMessage)
+                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                .build();
+
+        metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
+            // Do not change peers of the raft group if this is a stale event.
+            // Note that we start raft node before for the sake of the consistency in a
+            // starting and stopping raft nodes.
+            if (currentRevision < latestPendingAssignmentsEntry.revision()) {
+                return;
+            }
+
+            replicaSvc.invoke(localNode(), request);
+        });
     }
 
     private boolean isNodeInReducedStableOrPendingAssignments(

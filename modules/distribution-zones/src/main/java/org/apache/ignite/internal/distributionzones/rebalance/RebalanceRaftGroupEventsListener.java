@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -169,23 +168,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
 
-                        var peers = new HashSet<String>();
-                        var learners = new HashSet<String>();
-
-                        for (Assignment assignment : pendingAssignments) {
-                            if (assignment.isPeer()) {
-                                peers.add(assignment.consistentId());
-                            } else {
-                                learners.add(assignment.consistentId());
-                            }
-                        }
+                        PeersAndLearners peersAndLearners = PeersAndLearners.fromAssignments(pendingAssignments);
 
                         LOG.info(
                                 "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                                tablePartitionId, peers, learners
+                                tablePartitionId, peersAndLearners.peers(), peersAndLearners.learners()
                         );
-
-                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
                         partitionMover.movePartition(peersAndLearners, term).get();
                     }
