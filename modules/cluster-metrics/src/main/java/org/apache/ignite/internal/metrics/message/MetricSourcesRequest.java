@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metrics.messaging.MetricMessageTypes.ME
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
+/** Remote metric sources list request. */
 @Transferable(METRIC_SOURCES_REQUEST)
 public interface MetricSourcesRequest extends NetworkMessage {
 }

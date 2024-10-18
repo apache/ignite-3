@@ -25,6 +25,7 @@ import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
+/** Remote metric sources list response. */
 @Transferable(METRIC_SOURCES_RESPONSE)
 public interface MetricSourcesResponse extends NetworkMessage {
     @Nullable

@@ -19,7 +19,8 @@ package org.apache.ignite.internal.cli.commands.metric;
 
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 
-public class ItNodeMetricCommandReplTest extends ItNodeMetricCommandTest {
+/** Tests for node metric REPL commands. */
+class ItNodeMetricCommandReplTest extends ItNodeMetricCommandTest {
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;

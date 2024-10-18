@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metrics.messaging.MetricMessageTypes.ME
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
+/** Remote metric source disable request. */
 @Transferable(METRIC_DISABLE_REQUEST)
 public interface MetricDisableRequest extends NetworkMessage {
     String sourceName();
