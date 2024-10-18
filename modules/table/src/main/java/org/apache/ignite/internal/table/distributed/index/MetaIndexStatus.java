@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import java.util.Arrays;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
 /** Index status as stored in the {@link IndexMeta}. */
@@ -70,6 +71,9 @@ public enum MetaIndexStatus {
     private static final MetaIndexStatus[] VALUES_INDEXED_BY_CODE;
 
     static {
+        long distinctCodes = Arrays.stream(values()).map(s -> s.code).distinct().count();
+        assert distinctCodes == values().length : "There are duplicate codes";
+
         int maxCode = -1;
         for (MetaIndexStatus status : values()) {
             assert status.code >= 0 : status + " has a negative code";
