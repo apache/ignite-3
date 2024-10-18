@@ -454,7 +454,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
                 .exceptionally(th -> {
                     throw convertDdlException(th);
-                });
+                })
+                .whenComplete((r, t) -> operationContext.cancel().cancel());
 
         PrefetchCallback callback = operationContext.prefetchCallback();
         if (callback != null) {
@@ -500,6 +501,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         if (callback != null) {
             taskExecutor.execute(() -> callback.onPrefetchComplete(null));
         }
+
+        operationContext.cancel().cancel();
 
         return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
     }
