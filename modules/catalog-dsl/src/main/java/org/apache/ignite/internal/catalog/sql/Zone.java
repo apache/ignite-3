@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
+package org.apache.ignite.internal.catalog.sql;
 
-/**
- * Enumerates the options for CREATE TABLE and ALTER TABLE statements.
- */
-public enum TableOptionEnum {
-    /** Primary zone. */
-    PRIMARY_ZONE,
+class Zone extends QueryPart {
 
-    /** Storage profile. */
-    STORAGE_PROFILE
+    private final String zone;
+
+    Zone(String zone) {
+        this.zone = zone;
+    }
+
+    @Override
+    protected void accept(QueryContext ctx) {
+        ctx.sql("ZONE " + zone);
+    }
 }

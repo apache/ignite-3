@@ -81,7 +81,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
                     testZoneName, regionName, regionName));
 
             sql(String.format(
-                    "create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s', storage_profile='%s'",
+                    "create table %s (ID int, NAME varchar, primary key(ID, NAME)) zone %s storage profile '%s'",
                     tableName(engine),
                     testZoneName,
                     regionName
