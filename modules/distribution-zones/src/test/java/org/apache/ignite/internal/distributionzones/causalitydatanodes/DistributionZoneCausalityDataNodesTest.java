@@ -40,7 +40,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -71,8 +70,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
+import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.distributionzones.LogicalTopologySetSerializer;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -668,7 +669,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                (v) -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
                 ONE_NODE_NAME,
                 TIMEOUT
         );
@@ -722,7 +723,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                (v) -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
         );
@@ -1170,7 +1171,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             assertValueInStorage(
                     metaStorageManager,
                     zoneDataNodesKey(zoneId),
-                    (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                    (v) -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
                     TWO_NODES_NAMES,
                     TIMEOUT
             );
@@ -1200,7 +1201,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             assertValueInStorage(
                     metaStorageManager,
                     zoneDataNodesKey(entry.getKey()),
-                    (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                    (v) -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(v)).stream().map(Node::nodeName).collect(toSet()),
                     entry.getValue(),
                     TIMEOUT
             );
@@ -1434,7 +1435,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
                         revision = e.revision();
                     } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
-                        newLogicalTopology = fromBytes(e.value());
+                        newLogicalTopology = deserializeLogicalTopologySet(e.value());
                     }
                 }
 
@@ -1481,7 +1482,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                         byte[] dataNodesBytes = e.value();
 
                         if (dataNodesBytes != null) {
-                            newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
+                            newDataNodes = DistributionZonesUtil.dataNodes(deserializeDataNodesMap(dataNodesBytes));
                         } else {
                             newDataNodes = emptySet();
                         }
@@ -1501,6 +1502,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             public void onError(Throwable e) {
             }
         };
+    }
+
+    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
+    }
+
+    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     private void addCatalogZoneEventListeners() {

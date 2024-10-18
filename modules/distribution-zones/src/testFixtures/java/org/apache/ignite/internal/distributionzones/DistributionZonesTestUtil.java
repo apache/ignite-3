@@ -27,12 +27,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -55,6 +55,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -215,10 +216,14 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
+                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
                 nodes,
                 2000
         );
+    }
+
+    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
     }
 
     /**
@@ -237,7 +242,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
+                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
                 nodes,
                 2000
         );
@@ -305,10 +310,14 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyKey().bytes(),
-                ByteUtils::fromBytes,
+                DistributionZonesTestUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );
+    }
+
+    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**
@@ -331,7 +340,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 metaStorageManager,
                 zonesLogicalTopologyKey(),
-                ByteUtils::fromBytes,
+                DistributionZonesTestUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );
