@@ -78,7 +78,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -117,10 +116,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     );
 
     @BeforeEach
-    @Override
-    public void setup(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
-
+    public void setup() throws Exception {
         String zoneSql = "create zone test_zone with partitions=20, replicas=" + REPLICAS
                 + ", storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key bigint primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
@@ -131,12 +127,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         });
     }
 
-    @Override
     @AfterEach
     public void tearDown() {
         shutdownAndAwaitTermination(txStateStorageExecutor, 10, TimeUnit.SECONDS);
-
-        super.tearDown();
     }
 
     @Override

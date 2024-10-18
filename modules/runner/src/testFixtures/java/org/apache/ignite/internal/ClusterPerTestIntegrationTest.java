@@ -114,7 +114,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      * @throws Exception If failed.
      */
     @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
+    public void startCluster(TestInfo testInfo) throws Exception {
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
@@ -124,7 +124,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     @AfterEach
     @Timeout(60)
-    public void tearDown() {
+    public void stopCluster() {
         cluster.shutdown();
     }
 

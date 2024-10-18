@@ -60,6 +60,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -101,7 +102,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param testInfo Test information object.
      */
     @BeforeAll
-    protected void beforeAll(TestInfo testInfo) {
+    protected void startCluster(TestInfo testInfo) {
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0 && needInitializeCluster()) {
@@ -145,7 +146,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * After all.
      */
     @AfterAll
-    void afterAll() {
+    @Timeout(60)
+    void stopCluster() {
         CLUSTER.shutdown();
     }
 

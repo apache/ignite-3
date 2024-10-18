@@ -76,7 +76,6 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -101,10 +100,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
     /** {@inheritDoc} */
     @BeforeAll
-    @Override
-    protected void beforeAll(TestInfo testInfo) {
-        super.beforeAll(testInfo);
-
+    void beforeAll() {
         CLIENT = IgniteClient.builder()
                 .addresses("127.0.0.1:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port()).build();
 
