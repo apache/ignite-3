@@ -62,12 +62,6 @@ def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     commandLine "doxygen"
 }
 
-def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
-    include "**/*.so"
-    from("$rootDir/modules/platforms/cpp")
-    into("$buildDir/classes/")
-}
-
 cmake {
     workingFolder=file("$buildDir/cpp")
     sourceFolder=file("$projectDir/cpp")
@@ -119,6 +113,7 @@ def buildDotNet = tasks.register('buildDotNet', Exec) {
     "/p:Version=${project.version}"
 }
 
+//noinspection ConfigurationAvoidance since sign task doesn't support task provider
 task zipNuGet(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-nuget.zip"
 
@@ -130,6 +125,7 @@ task zipNuGet(type: Zip) {
     dependsOn buildNuGet
 }
 
+//noinspection ConfigurationAvoidance since sign task doesn't support task provider
 task zipCppClient(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-cpp.zip"
 
@@ -182,6 +178,20 @@ if (project.hasProperty('prepareRelease')) {
     }
 }
 
+def copyClientLibs = tasks.register('copyClientLibs', Copy) {
+    dependsOn cmakeBuildClient
+    from("$buildDir/cpp/lib")
+    include "libignite3-client.so*"
+    into "$buildDir/clientLibs"
+}
+
+def copyOdbcLibs = tasks.register('copyOdbcLibs', Copy) {
+    dependsOn cmakeBuildOdbc
+    from("$buildDir/cpp/lib")
+    include "libignite3-odbc.so*"
+    into "$buildDir/odbcLibs"
+}
+
 artifacts {
     if (project.hasProperty('platforms.enable')) {
         dotNet(file("$buildDir/dotnet")) {
@@ -190,24 +200,14 @@ artifacts {
         cppClientHeaders(file("$buildDir/install/include")) {
             builtBy cmakeBuildClient
         }
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3")) {
-            builtBy cmakeBuildClient
-        }
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
-            builtBy cmakeBuildClient
-        }
 
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
             odbc(file("$buildDir/cpp/Release/bin/ignite3-odbc.dll")) {
                 builtBy cmakeBuildOdbc
             }
         } else {
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-                builtBy cmakeBuildOdbc
-            }
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
-                builtBy cmakeBuildOdbc
-            }
+            odbc copyOdbcLibs
+            cppClient copyClientLibs
         }
     }
 }
