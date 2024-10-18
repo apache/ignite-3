@@ -700,7 +700,7 @@ SqlNode SqlCommitTransaction() :
     }
 }
 
-SqlNode SqlKillCommand() :
+SqlNode SqlKill() :
 {
     final Span s;
     final SqlNode objectId;
