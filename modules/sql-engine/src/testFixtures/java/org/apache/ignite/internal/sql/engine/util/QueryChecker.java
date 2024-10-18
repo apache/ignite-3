@@ -313,6 +313,8 @@ public interface QueryChecker {
 
     QueryChecker withTimeZoneId(ZoneId timeZoneId);
 
+    QueryChecker withDefaultSchema(String schema);
+
     QueryChecker disableRules(String... rules);
 
     QueryChecker returns(Object... res);

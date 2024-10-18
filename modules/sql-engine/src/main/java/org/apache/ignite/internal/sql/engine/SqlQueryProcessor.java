@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.RunningQueryRegistry.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
@@ -113,7 +114,9 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -129,7 +132,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
-public class SqlQueryProcessor implements QueryProcessor {
+public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
@@ -221,8 +224,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final RunningQueryRegistry runningQueries = new RunningQueryRegistry();
+
     /** Constructor. */
     public SqlQueryProcessor(
+            String localNodeName,
             ClusterService clusterSrvc,
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
@@ -445,6 +451,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(runningQueries.systemView());
+    }
+
     private <T extends LifecycleAware> T registerService(T service) {
         services.add(service);
 
@@ -460,6 +471,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
         Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
+
+        UUID txId = explicitTransaction != null ? explicitTransaction.id() : null;
+        UUID queryId = runningQueries.register(schemaName, sql, txId);
 
         QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
@@ -478,9 +492,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
-            CompletableFuture<QueryMetadata> f = prepareParsedStatement(schemaName, result, timestamp,
-                    queryCancel, params)
-                    .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
+            CompletableFuture<QueryMetadata> f = prepareParsedStatement(queryId, schemaName, result, timestamp, queryCancel, params)
+                    .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()))
+                    .whenComplete((r, e) -> runningQueries.unregister(queryId));
 
             CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
 
@@ -505,11 +519,20 @@ public class SqlQueryProcessor implements QueryProcessor {
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
         Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
 
+        QueryTransactionWrapper txWrapper = txContext.explicitTx();
+
+        UUID externalTxId = txWrapper != null ? txWrapper.unwrap().id() : null;
+        UUID queryId = runningQueries.register(schemaName, sql, externalTxId);
+        txContext.setImplicitTxStartCallback(implicitTxId -> runningQueries.updateTxId(queryId, implicitTxId));
+
         QueryCancel queryCancel = new QueryCancel();
 
         if (queryTimeout != 0) {
             queryCancel.setTimeout(commonScheduler, queryTimeout);
         }
+
+        // TODO queryCancel or future listener
+        queryCancel.add(ignore -> runningQueries.unregister(queryId));
 
         ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
@@ -518,13 +541,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
         return start.thenCompose(result -> {
+            runningQueries.updateType(queryId, result.queryType());
             validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             HybridTimestamp operationTime = deriveOperationTime(txContext);
 
             SqlOperationContext operationContext = SqlOperationContext.builder()
-                    .queryId(UUID.randomUUID())
+                    .queryId(queryId)
                     .cancel(queryCancel)
                     .prefetchCallback(new PrefetchCallback())
                     .parameters(params)
@@ -571,16 +595,21 @@ public class SqlQueryProcessor implements QueryProcessor {
         return parseFut;
     }
 
-    private CompletableFuture<QueryPlan> prepareParsedStatement(String schemaName,
+    private CompletableFuture<QueryPlan> prepareParsedStatement(
+            UUID queryId,
+            String schemaName,
             ParsedResult parsedResult,
             HybridTimestamp timestamp,
             QueryCancel queryCancel,
-            Object[] params) {
+            Object[] params
+    ) {
 
         return waitForMetadata(timestamp)
-                .thenCompose(schema -> {
+                .thenCompose(none -> {
+                    runningQueries.updatePhase(queryId, ExecutionPhase.OPTIMIZATION);
+
                     SqlOperationContext ctx = SqlOperationContext.builder()
-                            .queryId(UUID.randomUUID())
+                            .queryId(queryId)
                             // time zone is used in execution phase,
                             // so we may use any time zone for preparation only
                             .timeZoneId(DEFAULT_TIME_ZONE_ID)
@@ -608,17 +637,23 @@ public class SqlQueryProcessor implements QueryProcessor {
         HybridTimestamp operationTime = operationContext.operationTime();
 
         return waitForMetadata(operationTime)
-                .thenCompose(none -> prepareSvc.prepareAsync(parsedResult, operationContext)
-                        .thenCompose(plan -> {
-                            if (txContext.explicitTx() == null) {
-                                // in case of implicit tx we have to update observable time to prevent tx manager to start
-                                // implicit transaction too much in the past where version of catalog we used to prepare the
-                                // plan was not yet available
-                                txContext.updateObservableTime(deriveMinimalRequiredTime(plan));
-                            }
+                .thenCompose(none -> {
+                    runningQueries.updatePhase(operationContext.queryId(), ExecutionPhase.OPTIMIZATION);
 
-                            return executePlan(operationContext, plan, nextStatement);
-                        }));
+                    return prepareSvc.prepareAsync(parsedResult, operationContext);
+                })
+                .thenCompose(plan -> {
+                    runningQueries.updatePhase(operationContext.queryId(), ExecutionPhase.EXECUTION);
+
+                    if (txContext.explicitTx() == null) {
+                        // in case of implicit tx we have to update observable time to prevent tx manager to start
+                        // implicit transaction too much in the past where version of catalog we used to prepare the
+                        // plan was not yet available
+                        txContext.updateObservableTime(deriveMinimalRequiredTime(plan));
+                    }
+
+                    return executePlan(operationContext, plan, nextStatement);
+                });
     }
 
     private HybridTimestamp deriveOperationTime(QueryTransactionContext txContext) {

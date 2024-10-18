@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,4 +34,8 @@ public interface QueryTransactionContext {
 
     /** Returns explicit transaction if one was provided by user. */
     @Nullable QueryTransactionWrapper explicitTx();
+
+    default void setImplicitTxStartCallback(Consumer<UUID> callback) {
+        // No-op by default.
+    }
 }
