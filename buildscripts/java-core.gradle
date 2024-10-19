@@ -46,6 +46,7 @@ processResources {
     filesMatching('**/*.properties') {
         filter { String line ->
             line.replace("\${project.version}", project.version)
+                    .replace("\${project.product}", project.product)
         }
     }
 }
@@ -70,7 +71,7 @@ checkstyle {
     ]
 }
 
-tasks.withType(Checkstyle) {
+tasks.withType(Checkstyle).configureEach {
     excludes = ["**/generated-source/**",
                 "**/generated/**",
                 "com/facebook/presto/bytecode/**/*",
@@ -81,7 +82,6 @@ tasks.withType(Checkstyle) {
             required = true
             outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
         }
-
     }
 }
 
