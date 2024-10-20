@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -79,22 +80,27 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
-    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
-    /**
-     * Used to generate read operation ID for {@link #readOperationForCompactionTracker}.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
-     */
-    protected long readOperationIdGeneratorForTracker;
+    protected final ExecutorService compactionExecutor;
 
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
+     * @param compactionExecutor Metastorage compaction executor.
      */
-    protected AbstractKeyValueStorage(String nodeName, FailureManager failureManager) {
+    protected AbstractKeyValueStorage(
+            String nodeName,
+            FailureManager failureManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            ExecutorService compactionExecutor
+    ) {
+        this.readOperationForCompactionTracker = readOperationForCompactionTracker;
+        this.compactionExecutor = compactionExecutor;
+
         this.watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
     }
 

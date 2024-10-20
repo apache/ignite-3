@@ -81,6 +81,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     private final ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock);
 
+    protected ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
     @Override
     @BeforeEach
     void setUp() {

@@ -133,9 +133,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
+        String nodeName = "test";
 
-        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
+
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
 

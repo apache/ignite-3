@@ -98,7 +98,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -274,7 +273,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
-        catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        catalogMetastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 

@@ -50,6 +50,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -137,7 +138,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     /** Constructor. */
     public SimpleInMemoryKeyValueStorage(String nodeName) {
-        super(nodeName, new NoOpFailureManager());
+        this(nodeName, new ReadOperationForCompactionTracker());
+    }
+
+    /** Constructor. */
+    public SimpleInMemoryKeyValueStorage(String nodeName, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
+        super(nodeName, new NoOpFailureManager(), readOperationForCompactionTracker, ForkJoinPool.commonPool());
     }
 
     @Override
@@ -785,6 +791,29 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public void startCompaction(long revision) {
+        assert revision >= 0 : revision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            if (areWatchesEnabled) {
+                watchProcessor.addTaskToWatchEventQueue(() -> {
+                    setCompactionRevision(revision);
+
+                    // TODO: IGNITE-23479 продолжить логику
+                });
+            } else {
+                compactionRevision = revision;
+            }
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public long checksum(long revision) {
         throw new UnsupportedOperationException();
     }
@@ -895,7 +924,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         Iterator<Entry> iterator = entries.iterator();
 
-        long readOperationId = readOperationIdGeneratorForTracker++;
+        long readOperationId = readOperationForCompactionTracker.generateLongReadOperationId();
         long compactionRevisionOnCreateIterator = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);

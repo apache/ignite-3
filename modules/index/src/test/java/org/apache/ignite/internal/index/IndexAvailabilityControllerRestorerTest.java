@@ -57,6 +57,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -89,9 +90,11 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @BeforeEach
     void setUp() throws Exception {
-        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager());
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
+        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
@@ -205,9 +208,11 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
                         () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
 
-        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager());
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
+        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 

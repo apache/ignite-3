@@ -425,7 +425,28 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void compact(long revision);
 
     /**
-     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     * Starts local compaction of metastorage.
+     *
+     * <p>Algorithm:</p>
+     * <ul>
+     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
+     *     <li>Task (B) collects all read operations from metastorage (local and from the leader) and starts asynchronously waiting for
+     *     their completion.</li>
+     *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
+     * </ul>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param revision Compaction revision.
+     */
+    // TODO: IGNITE-23479 добвить описание про слушателей и бло бла
+    void startCompaction(long revision);
+
+    /**
+     * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
      *
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
      * recommended to invoke this method before stopping the external component.</p>

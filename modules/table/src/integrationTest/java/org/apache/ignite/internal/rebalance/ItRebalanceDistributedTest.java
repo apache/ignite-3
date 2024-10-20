@@ -149,6 +149,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -1210,9 +1211,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
-            KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
-                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureManager)
-                    : new SimpleInMemoryKeyValueStorage(name);
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            KeyValueStorage keyValueStorage = !testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
+                    ? new SimpleInMemoryKeyValueStorage(name, readOperationForCompactionTracker)
+                    : new RocksDbKeyValueStorage(
+                            name,
+                            resolveDir(dir, "metaStorage"),
+                            failureManager,
+                            readOperationForCompactionTracker
+                    );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -1239,7 +1247,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));

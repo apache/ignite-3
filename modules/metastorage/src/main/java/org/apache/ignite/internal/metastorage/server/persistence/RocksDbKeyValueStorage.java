@@ -90,6 +90,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -257,13 +258,24 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureManager failureManager) {
-        super(nodeName, failureManager);
+    public RocksDbKeyValueStorage(
+            String nodeName,
+            Path dbPath,
+            FailureManager failureManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
+        super(
+                nodeName,
+                failureManager,
+                readOperationForCompactionTracker,
+                Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "metastorage-compaction-executor", LOG))
+        );
 
         this.dbPath = dbPath;
 
-        this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
     }
 
     @Override
@@ -408,6 +420,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {
@@ -1289,6 +1302,29 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public void startCompaction(long revision) {
+        assert revision >= 0 : revision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            if (recoveryStatus.get() != RecoveryStatus.DONE) {
+                compactionRevision = revision;
+            } else {
+                watchProcessor.addTaskToWatchEventQueue(() -> {
+                    setCompactionRevision(revision);
+
+                    // TODO: IGNITE-23479 продолжить логику
+                });
+            }
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public long checksum(long revision) {
         rwLock.readLock().lock();
 
@@ -1464,7 +1500,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
-        long readOperationId = readOperationIdGeneratorForTracker++;
+        long readOperationId = readOperationForCompactionTracker.generateLongReadOperationId();
         long compactionRevisionBeforeCreateCursor = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevision);

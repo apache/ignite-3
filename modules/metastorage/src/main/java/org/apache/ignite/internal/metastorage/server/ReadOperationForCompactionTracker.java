@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.metastorage.MetaStorageCompactionManager;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -46,6 +47,13 @@ import org.apache.ignite.internal.util.CompletableFutures;
  */
 public class ReadOperationForCompactionTracker {
     private final Map<ReadOperationKey, CompletableFuture<Void>> readOperationFutureByKey = new ConcurrentHashMap<>();
+
+    private final AtomicLong longOperationIdGenerator = new AtomicLong();
+
+    /** Generates the next read operation ID. Thread-safe. */
+    public long generateLongReadOperationId() {
+        return longOperationIdGenerator.getAndIncrement();
+    }
 
     /**
      * Starts tracking the completion of a read operation on the current compaction revision.

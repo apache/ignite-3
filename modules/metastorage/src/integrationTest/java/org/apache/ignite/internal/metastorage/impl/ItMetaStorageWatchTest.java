@@ -78,6 +78,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -222,17 +223,27 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            var storage = new RocksDbKeyValueStorage(
+                    name(),
+                    metastorageWorkDir.dbPath(),
+                    new NoOpFailureManager(),
+                    readOperationForCompactionTracker
+            );
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), metastorageWorkDir.dbPath(), new NoOpFailureManager()),
+                    storage,
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             components.add(metaStorageManager);
