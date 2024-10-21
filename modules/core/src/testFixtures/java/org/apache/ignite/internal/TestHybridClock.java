@@ -85,7 +85,7 @@ public class TestHybridClock implements HybridClock {
     public long currentLong() {
         long current = currentTime();
 
-        return max(latestTime, now);
+        return max(latestTime, current);
     }
 
     private void notifyUpdateListeners(long newLatestTime) {
