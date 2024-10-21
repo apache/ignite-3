@@ -19,10 +19,8 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.lang.ErrorGroups.Sql;
