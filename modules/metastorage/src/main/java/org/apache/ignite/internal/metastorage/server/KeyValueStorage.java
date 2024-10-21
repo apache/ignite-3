@@ -436,7 +436,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
      *     asynchronously waiting for their completion.</li>
      *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
-     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompleteLocally} for
+     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompactionCompleteLocally} for
      *     {@link #registerCompactionListener registered} listeners.</li>
      * </ul>
      *

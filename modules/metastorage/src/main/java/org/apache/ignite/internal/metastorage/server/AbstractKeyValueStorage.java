@@ -125,11 +125,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected abstract Value valueForOperation(byte[] key, long revision);
 
     /**
-     * Returns {@code true} if the storage is in recovery state and the watches have not {@link #startWatches started}.
+     * Returns {@code true} if the storage is in the recovery state.
      *
      * <p>Method is expected to be invoked under {@link #rwLock}.</p>
      */
-    protected abstract boolean isRecoveryState();
+    protected abstract boolean isInRecoveryState();
 
     @Override
     public Entry get(byte[] key) {
@@ -232,26 +232,22 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         try {
             assertCompactionRevisionLessThanCurrent(revision, rev);
 
-            if (isRecoveryState()) {
+            if (isInRecoveryState()) {
                 compactionRevision = revision;
             } else {
                 watchProcessor
                         .addTaskToWatchEventQueue(() -> setCompactionRevision(revision))
                         .thenComposeAsync(unused -> readOperationsFuture(revision), compactionExecutor)
                         .thenRunAsync(() -> compact(revision), compactionExecutor)
-                        .whenComplete((unused, throwable) -> {
+                        .whenCompleteAsync((unused, throwable) -> {
                             if (throwable == null) {
                                 log.info("Metastore compaction completed successfully: [compactionRevision={}]", revision);
                             } else {
-                                log.error(
-                                        "Metastore compaction completed unsuccessfully: [compactionRevision={}]",
-                                        unwrapCause(throwable),
-                                        revision
-                                );
+                                log.error("Metastore compaction failed: [compactionRevision={}]", unwrapCause(throwable), revision);
                             }
 
                             notifyCompleteCompactionLocally(compactionRevision, throwable);
-                        });
+                        }, compactionExecutor);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -448,7 +444,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         for (CompactionListener listener : compactionListeners) {
             try {
-                listener.onCompleteLocally(compactionRevision);
+                listener.onCompactionCompleteLocally(compactionRevision);
             } catch (Throwable t) {
                 doCriticalErrorIfNotNodeStoppingException(t);
             }

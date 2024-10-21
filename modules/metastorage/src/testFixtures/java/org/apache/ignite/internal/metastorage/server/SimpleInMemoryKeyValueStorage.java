@@ -501,7 +501,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void notifyWatches() {
-        if (isRecoveryState() || updatedEntries.isEmpty()) {
+        if (isInRecoveryState() || updatedEntries.isEmpty()) {
             updatedEntries.clear();
 
             return;
@@ -761,7 +761,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (!isRecoveryState()) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -782,7 +782,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
             setIndexAndTerm(context.index, context.term);
 
-            if (!isRecoveryState()) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -859,7 +859,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isRecoveryState() {
+    protected boolean isInRecoveryState() {
         return !areWatchesEnabled;
     }
 

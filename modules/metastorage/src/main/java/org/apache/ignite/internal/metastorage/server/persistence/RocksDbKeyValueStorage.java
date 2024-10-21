@@ -1269,7 +1269,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (!isRecoveryState()) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -1292,7 +1292,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             db.write(defaultWriteOptions, batch);
 
-            if (!isRecoveryState()) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
@@ -1448,7 +1448,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isRecoveryState() {
+    protected boolean isInRecoveryState() {
         return recoveryStatus.get() != RecoveryStatus.DONE;
     }
 

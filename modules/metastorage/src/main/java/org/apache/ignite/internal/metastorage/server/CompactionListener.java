@@ -21,5 +21,5 @@ package org.apache.ignite.internal.metastorage.server;
 @FunctionalInterface
 public interface CompactionListener {
     /** Callback on completion of metastore compaction locally. */
-    void onCompleteLocally(long compactionRevision);
+    void onCompactionCompleteLocally(long compactionRevision);
 }

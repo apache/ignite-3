@@ -75,8 +75,6 @@ public class ReadOperationForCompactionTracker {
      * @see #untrack(Object, long)
      */
     public void track(Object readOperationId, long compactionRevision) {
-        System.err.println(">>>");
-
         var key = new ReadOperationKey(readOperationId, compactionRevision);
 
         CompletableFuture<Void> previous = readOperationFutureByKey.putIfAbsent(key, new CompletableFuture<>());
