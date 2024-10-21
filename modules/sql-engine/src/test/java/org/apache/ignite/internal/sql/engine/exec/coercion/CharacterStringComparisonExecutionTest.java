@@ -59,7 +59,7 @@ public class CharacterStringComparisonExecutionTest extends BaseTypeCheckExecuti
     @EnumSource
     public void comparisonGreat(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
-            testCluster.process("SELECT c1 < c2 FROM t", checkReturnResult());
+            testCluster.process("SELECT c1 > c2 FROM t", checkReturnResult());
         }
     }
 }
