@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import java.io.Serializable;
 import java.util.UUID;
 
 /**
@@ -26,9 +25,7 @@ import java.util.UUID;
  * {@code nodeId} that is unique identifier of a node, that changes after a restart.
  * {@code nodeId} is needed to get node's attributes from the local state of the distribution zone manager.
  */
-public class Node implements Serializable {
-    private static final long serialVersionUID = 875461392587175703L;
-
+public class Node {
     private final String nodeName;
 
     private final UUID nodeId;
