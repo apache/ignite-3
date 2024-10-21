@@ -79,10 +79,8 @@ public class IgniteSqlKill extends SqlCall {
     }
 
     /** Object id. */
-    public String objectId() {
-        String value = operator.objectId.toValue();
-        assert value != null : "ObjectId can not be null";
-        return value;
+    public SqlLiteral objectId() {
+        return operator.objectId;
     }
 
     /** Type of object. */
@@ -125,7 +123,7 @@ public class IgniteSqlKill extends SqlCall {
                 throw new IllegalStateException("Unexpected object type: " + operator.objectType);
         }
 
-        operator.objectId.unparse(writer, 0, 0);
+        objectId().unparse(writer, 0, 0);
 
         if (!operator.waitForCompletion) {
             writer.keyword("NO");

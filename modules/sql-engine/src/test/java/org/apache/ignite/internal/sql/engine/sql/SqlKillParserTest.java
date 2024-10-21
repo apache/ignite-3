@@ -44,7 +44,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         IgniteSqlKill kill = assertInstanceOf(IgniteSqlKill.class, sqlNode);
 
-        assertEquals("abc", kill.objectId());
+        assertEquals("abc", kill.objectId().toValue());
         assertEquals(objectType, kill.objectType());
         assertTrue(kill.waitForCompletion());
 
@@ -63,7 +63,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         IgniteSqlKill kill = assertInstanceOf(IgniteSqlKill.class, sqlNode);
 
-        assertEquals("abc", kill.objectId());
+        assertEquals("abc", kill.objectId().toValue());
         assertEquals(objectType, kill.objectType());
         assertFalse(kill.waitForCompletion());
 
