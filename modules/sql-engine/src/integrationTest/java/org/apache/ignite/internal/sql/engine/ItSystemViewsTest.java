@@ -20,10 +20,10 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
 import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ public class ItSystemViewsTest extends BaseSqlIntegrationTest {
 
     @BeforeAll
     void beforeAll() {
-        IgniteTestUtils.await(systemViewManager().completeRegistration());
+        await(systemViewManager().completeRegistration());
     }
 
     @ParameterizedTest

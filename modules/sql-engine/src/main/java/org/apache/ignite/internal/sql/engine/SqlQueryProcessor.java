@@ -34,16 +34,16 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -94,6 +94,12 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.sql.engine.registry.QueryExecutionPhase;
+import org.apache.ignite.internal.sql.engine.registry.QueryInfoTracker;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistry;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistryImpl;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
+import org.apache.ignite.internal.sql.engine.registry.ScriptInfoTracker;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -113,7 +119,9 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -129,7 +137,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
-public class SqlQueryProcessor implements QueryProcessor {
+public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
@@ -207,8 +215,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
-
     /** Cluster SQL configuration. */
     private final SqlDistributedConfiguration clusterCfg;
 
@@ -221,8 +227,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final RunningQueriesRegistry runningQueries = new RunningQueriesRegistryImpl();
+
     /** Constructor. */
     public SqlQueryProcessor(
+            String localNodeName,
             ClusterService clusterSrvc,
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
@@ -280,7 +289,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
-        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
+        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(runningQueries::openedCursorsCount);
         metricManager.registerSource(sqlClientMetricSource);
         metricManager.enable(sqlClientMetricSource);
 
@@ -380,8 +389,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         busyLock.block();
 
-        openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
-        openedCursors.clear();
+        runningQueries.queries().stream().map(RunningQueryInfo::cursor).filter(Objects::nonNull).forEach(AsyncSqlCursor::closeAsync);
 
         metricManager.unregisterSource(SqlClientMetricSource.NAME);
 
@@ -445,6 +453,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(runningQueries.systemView());
+    }
+
     private <T extends LifecycleAware> T registerService(T service) {
         services.add(service);
 
@@ -505,6 +518,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
         Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
 
+        QueryTransactionWrapper txWrapper = txContext.explicitTx();
+        UUID externalTxId = txWrapper != null ? txWrapper.unwrap().id() : null;
+        QueryInfoTracker queryInfoTracker = runningQueries.register(schemaName, sql, externalTxId);
+        txContext.setImplicitTxStartCallback(queryInfoTracker::changeTransactionId);
+
         QueryCancel queryCancel = new QueryCancel();
 
         if (queryTimeout != 0) {
@@ -518,13 +536,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
         return start.thenCompose(result -> {
+            queryInfoTracker.changeType(result.queryType());
             validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             HybridTimestamp operationTime = deriveOperationTime(txContext);
 
             SqlOperationContext operationContext = SqlOperationContext.builder()
-                    .queryId(UUID.randomUUID())
+                    .queryId(queryInfoTracker.queryId())
                     .cancel(queryCancel)
                     .prefetchCallback(new PrefetchCallback())
                     .parameters(params)
@@ -534,7 +553,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .txContext(txContext)
                     .build();
 
-            return executeParsedStatement(operationContext, result, null);
+            return executeParsedStatement(operationContext, result, queryInfoTracker, null);
+        })
+        .whenComplete((r, e) -> {
+            if (e != null) {
+                queryInfoTracker.unregister();
+            }
         });
     }
 
@@ -547,6 +571,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
         Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
+
+        QueryTransactionWrapper txWrapper = txCtx.explicitTx();
+        UUID externalTxId = txWrapper != null ? txWrapper.unwrap().id() : null;
+        ScriptInfoTracker scriptInfoTracker = runningQueries.registerScript(schemaName, sql, externalTxId);
 
         Instant deadline;
         if (queryTimeout != 0) {
@@ -561,9 +589,17 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, txCtx, parsedResults, params, timeZoneId, deadline);
+                            schemaName, txCtx, parsedResults, params, timeZoneId, scriptInfoTracker, deadline
+                    );
+
+                    scriptInfoTracker.changePhase(QueryExecutionPhase.EXECUTION);
 
                     return handler.processNext();
+                })
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        scriptInfoTracker.unregister();
+                    }
                 });
 
         start.completeAsync(() -> null, taskExecutor);
@@ -578,7 +614,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             Object[] params) {
 
         return waitForMetadata(timestamp)
-                .thenCompose(schema -> {
+                .thenCompose(none -> {
                     SqlOperationContext ctx = SqlOperationContext.builder()
                             .queryId(UUID.randomUUID())
                             // time zone is used in execution phase,
@@ -597,6 +633,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeParsedStatement(
             SqlOperationContext operationContext,
             ParsedResult parsedResult,
+            QueryInfoTracker queryInfoTracker,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
     ) {
         QueryTransactionContext txContext = operationContext.txContext();
@@ -608,17 +645,23 @@ public class SqlQueryProcessor implements QueryProcessor {
         HybridTimestamp operationTime = operationContext.operationTime();
 
         return waitForMetadata(operationTime)
-                .thenCompose(none -> prepareSvc.prepareAsync(parsedResult, operationContext)
-                        .thenCompose(plan -> {
-                            if (txContext.explicitTx() == null) {
-                                // in case of implicit tx we have to update observable time to prevent tx manager to start
-                                // implicit transaction too much in the past where version of catalog we used to prepare the
-                                // plan was not yet available
-                                txContext.updateObservableTime(deriveMinimalRequiredTime(plan));
-                            }
+                .thenCompose(none -> {
+                    queryInfoTracker.changePhase(QueryExecutionPhase.OPTIMIZATION);
 
-                            return executePlan(operationContext, plan, nextStatement);
-                        }));
+                    return prepareSvc.prepareAsync(parsedResult, operationContext);
+                })
+                .thenCompose(plan -> {
+                    queryInfoTracker.changePhase(QueryExecutionPhase.EXECUTION);
+
+                    if (txContext.explicitTx() == null) {
+                        // in case of implicit tx we have to update observable time to prevent tx manager to start
+                        // implicit transaction too much in the past where version of catalog we used to prepare the
+                        // plan was not yet available
+                        txContext.updateObservableTime(deriveMinimalRequiredTime(plan));
+                    }
+
+                    return executePlan(operationContext, plan, queryInfoTracker, nextStatement);
+                });
     }
 
     private HybridTimestamp deriveOperationTime(QueryTransactionContext txContext) {
@@ -638,8 +681,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executePlan(
             SqlOperationContext ctx,
             QueryPlan plan,
-            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
-    ) {
+            QueryInfoTracker queryInfoTracker,
+            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -648,7 +691,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             AsyncDataCursor<InternalSqlRow> dataCursor = executionSrvc.executePlan(plan, ctx);
 
             SqlQueryType queryType = plan.type();
-            UUID queryId = ctx.queryId();
 
             PrefetchCallback prefetchCallback = ctx.prefetchCallback();
 
@@ -661,11 +703,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                     nextStatement
             );
 
-            Object old = openedCursors.put(queryId, cursor);
+            queryInfoTracker.setCursor(cursor);
 
-            assert old == null;
-
-            cursor.onClose().whenComplete((r, e) -> openedCursors.remove(queryId));
+            cursor.onClose().whenComplete((r, e) -> {
+                queryInfoTracker.unregister();
+            });
 
             QueryTransactionContext txContext = ctx.txContext();
 
@@ -788,7 +830,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Returns count of opened cursors. */
     @TestOnly
     public int openedCursors() {
-        return openedCursors.size();
+        return runningQueries.openedCursorsCount();
+    }
+
+    @TestOnly
+    public Collection<RunningQueryInfo> runningQueries() {
+        return ((RunningQueriesRegistryImpl) runningQueries).runningQueries();
     }
 
     private class MultiStatementHandler {
@@ -809,19 +856,25 @@ public class SqlQueryProcessor implements QueryProcessor {
          */
         private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
 
+        private final ScriptInfoTracker scriptInfoTracker;
+
         MultiStatementHandler(
                 String schemaName,
                 QueryTransactionContext txContext,
                 List<ParsedResult> parsedResults,
                 Object[] params,
                 ZoneId timeZoneId,
+                ScriptInfoTracker scriptInfoTracker,
                 @Nullable Instant deadline
         ) {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
+            this.scriptInfoTracker = scriptInfoTracker;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
             this.deadline = deadline;
+
+            this.scriptInfoTracker.setStatementCount(statements.size());
         }
 
         /**
@@ -870,6 +923,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                 Object[] params = scriptStatement.dynamicParams;
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCurFut = scriptStatement.nextStatementFuture;
 
+                QueryInfoTracker queryInfoTracker =
+                        scriptInfoTracker.registerStatement(scriptStatement.parsedResult.originalQuery(), parsedResult.queryType());
+
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
                 if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
@@ -906,6 +962,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     HybridTimestamp operationTime = deriveOperationTime(scriptTxContext);
 
+                    QueryTransactionWrapper wrapper = scriptTxContext.explicitTx();
+
+                    if (wrapper != null) {
+                        queryInfoTracker.changeTransactionId(wrapper.unwrap().id());
+                    } else {
+                        scriptTxContext.txContext().setImplicitTxStartCallback(queryInfoTracker::changeTransactionId);
+                    }
+
                     QueryCancel queryCancel = new QueryCancel();
 
                     if (deadline != null) {
@@ -914,7 +978,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     }
 
                     SqlOperationContext operationContext = SqlOperationContext.builder()
-                            .queryId(UUID.randomUUID())
+                            .queryId(queryInfoTracker.queryId())
                             .cancel(queryCancel)
                             .prefetchCallback(new PrefetchCallback())
                             .parameters(params)
@@ -924,13 +988,15 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .operationTime(operationTime)
                             .build();
 
-                    fut = executeParsedStatement(operationContext, parsedResult, nextCurFut);
+                    fut = executeParsedStatement(operationContext, parsedResult, queryInfoTracker, nextCurFut);
                 }
 
                 boolean implicitTx = scriptTxContext.explicitTx() == null;
 
                 fut.whenComplete((cursor, ex) -> {
                     if (ex != null) {
+                        queryInfoTracker.unregister();
+
                         cancelAll(ex);
 
                         return;

@@ -53,6 +53,10 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         this.transactionInflights = transactionInflights;
     }
 
+    public QueryTransactionContextImpl txContext() {
+        return txContext;
+    }
+
     /**
      * Starts a new implicit transaction if there is no external or script-driven transaction.
      *

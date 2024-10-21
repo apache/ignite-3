@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
+package org.apache.ignite.internal.sql.engine.registry;
 
 import java.util.UUID;
-import java.util.function.Consumer;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
- * Context that allows to get explicit transaction provided by user or start implicit one.
+ * Provides the ability to perform on-the-fly updates to running query information.
  */
-public interface QueryTransactionContext {
-    /** Returns explicit transaction or start implicit one. */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
+public interface QueryInfoTracker {
+    UUID queryId();
 
-    /** Updates tracker of latest time observed by client. */
-    void updateObservableTime(HybridTimestamp time);
+    void changePhase(QueryExecutionPhase phase);
 
-    /** Returns explicit transaction if one was provided by user. */
-    @Nullable QueryTransactionWrapper explicitTx();
+    void changeType(SqlQueryType queryType);
 
-    default void setImplicitTxStartCallback(Consumer<UUID> callback) {
-        // No-op by default.
-    }
+    void changeTransactionId(UUID txId);
+
+    void setCursor(AsyncSqlCursor<?> cursor);
+
+    boolean unregister();
 }
