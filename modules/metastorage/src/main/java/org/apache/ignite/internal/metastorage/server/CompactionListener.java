@@ -15,19 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-
-/**
- * {@link MetaStorageRangeTest} implementation using {@link RocksDbKeyValueStorage}.
- */
-public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
-    @Override
-    KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureManager(), readOperationForCompactionTracker);
-    }
+/** Listener of the metastorage compaction. */
+@FunctionalInterface
+public interface CompactionListener {
+    /** Callback on completion of metastore compaction locally. */
+    void onCompactionCompleteLocally(long compactionRevision);
 }

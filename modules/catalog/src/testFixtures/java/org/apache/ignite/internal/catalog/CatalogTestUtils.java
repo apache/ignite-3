@@ -59,7 +59,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -77,7 +76,7 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName), clock);
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName, clock);
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
@@ -122,7 +121,7 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override

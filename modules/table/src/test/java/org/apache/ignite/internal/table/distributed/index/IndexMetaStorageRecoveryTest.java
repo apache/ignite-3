@@ -53,6 +53,7 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -70,9 +71,11 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
     @Override
     MetaStorageManager createMetastore() {
-        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager());
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        return StandaloneMetaStorageManager.create(keyValueStorage);
+        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        return StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
     }
 
     @Override
