@@ -71,7 +71,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -134,8 +133,6 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
-
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -270,12 +267,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 nodeName,
                 failureManager,
                 readOperationForCompactionTracker,
-                Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "metastorage-compaction-executor", LOG))
+                Executors.newSingleThreadExecutor(NamedThreadFactory.create(
+                        nodeName,
+                        "metastorage-compaction-executor",
+                        Loggers.forClass(RocksDbKeyValueStorage.class)
+                ))
         );
 
         this.dbPath = dbPath;
 
-        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", log));
     }
 
     @Override
@@ -1268,7 +1269,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (!isRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -1291,34 +1292,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             db.write(defaultWriteOptions, batch);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (!isRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
-    public void startCompaction(long revision) {
-        assert revision >= 0 : revision;
-
-        rwLock.writeLock().lock();
-
-        try {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
-            if (recoveryStatus.get() != RecoveryStatus.DONE) {
-                compactionRevision = revision;
-            } else {
-                watchProcessor.addTaskToWatchEventQueue(() -> {
-                    setCompactionRevision(revision);
-
-                    // TODO: IGNITE-23479 продолжить логику
-                });
-            }
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -1467,6 +1445,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    @Override
+    protected boolean isRecoveryState() {
+        return recoveryStatus.get() != RecoveryStatus.DONE;
     }
 
     private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {

@@ -54,6 +54,8 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -72,6 +74,8 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(SimpleInMemoryKeyValueStorage.class);
+
     /**
      * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
      *
@@ -791,29 +795,6 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void startCompaction(long revision) {
-        assert revision >= 0 : revision;
-
-        rwLock.writeLock().lock();
-
-        try {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
-            if (areWatchesEnabled) {
-                watchProcessor.addTaskToWatchEventQueue(() -> {
-                    setCompactionRevision(revision);
-
-                    // TODO: IGNITE-23479 продолжить логику
-                });
-            } else {
-                compactionRevision = revision;
-            }
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public long checksum(long revision) {
         throw new UnsupportedOperationException();
     }
@@ -879,6 +860,11 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return value;
+    }
+
+    @Override
+    protected boolean isRecoveryState() {
+        return areWatchesEnabled;
     }
 
     private @Nullable Value getValueNullable(byte[] key, long revision) {

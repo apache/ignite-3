@@ -433,16 +433,17 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
      *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
      *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
-     *     <li>Task (B) collects all read operations from metastorage (local and from the leader) and starts asynchronously waiting for
-     *     their completion.</li>
+     *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
+     *     asynchronously waiting for their completion.</li>
      *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
+     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompleteLocally} for
+     *     {@link #registerCompactionListener registered} listeners.</li>
      * </ul>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision.
      */
-    // TODO: IGNITE-23479 добвить описание про слушателей и бло бла
     void startCompaction(long revision);
 
     /**
@@ -569,6 +570,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param compactionRevisionExcluded Compaction revision of interest.
      */
     CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
+
+    /** Adds a metastore compaction listener. */
+    void registerCompactionListener(CompactionListener listener);
+
+    /** Removes a metastore compaction listener. */
+    void unregisterCompactionListener(CompactionListener listener);
 
     /**
      * Returns checksum corresponding to the revision.

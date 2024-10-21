@@ -366,7 +366,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      * Tests tracking only read operations from the leader, local reads must be tracked by the {@link KeyValueStorage} itself.
      * <ul>
      *     <li>Creates read operations from the leader and local ones.</li>
-     *     <li>Set a new compaction revision via {@link MetaStorageManagerImpl#setCompactionRevisionLocally}.</li>
+     *     <li>Set a new compaction revision via {@link KeyValueStorage#setCompactionRevision}.</li>
      *     <li>Wait for the completion of read operations on the new compaction revision.</li>
      * </ul>
      *
@@ -388,7 +388,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
-        metaStorageManager.setCompactionRevisionLocally(1);
+        storage.setCompactionRevision(1);
 
         CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(1);
         assertFalse(readOperationsFuture.isDone());
@@ -402,7 +402,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests that read operations from the leader and local ones created after {@link MetaStorageManagerImpl#setCompactionRevisionLocally}
+     * Tests that read operations from the leader and local ones created after {@link KeyValueStorage#setCompactionRevision}
      * will not affect future from {@link ReadOperationForCompactionTracker#collect} on a new compaction revision.
      *
      * <p>Due to the difficulty of testing all reading from leader methods at once, we test each of them separately.</p>
@@ -413,7 +413,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
-        metaStorageManager.setCompactionRevisionLocally(1);
+        storage.setCompactionRevision(1);
 
         var startSendReadActionRequestFuture = new CompletableFuture<Void>();
         var continueSendReadActionRequestFuture = new CompletableFuture<Void>();
