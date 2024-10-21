@@ -501,7 +501,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void notifyWatches() {
-        if (!areWatchesEnabled || updatedEntries.isEmpty()) {
+        if (isRecoveryState() || updatedEntries.isEmpty()) {
             updatedEntries.clear();
 
             return;
@@ -761,11 +761,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (!areWatchesEnabled) {
-                return;
+            if (!isRecoveryState()) {
+                watchProcessor.advanceSafeTime(context.timestamp);
             }
-
-            watchProcessor.advanceSafeTime(context.timestamp);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -784,11 +782,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
             setIndexAndTerm(context.index, context.term);
 
-            if (!areWatchesEnabled) {
-                return;
+            if (!isRecoveryState()) {
+                watchProcessor.advanceSafeTime(context.timestamp);
             }
-
-            watchProcessor.advanceSafeTime(context.timestamp);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -864,7 +860,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     protected boolean isRecoveryState() {
-        return areWatchesEnabled;
+        return !areWatchesEnabled;
     }
 
     private @Nullable Value getValueNullable(byte[] key, long revision) {

@@ -124,7 +124,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     /** Returns key values by revision for operation. */
     protected abstract Value valueForOperation(byte[] key, long revision);
 
-    /** Returns {@code true} if the storage is in recovery state and the watches have not {@link #startWatches started}. */
+    /**
+     * Returns {@code true} if the storage is in recovery state and the watches have not {@link #startWatches started}.
+     *
+     * <p>Method is expected to be invoked under {@link #rwLock}.</p>
+     */
     protected abstract boolean isRecoveryState();
 
     @Override
