@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -44,7 +46,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         assertEquals("abc", kill.objectId());
         assertEquals(objectType, kill.objectType());
-        assertEquals(IgniteSqlKillWaitMode.IMPLICIT_MODE, kill.waitMode());
+        assertTrue(kill.waitForCompletion());
 
         expectUnparsed(kill, stmt);
     }
@@ -63,7 +65,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         assertEquals("abc", kill.objectId());
         assertEquals(objectType, kill.objectType());
-        assertEquals(IgniteSqlKillWaitMode.NO_WAIT, kill.waitMode());
+        assertFalse(kill.waitForCompletion());
 
         expectUnparsed(kill, stmt);
     }
@@ -79,7 +81,7 @@ public class SqlKillParserTest extends AbstractParserTest {
             "KILL TRANSACTION 1",
             "KILL TRANSACTION 1",
             "KILL TRANSACTION 1.1 NO WAIT",
-            "KILL COMPUTE 'id' NO WAIT NO WAIT",
+            "KILL TRANSACTION 'id' NO WAIT NO WAIT",
 
             "KILL COMPUTE 1",
             "KILL COMPUTE 1.1",

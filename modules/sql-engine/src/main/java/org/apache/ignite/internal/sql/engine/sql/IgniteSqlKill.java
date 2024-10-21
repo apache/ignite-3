@@ -40,19 +40,19 @@ public class IgniteSqlKill extends SqlCall {
 
         private final SqlLiteral objectId;
 
-        private final IgniteSqlKillWaitMode waitMode;
+        private final boolean waitForCompletion;
 
         /** Constructor. */
         protected Operator(
                 IgniteSqlKillObjectType objectType,
                 SqlLiteral objectId,
-                IgniteSqlKillWaitMode waitMode
+                boolean waitForCompletion
         ) {
             super("KILL", SqlKind.OTHER);
 
             this.objectType = Objects.requireNonNull(objectType, "objectType");
             this.objectId = Objects.requireNonNull(objectId, "objectId");
-            this.waitMode = Objects.requireNonNull(waitMode, "waitMode");
+            this.waitForCompletion = waitForCompletion;
         }
 
         /** {@inheritDoc} */
@@ -60,7 +60,7 @@ public class IgniteSqlKill extends SqlCall {
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
 
-            return new IgniteSqlKill(pos, objectType, (SqlLiteral) operands[0], waitMode);
+            return new IgniteSqlKill(pos, objectType, (SqlLiteral) operands[0], waitForCompletion);
         }
     }
 
@@ -71,11 +71,11 @@ public class IgniteSqlKill extends SqlCall {
             SqlParserPos pos,
             IgniteSqlKillObjectType objectType,
             SqlLiteral objectId,
-            IgniteSqlKillWaitMode waitMode
+            boolean waitForCompletion
     ) {
         super(pos);
 
-        this.operator = new Operator(objectType, objectId, waitMode);
+        this.operator = new Operator(objectType, objectId, waitForCompletion);
     }
 
     /** Object id. */
@@ -90,9 +90,9 @@ public class IgniteSqlKill extends SqlCall {
         return operator.objectType;
     }
 
-    /** Wait mode. */
-    public IgniteSqlKillWaitMode waitMode() {
-        return operator.waitMode;
+    /** Wait for completion or not. */
+    public boolean waitForCompletion() {
+        return operator.waitForCompletion;
     }
 
     /** {@inheritDoc} */
@@ -127,16 +127,9 @@ public class IgniteSqlKill extends SqlCall {
 
         operator.objectId.unparse(writer, 0, 0);
 
-        switch (operator.waitMode) {
-            case IMPLICIT_MODE:
-                // Nothing
-                break;
-            case NO_WAIT:
-                writer.keyword("NO");
-                writer.keyword("WAIT");
-                break;
-            default:
-                throw new IllegalStateException("Unexpected wait mode: " + operator.waitMode);
+        if (!operator.waitForCompletion) {
+            writer.keyword("NO");
+            writer.keyword("WAIT");
         }
     }
 }

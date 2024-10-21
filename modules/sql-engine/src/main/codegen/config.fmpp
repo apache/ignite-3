@@ -58,7 +58,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillObjectType",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillWaitMode",
       "org.apache.ignite.internal.sql.engine.type.UuidType",
       "org.apache.ignite.internal.sql.engine.util.IgniteResource",
     ]

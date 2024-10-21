@@ -705,17 +705,17 @@ SqlNode SqlKill() :
     final Span s;
     final SqlNode objectId;
     final IgniteSqlKillObjectType objectType;
-    final IgniteSqlKillWaitMode waitMode;
+    final boolean wait;
 }
 {
     <KILL> {
         s = span();
         objectType = SqlKillObjectType();
         objectId = StringLiteral();
-        waitMode = SqlKillWaitMode();
+        wait = SqlKillWaitMode();
     }
     {
-        return new IgniteSqlKill(s.end(this), objectType, (SqlLiteral) objectId, waitMode);
+        return new IgniteSqlKill(s.end(this), objectType, (SqlLiteral) objectId, wait);
     }
 }
 
@@ -736,15 +736,15 @@ IgniteSqlKillObjectType SqlKillObjectType():
     }
 }
 
-IgniteSqlKillWaitMode SqlKillWaitMode():
+boolean SqlKillWaitMode():
 {
-    IgniteSqlKillWaitMode waitMode = IgniteSqlKillWaitMode.IMPLICIT_MODE;
+    boolean wait = true;
 }
 {
     (
-        <NO> <WAIT> { waitMode = IgniteSqlKillWaitMode.NO_WAIT; }
+        <NO> <WAIT> { wait = false; }
     )?
     {
-        return waitMode;
+        return wait;
     }
 }
