@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
@@ -468,45 +467,19 @@ public class SqlDdlParserTest extends AbstractParserTest {
 
         // Check uparse 'COLOCATE' and 'WITH' together.
         createTable = parseCreateTable(
-                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0) "
-                        + "with "
-                        + "replicas=2, "
-                        + "partitions=3"
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
         );
 
         expectUnparsed(createTable, "CREATE TABLE \"MY_TABLE\" ("
                 + "\"ID0\" INTEGER, \"ID1\" INTEGER, "
                 + "\"ID2\" INTEGER, \"VAL\" INTEGER, PRIMARY KEY (\"ID0\", \"ID1\", \"ID2\")"
-                + ") COLOCATE BY (\"ID0\") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3"
-        );
-    }
-
-    @Test
-    public void createTableWithOptions() {
-        String query = "create table my_table(id int) with"
-                + " replicas=2,"
-                + " partitions=3,"
-                + " primary_zone='zone123'";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
-                + "\"ID\" INTEGER"
-                + ") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3, \"PRIMARY_ZONE\" = 'zone123'"
+                + ") COLOCATE BY (\"ID0\")"
         );
     }
 
     @Test
     public void createTableWithIdentifierZone() {
-        String sqlQuery = "create table my_table(id int) with primary_zone=zone123";
+        String sqlQuery = "create table my_table(id int) zone \"zone123\"";
 
         SqlNode node = parse(sqlQuery);
 
@@ -514,24 +487,9 @@ public class SqlDdlParserTest extends AbstractParserTest {
 
         IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "ZONE123");
+        assertThat(createTable.zone().getSimple(), equalTo("zone123"));
 
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = \"ZONE123\"");
-    }
-
-    @Test
-    public void createTableWithLiteralZone() {
-        String sqlQuery = "create table my_table(id int) with primary_zone='zone123'";
-
-        SqlNode node = parse(sqlQuery);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = 'zone123'");
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) ZONE \"zone123\"");
     }
 
     @Test
@@ -705,7 +663,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
                         && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0))
-                                .getSimple().equals("COL3"))));
+                        .getSimple().equals("COL3"))));
 
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" ("
                 + "\"COL1\" NULLS FIRST, \"COL2\" NULLS LAST, \"COL3\" DESC NULLS FIRST)"
@@ -902,8 +860,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     /**
-     * Test makes sure exception is not thrown for CHARACTER VARYING type and in CAST operation where CHARACTER
-     * is allowed.
+     * Test makes sure exception is not thrown for CHARACTER VARYING type and in CAST operation where CHARACTER is allowed.
      */
     @ParameterizedTest
     @ValueSource(strings = {
@@ -946,24 +903,5 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(columnStrategy, is(declaration.strategy));
         assertThat(List.of(typeName), is(declaration.dataType.getTypeName().names));
         assertThat(nullable, is(declaration.dataType.getNullable()));
-    }
-
-    private void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                option + "=" + expVal,
-                IgniteSqlCreateTableOption.class,
-                opt -> {
-                    if (opt.key().getSimple().equals(option)) {
-                        SqlNode valNode = opt.value();
-                        if (valNode instanceof SqlLiteral) {
-                            return Objects.equals(expVal, ((SqlLiteral) valNode).getValueAs(expVal.getClass()));
-                        } else if (valNode instanceof SqlIdentifier) {
-                            return Objects.equals(expVal, ((SqlIdentifier) valNode).getSimple());
-                        }
-                    }
-
-                    return false;
-                }
-        )));
     }
 }

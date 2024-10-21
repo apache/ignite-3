@@ -101,7 +101,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         );
 
         String sql = IgniteStringFormatter.format(
-                "CREATE TABLE {} (key INT PRIMARY KEY, val VARCHAR(20)) WITH PRIMARY_ZONE='{}'",
+                "CREATE TABLE {} (key INT PRIMARY KEY, val VARCHAR(20)) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         );
 

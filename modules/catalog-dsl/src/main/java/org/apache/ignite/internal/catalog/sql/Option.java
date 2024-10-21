@@ -27,10 +27,6 @@ class Option extends QueryPart {
         this.value = value;
     }
 
-    public static Option primaryZone(String zone) {
-        return new Option("PRIMARY_ZONE", zone.toUpperCase());
-    }
-
     public static Option partitions(Integer partitions) {
         return new Option("PARTITIONS", partitions);
     }

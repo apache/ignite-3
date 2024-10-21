@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS kv_pojo_test (
 	PRIMARY KEY (id, id_str desc)
 )
 COLOCATE BY (f_name, l_name)
-WITH PRIMARY_ZONE='ZONE_TEST';
+ZONE ZONE_TEST;
 
 CREATE INDEX ix_test (f_name, l_name desc nulls last);
 ----

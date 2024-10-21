@@ -643,13 +643,13 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         String zoneName = zoneNameForTable(tableName);
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'",
+        sql.execute(null, String.format("create zone %s with partitions=3, replicas=%d, storage_profiles='%s'",
                 zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
         sql.execute(null,
                 String.format(
-                        "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
-                                + "with primary_zone='%s'",
+                        "create table %s (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                + "zone %s",
                         tableName, zoneName
                 )
         );

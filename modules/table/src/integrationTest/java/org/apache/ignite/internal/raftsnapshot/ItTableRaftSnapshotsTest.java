@@ -307,7 +307,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
 
         String sql = "create table test (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE', storage_profile='" + storageProfile + "';";
+                + " zone TEST_ZONE storage profile '" + storageProfile + "';";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);

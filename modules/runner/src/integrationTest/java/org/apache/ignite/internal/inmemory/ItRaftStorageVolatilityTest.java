@@ -57,8 +57,8 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 
 /**
- * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
- * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
+ * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile storages for storing RAFT meta
+ * and RAFT log, while they are persistent for persistent storages.
  */
 @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
 class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
@@ -82,8 +82,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='"
-                + DEFAULT_AIMEM_PROFILE_NAME + "', PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ZONE ZONE_" + TABLE_NAME + " STORAGE PROFILE '"
+                + DEFAULT_AIMEM_PROFILE_NAME + "'");
     }
 
     /**
@@ -172,8 +172,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
-                + "WITH STORAGE_PROFILE='" + DEFAULT_ROCKSDB_PROFILE_NAME + "',"
-                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
+                + "ZONE ZONE_" + TABLE_NAME.toUpperCase() + " "
+                + "STORAGE PROFILE '" + DEFAULT_ROCKSDB_PROFILE_NAME + "' ");
     }
 
     @Test
@@ -252,8 +252,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
                             + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
             );
             session.execute(null, "create table " + tableName
-                    + " (id int primary key, name varchar) with storage_profile='"
-                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
+                    + " (id int primary key, name varchar) zone ZONE1 storage profile '"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "'");
         });
     }
 }

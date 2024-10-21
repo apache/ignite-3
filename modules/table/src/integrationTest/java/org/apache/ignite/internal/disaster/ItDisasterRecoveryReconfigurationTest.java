@@ -158,7 +158,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         zoneId = requireNonNull(zone).id();
         waitForScale(node0, zoneParams.nodes());
 
-        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
+        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s", TABLE_NAME, zoneName));
 
         TableManager tableManager = unwrapTableManager(node0.tables());
         tableId = ((TableViewInternal) tableManager.table(TABLE_NAME)).tableId();

@@ -63,7 +63,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
                 + " replicas=3,"
                 + " storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
 
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='" + ZONE_NAME + "'";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone " + ZONE_NAME;
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
