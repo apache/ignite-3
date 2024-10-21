@@ -31,7 +31,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /** End-to-end tests to verify indexes system view. */
 public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
@@ -41,11 +40,8 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
 
     private static final String COLUMNS_COLLATIONS = "ID DESC, NAME ASC";
 
-    @Override
     @BeforeAll
-    protected void beforeAll(TestInfo testInfo) {
-        super.beforeAll(testInfo);
-
+    void beforeAll() {
         IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 

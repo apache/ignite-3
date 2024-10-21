@@ -44,7 +44,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration tests for the transactions running while the primary changes, not related to the tx recovery.
@@ -68,10 +67,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             + "}";
 
     @BeforeEach
-    @Override
-    public void setup(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
-
+    public void setup() throws Exception {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 

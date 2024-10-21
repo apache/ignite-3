@@ -44,6 +44,7 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
@@ -77,14 +78,20 @@ import org.jetbrains.annotations.Nullable;
  * Utility class for configuration.
  */
 public class ConfigurationUtil {
-    /** Configuration source that copies values without modifying tham. */
+    /** Configuration source that copies values without modifying them. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
     };
 
     /**
-     * Seperator string for both public and internal representations of configuration keys.
+     * Separator string for both public and internal representations of configuration keys.
      */
     public static final String KEY_SEPARATOR = ".";
+
+    private static final Pattern ESCAPE_PATTERN = Pattern.compile("([.\\\\])");
+
+    private static final Pattern UNESCAPE_PATTERN = Pattern.compile("\\\\([.\\\\])");
+
+    private static final Pattern SPLIT_PATTERN = Pattern.compile("(?<!\\\\)[.]");
 
     /**
      * Replaces all {@code .} and {@code \} characters with {@code \.} and {@code \\} respectively.
@@ -93,7 +100,7 @@ public class ConfigurationUtil {
      * @return Escaped string.
      */
     public static String escape(String key) {
-        return key.replaceAll("([.\\\\])", "\\\\$1");
+        return ESCAPE_PATTERN.matcher(key).replaceAll("\\\\$1");
     }
 
     /**
@@ -103,7 +110,7 @@ public class ConfigurationUtil {
      * @return Unescaped string.
      */
     public static String unescape(String key) {
-        return key.replaceAll("\\\\([.\\\\])", "$1");
+        return UNESCAPE_PATTERN.matcher(key).replaceAll("$1");
     }
 
     /**
@@ -116,7 +123,7 @@ public class ConfigurationUtil {
      * @see #KEY_SEPARATOR
      */
     public static List<String> split(String keys) {
-        String[] split = keys.split("(?<!\\\\)[.]", -1);
+        String[] split = SPLIT_PATTERN.split(keys, -1);
 
         for (int i = 0; i < split.length; i++) {
             split[i] = unescape(split[i]);
@@ -159,17 +166,15 @@ public class ConfigurationUtil {
             /** Current index of the key in the {@code keys}. */
             private int idx;
 
-            /** {@inheritDoc} */
             @Override
             public NodeValue<T> visitLeafNode(Field field, String key, Serializable val) {
                 if (idx != keys.size()) {
                     throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
                 } else {
-                    return new NodeValue(field, val);
+                    return new NodeValue<>(field, (T) val);
                 }
             }
 
-            /** {@inheritDoc} */
             @Override
             public NodeValue<T> visitInnerNode(Field field, String key, InnerNode node) {
                 if (idx == keys.size()) {
@@ -192,7 +197,6 @@ public class ConfigurationUtil {
                 }
             }
 
-            /** {@inheritDoc} */
             @Override
             public NodeValue<T> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (idx == keys.size()) {
@@ -269,7 +273,7 @@ public class ConfigurationUtil {
      * @param node      Node to fill. Not necessarily empty.
      * @param prefixMap Map of {@link Serializable} values or other prefix maps (recursive structure). Every key is unescaped.
      * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure. This will be fixed when
-     *                                       method is actually used in configuration storage intergration.
+     *                                       method is actually used in configuration storage integration.
      */
     public static void fillFromPrefixMap(InnerNode node, Map<String, ?> prefixMap) {
         new InnerConfigurationSource(prefixMap).descend(node);
@@ -302,7 +306,6 @@ public class ConfigurationUtil {
      */
     public static void addDefaults(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
-            /** {@inheritDoc} */
             @Override
             public Object visitLeafNode(Field field, String key, Serializable val) {
                 // If source value is null then initialise the same value on the destination node.
@@ -313,7 +316,6 @@ public class ConfigurationUtil {
                 return null;
             }
 
-            /** {@inheritDoc} */
             @Override
             public Object visitInnerNode(Field field, String key, InnerNode innerNode) {
                 // Copy or create the element.
@@ -326,7 +328,6 @@ public class ConfigurationUtil {
                 return null;
             }
 
-            /** {@inheritDoc} */
             @Override
             public Object visitNamedListNode(Field field, String key, NamedListNode<?> namedList) {
                 // Copy or create the element.
@@ -414,7 +415,6 @@ public class ConfigurationUtil {
      */
     public static ConfigurationVisitor<NamedListNode<?>> namedListNodeVisitor() {
         return new ConfigurationVisitor<>() {
-            /** {@inheritDoc} */
             @Override
             public NamedListNode<?> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 return node;
@@ -793,7 +793,6 @@ public class ConfigurationUtil {
                 /** Current index of the key in the {@code path}. */
                 private int idx;
 
-                /** {@inheritDoc} */
                 @Override
                 public T visitLeafNode(Field field, String key, Serializable val) {
                     if (idx != pathSize) {
@@ -803,7 +802,6 @@ public class ConfigurationUtil {
                     }
                 }
 
-                /** {@inheritDoc} */
                 @Override
                 public T visitInnerNode(Field field, String key, InnerNode node) {
                     if (node == null) {
@@ -837,7 +835,6 @@ public class ConfigurationUtil {
                     }
                 }
 
-                /** {@inheritDoc} */
                 @Override
                 public T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                     if (idx == pathSize) {
@@ -957,7 +954,6 @@ public class ConfigurationUtil {
             this.val = val;
         }
 
-        /** {@inheritDoc} */
         @Override
         public <T> T unwrap(Class<T> clazz) {
             assert val == null || clazz.isInstance(val);
@@ -965,7 +961,6 @@ public class ConfigurationUtil {
             return clazz.cast(val);
         }
 
-        /** {@inheritDoc} */
         @Override
         public void descend(ConstructableTreeNode node) {
             throw new UnsupportedOperationException("descend");
@@ -988,13 +983,6 @@ public class ConfigurationUtil {
             this.map = map;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <T> T unwrap(Class<T> clazz) {
-            throw new UnsupportedOperationException("unwrap");
-        }
-
-        /** {@inheritDoc} */
         @Override
         public void descend(ConstructableTreeNode node) {
             if (node instanceof NamedListNode) {
@@ -1024,7 +1012,6 @@ public class ConfigurationUtil {
             }
         }
 
-        /** {@inheritDoc} */
         @Override
         public @Nullable String polymorphicTypeId(String fieldName) {
             return (String) map.get(fieldName);

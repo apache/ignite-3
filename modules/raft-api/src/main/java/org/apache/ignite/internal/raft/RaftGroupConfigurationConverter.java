@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft;
+package org.apache.ignite.internal.raft;
 
-import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +36,7 @@ public class RaftGroupConfigurationConverter {
             return null;
         }
 
-        return ByteUtils.fromBytes(bytes);
+        return VersionedSerialization.fromBytes(bytes, RaftGroupConfigurationSerializer.INSTANCE);
     }
 
     /**
@@ -47,6 +46,6 @@ public class RaftGroupConfigurationConverter {
      * @return Byte representation.
      */
     public byte[] toBytes(RaftGroupConfiguration configuration) {
-        return ByteUtils.toBytes(configuration);
+        return VersionedSerialization.toBytes(configuration, RaftGroupConfigurationSerializer.INSTANCE);
     }
 }
