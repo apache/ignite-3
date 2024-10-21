@@ -109,7 +109,7 @@ public class IgniteSqlKill extends SqlCall {
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName());
-        writer.keyword(operator.objectType.name());
+        writer.keyword(objectType().name());
 
         objectId().unparse(writer, leftPrec, rightPrec);
 
