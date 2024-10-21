@@ -22,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import jakarta.inject.Inject;
 import java.util.Arrays;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.call.metric.MetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +45,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
                 return;
             }
 
-            nodeMetricSourceEnableCall.execute(NodeMetricSourceEnableCallInput.builder()
+            nodeMetricSourceEnableCall.execute(MetricSourceEnableCallInput.builder()
                     .endpointUrl(NODE_URL)
                     .srcName(name)
                     .enable(false)
@@ -63,7 +63,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Set name\tEnabled" + NL),
+                () -> assertOutputContains("Source name\tEnabled" + NL),
                 () -> assertOutputContains("jvm\tenabled" + NL),
                 () -> assertOutputContains("client.handler\tdisabled" + NL),
                 () -> assertOutputContains("sql.client\tdisabled" + NL),

@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.node.metric;
+package org.apache.ignite.internal.cli.call.metric;
 
+import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceEnableCall;
+import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
-/** Input for {@link NodeMetricSourceEnableCall}. */
-public class NodeMetricSourceEnableCallInput implements CallInput {
+/** Input for {@link NodeMetricSourceEnableCall} and {@link ClusterMetricSourceEnableCall}. */
+public class MetricSourceEnableCallInput implements CallInput {
     /** Metric source name. */
     private final String srcName;
 
@@ -30,7 +32,7 @@ public class NodeMetricSourceEnableCallInput implements CallInput {
     /** endpoint URL. */
     private final String endpointUrl;
 
-    private NodeMetricSourceEnableCallInput(String srcName, boolean enable, String endpointUrl) {
+    private MetricSourceEnableCallInput(String srcName, boolean enable, String endpointUrl) {
         this.srcName = srcName;
         this.enable = enable;
         this.endpointUrl = endpointUrl;
@@ -39,10 +41,10 @@ public class NodeMetricSourceEnableCallInput implements CallInput {
     /**
      * Builder method.
      *
-     * @return Builder for {@link NodeMetricSourceEnableCallInput}.
+     * @return Builder for {@link MetricSourceEnableCallInput}.
      */
-    public static NodeMetricSourceEnableCallInputBuilder builder() {
-        return new NodeMetricSourceEnableCallInputBuilder();
+    public static MetricSourceEnableCallInputBuilder builder() {
+        return new MetricSourceEnableCallInputBuilder();
     }
 
     /**
@@ -73,9 +75,9 @@ public class NodeMetricSourceEnableCallInput implements CallInput {
     }
 
     /**
-     * Builder for {@link NodeMetricSourceEnableCallInput}.
+     * Builder for {@link MetricSourceEnableCallInput}.
      */
-    public static class NodeMetricSourceEnableCallInputBuilder {
+    public static class MetricSourceEnableCallInputBuilder {
 
         private String srcName;
 
@@ -83,23 +85,23 @@ public class NodeMetricSourceEnableCallInput implements CallInput {
 
         private String endpointUrl;
 
-        public NodeMetricSourceEnableCallInputBuilder srcName(String srcName) {
+        public MetricSourceEnableCallInputBuilder srcName(String srcName) {
             this.srcName = srcName;
             return this;
         }
 
-        public NodeMetricSourceEnableCallInputBuilder enable(boolean enable) {
+        public MetricSourceEnableCallInputBuilder enable(boolean enable) {
             this.enable = enable;
             return this;
         }
 
-        public NodeMetricSourceEnableCallInputBuilder endpointUrl(String endpointUrl) {
+        public MetricSourceEnableCallInputBuilder endpointUrl(String endpointUrl) {
             this.endpointUrl = endpointUrl;
             return this;
         }
 
-        public NodeMetricSourceEnableCallInput build() {
-            return new NodeMetricSourceEnableCallInput(srcName, enable, endpointUrl);
+        public MetricSourceEnableCallInput build() {
+            return new MetricSourceEnableCallInput(srcName, enable, endpointUrl);
         }
     }
 }

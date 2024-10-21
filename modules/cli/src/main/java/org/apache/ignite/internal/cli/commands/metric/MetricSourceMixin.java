@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.metric;
 
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
+import org.apache.ignite.internal.cli.call.metric.MetricSourceEnableCallInput;
 import picocli.CommandLine.Parameters;
 
 /** Mixin class for metric source name, provides source name parameter and constructs call input. */
@@ -26,16 +26,16 @@ public class MetricSourceMixin {
     @Parameters(index = "0", description = "Metric source name")
     private String srcName;
 
-    public NodeMetricSourceEnableCallInput buildEnableCallInput(String endpointUrl) {
+    public MetricSourceEnableCallInput buildEnableCallInput(String endpointUrl) {
         return buildCallInput(endpointUrl, true);
     }
 
-    public NodeMetricSourceEnableCallInput buildDisableCallInput(String endpointUrl) {
+    public MetricSourceEnableCallInput buildDisableCallInput(String endpointUrl) {
         return buildCallInput(endpointUrl, false);
     }
 
-    private NodeMetricSourceEnableCallInput buildCallInput(String endpointUrl, boolean enable) {
-        return NodeMetricSourceEnableCallInput.builder()
+    private MetricSourceEnableCallInput buildCallInput(String endpointUrl, boolean enable) {
+        return MetricSourceEnableCallInput.builder()
                 .endpointUrl(endpointUrl)
                 .srcName(srcName)
                 .enable(enable)

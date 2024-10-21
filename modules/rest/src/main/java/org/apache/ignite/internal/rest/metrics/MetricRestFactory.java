@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
@@ -30,8 +31,11 @@ import org.apache.ignite.internal.rest.RestFactory;
 public class MetricRestFactory implements RestFactory {
     private MetricManager metricManager;
 
-    public MetricRestFactory(MetricManager metricManager) {
+    private MetricMessaging metricMessaging;
+
+    public MetricRestFactory(MetricManager metricManager, MetricMessaging metricMessaging) {
         this.metricManager = metricManager;
+        this.metricMessaging = metricMessaging;
     }
 
     @Bean
@@ -40,8 +44,15 @@ public class MetricRestFactory implements RestFactory {
         return metricManager;
     }
 
+    @Bean
+    @Singleton
+    public MetricMessaging metricMessaging() {
+        return metricMessaging;
+    }
+
     @Override
     public void cleanResources() {
         metricManager = null;
+        metricMessaging = null;
     }
 }
