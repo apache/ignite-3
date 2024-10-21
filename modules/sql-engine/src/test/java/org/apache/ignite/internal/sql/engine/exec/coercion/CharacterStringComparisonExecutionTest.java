@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.coercion;
 
-import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
+import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.CharacterStringPair;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /** Check execution results for numeric comparisons. */
-public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
+public class CharacterStringComparisonExecutionTest extends BaseTypeCheckExecutionTest {
     @ParameterizedTest
     @EnumSource
-    public void comparisonEq(NumericPair typePair) throws Exception {
+    public void comparisonEq(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process("SELECT c1 = c2 FROM t", checkReturnResult());
         }
@@ -33,7 +33,7 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
 
     @ParameterizedTest
     @EnumSource
-    public void comparisonLessEq(NumericPair typePair) throws Exception {
+    public void comparisonLessEq(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process("SELECT c1 <= c2 FROM t", checkReturnResult());
         }
@@ -41,7 +41,7 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
 
     @ParameterizedTest
     @EnumSource
-    public void comparisonGreatEq(NumericPair typePair) throws Exception {
+    public void comparisonGreatEq(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process("SELECT c1 >= c2 FROM t", checkReturnResult());
         }
@@ -49,7 +49,7 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
 
     @ParameterizedTest
     @EnumSource
-    public void comparisonLess(NumericPair typePair) throws Exception {
+    public void comparisonLess(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process("SELECT c1 < c2 FROM t", checkReturnResult());
         }
@@ -57,7 +57,7 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
 
     @ParameterizedTest
     @EnumSource
-    public void comparisonGreat(NumericPair typePair) throws Exception {
+    public void comparisonGreat(CharacterStringPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
             testCluster.process("SELECT c1 > c2 FROM t", checkReturnResult());
         }

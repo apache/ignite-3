@@ -27,6 +27,7 @@ import org.apache.ignite.internal.type.NativeTypes;
  * lesser (INT8) to greater (DOUBLE). That is, this enumeration contains
  * pair (INT8, INT16), but not (INT16. INT8).
  */
+@SuppressWarnings("NonSerializableFieldInSerializableClass")
 public enum NumericPair implements TypePair {
     TINYINT_TINYINT(NativeTypes.INT8, NativeTypes.INT8),
     TINYINT_SMALLINT(NativeTypes.INT8, NativeTypes.INT16),

@@ -55,7 +55,7 @@ public class SameFamilyOperandTypeChecker extends SameOperandTypeChecker {
 
     @Override
     public Consistency getConsistency() {
-        return Consistency.LEAST_RESTRICTIVE;
+        return Consistency.NONE;
     }
 
     private boolean doCheckOperandTypes(SqlOperatorBinding operatorBinding) {
