@@ -1163,7 +1163,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateLongReadOperationId();
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
         long compactionRevision = storage.getCompactionRevision();
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
@@ -1180,7 +1180,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(Supplier<Publisher<Entry>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateLongReadOperationId();
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
         long compactionRevision = storage.getCompactionRevision();
 
         readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);

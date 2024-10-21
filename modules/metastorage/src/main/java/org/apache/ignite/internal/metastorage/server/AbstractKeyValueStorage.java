@@ -224,29 +224,33 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void startCompaction(long revision) {
-        assert revision >= 0 : revision;
+    public void startCompaction(long compactionRevision) {
+        assert compactionRevision >= 0 : compactionRevision;
 
         rwLock.writeLock().lock();
 
         try {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
+            assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
             if (isInRecoveryState()) {
-                compactionRevision = revision;
+                this.compactionRevision = compactionRevision;
             } else {
                 watchProcessor
-                        .addTaskToWatchEventQueue(() -> setCompactionRevision(revision))
-                        .thenComposeAsync(unused -> readOperationsFuture(revision), compactionExecutor)
-                        .thenRunAsync(() -> compact(revision), compactionExecutor)
+                        .addTaskToWatchEventQueue(() -> setCompactionRevision(compactionRevision))
+                        .thenComposeAsync(unused -> readOperationsFuture(compactionRevision), compactionExecutor)
+                        .thenRunAsync(() -> compact(compactionRevision), compactionExecutor)
                         .whenCompleteAsync((unused, throwable) -> {
                             if (throwable == null) {
-                                log.info("Metastore compaction completed successfully: [compactionRevision={}]", revision);
+                                log.info("Metastore compaction completed successfully: [compactionRevision={}]", compactionRevision);
                             } else {
-                                log.error("Metastore compaction failed: [compactionRevision={}]", unwrapCause(throwable), revision);
+                                log.error(
+                                        "Metastore compaction failed: [compactionRevision={}]",
+                                        unwrapCause(throwable),
+                                        compactionRevision
+                                );
                             }
 
-                            notifyCompleteCompactionLocally(compactionRevision, throwable);
+                            notifyCompleteCompactionLocally(this.compactionRevision, throwable);
                         }, compactionExecutor);
             }
         } finally {

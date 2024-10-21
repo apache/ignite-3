@@ -1483,7 +1483,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
-        long readOperationId = readOperationForCompactionTracker.generateLongReadOperationId();
+        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
         long compactionRevisionBeforeCreateCursor = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevision);

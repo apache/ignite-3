@@ -335,7 +335,7 @@ public class WatchProcessor implements ManuallyCloseable {
     /**
      * Advances safe time without notifying watches (as there is no new revision).
      *
-     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.</p>
+     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
      */
     public void advanceSafeTime(HybridTimestamp time) {
         assert time != null;

@@ -49,7 +49,7 @@ public class ReadOperationForCompactionTracker {
     private final AtomicLong longOperationIdGenerator = new AtomicLong();
 
     /** Generates the next read operation ID. Thread-safe. */
-    public long generateLongReadOperationId() {
+    public long generateReadOperationId() {
         return longOperationIdGenerator.getAndIncrement();
     }
 

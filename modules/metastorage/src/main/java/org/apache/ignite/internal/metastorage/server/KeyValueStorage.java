@@ -442,9 +442,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
-     * @param revision Compaction revision.
+     * @param compactionRevision Compaction revision.
      */
-    void startCompaction(long revision);
+    void startCompaction(long compactionRevision);
 
     /**
      * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
@@ -553,7 +553,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void setCompactionRevision(long revision);
 
     /**
-     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if it has never been updated.
      *
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long, KeyValueUpdateContext)

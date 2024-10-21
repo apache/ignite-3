@@ -425,7 +425,7 @@ public interface MetaStorageManager extends IgniteComponent {
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 
     /**
-     * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if not changed.
+     * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if it has never been updated.
      *
      * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
      */

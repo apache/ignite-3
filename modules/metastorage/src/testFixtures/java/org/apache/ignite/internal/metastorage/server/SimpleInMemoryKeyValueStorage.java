@@ -906,7 +906,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         Iterator<Entry> iterator = entries.iterator();
 
-        long readOperationId = readOperationForCompactionTracker.generateLongReadOperationId();
+        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
         long compactionRevisionOnCreateIterator = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
