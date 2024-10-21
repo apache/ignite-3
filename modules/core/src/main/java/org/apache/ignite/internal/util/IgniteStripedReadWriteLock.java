@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * {@link ReadWriteLock#readLock()} operations at the cost of {@link ReadWriteLock#writeLock()} operations and memory consumption. It also
  * supports reentrancy semantics like {@link ReentrantReadWriteLock}.
  */
-public class StripedCompositeReadWriteLock implements ReadWriteLock {
+public class IgniteStripedReadWriteLock implements ReadWriteLock {
     /** Index generator. */
     private static final AtomicInteger IDX_GEN = new AtomicInteger();
 
@@ -47,11 +47,11 @@ public class StripedCompositeReadWriteLock implements ReadWriteLock {
      *
      * @param concurrencyLvl Number of internal read locks.
      */
-    public StripedCompositeReadWriteLock(int concurrencyLvl) {
-        locks = new ReadLock[concurrencyLvl];
+    public IgniteStripedReadWriteLock(int concurrencyLvl) {
+        locks = new ReentrantReadWriteLock[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {
-            locks[i] = new ReadLock();
+            locks[i] = new ReentrantReadWriteLock();
         }
 
         writeLock = new WriteLock();
@@ -107,28 +107,6 @@ public class StripedCompositeReadWriteLock implements ReadWriteLock {
      */
     public int getReadHoldCount() {
         return locks[curIdx()].getReadHoldCount();
-    }
-
-    /**
-     * Read lock.
-     */
-    @SuppressWarnings("unused")
-    private static class ReadLock extends ReentrantReadWriteLock {
-        private long p0;
-
-        private long p1;
-
-        private long p2;
-
-        private long p3;
-
-        private long p4;
-
-        private long p5;
-
-        private long p6;
-
-        private long p7;
     }
 
     /**

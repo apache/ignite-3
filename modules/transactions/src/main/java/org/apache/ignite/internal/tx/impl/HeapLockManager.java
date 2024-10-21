@@ -57,7 +57,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
-import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,7 +82,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Striped lock concurrency.
      */
-    private static final int CONCURRENCY = Runtime.getRuntime().availableProcessors() / 2;
+    private static final int CONCURRENCY = Math.min(1, Runtime.getRuntime().availableProcessors() / 2);
 
     /**
      * Empty slots.
@@ -413,7 +413,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         LockKey key();
 
         /**
-         * Returns the lock which is held by given tx.
+         * Returns the lock which is requested by given tx.
          *
          * @param txId Tx id.
          * @return The lock or null if no lock exist.
@@ -432,7 +432,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Coarse lock.
      */
     public class CoarseLockState implements Releasable {
-        private final StripedCompositeReadWriteLock stripedLock = new StripedCompositeReadWriteLock(CONCURRENCY);
+        private final IgniteStripedReadWriteLock stripedLock = new IgniteStripedReadWriteLock(CONCURRENCY);
 
         private final ConcurrentHashMap<UUID, Lock> ixlockOwners = new ConcurrentHashMap<>();
         private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> slockWaiters = new HashMap<>();
@@ -471,10 +471,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             stripedLock.readLock(idx).lock();
 
             try {
-                return slockOwners.get(txId);
+                lock = slockOwners.get(txId);
+
+                if (lock != null) {
+                    return lock;
+                }
+
+                IgniteBiTuple<Lock, CompletableFuture<Lock>> tuple = slockWaiters.get(txId);
+
+                if (tuple != null) {
+                    return tuple.get1();
+                }
             } finally {
                 stripedLock.readLock(idx).unlock();
             }
+
+            return null;
         }
 
         @Override
@@ -496,9 +508,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     stripedLock.writeLock().lock();
 
                     try {
+                        // IX-locks can't be modified under the striped write lock.
                         if (!ixlockOwners.isEmpty()) {
                             if (ixlockOwners.containsKey(txId)) {
-                                // IX-locks can't be modified under the striped lock.
                                 if (ixlockOwners.size() == 1) {
                                     // Safe to upgrade.
                                     track(txId, this); // Double track.
@@ -519,8 +531,17 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                             UUID holderTx = ixlockOwners.keySet().iterator().next();
                             CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
                             if (res.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));
+                            }
+
+                            // Validate reordering with IX locks.
+                            for (Lock lock : ixlockOwners.values()) {
+                                // Allow only high priority transactions to wait.
+                                if (TxIdPriorityComparator.INSTANCE.compare(lock.txId(), txId) > 0) {
+                                    return failedFuture(lockException(txId, lock.txId()));
+                                }
                             }
 
                             track(txId, this);
@@ -546,22 +567,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 case IX:
                     int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
 
-                    while (true) {
-                        // This will prevent IX to block S, giving deadlock avoidance.
-                        boolean locked = stripedLock.readLock(idx).tryLock();
-
-                        // Striped lock is held for short time. Can spin wait here.
-                        if (!locked) {
-                            Thread.onSpinWait();
-                        } else {
-                            break;
-                        }
-                    }
+                    stripedLock.readLock(idx).lock();
 
                     try {
+                        // S-locks can't be modified under the striped read lock.
                         if (!slockOwners.isEmpty()) {
                             if (slockOwners.containsKey(txId)) {
-                                // S-locks can't be modified under the striped lock.
                                 if (slockOwners.size() == 1) {
                                     // Safe to upgrade.
                                     track(txId, this); // Double track.
@@ -580,8 +591,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
+                            // IX locks never allowed to wait.
+
                             UUID holderTx = slockOwners.keySet().iterator().next();
                             CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
                             if (eventResult.isCompletedExceptionally()) {
                                 return failedFuture(abandonedLockException(txId, holderTx));
                             } else {
@@ -625,7 +639,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     try {
                         Lock removed = slockOwners.remove(lock.txId());
 
-                        assert removed != null : "Attempt to release not acquired lock: " + lock.txId();
+                        if (removed == null) {
+                            IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter = slockWaiters.remove(lock.txId());
+
+                            if (waiter != null) {
+                                removed = waiter.get1();
+                            }
+                        }
+
+                        assert removed != null : "Attempt to release not requested lock: " + lock.txId();
                     } finally {
                         stripedLock.writeLock().unlock();
                     }
