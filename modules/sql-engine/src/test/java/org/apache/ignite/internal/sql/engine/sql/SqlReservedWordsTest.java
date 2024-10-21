@@ -122,6 +122,7 @@ public class SqlReservedWordsTest extends AbstractParserTest {
             "IS",
             "JOIN",
             "JSON_SCOPE",
+            "KILL",
             "LAG",
             "LAST_VALUE",
             "LEAD",
