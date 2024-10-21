@@ -32,7 +32,7 @@ public interface ClockService {
     HybridTimestamp now();
 
     /**
-     * Gets a current timestamp. It is a fast way to get timestamp because it does not have to update internal state.
+     * Gets a current timestamp. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
      * This timestamp is not unique, and equal to or less than that value is returned by {@link this#now()}.
      *
      * @return The hybrid timestamp.
@@ -47,7 +47,7 @@ public interface ClockService {
     long nowLong();
 
     /**
-     * Gets a current timestamp as long. It is a fast way to get timestamp because it does not have to update internal state.
+     * Gets a current timestamp as long. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
      * This timestamp is not unique, and equal to or less than that value is returned by {@link this#nowLong()}.
      *
      * @return The hybrid timestamp.

@@ -87,9 +87,9 @@ public class HybridClockImpl implements HybridClock {
 
     @Override
     public long currentLong() {
-        long now = currentTime();
+        long current = currentTime();
 
-        return max(latestTime, now);
+        return max(latestTime, current);
     }
 
     private void notifyUpdateListeners(long newTs) {
