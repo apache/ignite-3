@@ -34,12 +34,10 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
  * If none of these conditions are met, tx2 is aborted to prevent deadlock.
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
-    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
-
     /** {@inheritDoc} */
     @Override
     public Comparator<UUID> txIdComparator() {
-        return TX_ID_PRIORITY_COMPARATOR;
+        return TxIdPriorityComparator.INSTANCE;
     }
 
     /** {@inheritDoc} */

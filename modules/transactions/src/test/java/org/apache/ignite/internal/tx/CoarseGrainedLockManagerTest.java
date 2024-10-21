@@ -303,7 +303,53 @@ public class CoarseGrainedLockManagerTest {
         lockManager.releaseAll(txId1);
     }
 
+    @Test
+    public void testDeadlockAvoidance1() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey2(), LockMode.IX);
+        assertTrue(fut2.isDone());
+
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId1, lockKey2(), LockMode.S);
+        assertThrowsWithCause(fut3::join, LockException.class);
+
+        CompletableFuture<Lock> fut4 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertFalse(fut4.isDone());
+
+        lockManager.releaseAll(txId1);
+
+        fut4.join();
+
+        lockManager.releaseAll(txId2);
+    }
+
+    @Test
+    public void testReleaseWaitingTx() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, lockKey(), LockMode.IX);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, lockKey(), LockMode.S);
+        assertFalse(fut2.isDone());
+
+        lockManager.releaseAll(txId2);
+
+        fut2.join();
+
+        lockManager.releaseAll(txId1);
+    }
+
     private static LockKey lockKey() {
         return new LockKey("test");
+    }
+
+    private static LockKey lockKey2() {
+        return new LockKey("test2");
     }
 }

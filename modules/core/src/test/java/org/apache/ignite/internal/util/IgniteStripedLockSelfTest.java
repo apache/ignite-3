@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Timeout;
 /**
  * Test for {@link IgniteStripedLock}.
  */
-@Timeout(value = 10, unit = TimeUnit.MINUTES)
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 public class IgniteStripedLockSelfTest {
     private static final int STRIPE_COUNT = 16;
 
