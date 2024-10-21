@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.registry;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -32,13 +33,14 @@ public class RunningQueryInfo {
     private final String queryId;
     private final String schema;
     private final String sql;
-    private final String txId;
-    private final String parentId;
     private final Instant startTime;
-    private final String phase;
-    private final String queryType;
     private final int statementNum;
-    private final AsyncSqlCursor<?> cursor;
+    private final @Nullable String parentId;
+
+    private volatile @Nullable String txId;
+    private volatile String phase;
+    private volatile @Nullable String queryType;
+    private volatile @Nullable AsyncSqlCursor<?> cursor;
 
     RunningQueryInfo(
             String queryId,
@@ -64,24 +66,24 @@ public class RunningQueryInfo {
         this.cursor = cursor;
     }
 
-    RunningQueryInfo withQueryType(SqlQueryType queryType) {
-        return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
-                queryType.name(), statementNum, startTime, phase, cursor);
+    void setType(SqlQueryType queryType) {
+        this.queryType = queryType.name();
     }
 
-    RunningQueryInfo withPhase(QueryExecutionPhase phase) {
-        return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
-                queryType, statementNum, startTime, phase.name(), cursor);
+    void setPhase(QueryExecutionPhase phase) {
+        this.phase = phase.name();
     }
 
-    RunningQueryInfo withTransactionId(UUID txId) {
-        return new RunningQueryInfo(queryId, schema, sql, txId.toString(), parentId,
-                queryType, statementNum, startTime, phase, cursor);
+    void setTransactionId(UUID txId) {
+        this.txId = txId.toString();
     }
 
-    RunningQueryInfo withCursor(AsyncSqlCursor<?> cursor) {
-        return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
-                queryType, statementNum, startTime, phase, cursor);
+    void setCursor(AsyncSqlCursor<?> cursor) {
+        Objects.requireNonNull(cursor, "cursor");
+
+        assert this.cursor == null;
+
+        this.cursor = cursor;
     }
 
     public @Nullable AsyncSqlCursor<?> cursor() {

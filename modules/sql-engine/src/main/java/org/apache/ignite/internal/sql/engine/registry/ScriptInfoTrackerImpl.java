@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
@@ -39,8 +38,12 @@ class ScriptInfoTrackerImpl implements ScriptInfoTracker {
 
     private final AtomicInteger openedCursorsCounter;
 
-    ScriptInfoTrackerImpl(UUID queryId, Map<UUID, RunningQueryInfo> runningQueries, AtomicInteger openedCursorsCounter) {
+    private final RunningQueryInfo queryInfo;
+
+    ScriptInfoTrackerImpl(UUID queryId, RunningQueryInfo queryInfo, Map<UUID, RunningQueryInfo> runningQueries,
+            AtomicInteger openedCursorsCounter) {
         this.queryId = queryId;
+        this.queryInfo = queryInfo;
         this.runningQueries = runningQueries;
         this.openedCursorsCounter = openedCursorsCounter;
     }
@@ -51,10 +54,10 @@ class ScriptInfoTrackerImpl implements ScriptInfoTracker {
     }
 
     @Override
-    public boolean changePhase(QueryExecutionPhase phase) {
+    public void changePhase(QueryExecutionPhase phase) {
         Objects.requireNonNull(phase, "phase");
 
-        return doUpdate(queryId, info -> info.withPhase(phase));
+        queryInfo.setPhase(phase);
     }
 
     @Override
@@ -71,8 +74,6 @@ class ScriptInfoTrackerImpl implements ScriptInfoTracker {
 
     @Override
     public QueryInfoTracker registerStatement(String sql, SqlQueryType queryType) {
-        RunningQueryInfo info = runningQueries.get(queryId);
-
         remainingStatementsCounter.decrementAndGet();
 
         if (queryType == SqlQueryType.TX_CONTROL) {
@@ -84,10 +85,10 @@ class ScriptInfoTrackerImpl implements ScriptInfoTracker {
 
         RunningQueryInfo queryInfo = new RunningQueryInfo(
                 queryId.toString(),
-                info.schema(),
+                this.queryInfo.schema(),
                 sql,
-                info.transactionId(),
-                this.queryId.toString(),
+                this.queryInfo.transactionId(),
+                this.queryInfo.queryId(),
                 queryType.name(),
                 registeredStatementsCounter.incrementAndGet(),
                 Instant.now(),
@@ -97,17 +98,11 @@ class ScriptInfoTrackerImpl implements ScriptInfoTracker {
 
         runningQueries.put(queryId, queryInfo);
 
-        return new QueryInfoTrackerImpl(queryId, runningQueries, this, openedCursorsCounter);
+        return new QueryInfoTrackerImpl(queryId, queryInfo, runningQueries, this, openedCursorsCounter);
     }
 
     @Override
     public void setStatementCount(int count) {
         remainingStatementsCounter.set(count);
-    }
-
-    private boolean doUpdate(UUID queryId, Function<RunningQueryInfo, RunningQueryInfo> replace) {
-        RunningQueryInfo prevVal = runningQueries.computeIfPresent(queryId, (id, info) -> replace.apply(info));
-
-        return prevVal != null;
     }
 }

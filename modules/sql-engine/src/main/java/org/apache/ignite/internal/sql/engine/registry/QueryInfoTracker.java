@@ -27,13 +27,13 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 public interface QueryInfoTracker {
     UUID queryId();
 
-    boolean changePhase(QueryExecutionPhase phase);
+    void changePhase(QueryExecutionPhase phase);
 
-    boolean changeType(SqlQueryType queryType);
+    void changeType(SqlQueryType queryType);
 
-    boolean changeTransactionId(UUID txId);
+    void changeTransactionId(UUID txId);
 
-    boolean setCursor(AsyncSqlCursor<?> cursor);
+    void setCursor(AsyncSqlCursor<?> cursor);
 
     boolean unregister();
 }

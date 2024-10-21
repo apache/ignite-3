@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.jetbrains.annotations.Nullable;
@@ -31,14 +30,17 @@ class QueryInfoTrackerImpl implements QueryInfoTracker {
     private final ScriptInfoTracker script;
     private final Map<UUID, RunningQueryInfo> runningQueries;
     private final AtomicInteger openedCursorsCount;
+    private final RunningQueryInfo queryInfo;
 
     QueryInfoTrackerImpl(
             UUID queryId,
+            RunningQueryInfo queryInfo,
             Map<UUID, RunningQueryInfo> runningQueries,
             @Nullable ScriptInfoTracker script,
             AtomicInteger openedCursorsCount
     ) {
         this.queryId = queryId;
+        this.queryInfo = queryInfo;
         this.runningQueries = runningQueries;
         this.openedCursorsCount = openedCursorsCount;
         this.script = script;
@@ -50,31 +52,31 @@ class QueryInfoTrackerImpl implements QueryInfoTracker {
     }
 
     @Override
-    public boolean changePhase(QueryExecutionPhase phase) {
+    public void changePhase(QueryExecutionPhase phase) {
         Objects.requireNonNull(phase, "phase");
 
-        return doUpdate(queryId, info -> info.withPhase(phase));
+        queryInfo.setPhase(phase);
     }
 
     @Override
-    public boolean changeType(SqlQueryType queryType) {
+    public void changeType(SqlQueryType queryType) {
         Objects.requireNonNull(queryType, "queryType");
 
-        return doUpdate(queryId, info -> info.withQueryType(queryType));
+        queryInfo.setType(queryType);
     }
 
     @Override
-    public boolean changeTransactionId(UUID txId) {
+    public void changeTransactionId(UUID txId) {
         Objects.requireNonNull(txId, "txId");
 
-        return doUpdate(queryId, info -> info.withTransactionId(txId));
+        queryInfo.setTransactionId(txId);
     }
 
     @Override
-    public boolean setCursor(AsyncSqlCursor<?> cursor) {
+    public void setCursor(AsyncSqlCursor<?> cursor) {
         openedCursorsCount.incrementAndGet();
 
-        return doUpdate(queryId, info -> info.withCursor(cursor));
+        queryInfo.setCursor(cursor);
     }
 
     @Override
@@ -94,11 +96,5 @@ class QueryInfoTrackerImpl implements QueryInfoTracker {
         }
 
         return true;
-    }
-
-    private boolean doUpdate(UUID queryId, Function<RunningQueryInfo, RunningQueryInfo> replace) {
-        RunningQueryInfo prevVal = runningQueries.computeIfPresent(queryId, (id, info) -> replace.apply(info));
-
-        return prevVal != null;
     }
 }

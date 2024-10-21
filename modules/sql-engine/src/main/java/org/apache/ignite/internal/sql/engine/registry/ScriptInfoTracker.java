@@ -26,7 +26,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 public interface ScriptInfoTracker {
     UUID queryId();
 
-    boolean changePhase(QueryExecutionPhase phase);
+    void changePhase(QueryExecutionPhase phase);
 
     boolean tryUnregister();
 

@@ -703,9 +703,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     nextStatement
             );
 
-            boolean updated = queryInfoTracker.setCursor(cursor);
-
-            assert updated;
+            queryInfoTracker.setCursor(cursor);
 
             cursor.onClose().whenComplete((r, e) -> {
                 queryInfoTracker.unregister();

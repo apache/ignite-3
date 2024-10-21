@@ -62,9 +62,10 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     public ScriptInfoTracker registerScript(String schema, String sql, @Nullable UUID txId) {
         UUID queryId = UUID.randomUUID();
 
-        registerQueryInfo(queryId, schema, sql, STATEMENT_NUM_NOT_APPLICABLE, "SCRIPT", toStringSafe(txId), null);
+        RunningQueryInfo queryInfo = registerQueryInfo(queryId, schema, sql, STATEMENT_NUM_NOT_APPLICABLE, "SCRIPT", toStringSafe(txId),
+                null);
 
-        return new ScriptInfoTrackerImpl(queryId, runningQueries, openedCursorsCount);
+        return new ScriptInfoTrackerImpl(queryId, queryInfo, runningQueries, openedCursorsCount);
     }
 
     private QueryInfoTracker register0(
@@ -77,12 +78,13 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     ) {
         UUID queryId = UUID.randomUUID();
 
-        registerQueryInfo(queryId, schema, sql, statementNum, type, txId, parent == null ? null : parent.queryId());
+        RunningQueryInfo queryInfo = registerQueryInfo(queryId, schema, sql, statementNum, type, txId,
+                parent == null ? null : parent.queryId());
 
-        return new QueryInfoTrackerImpl(queryId, runningQueries, parent, openedCursorsCount);
+        return new QueryInfoTrackerImpl(queryId, queryInfo, runningQueries, parent, openedCursorsCount);
     }
 
-    private void registerQueryInfo(
+    private RunningQueryInfo registerQueryInfo(
             UUID queryId,
             String schema,
             String sql,
@@ -105,6 +107,8 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         );
 
         runningQueries.put(queryId, queryInfo);
+
+        return queryInfo;
     }
 
     @Override
