@@ -90,6 +90,7 @@ data: {
       "QUERY"
       "COMPUTE"
       "WAIT"
+      "KILL"
 
       # Keywords reserved by Calcite, but not required to be reserved in Ignite.
       "ALLOCATE"
