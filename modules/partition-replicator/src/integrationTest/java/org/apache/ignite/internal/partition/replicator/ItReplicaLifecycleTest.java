@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -1147,7 +1148,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
                     replicationConfiguration,
-                    threadPoolsManager.commonScheduler()
+                    threadPoolsManager.commonScheduler(),
+                    () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -1309,7 +1311,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    lockManager,
+                    () -> lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
