@@ -63,6 +63,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -233,24 +234,26 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name()),
+                    new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage("test", metaStorageManager) {
-                /** {@inheritDoc} */
+            var distributedCfgStorage = new DistributedConfigurationStorage(name(), metaStorageManager) {
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
                     super.registerConfigurationListener(changedEntries -> {

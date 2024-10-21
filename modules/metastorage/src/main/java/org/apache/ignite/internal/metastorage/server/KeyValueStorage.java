@@ -425,7 +425,29 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void compact(long revision);
 
     /**
-     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     * Starts local compaction of metastorage.
+     *
+     * <p>Algorithm:</p>
+     * <ul>
+     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
+     *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
+     *     asynchronously waiting for their completion.</li>
+     *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
+     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompactionCompleteLocally} for
+     *     {@link #registerCompactionListener registered} listeners.</li>
+     * </ul>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param compactionRevision Compaction revision.
+     */
+    void startCompaction(long compactionRevision);
+
+    /**
+     * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
      *
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
      * recommended to invoke this method before stopping the external component.</p>
@@ -531,7 +553,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void setCompactionRevision(long revision);
 
     /**
-     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if it has never been updated.
      *
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long, KeyValueUpdateContext)
@@ -548,6 +570,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param compactionRevisionExcluded Compaction revision of interest.
      */
     CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
+
+    /** Adds a metastore compaction listener. */
+    void registerCompactionListener(CompactionListener listener);
+
+    /** Removes a metastore compaction listener. */
+    void unregisterCompactionListener(CompactionListener listener);
 
     /**
      * Returns checksum corresponding to the revision.

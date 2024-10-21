@@ -146,6 +146,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
@@ -477,7 +478,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureManager());
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var metaStorage = new RocksDbKeyValueStorage(
+                name,
+                dir.resolve("metastorage"),
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker
+        );
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
@@ -501,7 +509,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 metaStorageConfiguration,
-                msRaftConfigurer
+                msRaftConfigurer,
+                readOperationForCompactionTracker
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure) {

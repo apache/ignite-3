@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tx.message.TxStateMetaFinishingMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link TxStateMeta} implementation for {@link TxState#FINISHING} state. Contains future that is is completed after the state of
+ * {@link TxStateMeta} implementation for {@link TxState#FINISHING} state. Contains future that is completed after the state of
  * corresponding transaction changes to final state.
  */
 public class TxStateMetaFinishing extends TxStateMeta {

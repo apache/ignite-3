@@ -27,13 +27,13 @@ SELECT 123::CHAR;
 query TTT rowsort
 SELECT '1'::CHAR(5), ' 2 '::CHAR(5), '  3  '::CHAR(5);
 ----
-1    	 2   	  3  
+1	 2 	  3  
 
 # check correct length of data
 query III rowsort
 SELECT LENGTH('1'::CHAR(3)), LENGTH(' 2  '::CHAR(4)), LENGTH('    3       '::CHAR(5));
 ----
-3	4	5
+1	4	5
 
 skipif ignite3
 # https://issues.apache.org/jira/browse/IGNITE-14677
@@ -45,4 +45,4 @@ SELECT char_length('🦆')
 query T
 SELECT length('a'::CHAR(10))
 ----
-10
+1

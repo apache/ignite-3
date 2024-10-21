@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.metastorage.MetaStorageCompactionManager;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -36,16 +36,22 @@ import org.apache.ignite.internal.util.CompletableFutures;
  * <p>Expected usage:</p>
  * <ul>
  *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the compaction revision that is currently
- *     set ({@link MetaStorageCompactionManager#setCompactionRevisionLocally}/{@link KeyValueStorage#setCompactionRevision}).</li>
+ *     set ({@link KeyValueStorage#setCompactionRevision}).</li>
  *     <li>After completion, the reading command will invoke {@link #untrack} with the same arguments as when calling {@link #track},
  *     regardless of whether the operation was successful or not.</li>
  *     <li>{@link #collect} will be invoked only after a new compaction revision has been set
- *     ({@link MetaStorageCompactionManager#setCompactionRevisionLocally}/{@link KeyValueStorage#setCompactionRevision}) for a new
- *     compaction revision.</li>
+ *     ({@link KeyValueStorage#setCompactionRevision}) for a new compaction revision.</li>
  * </ul>
  */
 public class ReadOperationForCompactionTracker {
     private final Map<ReadOperationKey, CompletableFuture<Void>> readOperationFutureByKey = new ConcurrentHashMap<>();
+
+    private final AtomicLong longOperationIdGenerator = new AtomicLong();
+
+    /** Generates the next read operation ID. Thread-safe. */
+    public long generateReadOperationId() {
+        return longOperationIdGenerator.getAndIncrement();
+    }
 
     /**
      * Starts tracking the completion of a read operation on the current compaction revision.

@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +48,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
@@ -80,6 +84,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock);
+
+    ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
     @Override
     @BeforeEach
@@ -1005,6 +1011,58 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
+    /** Tests {@link KeyValueStorage#startCompaction} case from method description when storage is in recovery state. */
+    @Test
+    void testStartCompactionWithoutStartWatches() {
+        var completeCompactionFuture = new CompletableFuture<Long>();
+        storage.registerCompactionListener(completeCompactionFuture::complete);
+
+        storage.startCompaction(3);
+        assertEquals(3, storage.getCompactionRevision());
+
+        assertThat(completeCompactionFuture, willTimeoutFast());
+
+        // Let's make sure that nothing happens after the watch starts.
+        startWatches();
+        assertEquals(3, storage.getCompactionRevision());
+        assertThat(completeCompactionFuture, willTimeoutFast());
+    }
+
+    /** Tests {@link KeyValueStorage#startCompaction} case from method description when storage is <b>not</b> in recovery state. */
+    @Test
+    void testStartCompaction() {
+        var completeCompactionFuture = new CompletableFuture<Long>();
+        storage.registerCompactionListener(completeCompactionFuture::complete);
+
+        var startHandleWatchEventFuture = new CompletableFuture<Void>();
+        var finishHandleWatchEventFuture = new CompletableFuture<Void>();
+
+        watchExact(FOO_KEY, startHandleWatchEventFuture, finishHandleWatchEventFuture);
+        startWatches();
+
+        storage.put(FOO_KEY, SOME_VALUE, kvContext(clock.now()));
+        assertThat(startHandleWatchEventFuture, willCompleteSuccessfully());
+
+        storage.startCompaction(3);
+
+        Cursor<Entry> rangeCursor = storage.range(FOO_KEY, FOO_KEY);
+
+        // Since we blocked the WatchEvent queue, we can't complete the compaction.
+        assertThat(completeCompactionFuture, willTimeoutFast());
+        assertEquals(-1, storage.getCompactionRevision());
+
+        finishHandleWatchEventFuture.complete(null);
+
+        // We have unlocked the WatchEvent queue, but the cursor has not yet been closed.
+        assertThat(completeCompactionFuture, willTimeoutFast());
+        assertEquals(3, storage.getCompactionRevision());
+
+        rangeCursor.close();
+
+        assertThat(completeCompactionFuture, willBe(3L));
+        assertEquals(3, storage.getCompactionRevision());
+    }
+
     private List<Integer> collectRevisions(byte[] key) {
         var revisions = new ArrayList<Integer>();
 
@@ -1019,7 +1077,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         return revisions;
     }
 
-    private List<Long> collectRevisions(Cursor<Entry> cursor) {
+    private static List<Long> collectRevisions(Cursor<Entry> cursor) {
         return cursor.stream().map(Entry::revision).collect(toList());
     }
 
@@ -1097,6 +1155,30 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
             @Override
             public void onRevisionApplied(long revision) {
+            }
+        });
+    }
+
+    private void startWatches() {
+        startListenUpdateSafeTime();
+    }
+
+    private void watchExact(
+            byte[] key,
+            CompletableFuture<Void> startHandleWatchEventFuture,
+            CompletableFuture<Void> finishHandleWatchEventFuture
+    ) {
+        storage.watchExact(key, storage.revision() + 1, new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                startHandleWatchEventFuture.complete(null);
+
+                return finishHandleWatchEventFuture;
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                startHandleWatchEventFuture.completeExceptionally(e);
             }
         });
     }

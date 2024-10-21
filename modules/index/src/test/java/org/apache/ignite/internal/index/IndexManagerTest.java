@@ -62,6 +62,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -218,7 +219,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void createAndStartComponents() {
-        metaStorageManager = StandaloneMetaStorageManager.create(new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager()));
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
