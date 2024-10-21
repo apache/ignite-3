@@ -61,7 +61,7 @@ public class ItNotInitializedClusterTest extends CliCommandTestNotInitializedInt
                 arguments("node unit list", "Cannot list units")
         );
     }
-    
+
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("commands")
     void test(String argLine, String expectedErrorMessage) {

@@ -63,7 +63,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Set name\tEnabled" + NL),
+                () -> assertOutputContains("Source name\tEnabled" + NL),
                 () -> assertOutputContains("jvm\tenabled" + NL),
                 () -> assertOutputContains("client.handler\tdisabled" + NL),
                 () -> assertOutputContains("sql.client\tdisabled" + NL),

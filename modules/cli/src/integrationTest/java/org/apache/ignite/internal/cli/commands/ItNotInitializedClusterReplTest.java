@@ -31,6 +31,11 @@ public class ItNotInitializedClusterReplTest extends ItNotInitializedClusterTest
         return TopLevelCliReplCommand.class;
     }
 
+    @Override
+    protected int errorExitCode() {
+        return 0;
+    }
+
     @BeforeEach
     void connect() {
         execute("connect");
