@@ -37,14 +37,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -216,8 +215,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
-
     /** Cluster SQL configuration. */
     private final SqlDistributedConfiguration clusterCfg;
 
@@ -292,7 +289,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
-        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
+        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(runningQueries::openedCursorsCount);
         metricManager.registerSource(sqlClientMetricSource);
         metricManager.enable(sqlClientMetricSource);
 
@@ -392,8 +389,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         busyLock.block();
 
-        openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
-        openedCursors.clear();
+        runningQueries.queries().stream().map(RunningQueryInfo::cursor).filter(Objects::nonNull).forEach(AsyncSqlCursor::closeAsync);
 
         metricManager.unregisterSource(SqlClientMetricSource.NAME);
 
@@ -708,12 +704,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     nextStatement
             );
 
-            Object old = openedCursors.put(queryId, cursor);
+            boolean updated = queryInfoTracker.setCursor(cursor);
 
-            assert old == null;
+            assert updated;
 
             cursor.onClose().whenComplete((r, e) -> {
-                openedCursors.remove(queryId);
                 queryInfoTracker.unregister();
             });
 
@@ -838,7 +833,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Returns count of opened cursors. */
     @TestOnly
     public int openedCursors() {
-        return openedCursors.size();
+        return runningQueries.openedCursorsCount();
     }
 
     @TestOnly

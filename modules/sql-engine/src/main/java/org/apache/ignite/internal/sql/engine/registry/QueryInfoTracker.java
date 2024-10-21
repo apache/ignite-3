@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.registry;
 
 import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
@@ -31,6 +32,8 @@ public interface QueryInfoTracker {
     boolean changeType(SqlQueryType queryType);
 
     boolean changeTransactionId(UUID txId);
+
+    boolean setCursor(AsyncSqlCursor<?> cursor);
 
     boolean unregister();
 }

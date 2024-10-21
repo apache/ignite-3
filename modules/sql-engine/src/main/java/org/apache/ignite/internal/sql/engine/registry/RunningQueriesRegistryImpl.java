@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -43,6 +44,18 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     private final Map<UUID, RunningQueryInfo> runningQueries = new ConcurrentHashMap<>();
+
+    private final AtomicInteger openedCursorsCount = new AtomicInteger();
+
+    @Override
+    public int openedCursorsCount() {
+        return openedCursorsCount.get();
+    }
+
+    @Override
+    public Collection<RunningQueryInfo> queries() {
+        return runningQueries.values();
+    }
 
     @Override
     public QueryInfoTracker register(String schema, String sql, @Nullable UUID txId) {
@@ -91,7 +104,8 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
                 type,
                 statementNum,
                 Instant.now(),
-                QueryExecutionPhase.INITIALIZATION.name()
+                QueryExecutionPhase.INITIALIZATION.name(),
+                null
         );
 
         runningQueries.put(queryId, queryInfo);
@@ -231,14 +245,29 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         }
 
         @Override
-        public boolean unregister() {
-            boolean unregistered = runningQueries.remove(queryId) != null;
+        public boolean setCursor(AsyncSqlCursor<?> cursor) {
+            openedCursorsCount.incrementAndGet();
 
-            if (unregistered && parent != null) {
+            return doUpdate(queryId, info -> info.withCursor(cursor));
+        }
+
+        @Override
+        public boolean unregister() {
+            RunningQueryInfo queryInfo = runningQueries.remove(queryId);
+
+            if (queryInfo == null) {
+                return false;
+            }
+
+            if (queryInfo.cursor() != null) {
+                openedCursorsCount.decrementAndGet();
+            }
+
+            if (parent != null) {
                 parent.tryUnregister();
             }
 
-            return unregistered;
+            return true;
         }
     }
 }

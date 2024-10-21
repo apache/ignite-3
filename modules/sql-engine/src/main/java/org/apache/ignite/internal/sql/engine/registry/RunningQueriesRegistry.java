@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.registry;
 
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.jetbrains.annotations.Nullable;
@@ -25,6 +26,10 @@ import org.jetbrains.annotations.Nullable;
  * Registry of running queries.
  */
 public interface RunningQueriesRegistry {
+    int openedCursorsCount();
+
+    Collection<RunningQueryInfo> queries();
+
     QueryInfoTracker register(String schema, String sql, @Nullable UUID txId);
 
     ScriptInfoTracker registerScript(String schema, String sql, @Nullable UUID txId);

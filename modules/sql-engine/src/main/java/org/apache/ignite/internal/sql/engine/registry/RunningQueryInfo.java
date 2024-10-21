@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.registry;
 
 import java.time.Instant;
 import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,6 +38,7 @@ public class RunningQueryInfo {
     private final String phase;
     private final String queryType;
     private final int statementNum;
+    private final AsyncSqlCursor<?> cursor;
 
     RunningQueryInfo(
             String queryId,
@@ -47,7 +49,8 @@ public class RunningQueryInfo {
             @Nullable String queryType,
             int statementNum,
             Instant startTime,
-            String phase
+            String phase,
+            @Nullable AsyncSqlCursor<?> cursor
     ) {
         this.queryId = queryId;
         this.schema = schema;
@@ -58,21 +61,31 @@ public class RunningQueryInfo {
         this.startTime = startTime;
         this.phase = phase;
         this.statementNum = statementNum;
+        this.cursor = cursor;
     }
 
     RunningQueryInfo withQueryType(SqlQueryType queryType) {
         return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
-                queryType.name(), statementNum, startTime, phase);
+                queryType.name(), statementNum, startTime, phase, cursor);
     }
 
     RunningQueryInfo withPhase(QueryExecutionPhase phase) {
         return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
-                queryType, statementNum, startTime, phase.name());
+                queryType, statementNum, startTime, phase.name(), cursor);
     }
 
     RunningQueryInfo withTransactionId(UUID txId) {
         return new RunningQueryInfo(queryId, schema, sql, txId.toString(), parentId,
-                queryType, statementNum, startTime, phase);
+                queryType, statementNum, startTime, phase, cursor);
+    }
+
+    RunningQueryInfo withCursor(AsyncSqlCursor<?> cursor) {
+        return new RunningQueryInfo(queryId, schema, sql, txId, parentId,
+                queryType, statementNum, startTime, phase, cursor);
+    }
+
+    public @Nullable AsyncSqlCursor<?> cursor() {
+        return cursor;
     }
 
     String queryId() {
