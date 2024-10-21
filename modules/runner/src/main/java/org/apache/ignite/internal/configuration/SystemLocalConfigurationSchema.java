@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * System Configuration schema.
- */
+/** Local system configuration schema. */
 @Config
 public class SystemLocalConfigurationSchema {
-
     /**
      * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.
      *
@@ -68,4 +66,8 @@ public class SystemLocalConfigurationSchema {
      */
     @Value(hasDefault = true)
     public String metastoragePath = "";
+
+    /** System properties. */
+    @NamedConfigValue
+    public SystemPropertyConfigurationSchema properties;
 }

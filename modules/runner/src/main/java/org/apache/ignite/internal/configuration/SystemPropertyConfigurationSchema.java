@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+/** System property configuration schema. */
+public class SystemPropertyConfigurationSchema {
+    /** Property name. */
+    @InjectedName
+    public String name;
+
+    /** Property value. */
+    @Value
+    public String propertyValue;
 }

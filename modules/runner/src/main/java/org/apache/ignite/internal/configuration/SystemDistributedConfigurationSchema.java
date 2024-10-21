@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+/** Distributed system configuration schema. */
+@Config
+public class SystemDistributedConfigurationSchema {
+    /** System properties. */
+    @NamedConfigValue
+    public SystemPropertyConfigurationSchema properties;
 }
