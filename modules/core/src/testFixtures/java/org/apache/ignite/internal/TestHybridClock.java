@@ -83,7 +83,7 @@ public class TestHybridClock implements HybridClock {
 
     @Override
     public long currentLong() {
-        long now = currentTime();
+        long current = currentTime();
 
         return max(latestTime, now);
     }

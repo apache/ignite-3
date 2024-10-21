@@ -3520,7 +3520,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
-        HybridTimestamp now = clockService.current();
+        HybridTimestamp current = clockService.current();
 
         if (request instanceof PrimaryReplicaRequest) {
             Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
@@ -3541,7 +3541,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                 if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                        || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
+                        || clockService.before(primaryReplicaMeta.getExpirationTime(), current)
                         || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
                 ) {
                     throw new PrimaryReplicaMissException(
@@ -3557,7 +3557,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue());
             };
 
-            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, current);
 
             if (meta != null) {
                 try {
@@ -3567,9 +3567,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             }
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, now).thenApply(validateClo);
+            return placementDriver.getPrimaryReplica(replicationGroupId, current).thenApply(validateClo);
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+            return placementDriver.getPrimaryReplica(replicationGroupId, current)
                     .thenApply(primaryReplica -> new IgniteBiTuple<>(
                             primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
                             null
