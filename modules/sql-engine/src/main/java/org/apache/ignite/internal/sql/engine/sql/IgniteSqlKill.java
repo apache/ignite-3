@@ -123,7 +123,7 @@ public class IgniteSqlKill extends SqlCall {
                 throw new IllegalStateException("Unexpected object type: " + operator.objectType);
         }
 
-        objectId().unparse(writer, 0, 0);
+        objectId().unparse(writer, leftPrec, rightPrec);
 
         if (!operator.waitForCompletion) {
             writer.keyword("NO");
