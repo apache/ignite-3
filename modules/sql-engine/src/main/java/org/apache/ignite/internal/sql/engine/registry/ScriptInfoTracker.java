@@ -18,16 +18,21 @@
 package org.apache.ignite.internal.sql.engine.registry;
 
 import java.util.UUID;
-import org.apache.ignite.internal.systemview.api.SystemView;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
- * Registry of running queries.
+ * Provides the ability to perform on-the-fly updates to running query information.
  */
-public interface RunningQueriesRegistry {
-    QueryInfoTracker register(String schema, String sql, @Nullable UUID txId);
+public interface ScriptInfoTracker {
+    UUID queryId();
 
-    ScriptInfoTracker registerScript(String schema, String sql, @Nullable UUID txId);
+    boolean changePhase(QueryExecutionPhase phase);
 
-    SystemView<?> systemView();
+    boolean tryUnregister();
+
+    boolean unregister();
+
+    QueryInfoTracker registerStatement(String sql, SqlQueryType queryType);
+
+    void setStatementCount(int count);
 }

@@ -100,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.registry.QueryInfoTracker;
 import org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistry;
 import org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistryImpl;
 import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
+import org.apache.ignite.internal.sql.engine.registry.ScriptInfoTracker;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -577,7 +578,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         QueryTransactionWrapper txWrapper = txCtx.explicitTx();
         UUID externalTxId = txWrapper != null ? txWrapper.unwrap().id() : null;
-        QueryInfoTracker scriptInfoTracker = runningQueries.registerScript(schemaName, sql, externalTxId);
+        ScriptInfoTracker scriptInfoTracker = runningQueries.registerScript(schemaName, sql, externalTxId);
 
         Instant deadline;
         if (queryTimeout != 0) {
@@ -863,7 +864,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
          */
         private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
 
-        private final QueryInfoTracker scriptInfoTracker;
+        private final ScriptInfoTracker scriptInfoTracker;
 
         MultiStatementHandler(
                 String schemaName,
@@ -871,7 +872,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 List<ParsedResult> parsedResults,
                 Object[] params,
                 ZoneId timeZoneId,
-                QueryInfoTracker scriptInfoTracker,
+                ScriptInfoTracker scriptInfoTracker,
                 @Nullable Instant deadline
         ) {
             this.timeZoneId = timeZoneId;

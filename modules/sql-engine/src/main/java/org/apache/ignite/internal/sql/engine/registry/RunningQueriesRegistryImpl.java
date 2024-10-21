@@ -50,8 +50,12 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     }
 
     @Override
-    public QueryInfoTracker registerScript(String schema, String sql, @Nullable UUID txId) {
-        return register0(schema, sql, STATEMENT_NUM_NOT_APPLICABLE, "SCRIPT", toStringSafe(txId), null);
+    public ScriptInfoTracker registerScript(String schema, String sql, @Nullable UUID txId) {
+        UUID queryId = UUID.randomUUID();
+
+        registerQueryInfo(queryId, schema, sql, STATEMENT_NUM_NOT_APPLICABLE, "SCRIPT", toStringSafe(txId), null);
+
+        return new ScriptInfoTrackerImpl(queryId);
     }
 
     private QueryInfoTracker register0(
@@ -60,16 +64,30 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
             int statementNum,
             @Nullable String type,
             @Nullable String txId,
-            @Nullable QueryInfoTracker parent
+            @Nullable ScriptInfoTracker parent
     ) {
         UUID queryId = UUID.randomUUID();
 
+        registerQueryInfo(queryId, schema, sql, statementNum, type, txId, parent == null ? null : parent.queryId());
+
+        return new QueryInfoTrackerImpl(queryId, parent);
+    }
+
+    private void registerQueryInfo(
+            UUID queryId,
+            String schema,
+            String sql,
+            int statementNum,
+            @Nullable String type,
+            @Nullable String txId,
+            @Nullable UUID parentQueryId
+    ) {
         RunningQueryInfo queryInfo = new RunningQueryInfo(
                 queryId.toString(),
                 schema,
                 sql,
                 txId,
-                toStringSafe(parent == null ? null : parent.queryId()),
+                toStringSafe(parentQueryId),
                 type,
                 statementNum,
                 Instant.now(),
@@ -77,8 +95,6 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         );
 
         runningQueries.put(queryId, queryInfo);
-
-        return new QueryInfoTrackerImpl(queryId, parent);
     }
 
     private boolean doUpdate(UUID queryId, Function<RunningQueryInfo, RunningQueryInfo> replace) {
@@ -124,16 +140,66 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         return id == null ? null : id.toString();
     }
 
-    class QueryInfoTrackerImpl implements QueryInfoTracker {
+    class ScriptInfoTrackerImpl implements ScriptInfoTracker {
         private final UUID queryId;
-        private final QueryInfoTracker parent;
 
         private final AtomicInteger statementsNumber = new AtomicInteger();
 
-        // TODO do we need volatile?
         private final AtomicInteger statementsCounter = new AtomicInteger();
 
-        QueryInfoTrackerImpl(UUID queryId, @Nullable QueryInfoTracker parent) {
+        ScriptInfoTrackerImpl(UUID queryId) {
+            this.queryId = queryId;
+        }
+
+        @Override
+        public UUID queryId() {
+            return queryId;
+        }
+
+        @Override
+        public boolean changePhase(QueryExecutionPhase phase) {
+            Objects.requireNonNull(phase, "phase");
+
+            return doUpdate(queryId, info -> info.withPhase(phase));
+        }
+
+        @Override
+        public boolean unregister() {
+            return runningQueries.remove(queryId) != null;
+        }
+
+        @Override
+        public boolean tryUnregister() {
+            int remainingCount = statementsNumber.decrementAndGet();
+
+            return statementsCounter.get() == 0 && remainingCount <= 0 && unregister();
+        }
+
+        @Override
+        public QueryInfoTracker registerStatement(String sql, SqlQueryType queryType) {
+            RunningQueryInfo info = runningQueries.get(queryId);
+
+            statementsCounter.decrementAndGet();
+
+            if (queryType == SqlQueryType.TX_CONTROL) {
+                // TODO NOOP tracker
+                return null;
+            }
+
+            return register0(info.schema(), sql, statementsNumber.incrementAndGet(), queryType.name(), info.transactionId(), this);
+        }
+
+        @Override
+        public void setStatementCount(int count) {
+            statementsCounter.set(count);
+        }
+    }
+
+    class QueryInfoTrackerImpl implements QueryInfoTracker {
+        private final UUID queryId;
+        private final ScriptInfoTracker parent;
+
+        QueryInfoTrackerImpl(UUID queryId, @Nullable ScriptInfoTracker parent) {
             this.queryId = queryId;
             this.parent = parent;
         }
@@ -166,39 +232,13 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
 
         @Override
         public boolean unregister() {
-            if (parent == null) {
-                int remainingCount = statementsNumber.decrementAndGet();
-
-                return statementsCounter.get() == 0 && remainingCount <= 0
-                        && runningQueries.remove(queryId) != null;
-            }
-
             boolean unregistered = runningQueries.remove(queryId) != null;
 
-            if (unregistered) {
-                parent.unregister();
+            if (unregistered && parent != null) {
+                parent.tryUnregister();
             }
 
             return unregistered;
-        }
-
-        @Override
-        public QueryInfoTracker registerStatement(String sql, SqlQueryType queryType) {
-            RunningQueryInfo info = runningQueries.get(queryId);
-
-            statementsCounter.decrementAndGet();
-
-            if (queryType == SqlQueryType.TX_CONTROL) {
-                // TODO NOOP tracker
-                return null;
-            }
-
-            return register0(info.schema(), sql, statementsNumber.incrementAndGet(), queryType.name(), info.transactionId(), this);
-        }
-
-        @Override
-        public void setStatementCount(int count) {
-            statementsCounter.set(count);
         }
     }
 }
