@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS Person (
   name varchar,
   age int,
   company varchar
-) ZONE=`MYZONE`
+) ZONE MYZONE
 ----
 
 Creates a Person table where the default value if the `city_id` column is 1:

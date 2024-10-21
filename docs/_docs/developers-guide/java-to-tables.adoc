@@ -82,7 +82,7 @@ The result is equivalent to the following SQL multi-statement:
 
 [source, sql]
 ----
-CREATE ZONE IF NOT EXISTS ZONE_TEST ENGINE ROCKSDB WITH PARTITIONS=2;
+CREATE ZONE IF NOT EXISTS zone_test ENGINE ROCKSDB WITH PARTITIONS=2;
 
 CREATE TABLE IF NOT EXISTS kv_pojo_test (
 	id int,

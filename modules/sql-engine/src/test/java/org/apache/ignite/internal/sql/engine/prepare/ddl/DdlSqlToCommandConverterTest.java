@@ -609,7 +609,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithAutogenPkColumn() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id uuid default rand_uuid primary key, val int) STORAGE PROFILE '"
+        SqlNode node = parse("CREATE TABLE t (id uuid default rand_uuid primary key, val int) STORAGE PROFILE '"
                 + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));

@@ -54,10 +54,8 @@ public class IgniteSqlCreateTable extends SqlCreate {
     }
 
     private final SqlIdentifier name;
-    @Nullable
-    private final SqlIdentifier zone;
-    @Nullable
-    private final SqlNode storageProfile;
+    private final @Nullable SqlIdentifier zone;
+    private final @Nullable SqlNode storageProfile;
 
     private final @Nullable SqlNodeList columnList;
 

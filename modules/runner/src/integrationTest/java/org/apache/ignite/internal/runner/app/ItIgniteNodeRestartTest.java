@@ -1757,7 +1757,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor2.startInhibit();
 
         sql.executeAsync(null, "CREATE TABLE " + tableName
-                + "(id INT PRIMARY KEY, name VARCHAR) ZONE" + zoneName + ";");
+                + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
 
         // Stopping 2 of 3 nodes.
         node1.stop();

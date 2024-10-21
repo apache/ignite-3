@@ -62,7 +62,7 @@ class ItConcurrentDdlsTest extends ClusterPerTestIntegrationTest {
             String tableName = "TEST" + n;
 
             node(0).sql().executeScript(
-                    "CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val VARCHAR) zone " + ZONE_NAME
+                    "CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val VARCHAR) ZONE " + ZONE_NAME
             );
         });
     }
