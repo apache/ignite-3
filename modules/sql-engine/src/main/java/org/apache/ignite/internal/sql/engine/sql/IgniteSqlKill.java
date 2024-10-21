@@ -109,19 +109,7 @@ public class IgniteSqlKill extends SqlCall {
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName());
-        switch (operator.objectType) {
-            case QUERY:
-                writer.keyword("QUERY");
-                break;
-            case TRANSACTION:
-                writer.keyword("TRANSACTION");
-                break;
-            case COMPUTE:
-                writer.keyword("COMPUTE");
-                break;
-            default:
-                throw new IllegalStateException("Unexpected object type: " + operator.objectType);
-        }
+        writer.keyword(operator.objectType.name());
 
         objectId().unparse(writer, leftPrec, rightPrec);
 
