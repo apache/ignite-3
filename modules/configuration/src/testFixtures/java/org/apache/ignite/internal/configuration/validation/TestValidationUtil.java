@@ -29,6 +29,7 @@ import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -118,5 +119,14 @@ public class TestValidationUtil {
 
             assertThat(messages, contains(matchers));
         }
+    }
+
+    /** Creates mock {@link NamedListView}. */
+    public static NamedListView<?> mockNamedListView(List<String> keys) {
+        NamedListView<?> namedListView = mock(NamedListView.class);
+
+        when(namedListView.namedListKeys()).thenReturn(keys);
+
+        return namedListView;
     }
 }

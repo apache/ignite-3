@@ -22,11 +22,9 @@ import org.apache.ignite.configuration.annotation.Value;
 
 /** System property configuration schema. */
 public class SystemPropertyConfigurationSchema {
-    /** Property name. */
     @InjectedName
     public String name;
 
-    /** Property value. */
     @Value
     public String propertyValue;
 }

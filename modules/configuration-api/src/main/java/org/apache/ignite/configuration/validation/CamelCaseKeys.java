@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.configuration.validation;
 
-import org.apache.ignite.configuration.annotation.Config;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.validation.CamelCaseKeys;
 
-/** Distributed system configuration schema. */
-@Config
-public class SystemDistributedConfigurationSchema {
-    /** System properties. */
-    @CamelCaseKeys
-    @NamedConfigValue
-    public SystemPropertyConfigurationSchema properties;
+/**
+ * Signifies that a {@link NamedConfigValue} can't have elements with keys not in
+ * <a href="https://google.github.io/styleguide/javaguide.html#s5.3-camel-case">lower camel case.</a>
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface CamelCaseKeys {
 }
