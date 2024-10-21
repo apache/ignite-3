@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Objects.nonNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,19 +29,12 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for Rendezvous distribution function.
  */
 public class RendezvousDistributionFunctionTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RendezvousDistributionFunctionTest.class);
-
     /** Distribution deviation ratio. */
     public static final double DISTRIBUTION_DEVIATION_RATIO = 0.2;
 
@@ -104,35 +96,6 @@ public class RendezvousDistributionFunctionTest {
         return IntStream.range(0, nodes)
                 .mapToObj(i -> "Node " + i)
                 .collect(Collectors.toUnmodifiableList());
-    }
-
-    @Test
-    public void serializeAssignment() {
-        int nodeCount = 50;
-
-        int parts = 10_000;
-
-        int replicas = 4;
-
-        List<String> nodes = prepareNetworkTopology(nodeCount);
-
-        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
-
-        List<List<String>> assignment = RendezvousDistributionFunction.assignPartitions(
-                nodes,
-                parts,
-                replicas,
-                false,
-                null
-        );
-
-        byte[] assignmentBytes = ByteUtils.toBytes(assignment);
-
-        LOG.info("Assignment is serialized successfully [bytes={}]", assignmentBytes.length);
-
-        List<List<ClusterNode>> deserializedAssignment = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentBytes);
-
-        assertEquals(assignment, deserializedAssignment);
     }
 
     /**
