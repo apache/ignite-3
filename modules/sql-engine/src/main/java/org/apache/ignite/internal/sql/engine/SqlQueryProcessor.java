@@ -691,7 +691,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             AsyncDataCursor<InternalSqlRow> dataCursor = executionSrvc.executePlan(plan, ctx);
 
             SqlQueryType queryType = plan.type();
-            UUID queryId = ctx.queryId();
 
             PrefetchCallback prefetchCallback = ctx.prefetchCallback();
 

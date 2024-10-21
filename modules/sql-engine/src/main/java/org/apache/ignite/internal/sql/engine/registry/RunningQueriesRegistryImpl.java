@@ -23,14 +23,10 @@ import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeType;
@@ -68,7 +64,7 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
 
         registerQueryInfo(queryId, schema, sql, STATEMENT_NUM_NOT_APPLICABLE, "SCRIPT", toStringSafe(txId), null);
 
-        return new ScriptInfoTrackerImpl(queryId);
+        return new ScriptInfoTrackerImpl(queryId, runningQueries, openedCursorsCount);
     }
 
     private QueryInfoTracker register0(
@@ -83,7 +79,7 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
 
         registerQueryInfo(queryId, schema, sql, statementNum, type, txId, parent == null ? null : parent.queryId());
 
-        return new QueryInfoTrackerImpl(queryId, parent);
+        return new QueryInfoTrackerImpl(queryId, runningQueries, parent, openedCursorsCount);
     }
 
     private void registerQueryInfo(
@@ -109,12 +105,6 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         );
 
         runningQueries.put(queryId, queryInfo);
-    }
-
-    private boolean doUpdate(UUID queryId, Function<RunningQueryInfo, RunningQueryInfo> replace) {
-        RunningQueryInfo prevVal = runningQueries.computeIfPresent(queryId, (id, info) -> replace.apply(info));
-
-        return prevVal != null;
     }
 
     @Override
@@ -152,122 +142,5 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
 
     private static @Nullable String toStringSafe(@Nullable UUID id) {
         return id == null ? null : id.toString();
-    }
-
-    class ScriptInfoTrackerImpl implements ScriptInfoTracker {
-        private final UUID queryId;
-
-        private final AtomicInteger statementsNumber = new AtomicInteger();
-
-        private final AtomicInteger statementsCounter = new AtomicInteger();
-
-        ScriptInfoTrackerImpl(UUID queryId) {
-            this.queryId = queryId;
-        }
-
-        @Override
-        public UUID queryId() {
-            return queryId;
-        }
-
-        @Override
-        public boolean changePhase(QueryExecutionPhase phase) {
-            Objects.requireNonNull(phase, "phase");
-
-            return doUpdate(queryId, info -> info.withPhase(phase));
-        }
-
-        @Override
-        public boolean unregister() {
-            return runningQueries.remove(queryId) != null;
-        }
-
-        @Override
-        public boolean tryUnregister() {
-            int remainingCount = statementsNumber.decrementAndGet();
-
-            return statementsCounter.get() == 0 && remainingCount <= 0 && unregister();
-        }
-
-        @Override
-        public QueryInfoTracker registerStatement(String sql, SqlQueryType queryType) {
-            RunningQueryInfo info = runningQueries.get(queryId);
-
-            statementsCounter.decrementAndGet();
-
-            if (queryType == SqlQueryType.TX_CONTROL) {
-                // TODO NOOP tracker
-                return null;
-            }
-
-            return register0(info.schema(), sql, statementsNumber.incrementAndGet(), queryType.name(), info.transactionId(), this);
-        }
-
-        @Override
-        public void setStatementCount(int count) {
-            statementsCounter.set(count);
-        }
-    }
-
-    class QueryInfoTrackerImpl implements QueryInfoTracker {
-        private final UUID queryId;
-        private final ScriptInfoTracker parent;
-
-        QueryInfoTrackerImpl(UUID queryId, @Nullable ScriptInfoTracker parent) {
-            this.queryId = queryId;
-            this.parent = parent;
-        }
-
-        @Override
-        public UUID queryId() {
-            return queryId;
-        }
-
-        @Override
-        public boolean changePhase(QueryExecutionPhase phase) {
-            Objects.requireNonNull(phase, "phase");
-
-            return doUpdate(queryId, info -> info.withPhase(phase));
-        }
-
-        @Override
-        public boolean changeType(SqlQueryType queryType) {
-            Objects.requireNonNull(queryType, "queryType");
-
-            return doUpdate(queryId, info -> info.withQueryType(queryType));
-        }
-
-        @Override
-        public boolean changeTransactionId(UUID txId) {
-            Objects.requireNonNull(txId, "txId");
-
-            return doUpdate(queryId, info -> info.withTransactionId(txId));
-        }
-
-        @Override
-        public boolean setCursor(AsyncSqlCursor<?> cursor) {
-            openedCursorsCount.incrementAndGet();
-
-            return doUpdate(queryId, info -> info.withCursor(cursor));
-        }
-
-        @Override
-        public boolean unregister() {
-            RunningQueryInfo queryInfo = runningQueries.remove(queryId);
-
-            if (queryInfo == null) {
-                return false;
-            }
-
-            if (queryInfo.cursor() != null) {
-                openedCursorsCount.decrementAndGet();
-            }
-
-            if (parent != null) {
-                parent.tryUnregister();
-            }
-
-            return true;
-        }
     }
 }

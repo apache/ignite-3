@@ -21,7 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
- * Provides the ability to perform on-the-fly updates to running query information.
+ * TODO Provides the ability to perform on-the-fly updates to running query information.
  */
 public interface ScriptInfoTracker {
     UUID queryId();
