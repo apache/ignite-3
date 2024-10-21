@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
-import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
-
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /**
  * Representation of leases batch.
@@ -38,10 +37,11 @@ public class LeaseBatch {
     }
 
     public byte[] bytes() {
-        return collectionToBytes(leases, Lease::bytes);
+        return VersionedSerialization.toBytes(this, LeaseBatchSerializer.INSTANCE);
     }
 
     public static LeaseBatch fromBytes(ByteBuffer bytes) {
-        return new LeaseBatch(bytesToList(bytes, Lease::fromBytes));
+        byte[] byteArray = ByteUtils.toByteArray(bytes);
+        return VersionedSerialization.fromBytes(byteArray, LeaseBatchSerializer.INSTANCE);
     }
 }
