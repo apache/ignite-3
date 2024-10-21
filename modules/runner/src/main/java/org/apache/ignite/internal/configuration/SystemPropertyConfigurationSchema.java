@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /** System property configuration schema. */
+@Config
 public class SystemPropertyConfigurationSchema {
     @InjectedName
     public String name;
