@@ -50,6 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -929,13 +930,19 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        Supplier<LockManager> lockManagerFactory = () -> {
-            DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
-            );
+        AtomicReference<HeapLockManager> lockMgrRef = new AtomicReference<>();
 
-            return new HeapLockManager(deadlockPreventionPolicy);
+        Supplier<LockManager> lockManagerFactory = () -> {
+            if (lockMgrRef.get() == null) {
+                DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                        txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                        txConfig.deadlockPreventionPolicy().waitTimeout().value()
+                );
+
+                lockMgrRef.compareAndSet(null, new HeapLockManager(deadlockPreventionPolicy));
+            }
+
+            return lockMgrRef.get();
         };
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
