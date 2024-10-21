@@ -34,5 +34,9 @@ public interface QueryInfoTracker {
 
     boolean unregister();
 
+    // TODO move to script tracker
     QueryInfoTracker registerStatement(String sql, SqlQueryType queryType);
+
+    // TODO move to script tracker
+    void setStatementCount(int count);
 }

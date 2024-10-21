@@ -557,6 +557,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     .build();
 
             return executeParsedStatement(operationContext, result, queryInfoTracker, null);
+        })
+        .whenComplete((r, e) -> {
+            if (e != null) {
+                queryInfoTracker.unregister();
+            }
         });
     }
 
@@ -871,10 +876,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ) {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
+            this.scriptInfoTracker = scriptInfoTracker;
             this.statements = prepareStatementsQueue(parsedResults, params);
             this.scriptTxContext = new ScriptTransactionContext(txContext, transactionInflights);
-            this.scriptInfoTracker = scriptInfoTracker;
             this.deadline = deadline;
+
+            this.scriptInfoTracker.setStatementCount(statements.size());
         }
 
         /**
@@ -923,6 +930,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 Object[] params = scriptStatement.dynamicParams;
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCurFut = scriptStatement.nextStatementFuture;
 
+                QueryInfoTracker queryInfoTracker =
+                        scriptInfoTracker.registerStatement(scriptStatement.parsedResult.originalQuery(), parsedResult.queryType());
+
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
                 if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
@@ -959,9 +969,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
                     HybridTimestamp operationTime = deriveOperationTime(scriptTxContext);
 
-                    QueryInfoTracker queryInfoTracker =
-                            scriptInfoTracker.registerStatement(scriptStatement.parsedResult.originalQuery(), parsedResult.queryType());
-
                     QueryTransactionWrapper wrapper = scriptTxContext.explicitTx();
 
                     if (wrapper != null) {
@@ -995,6 +1002,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
                 fut.whenComplete((cursor, ex) -> {
                     if (ex != null) {
+                        queryInfoTracker.unregister();
+
                         cancelAll(ex);
 
                         return;

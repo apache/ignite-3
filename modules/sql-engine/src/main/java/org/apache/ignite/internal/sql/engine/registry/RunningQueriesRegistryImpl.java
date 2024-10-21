@@ -125,9 +125,12 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     }
 
     class QueryInfoTrackerImpl implements QueryInfoTracker {
-        final UUID queryId;
-        final QueryInfoTracker parent;
+        private final UUID queryId;
+        private final QueryInfoTracker parent;
 
+        private final AtomicInteger statementsNumber = new AtomicInteger();
+
+        // TODO do we need volatile?
         private final AtomicInteger statementsCounter = new AtomicInteger();
 
         QueryInfoTrackerImpl(UUID queryId, @Nullable QueryInfoTracker parent) {
@@ -164,7 +167,9 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         @Override
         public boolean unregister() {
             if (parent == null) {
-                return statementsCounter.decrementAndGet() <= 0
+                int remainingCount = statementsNumber.decrementAndGet();
+
+                return statementsCounter.get() == 0 && remainingCount <= 0
                         && runningQueries.remove(queryId) != null;
             }
 
@@ -181,7 +186,19 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         public QueryInfoTracker registerStatement(String sql, SqlQueryType queryType) {
             RunningQueryInfo info = runningQueries.get(queryId);
 
-            return register0(info.schema(), sql, statementsCounter.incrementAndGet(), queryType.name(), info.transactionId(), this);
+            statementsCounter.decrementAndGet();
+
+            if (queryType == SqlQueryType.TX_CONTROL) {
+                // TODO NOOP tracker
+                return null;
+            }
+
+            return register0(info.schema(), sql, statementsNumber.incrementAndGet(), queryType.name(), info.transactionId(), this);
+        }
+
+        @Override
+        public void setStatementCount(int count) {
+            statementsCounter.set(count);
         }
     }
 }
