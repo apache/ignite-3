@@ -21,10 +21,13 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /** Tests for cluster metric commands. */
 class ItClusterMetricCommandTest extends CliIntegrationTest {
@@ -42,10 +45,13 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        // And there's only one disable metric source on all nodes
-        assertThat(metricSources(0).filter(source -> !source.enabled())).hasSize(1);
-        assertThat(metricSources(1).filter(source -> !source.enabled())).hasSize(1);
-        assertThat(metricSources(2).filter(source -> !source.enabled())).hasSize(1);
+        // And there's only one disabled metric source on all nodes
+        assertThat(metricSources(0).filter(source -> !source.enabled()))
+                .singleElement().extracting(MetricSource::name).isEqualTo("jvm");
+        assertThat(metricSources(1).filter(source -> !source.enabled()))
+                .singleElement().extracting(MetricSource::name).isEqualTo("jvm");
+        assertThat(metricSources(2).filter(source -> !source.enabled()))
+                .singleElement().extracting(MetricSource::name).isEqualTo("jvm");
 
         // When enable cluster metric with valid url
         execute("cluster", "metric", "source", "enable", "jvm", "--url", NODE_URL);
@@ -57,10 +63,10 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        // And there's no disable metric sources on all nodes
-        assertThat(metricSources(0).filter(source -> !source.enabled())).isEmpty();
-        assertThat(metricSources(1).filter(source -> !source.enabled())).isEmpty();
-        assertThat(metricSources(2).filter(source -> !source.enabled())).isEmpty();
+        // And there's no disabled metric sources on any of the nodes
+        assertThat(metricSources(0)).allMatch(MetricSource::enabled);
+        assertThat(metricSources(1)).allMatch(MetricSource::enabled);
+        assertThat(metricSources(2)).allMatch(MetricSource::enabled);
     }
 
     private static Stream<MetricSource> metricSources(int nodeIndex) {
@@ -68,8 +74,26 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
     }
 
     @Test
+    void metricList() {
+        // When list cluster metrics with valid url
+        execute("cluster", "metric", "source", "list", "--plain", "--url", NODE_URL);
+
+        // Then
+        List<Executable> assertions = new ArrayList<>();
+        assertions.add(this::assertExitCodeIsZero);
+        assertions.add(this::assertErrOutputIsEmpty);
+        assertions.add(() -> assertOutputContains("Node\tSource name\tDescription"));
+        for (org.apache.ignite.rest.client.model.MetricSource source : ALL_METRIC_SOURCES) {
+            assertions.add(() -> assertOutputContains(source.getName() + "\tenabled" + NL));
+        }
+        // Header + number of nodes * (node name header + metric sources)
+        assertions.add(() -> assertOutputHasLineCount(1 + initialNodes() * (ALL_METRIC_SOURCES.length + 1)));
+        assertAll(assertions);
+    }
+
+    @Test
     void metricEnableNonexistent() {
-        // When enable non-existing cluster metric with valid url
+        // When enable nonexistent cluster metric with valid url
         execute("cluster", "metric", "source", "enable", "no.such.metric", "--url", NODE_URL);
 
         // Then
@@ -82,7 +106,7 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
 
     @Test
     void metricDisableNonexistent() {
-        // When disable non-existing cluster metric with valid url
+        // When disable nonexistent cluster metric with valid url
         execute("cluster", "metric", "source", "disable", "no.such.metric", "--url", NODE_URL);
 
         // Then

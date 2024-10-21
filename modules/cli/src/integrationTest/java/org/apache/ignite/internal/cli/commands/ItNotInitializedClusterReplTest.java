@@ -22,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Tests for non-initialized cluster fir REPL mode.
+ * Tests for non-initialized cluster in REPL mode.
  */
-public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest {
+public class ItNotInitializedClusterReplTest extends ItNotInitializedClusterTest {
 
     @Override
     protected Class<?> getCommandClass() {

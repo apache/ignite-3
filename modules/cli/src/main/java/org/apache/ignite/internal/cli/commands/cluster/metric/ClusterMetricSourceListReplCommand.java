@@ -15,48 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node.metric;
+package org.apache.ignite.internal.cli.commands.cluster.metric;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
+import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
+import org.apache.ignite.internal.cli.decorators.ClusterMetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
-/** Command that lists node metric sources in REPL mode. */
-@Command(name = "list", description = "Lists node metric sources")
-public class NodeMetricSourceListReplCommand extends BaseCommand implements Runnable {
-    /** Node URL option. */
+/** Command that lists cluster metric sources in REPL mode. */
+@Command(name = "list", description = "Lists cluster metric sources")
+public class ClusterMetricSourceListReplCommand extends BaseCommand implements Runnable {
     @Mixin
-    private NodeUrlMixin nodeUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
 
     @Inject
-    private NodeMetricSourceListCall call;
+    private ClusterMetricSourceListCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
 
-    /** {@inheritDoc} */
     @Override
     public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metric sources"))
-                .print(new MetricSourceListDecorator(plain))
+                .print(new ClusterMetricSourceListDecorator(plain))
         );
     }
 }

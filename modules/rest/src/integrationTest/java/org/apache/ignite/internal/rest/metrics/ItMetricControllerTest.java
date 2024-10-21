@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rest.metrics;
 
 import static io.micronaut.core.type.Argument.listOf;
-import static io.micronaut.core.type.Argument.mapOf;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.POST;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
@@ -27,15 +26,12 @@ import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatch
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
@@ -44,10 +40,11 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
+import org.apache.ignite.internal.rest.api.metric.NodeMetricSources;
 import org.apache.ignite.internal.rest.matcher.ProblemMatcher;
+import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -87,19 +84,36 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         assertThat(response.body(), containsInAnyOrder(ALL_METRIC_SOURCES));
     }
 
+    private static Matcher<NodeMetricSources> hasNodeName(Matcher<String> nodeNameMatcher) {
+        return new FeatureMatcher<>(nodeNameMatcher, "a node metric sources with node name", "node") {
+            @Override
+            protected String featureValueOf(NodeMetricSources actual) {
+                return actual.node();
+            }
+        };
+    }
+
+    private static Matcher<NodeMetricSources> hasSources(Matcher<Iterable<? extends MetricSource>> sourcesMatcher) {
+        return new FeatureMatcher<>(sourcesMatcher, "a node metric sources with sources list", "sources") {
+            @Override
+            protected Iterable<? extends MetricSource> featureValueOf(NodeMetricSources actual) {
+                return actual.sources();
+            }
+        };
+    }
+
     @Test
     void listClusterMetrics() {
-        HttpResponse<Map<String, List<MetricSource>>> response = clusterClient.toBlocking().exchange(
+        HttpResponse<List<NodeMetricSources>> response = clusterClient.toBlocking().exchange(
                 GET("source"),
-                mapOf(Argument.of(String.class), listOf(MetricSource.class))
+                listOf(NodeMetricSources.class)
         );
         assertThat(response, hasStatus(HttpStatus.OK));
 
-        List<Matcher<? super Map<String, List<MetricSource>>>> matchers = CLUSTER.runningNodes()
-                .map(ignite -> hasEntry(is(ignite.name()), containsInAnyOrder(ALL_METRIC_SOURCES)))
+        List<Matcher<? super NodeMetricSources>> matchers = CLUSTER.runningNodes()
+                .map(ignite -> both(hasNodeName(is(ignite.name()))).and(hasSources(containsInAnyOrder(ALL_METRIC_SOURCES))))
                 .collect(toList());
-        assertThat(response.body(), aMapWithSize(matchers.size()));
-        assertThat(response.body(), allOf(matchers));
+        assertThat(response.body(), containsInAnyOrder(matchers));
     }
 
     @Test

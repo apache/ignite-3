@@ -44,7 +44,7 @@ public class ClusterMetricSourceEnableCommand extends BaseCommand implements Cal
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> metricSource.buildEnableCallInput(clusterUrl.getClusterUrl()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot disable metrics"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot enable metrics"))
         );
     }
 }

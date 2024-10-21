@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.rest.client.model.MetricSource;
+import org.apache.ignite.internal.metrics.MetricSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -35,7 +35,7 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
 
     @Test
     void metricEnable() {
-        // When disable cluster metric with valid url
+        // When disable node metric with valid url
         execute("node", "metric", "source", "disable", "jvm", "--url", NODE_URL);
 
         // Then
@@ -45,11 +45,12 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        // And there's only one disable metric source on node 0
-        assertThat(metricSources(0).filter(source -> !source.enabled())).hasSize(1);
+        // And there's only one disabled metric source on node 0
+        assertThat(metricSources(0).filter(source -> !source.enabled()))
+                .singleElement().extracting(MetricSource::name).isEqualTo("jvm");
         // And there's no disabled metric sources on node 1 and 2
-        assertThat(metricSources(1).filter(source -> !source.enabled())).isEmpty();
-        assertThat(metricSources(2).filter(source -> !source.enabled())).isEmpty();
+        assertThat(metricSources(1)).allMatch(MetricSource::enabled);
+        assertThat(metricSources(2)).allMatch(MetricSource::enabled);
 
         // When enable cluster metric with valid url
         execute("cluster", "metric", "source", "enable", "jvm", "--url", NODE_URL);
@@ -62,23 +63,23 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
         );
 
         // And there's no disabled metric sources on node 0
-        assertThat(metricSources(0).filter(source -> !source.enabled())).isEmpty();
+        assertThat(metricSources(0)).allMatch(MetricSource::enabled);
     }
 
-    private static Stream<org.apache.ignite.internal.metrics.MetricSource> metricSources(int nodeIndex) {
+    private static Stream<MetricSource> metricSources(int nodeIndex) {
         return unwrapIgniteImpl(CLUSTER.node(nodeIndex)).metricManager().metricSources().stream();
     }
 
     @Test
     void metricList() {
-        // When list node metric with valid url
+        // When list node metrics with valid url
         execute("node", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
         // Then
         List<Executable> assertions = new ArrayList<>();
         assertions.add(this::assertExitCodeIsZero);
         assertions.add(this::assertErrOutputIsEmpty);
-        for (MetricSource source : ALL_METRIC_SOURCES) {
+        for (org.apache.ignite.rest.client.model.MetricSource source : ALL_METRIC_SOURCES) {
             assertions.add(() -> assertOutputContains(source.getName() + "\tenabled" + NL));
         }
         assertAll(assertions);
@@ -86,7 +87,7 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
 
     @Test
     void metricEnableNonexistent() {
-        // When list node metric with valid url
+        // When enable nonexistent node metric with valid url
         execute("node", "metric", "source", "enable", "no.such.metric", "--url", NODE_URL);
 
         // Then
@@ -99,7 +100,7 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
 
     @Test
     void metricDisableNonexistent() {
-        // When list node metric with valid url
+        // When disable nonexistent node metric with valid url
         execute("node", "metric", "source", "disable", "no.such.metric", "--url", NODE_URL);
 
         // Then

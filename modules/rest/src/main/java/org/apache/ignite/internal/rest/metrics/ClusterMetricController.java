@@ -22,15 +22,16 @@ import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.metrics.message.MetricSourceDto;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.metric.ClusterMetricApi;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
+import org.apache.ignite.internal.rest.api.metric.NodeMetricSources;
 import org.apache.ignite.internal.rest.metrics.exception.MetricNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
@@ -54,24 +55,23 @@ public class ClusterMetricController implements ClusterMetricApi, ResourceHolder
     }
 
     @Override
-    public CompletableFuture<Map<String, Collection<MetricSource>>> listMetricSources() {
+    public CompletableFuture<Collection<NodeMetricSources>> listMetricSources() {
         return messaging.broadcastMetricSourcesAsync()
                 .exceptionally(ClusterMetricController::mapException)
-                .thenApply(sources -> sources.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Entry::getKey,
-                                value -> value.getValue().stream().map(ClusterMetricController::fromDto).collect(toList())
-                        ))
-                );
+                .thenApply(ClusterMetricController::fromDto);
+    }
+
+    private static List<NodeMetricSources> fromDto(Map<String, Collection<MetricSourceDto>> sources) {
+        return sources.entrySet().stream().map(ClusterMetricController::fromDto).collect(toList());
+    }
+
+    private static NodeMetricSources fromDto(Entry<String, Collection<MetricSourceDto>> entry) {
+        List<MetricSource> sources = entry.getValue().stream().map(ClusterMetricController::fromDto).collect(toList());
+        return new NodeMetricSources(entry.getKey(), sources);
     }
 
     private static MetricSource fromDto(MetricSourceDto source) {
         return new MetricSource(source.name(), source.enabled());
-    }
-
-    @Override
-    public void cleanResources() {
-        messaging = null;
     }
 
     private static <T> T mapException(Throwable throwable) {
@@ -80,5 +80,10 @@ public class ClusterMetricController implements ClusterMetricApi, ResourceHolder
             throw new MetricNotFoundException(cause);
         }
         throw sneakyThrow(cause);
+    }
+
+    @Override
+    public void cleanResources() {
+        messaging = null;
     }
 }

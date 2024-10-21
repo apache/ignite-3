@@ -25,6 +25,7 @@ import picocli.CommandLine.Command;
         subcommands = {
                 ClusterMetricSourceEnableCommand.class,
                 ClusterMetricSourceDisableCommand.class,
+                ClusterMetricSourceListCommand.class,
         },
         description = "Cluster metric sources operations")
 public class ClusterMetricSourceCommand extends BaseCommand {
