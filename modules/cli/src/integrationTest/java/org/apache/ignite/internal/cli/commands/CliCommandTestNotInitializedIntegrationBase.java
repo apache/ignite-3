@@ -36,7 +36,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
 
     @BeforeAll
     @Override
-    protected void beforeAll(TestInfo testInfo) {
+    protected void startCluster(TestInfo testInfo) {
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         for (int i = 0; i < initialNodes(); i++) {

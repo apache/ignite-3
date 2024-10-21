@@ -68,13 +68,15 @@ ext {
     compilerArgs = [
             "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
     ]
+
+    product = "Apache Ignite"
 }
 
 allprojects {
     group 'org.apache.ignite'
     version = "3.0.0-SNAPSHOT"
 
-    tasks.withType(Jar) {
+    tasks.withType(Jar).configureEach {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
@@ -90,18 +92,18 @@ allprojects {
         }
     }
 
-    tasks.withType(Sign) {
+    tasks.withType(Sign).configureEach {
         enabled = project.hasProperty('signing.keyId')
                 && project.hasProperty('signing.password')
                 && project.hasProperty('signing.secretKeyRingFile')
     }
 
-    tasks.withType(Javadoc) {
+    tasks.withType(Javadoc).configureEach {
         options.tags = ["apiNote"]
         options.addStringOption('bottom', javadocFooter())
     }
 
-    tasks.withType(JavaCompile) {
+    tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         options.compilerArgs += compilerArgs
     }

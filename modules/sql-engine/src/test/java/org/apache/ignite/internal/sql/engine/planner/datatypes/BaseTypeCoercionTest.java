@@ -193,6 +193,34 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
     }
 
     /**
+     * Creates a matcher to verify that given expression has expected return type, but it is not CAST operator.
+     *
+     * @param sqlType Expected return type.
+     * @return A matcher.
+     */
+    static Matcher<RexNode> ofTypeWithoutCast(RelDataType sqlType) {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object actual) {
+                return SqlTypeUtil.equalSansNullability(typeFactory, ((RexNode) actual).getType(), sqlType)
+                        && !((RexNode) actual).isA(SqlKind.CAST);
+            }
+
+            @Override
+            public void describeMismatch(Object item, Description description) {
+                description.appendText("was ").appendValue(item).appendText(" of type " + ((RexNode) item).getType());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText(format("Operand of type {} that is not CAST", sqlType));
+            }
+        };
+    }
+
+    /**
      * Creates a matcher to verify that given expression is CAST operator with expected return type.
      *
      * @param type Expected return type.

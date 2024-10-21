@@ -62,16 +62,23 @@ b
 query T
 SELECT length('a'::CHAR(10) || 'abc'::VARCHAR(10));
 ----
-13
+4
 
 # ASSIGNMENT
 
 statement ok
 CREATE TABLE chars(c5 VARCHAR(5), c10 VARCHAR(10), c15 VARCHAR(15));
 
-# Preserve trailing whitespace
 statement ok
 INSERT INTO chars (c5) VALUES('a'::CHAR(5));
+
+query T
+SELECT length(c5) FROM chars;
+----
+1
+
+statement ok
+UPDATE chars SET c5 = 'a    '
 
 query T
 SELECT length(c5) FROM chars;

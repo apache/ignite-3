@@ -190,7 +190,8 @@ artifacts {
         cppClientHeaders(file("$buildDir/install/include")) {
             builtBy cmakeBuildClient
         }
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3")) {
+        //TODO https://issues.apache.org/jira/browse/IGNITE-23443
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3.0.0")) {
             builtBy cmakeBuildClient
         }
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
@@ -205,7 +206,8 @@ artifacts {
             odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
                 builtBy cmakeBuildOdbc
             }
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+            //TODO https://issues.apache.org/jira/browse/IGNITE-23443
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3.0.0")) {
                 builtBy cmakeBuildOdbc
             }
         }
