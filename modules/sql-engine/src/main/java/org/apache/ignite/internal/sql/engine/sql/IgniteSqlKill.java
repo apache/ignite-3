@@ -40,19 +40,19 @@ public class IgniteSqlKill extends SqlCall {
 
         private final SqlLiteral objectId;
 
-        private final boolean waitForCompletion;
+        private final @Nullable Boolean noWait;
 
         /** Constructor. */
         protected Operator(
                 IgniteSqlKillObjectType objectType,
                 SqlLiteral objectId,
-                boolean waitForCompletion
+                @Nullable Boolean noWait
         ) {
             super("KILL", SqlKind.OTHER);
 
             this.objectType = Objects.requireNonNull(objectType, "objectType");
             this.objectId = Objects.requireNonNull(objectId, "objectId");
-            this.waitForCompletion = waitForCompletion;
+            this.noWait = noWait;
         }
 
         /** {@inheritDoc} */
@@ -60,7 +60,7 @@ public class IgniteSqlKill extends SqlCall {
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
 
-            return new IgniteSqlKill(pos, objectType, (SqlLiteral) operands[0], waitForCompletion);
+            return new IgniteSqlKill(pos, objectType, (SqlLiteral) operands[0], noWait);
         }
     }
 
@@ -71,11 +71,11 @@ public class IgniteSqlKill extends SqlCall {
             SqlParserPos pos,
             IgniteSqlKillObjectType objectType,
             SqlLiteral objectId,
-            boolean waitForCompletion
+            @Nullable Boolean noWait
     ) {
         super(pos);
 
-        this.operator = new Operator(objectType, objectId, waitForCompletion);
+        this.operator = new Operator(objectType, objectId, noWait);
     }
 
     /** Object id. */
@@ -88,9 +88,9 @@ public class IgniteSqlKill extends SqlCall {
         return operator.objectType;
     }
 
-    /** Wait for completion or not. */
-    public boolean waitForCompletion() {
-        return operator.waitForCompletion;
+    /** Do not wait for completion if {@code true}. */
+    public @Nullable Boolean noWait() {
+        return operator.noWait;
     }
 
     /** {@inheritDoc} */
@@ -113,7 +113,7 @@ public class IgniteSqlKill extends SqlCall {
 
         objectId().unparse(writer, leftPrec, rightPrec);
 
-        if (!operator.waitForCompletion) {
+        if (operator.noWait != null && operator.noWait) {
             writer.keyword("NO");
             writer.keyword("WAIT");
         }

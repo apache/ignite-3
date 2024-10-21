@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.sql.SqlNode;
@@ -46,7 +47,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         assertEquals("abc", kill.objectId().toValue());
         assertEquals(objectType, kill.objectType());
-        assertTrue(kill.waitForCompletion());
+        assertNull(kill.noWait());
 
         expectUnparsed(kill, stmt);
     }
@@ -65,7 +66,7 @@ public class SqlKillParserTest extends AbstractParserTest {
 
         assertEquals("abc", kill.objectId().toValue());
         assertEquals(objectType, kill.objectType());
-        assertFalse(kill.waitForCompletion());
+        assertEquals(Boolean.TRUE, kill.noWait());
 
         expectUnparsed(kill, stmt);
     }
