@@ -31,6 +31,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
+import org.apache.ignite.internal.tx.impl.TxIdPriorityComparator;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -117,15 +118,17 @@ public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstrac
             return;
         }
 
+        TxIdPriorityComparator naturalComparator = new TxIdPriorityComparator();
+
         UUID uuid1 = UUID.randomUUID();
         UUID uuid2;
 
         do {
             uuid2 = UUID.randomUUID();
-        } while (uuid1.compareTo(uuid2) == 0);
+        } while (naturalComparator.compare(uuid1, uuid2) == 0);
 
-        UUID greater = uuid1.compareTo(uuid2) > 0 ? uuid1 : uuid2;
-        UUID lesser = uuid1.compareTo(uuid2) > 0 ? uuid2 : uuid1;
+        UUID greater = naturalComparator.compare(uuid1, uuid2) > 0 ? uuid1 : uuid2;
+        UUID lesser = naturalComparator.compare(uuid1, uuid2) > 0 ? uuid2 : uuid1;
 
         int cmp = actualComparator.compare(greater, lesser);
         if (cmp > 0) {
