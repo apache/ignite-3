@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,8 +45,13 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     String lastScript;
 
     @Override
-    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-            @Nullable InternalTransaction transaction, String qry, Object... params) {
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(
+            SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String qry,
+            Object... params
+    ) {
         throw new UnsupportedOperationException();
     }
 
@@ -54,6 +60,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             SqlProperties properties,
             HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     ) {

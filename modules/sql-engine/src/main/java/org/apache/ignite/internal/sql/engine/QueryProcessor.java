@@ -23,6 +23,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,6 +38,7 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param transaction A transaction to use to resolve a schema.
+     * @param cancellationToken A cancellation token.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Query metadata.
@@ -44,9 +46,13 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
+    CompletableFuture<QueryMetadata> prepareSingleAsync(
+            SqlProperties properties,
             @Nullable InternalTransaction transaction,
-            String qry, Object... params);
+            @Nullable CancellationToken cancellationToken,
+            String qry,
+            Object... params
+    );
 
     /**
      * Execute the query with given schema name and parameters.
@@ -55,6 +61,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param observableTime Tracker of the latest time observed by client.
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
+     * @param cancellationToken A cancellation token.
      * @param qry SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
@@ -66,6 +73,7 @@ public interface QueryProcessor extends IgniteComponent {
             SqlProperties properties,
             HybridTimestampTracker observableTime,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     );

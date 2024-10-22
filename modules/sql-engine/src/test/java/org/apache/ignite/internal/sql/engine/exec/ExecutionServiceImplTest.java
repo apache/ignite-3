@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -97,6 +98,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryCancel.QueryCancellationToken;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
@@ -155,7 +157,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -1102,6 +1106,71 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         if (err != null) {
             throw err;
         }
+    }
+
+    @Test
+    public void cancelledTokenShouldPreventSimpleQueryFromExecution() {
+        ExecutionService execService = executionServices.get(0);
+
+        // Use a separate context, so planning won't be cancelled.
+        SqlOperationContext planCtx = operationContext(null).build();
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
+
+        QueryCancellationToken queryCancellationToken = mock(QueryCancellationToken.class);
+        when(queryCancellationToken.isCancelled()).thenReturn(true);
+
+        QueryCancel queryCancel = new QueryCancel(queryCancellationToken);
+
+        SqlOperationContext execCtx = operationContext(null)
+                .cancel(queryCancel)
+                .build();
+
+        assertThrows(QueryCancelledException.class, () -> execService.executePlan(plan, execCtx));
+    }
+
+    @Test
+    public void cancelWhenCancellationTokenIsCancelledExternally() throws InterruptedException {
+        ExecutionService execService = executionServices.get(0);
+
+        // Use a separate context, so planning won't be cancelled.
+        SqlOperationContext planCtx = operationContext(null).build();
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
+
+        QueryCancellationToken queryCancellationToken = mock(QueryCancellationToken.class);
+
+        LinkedBlockingQueue<Cancellable> actions = new LinkedBlockingQueue<>();
+
+        // We are not cancelled yet, allow starting a query.
+        when(queryCancellationToken.isCancelled()).thenReturn(false);
+
+        doAnswer((i) -> {
+            Cancellable cancelAction = i.getArgument(0);
+            actions.add(cancelAction);
+            return null;
+        }).when(queryCancellationToken).addCancelAction(any(Cancellable.class));
+
+        QueryCancel queryCancel = new QueryCancel(queryCancellationToken);
+
+        SqlOperationContext execCtx = operationContext(null)
+                .cancel(queryCancel)
+                .build();
+
+        AsyncDataCursor<InternalSqlRow> cursor = execService.executePlan(plan, execCtx);
+
+        // Cancel a query.
+        Cancellable cancel = actions.take();
+        cancel.cancel(false);
+
+        // Await until query is closed.
+        cancel.future().join();
+
+        CompletableFuture<BatchedResult<InternalSqlRow>> f = cursor.requestNextAsync(1);
+        CompletionException err = assertThrows(CompletionException.class, f::join);
+
+        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
     }
 
     /** Creates an execution service instance for the node with given consistent id. */

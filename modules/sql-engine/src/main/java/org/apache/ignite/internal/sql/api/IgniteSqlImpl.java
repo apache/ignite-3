@@ -62,6 +62,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
@@ -294,7 +295,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, createStatement(query), arguments);
+        return executeAsyncInternal(transaction, null, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -304,7 +305,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, statement, arguments);
+        return executeAsyncInternal(transaction, null, statement, arguments);
     }
 
     /** {@inheritDoc} */
@@ -328,6 +329,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
@@ -347,7 +349,12 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     .build();
 
             result = queryProcessor.queryAsync(
-                    properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
+                    properties,
+                    observableTimestampTracker,
+                    (InternalTransaction) transaction,
+                    cancellationToken,
+                    statement.query(),
+                    arguments
             ).thenCompose(cur -> {
                 if (!busyLock.enterBusy()) {
                     cur.closeAsync();
@@ -459,7 +466,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, null, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -578,8 +585,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build());
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryAsync(properties0, observableTimestampTracker, null, query, arguments);
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
+                properties0,
+                observableTimestampTracker,
+                null,
+                null,
+                query,
+                arguments
+        );
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);

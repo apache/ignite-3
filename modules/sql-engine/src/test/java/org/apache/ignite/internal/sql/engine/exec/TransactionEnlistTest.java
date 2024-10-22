@@ -45,6 +45,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -120,8 +121,13 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-                @Nullable InternalTransaction transaction, String qry, Object... params) {
+        public CompletableFuture<QueryMetadata> prepareSingleAsync(
+                SqlProperties properties,
+                @Nullable InternalTransaction transaction,
+                @Nullable CancellationToken cancellationToken,
+                String qry,
+                Object... params
+        ) {
             assert params == null || params.length == 0 : "params are not supported";
             assert prepareOnly : "Expected that the query will be executed";
 
@@ -135,6 +141,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 SqlProperties properties,
                 HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
+                @Nullable CancellationToken cancellationToken,
                 String qry,
                 Object... params
         ) {

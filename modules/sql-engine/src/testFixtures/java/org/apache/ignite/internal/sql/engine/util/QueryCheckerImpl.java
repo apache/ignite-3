@@ -310,7 +310,13 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
-                    properties, observableTimeTracker(), tx, "EXPLAIN PLAN FOR " + qry, params);
+                    properties,
+                    observableTimeTracker(),
+                    tx,
+                    null,
+                    "EXPLAIN PLAN FOR " + qry,
+                    params
+            );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
@@ -325,7 +331,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check column metadata only.
         if (resultChecker == null && metadataMatchers != null) {
-            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(properties, tx, qry, params));
+            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(properties, tx, null, qry, params));
 
             assertNotNull(queryMetadata);
 
@@ -336,7 +342,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, qry, params));
+                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, null, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
