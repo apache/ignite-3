@@ -437,11 +437,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                                 .collect(Collectors.toList()));
 
                 return ret11.thenApply(l -> {
-                    LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
-
-                    List<String> allNodes = topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList());
-
-                    l.addAll(allNodes);
+                    l.add(localNodeName);
 
                     return new TopologySnapshot(100, l);
                 });
