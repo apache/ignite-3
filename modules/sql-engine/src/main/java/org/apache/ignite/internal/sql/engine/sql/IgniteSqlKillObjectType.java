@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.sql.engine.sql;
 
-description = 'ignite-partition-distribution'
-
-dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
+/** Object type for a KILL statement. */
+public enum IgniteSqlKillObjectType {
+    /** SQL Query or SQL script. */
+    QUERY,
+    /** Transaction. */
+    TRANSACTION,
+    /** Compute job. */
+    COMPUTE
 }

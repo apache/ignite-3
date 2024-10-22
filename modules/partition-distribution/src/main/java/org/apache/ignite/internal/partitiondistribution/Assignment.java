@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -27,9 +26,7 @@ import org.apache.ignite.internal.tostring.S;
  * the asynchronous members (a.k.a. "learners") of the same group. Peers get synchronously updated during write operations, while learners
  * are eventually consistent and received updates some time in the future.
  */
-public class Assignment implements Serializable {
-    private static final long serialVersionUID = -8892379245627437834L;
-
+public class Assignment {
     private final String consistentId;
 
     private final boolean isPeer;

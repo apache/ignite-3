@@ -20,9 +20,7 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
-/**
- * Extension for system configuration schema.
- */
+/** Extension for local system configuration schema. */
 @ConfigurationExtension
 public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
     @ConfigValue

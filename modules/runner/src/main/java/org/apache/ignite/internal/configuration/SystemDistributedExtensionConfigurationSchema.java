@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.configuration;
 
-description = 'ignite-partition-distribution'
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
-dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
+/** Extension for distributed system configuration schema. */
+@ConfigurationExtension
+public class SystemDistributedExtensionConfigurationSchema extends ClusterConfigurationSchema {
+    @ConfigValue
+    public SystemDistributedConfigurationSchema system;
 }
