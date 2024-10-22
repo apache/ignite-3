@@ -184,9 +184,9 @@ Referenced by:
 
 [.diagram-container]
 Diagram(
-NonTerminal('parameter_name'),
-Terminal('='),
-NonTerminal('parameter_value'))
+ NonTerminal('parameter_name'),
+ Terminal('='),
+ NonTerminal('parameter_value'))
 
 Parameters:
 
