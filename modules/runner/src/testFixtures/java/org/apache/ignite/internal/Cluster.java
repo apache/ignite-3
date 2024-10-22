@@ -255,7 +255,6 @@ public class Cluster {
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metastoreNodeServers)
                 .cmgNodes(cmgNodeServers)
-                .cmgNodeNames(nodeRegistrations.get(1).server().name())
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
