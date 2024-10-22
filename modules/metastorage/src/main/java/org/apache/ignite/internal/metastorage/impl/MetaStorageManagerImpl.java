@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -1230,5 +1231,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
             throw t;
         }
+    }
+
+    /**
+     * Sends command {@link CompactionCommand} to the leader.
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
+        return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
     }
 }
