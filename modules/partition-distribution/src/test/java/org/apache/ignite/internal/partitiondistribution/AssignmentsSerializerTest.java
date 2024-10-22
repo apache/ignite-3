@@ -33,12 +33,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AssignmentsSerializerTest {
+    private static final String NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMCYQECYgAA6AMAAAAAAAA=";
+    private static final String FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMCYQECYgAB6AMAAAAAAAA=";
+
     private final AssignmentsSerializer serializer = new AssignmentsSerializer();
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void serializationAndDeserialization(boolean force) {
-        Set<Assignment> nodes = Set.of(Assignment.forPeer("a"), Assignment.forLearner("b"));
+        Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
         Assignments originalAssignments = force ? Assignments.forced(nodes, 1000L) : Assignments.of(nodes, 1000L);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignments, serializer);
@@ -49,7 +52,7 @@ class AssignmentsSerializerTest {
 
     @Test
     void v1NotForcedCanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwMCYQECYgAA6AMAAAAAAAA=");
+        byte[] bytes = Base64.getDecoder().decode(NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1);
         Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertNodesFromV1(restoredAssignments);
@@ -60,7 +63,7 @@ class AssignmentsSerializerTest {
 
     @Test
     void v1ForcedCanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwMCYQECYgAB6AMAAAAAAAA=");
+        byte[] bytes = Base64.getDecoder().decode(FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1);
         Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertNodesFromV1(restoredAssignments);
