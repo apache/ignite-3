@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -84,6 +85,11 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
 
         return tx;
+    }
+
+    @Override
+    public void setImplicitTxListener(Consumer<InternalTransaction> listener) {
+        txContext.setImplicitTxListener(listener);
     }
 
     /**

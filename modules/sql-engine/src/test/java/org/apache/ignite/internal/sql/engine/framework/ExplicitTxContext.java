@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -67,5 +68,10 @@ public class ExplicitTxContext implements QueryTransactionContext {
     @Override
     public void updateObservableTime(HybridTimestamp time) {
         observableTimeTracker.update(time);
+    }
+
+    @Override
+    public void setImplicitTxListener(Consumer<InternalTransaction> listener) {
+        // No-op.
     }
 }
