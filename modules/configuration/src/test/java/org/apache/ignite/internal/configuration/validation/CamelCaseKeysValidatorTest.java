@@ -37,7 +37,9 @@ public class CamelCaseKeysValidatorTest extends BaseIgniteAbstractTest {
             "0", "A", " ", "_", "-", "?", ",", ".",
             "Value", "valueONe",
             "0Value", "007", "0value", "0Value",
-            "value_one", "value-one"
+            "value_one", "value-one",
+            "valueOneAnd2", "value0", "value1AndTwo",
+            "valuE"
     })
     void testWrongKey(String key) {
         validate(
@@ -45,14 +47,14 @@ public class CamelCaseKeysValidatorTest extends BaseIgniteAbstractTest {
                 mock(CamelCaseKeys.class),
                 mockValidationContext(null, mockNamedListView(List.of(key))),
                 String.format(
-                        "'%s' configuration key must be in lower camel case '%s', see %s",
-                        null, key, "https://google.github.io/styleguide/javaguide.html#s5.3-camel-case"
+                        "'%s' configuration key must be in lower camel case '%s', for example 'v', 'value' and 'valueOneAndTwo'",
+                        null, key
                 )
         );
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"value", "valueOne", "valueOneAndTwo", "valueOneAnd2", "value0", "value1AndTwo", "valuE"})
+    @ValueSource(strings = {"v", "value", "valueOne", "valueOneAndTwo"})
     void testCorrectKey(String key) {
         validate(validator, mock(CamelCaseKeys.class), mockValidationContext(null, mockNamedListView(List.of(key))));
     }

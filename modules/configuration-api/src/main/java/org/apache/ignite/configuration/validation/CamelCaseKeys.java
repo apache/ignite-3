@@ -25,8 +25,8 @@ import java.lang.annotation.Target;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Signifies that a {@link NamedConfigValue} can't have elements with keys not in
- * <a href="https://google.github.io/styleguide/javaguide.html#s5.3-camel-case">lower camel case</a>.
+ * Signifies that a {@link NamedConfigValue} only has elements with keys in lower camel case, for example 'v', 'value', 'valueOne' and
+ * 'valueOneAndTwo'.
  */
 @Target(FIELD)
 @Retention(RUNTIME)

@@ -26,17 +26,15 @@ import org.apache.ignite.configuration.validation.Validator;
 
 /** {@link Validator} implementation for the {@link CamelCaseKeys} annotation. */
 public class CamelCaseKeysValidator implements Validator<CamelCaseKeys, NamedListView<?>> {
-    private static final String CAMEL_CASE_GOOGLE_STYLE = "https://google.github.io/styleguide/javaguide.html#s5.3-camel-case";
-
-    private final Pattern camelCalePattern = Pattern.compile("[a-z]+((\\d)|([A-Z0-9][a-z0-9]+))*([A-Z])?");
+    private static final Pattern CAMEL_CASE_PATTERN = Pattern.compile("^[a-z]([A-Za-z][a-z]+)*$");
 
     @Override
     public void validate(CamelCaseKeys annotation, ValidationContext<NamedListView<?>> ctx) {
         for (String namedListKey : ctx.getNewValue().namedListKeys()) {
-            if (!camelCalePattern.matcher(namedListKey).matches()) {
+            if (!CAMEL_CASE_PATTERN.matcher(namedListKey).matches()) {
                 String message = String.format(
-                        "'%s' configuration key must be in lower camel case '%s', see %s",
-                        ctx.currentKey(), namedListKey, CAMEL_CASE_GOOGLE_STYLE
+                        "'%s' configuration key must be in lower camel case '%s', for example 'v', 'value' and 'valueOneAndTwo'",
+                        ctx.currentKey(), namedListKey
                 );
 
                 ctx.addIssue(new ValidationIssue(ctx.currentKey(), message));
