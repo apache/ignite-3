@@ -43,6 +43,7 @@ public class ResetClusterCall implements Call<ResetClusterCallInput, String> {
         ResetClusterRequest command = new ResetClusterRequest();
 
         command.setCmgNodeNames(input.cmgNodeNames());
+        command.setMetastorageReplicationFactor(input.metastorageReplicationFactor());
 
         try {
             client.resetCluster(command);

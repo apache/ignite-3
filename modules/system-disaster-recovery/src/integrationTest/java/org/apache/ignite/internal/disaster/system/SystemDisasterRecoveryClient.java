@@ -19,6 +19,7 @@ package org.apache.ignite.internal.disaster.system;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.util.ArrayUtils.concat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.Main;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to run system disaster recovery CLI commands.
@@ -37,15 +39,31 @@ import org.apache.ignite.internal.logger.Loggers;
 class SystemDisasterRecoveryClient {
     private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryClient.class);
 
-    void initiateCmgRepair(String httpHost, int httpPort, String... newCmgNodeNames) throws InterruptedException {
-        LOG.info("Initiating CMG repair via {}:{}, new CMG {}", httpHost, httpPort, List.of(newCmgNodeNames));
-
-        executeWithSameJavaBinaryAndClasspath(
-                Main.class.getName(),
-                "recovery", "cluster", "reset",
-                "--url", "http://" + httpHost + ":" + httpPort,
-                "--cluster-management-group", String.join(",", newCmgNodeNames)
+    void initiateClusterReset(
+            String httpHost,
+            int httpPort,
+            @Nullable Integer metastorageReplicationFactor,
+            String... newCmgNodeNames
+    ) throws InterruptedException {
+        LOG.info(
+                "Initiating cluster reset via {}:{}, new CMG {}, metastorage replication Factor {}",
+                httpHost,
+                httpPort,
+                List.of(newCmgNodeNames),
+                metastorageReplicationFactor
         );
+
+        String[] args = {Main.class.getName(), "recovery", "cluster", "reset", "--url", "http://" + httpHost + ":" + httpPort};
+
+        if (newCmgNodeNames.length > 0) {
+            args = concat(args, "--cluster-management-group", String.join(",", newCmgNodeNames));
+        }
+
+        if (metastorageReplicationFactor != null) {
+            args = concat(args, "--metastorage-replication-factor", String.valueOf(metastorageReplicationFactor));
+        }
+
+        executeWithSameJavaBinaryAndClasspath(args);
     }
 
     private static void executeWithSameJavaBinaryAndClasspath(String... args) throws InterruptedException {

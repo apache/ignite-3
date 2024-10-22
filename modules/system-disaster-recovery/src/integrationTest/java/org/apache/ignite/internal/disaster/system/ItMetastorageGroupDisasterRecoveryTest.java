@@ -29,14 +29,12 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -63,7 +61,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         assertThatMgHasNoMajority(node0BeforeRestart);
 
-        initiateMgRepairVia(node0BeforeRestart, 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedNode0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedNode0);
@@ -83,12 +81,8 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         assertThat(ignite.metaStorageManager().get(new ByteArray("abc")), willCompleteSuccessfully());
     }
 
-    private void initiateMgRepairVia(IgniteImpl conductor, int mgReplicationFactor, int... newCmgIndexes) {
-        // TODO: IGNITE-22897 - initiate repair via CLI.
-
-        CompletableFuture<Void> initiationFuture = conductor.systemDisasterRecoveryManager()
-                .resetClusterRepairingMetastorage(List.of(nodeNames(newCmgIndexes)), mgReplicationFactor);
-        assertThat(initiationFuture, willCompleteSuccessfully());
+    private void initiateMgRepairVia(int conductorIndex, int mgReplicationFactor, int... newCmgIndexes) throws InterruptedException {
+        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), mgReplicationFactor, nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -99,9 +93,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // This makes the MG majority go away.
         cluster.stopNode(1);
 
-        IgniteImpl igniteImpl0BeforeRestart = igniteImpl(0);
-
-        initiateMgRepairVia(igniteImpl0BeforeRestart, 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedIgniteImpl0);
@@ -125,7 +117,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         assertThatMgHasNoMajority(igniteImpl2BeforeRestart);
 
-        initiateMgRepairVia(igniteImpl2BeforeRestart, 3, 0, 1, 2);
+        initiateMgRepairVia(2, 3, 0, 1, 2);
 
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillMgHasMajority(restartedIgniteImpl2);
@@ -146,7 +138,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         cluster.stopNode(1);
 
-        initiateMgRepairVia(igniteImpl(0), 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         // Doing this wait to make sure that blank node will be able to connect at least someone. If we don't do this, the new node
         // will still be able to connect, but this will happen on Scalecube's initial sync retry, and we don't want to wait for it
@@ -179,7 +171,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         IntStream.of(0, 2).parallel().forEach(this::restartPartially);
 
-        initiateMgRepairVia(((IgniteServerImpl) cluster.server(0)).igniteImpl(), 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedIgniteImpl0);
@@ -196,7 +188,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         IgniteImpl igniteImpl0BeforeRestart = igniteImpl(0);
 
-        initiateMgRepairVia(igniteImpl0BeforeRestart, 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedIgniteImpl0);
@@ -217,7 +209,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         assertThatMgHasNoMajority(igniteImpl0BeforeRestart);
 
-        initiateMgRepairVia(igniteImpl0BeforeRestart, 1, 0);
+        initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
         waitTillMgHasMajority(restartedIgniteImpl0);
