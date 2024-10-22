@@ -90,7 +90,7 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
         runningQueries.put(queryId, statementQueryInfo);
 
         if (txWrapper == null) {
-            scriptTxCtx.setImplicitTxListener(tx -> statementQueryInfo.transactionId(tx.id()));
+            scriptTxCtx.setImplicitTxStartCallback(tx -> statementQueryInfo.transactionId(tx.id()));
         }
 
         return statementQueryInfo;

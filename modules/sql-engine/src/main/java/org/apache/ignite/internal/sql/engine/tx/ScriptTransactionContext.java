@@ -88,8 +88,8 @@ public class ScriptTransactionContext implements QueryTransactionContext {
     }
 
     @Override
-    public void setImplicitTxListener(Consumer<InternalTransaction> listener) {
-        txContext.setImplicitTxListener(listener);
+    public void setImplicitTxStartCallback(Consumer<InternalTransaction> callback) {
+        txContext.setImplicitTxStartCallback(callback);
     }
 
     /**

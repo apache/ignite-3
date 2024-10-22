@@ -64,7 +64,7 @@ public class ImplicitTxContext implements QueryTransactionContext {
     }
 
     @Override
-    public void setImplicitTxListener(Consumer<InternalTransaction> listener) {
+    public void setImplicitTxStartCallback(Consumer<InternalTransaction> callback) {
         // No-op.
     }
 }

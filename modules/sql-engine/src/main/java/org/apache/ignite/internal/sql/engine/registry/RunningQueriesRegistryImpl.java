@@ -37,7 +37,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 
-/**
+/**git
  * Implementation of {@link RunningQueriesRegistry}.
  */
 public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
@@ -65,7 +65,7 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         if (explicitTxId == null) {
             // If there is no explicit transaction, we need to set
             // the implicit transaction ID if one is to be started.
-            txContext.setImplicitTxListener(tx -> queryInfo.transactionId(tx.id()));
+            txContext.setImplicitTxStartCallback(tx -> queryInfo.transactionId(tx.id()));
         }
 
         return queryInfo;

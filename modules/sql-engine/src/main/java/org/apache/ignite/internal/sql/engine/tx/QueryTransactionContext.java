@@ -35,6 +35,6 @@ public interface QueryTransactionContext {
     /** Returns explicit transaction if one was provided by user. */
     @Nullable QueryTransactionWrapper explicitTx();
 
-    /** Sets listener that will be called when implicit transaction is created. */
-    void setImplicitTxListener(Consumer<InternalTransaction> listener);
+    /** Register a callback to be invoked when a new implicit transaction is started. */
+    void setImplicitTxStartCallback(Consumer<InternalTransaction> callback);
 }
