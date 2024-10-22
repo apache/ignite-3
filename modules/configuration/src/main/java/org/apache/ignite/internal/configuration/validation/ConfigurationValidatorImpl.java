@@ -62,7 +62,8 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
             new ExceptKeysValidator(),
             new PowerOfTwoValidator(),
             new RangeValidator(),
-            new NotBlankValidator()
+            new NotBlankValidator(),
+            new CamelCaseKeysValidator()
     );
 
     /** Lazy annotations cache for configuration schema fields. */
