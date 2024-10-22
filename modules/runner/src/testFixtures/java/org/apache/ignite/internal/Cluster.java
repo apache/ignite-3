@@ -177,11 +177,27 @@ public class Cluster {
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
+     * @param cmgMetastoreNodes Indices of CMG and Metastore nodes.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(int nodeCount, int[] cmgMetastoreNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        startAndInit(nodeCount, cmgMetastoreNodes, cmgMetastoreNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
      * @param cmgNodes Indices of CMG nodes.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, cmgNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+    public void startAndInit(
+            int nodeCount,
+            int[] cmgNodes,
+            int[] metastoreNodes,
+            Consumer<InitParametersBuilder> initParametersConfigurator
+    ) {
+        startAndInit(nodeCount, cmgNodes, metastoreNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
     }
 
     /**
@@ -197,7 +213,7 @@ public class Cluster {
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
-        startAndInit(nodeCount, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
+        startAndInit(nodeCount, new int[] { 0 }, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
     }
 
     /**
@@ -212,6 +228,7 @@ public class Cluster {
     private void startAndInit(
             int nodeCount,
             int[] cmgNodes,
+            int[] metastoreNodes,
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
@@ -225,18 +242,25 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
-        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        List<IgniteServer> cmgNodeServers = Arrays.stream(cmgNodes)
+                .mapToObj(nodeRegistrations::get)
+                .map(ServerRegistration::server)
+                .collect(toList());
+
+        List<IgniteServer> metastoreNodeServers = Arrays.stream(metastoreNodes)
                 .mapToObj(nodeRegistrations::get)
                 .map(ServerRegistration::server)
                 .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .metaStorageNodes(metaStorageAndCmgNodes)
+                .metaStorageNodes(metastoreNodeServers)
+                .cmgNodes(cmgNodeServers)
+                .cmgNodeNames(nodeRegistrations.get(1).server().name())
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
+        TestIgnitionManager.init(cmgNodeServers.get(0), builder.build());
 
         for (ServerRegistration registration : nodeRegistrations) {
             assertThat(registration.registrationFuture(), willCompleteSuccessfully());

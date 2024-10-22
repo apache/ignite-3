@@ -19,8 +19,10 @@ package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -34,23 +36,30 @@ import org.jetbrains.annotations.Nullable;
  */
 @Schema(description = "Information about current cluster state.")
 public class ClusterState {
-    @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.")
+    @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.",
+            requiredMode = RequiredMode.REQUIRED)
     @IgniteToStringInclude
     private final Collection<String> cmgNodes;
 
-    @Schema(description = "List of metastorage nodes. These nodes are responsible for storing RAFT cluster metadata.")
+    @Schema(description = "List of metastorage nodes. These nodes are responsible for storing RAFT cluster metadata.",
+            requiredMode = RequiredMode.REQUIRED)
     @IgniteToStringInclude
     private final Collection<String> msNodes;
 
-    @Schema(description = "Version of Apache Ignite that the cluster was created on.")
+    @Schema(description = "Version of Apache Ignite that the cluster was created on.", requiredMode = RequiredMode.REQUIRED)
     private final String igniteVersion;
 
-    @Schema(description = "Unique tag that identifies the cluster.")
+    @Schema(description = "Unique tag that identifies the cluster.",
+            requiredMode = RequiredMode.REQUIRED)
     private final ClusterTag clusterTag;
 
     @Schema(description = "IDs the cluster had before.")
     @IgniteToStringInclude
     private final @Nullable List<UUID> formerClusterIds;
+
+    @Schema(description = "Cluster status.",
+            requiredMode = RequiredMode.REQUIRED)
+    private final ClusterStatus clusterStatus;
 
     /**
      * Creates a new cluster state.
@@ -64,24 +73,28 @@ public class ClusterState {
     @JsonCreator
     public ClusterState(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
-            @JsonProperty("msNodes") Collection<String> msNodes,
+            @JsonProperty("msNodes")  Collection<String> msNodes,
             @JsonProperty("igniteVersion") String igniteVersion,
             @JsonProperty("clusterTag") ClusterTag clusterTag,
-            @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds
+            @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds,
+            @JsonProperty("clusterStatus") ClusterStatus clusterStatus
     ) {
         this.cmgNodes = List.copyOf(cmgNodes);
         this.msNodes = List.copyOf(msNodes);
         this.igniteVersion = igniteVersion;
         this.clusterTag = clusterTag;
         this.formerClusterIds = formerClusterIds == null ? null : List.copyOf(formerClusterIds);
+        this.clusterStatus = clusterStatus;
     }
 
     @JsonGetter("cmgNodes")
+    @JsonInclude
     public Collection<String> cmgNodes() {
         return cmgNodes;
     }
 
     @JsonGetter("msNodes")
+    @JsonInclude
     public Collection<String> msNodes() {
         return msNodes;
     }
@@ -99,6 +112,11 @@ public class ClusterState {
     @JsonGetter("formerClusterIds")
     public @Nullable List<UUID> formerClusterIds() {
         return formerClusterIds;
+    }
+
+    @JsonGetter("clusterStatus")
+    public ClusterStatus clusterStatus() {
+        return clusterStatus;
     }
 
     @Override

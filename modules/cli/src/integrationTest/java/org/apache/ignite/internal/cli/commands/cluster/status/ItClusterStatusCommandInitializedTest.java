@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.status;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.Arrays;
-import org.apache.ignite.Ignite;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,24 +35,61 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link ClusterStatusCommand} for the cluster that is initialized.
  */
 class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
+    private Function<int[], String> mapper;
+
+    @Override
+    protected @Nullable int[] metastoreNodes() {
+        return new int[] { 0 };
+    }
+
+    @Override
+    protected @Nullable int[] cmgNodes() {
+        return new int[] { 1 };
+    }
+
     @Test
     @DisplayName("Should print status when valid cluster url is given but cluster is initialized")
-    void printStatus() {
-        String cmgNodes = Arrays.stream(cmgMetastoreNodes())
-                .mapToObj(CLUSTER::node)
-                .map(Ignite::name)
+    void printStatus() throws InterruptedException {
+        String node0Url = NODE_URL;
+        String node1Url = "http://localhost:" + CLUSTER.httpPort(1);
+
+        Map<Integer, String> nodeNames = IntStream.range(0, initialNodes())
+                .boxed()
+                .collect(Collectors.toMap(identity(), i ->  CLUSTER.node(i).name()));
+
+        mapper = nodes -> Arrays.stream(nodes)
+                .mapToObj(nodeNames::get)
                 .collect(joining(", ", "[", "]"));
 
-        execute("cluster", "status", "--url", NODE_URL);
+        CLUSTER.stopNode(0);
+        execute("cluster", "status", "--url", node1Url);
+        assertOutput("cluster", 2, "Metastore majority lost", cmgNodes(), metastoreNodes());
 
+        CLUSTER.startNode(0);
+        Thread.sleep(10000);
+        execute("cluster", "status", "--url", node1Url);
+        assertOutput("cluster", 3, "active", cmgNodes(), metastoreNodes());
+
+        CLUSTER.stopNode(1);
+        execute("cluster", "status", "--url", node0Url);
+        assertOutput("N/A", 2, "CMG majority lost", new int[0], new int[0]);
+    }
+
+    private void assertOutput(
+            String name,
+            int nodesCount,
+            String statusStr,
+            int[] cmgNodes,
+            int[] metastoreNodes
+    ) {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("name: cluster"),
-                () -> assertOutputContains("nodes: 3"),
-                () -> assertOutputContains("status: active"),
-                () -> assertOutputContains("cmgNodes: " + cmgNodes),
-                () -> assertOutputContains("msNodes: " + cmgNodes)
+                () -> assertOutputContains("name: " + name),
+                () -> assertOutputContains("nodes: " + nodesCount),
+                () -> assertOutputContains("status: " + statusStr),
+                () -> assertOutputContains("cmgNodes: " + mapper.apply(cmgNodes)),
+                () -> assertOutputContains("msNodes: " + mapper.apply(metastoreNodes))
         );
     }
 }
