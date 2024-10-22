@@ -155,6 +155,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -328,6 +329,9 @@ public class IgniteImpl implements Ignite {
 
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
+
+    /** Metastorage compaction trigger. */
+    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
 
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
@@ -703,7 +707,14 @@ public class IgniteImpl implements Ignite {
                 readOperationForCompactionTracker
         );
 
-        this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
+        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
+                name,
+                storage,
+                metaStorageMgr,
+                threadPoolsManager.commonScheduler()
+        );
+
+        cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -1361,7 +1372,8 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
-                                resourceVacuumManager
+                                resourceVacuumManager,
+                                metaStorageCompactionTrigger
                         );
 
                         // The system view manager comes last because other components
@@ -1714,6 +1726,7 @@ public class IgniteImpl implements Ignite {
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(t -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
+                    // TODO: IGNITE-23292 Run local metastore compaction after start watches for the latest compacted revision
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
     }
