@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.validation.Validator;
 
 /** {@link Validator} implementation for the {@link CamelCaseKeys} annotation. */
 public class CamelCaseKeysValidator implements Validator<CamelCaseKeys, NamedListView<?>> {
-    private static final Pattern CAMEL_CASE_PATTERN = Pattern.compile("^[a-z]([A-Za-z][a-z]+)*$");
+    private static final Pattern CAMEL_CASE_PATTERN = Pattern.compile("^[a-z]+([A-Z][a-z]+)*$");
 
     @Override
     public void validate(CamelCaseKeys annotation, ValidationContext<NamedListView<?>> ctx) {
