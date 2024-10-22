@@ -36,6 +36,9 @@ class NodesAttributesSerializerTest {
     private static final UUID NODE1_ID = new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L);
     private static final UUID NODE2_ID = new UUID(0xFEDCBA0987654321L, 0x1234567890ABCDEFL);
 
+    private static final String SERIALIZED_WITH_V1 = "Ae++QwMB775DAe++QwZ0ZXN0Me/Nq5B4VjQSIUNlhwm63P4CA2ExA3YxAgZwcm9mMQHvvkMB775DBnRlc"
+            + "3QyIUNlhwm63P7vzauQeFY0EgIDYTIDdjICBnByb2Yy";
+
     private final NodesAttributesSerializer serializer = new NodesAttributesSerializer();
 
     @Test
@@ -74,8 +77,7 @@ class NodesAttributesSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwPvzauQeFY0EiFDZYcJutz+Ae++QwHvvkMGdGVzdDHvzauQeFY0EiFDZYcJutz+AgNhMQN2MQIGcHJv"
-                + "ZjEhQ2WHCbrc/u/Nq5B4VjQSAe++QwHvvkMGdGVzdDIhQ2WHCbrc/u/Nq5B4VjQSAgNhMgN2MgIGcHJvZjI=");
+        byte[] bytes = Base64.getDecoder().decode(SERIALIZED_WITH_V1);
         Map<UUID, NodeWithAttributes> restoredMap = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredMap, aMapWithSize(2));

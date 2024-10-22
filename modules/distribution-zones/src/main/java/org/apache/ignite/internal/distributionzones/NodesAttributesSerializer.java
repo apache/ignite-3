@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -41,8 +45,11 @@ public class NodesAttributesSerializer extends VersionedSerializer<Map<UUID, Nod
     protected void writeExternalData(Map<UUID, NodeWithAttributes> map, IgniteDataOutput out) throws IOException {
         out.writeVarInt(map.size());
         for (Map.Entry<UUID, NodeWithAttributes> entry : map.entrySet()) {
-            out.writeUuid(entry.getKey());
-            nodeWithAttributesSerializer.writeExternal(entry.getValue(), out);
+            NodeWithAttributes value = entry.getValue();
+
+            assert entry.getKey().equals(value.nodeId()) : map;
+
+            nodeWithAttributesSerializer.writeExternal(value, out);
         }
     }
 
@@ -50,14 +57,13 @@ public class NodesAttributesSerializer extends VersionedSerializer<Map<UUID, Nod
     protected Map<UUID, NodeWithAttributes> readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
-        Map<UUID, NodeWithAttributes> map = new ConcurrentHashMap<>(IgniteUtils.capacity(length));
+        List<NodeWithAttributes> nodes = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
-            UUID nodeId = in.readUuid();
-            NodeWithAttributes node = nodeWithAttributesSerializer.readExternal(in);
-
-            map.put(nodeId, node);
+            nodes.add(nodeWithAttributesSerializer.readExternal(in));
         }
 
-        return map;
+        return nodes.stream().collect(
+                toMap(NodeWithAttributes::nodeId, identity(), (x, y) -> y, ConcurrentHashMap::new)
+        );
     }
 }
