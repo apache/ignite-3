@@ -701,7 +701,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             case EREORDER:
-                fut.completeExceptionally(new SafeTimeReorderException());
+                fut.completeExceptionally(new SafeTimeReorderException(resp.maxObservableSafeTimeViolatedValue()));
 
                 break;
 

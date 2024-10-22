@@ -23,13 +23,25 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIM
  * This exception is used to indicate a detection of a safe time reordering.
  */
 public class SafeTimeReorderException extends IgniteInternalException {
+    /** maxObservableSafeTime at the moment of violation. */
+    private final long maxObservableSafeTimeViolatedValue;
 
     /**
      * The constructor.
+     *
+     * @param maxObservableSafeTimeViolatedValue maxObservableSafeTime at the moment of violation
      */
-    public SafeTimeReorderException() {
+    public SafeTimeReorderException(long maxObservableSafeTimeViolatedValue) {
         super(REPLICATION_SAFE_TIME_REORDERING_ERR, "Replication safe time reordering detected.");
+        this.maxObservableSafeTimeViolatedValue = maxObservableSafeTimeViolatedValue;
     }
 
+    /**
+     * maxObservableSafeTime at the moment of violation.
+     * @return maxObservableSafeTime at the moment of violation.
+     */
+    public long maxObservableSafeTimeViolatedValue() {
+        return maxObservableSafeTimeViolatedValue;
+    }
 }
 

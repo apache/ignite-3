@@ -2662,20 +2662,32 @@ public class PartitionReplicaListener implements ReplicaListener {
                     new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
         }
 
+        int attemptsCounter0 = attemptsCounter;
         raftClient.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
                     assert cmd instanceof SafeTimePropagatingCommand;
 
+                    SafeTimeReorderException safeTimeReorderException = (SafeTimeReorderException) (ex instanceof SafeTimeReorderException
+                            ? ex : ex.getCause());
+
                     SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
 
-                    HybridTimestamp safeTimeForRetry = clockService.now();
+                    clockService.waitFor(hybridTimestamp(safeTimeReorderException.maxObservableSafeTimeViolatedValue())).thenRun(
+                            () -> {
+                                HybridTimestamp safeTimeForRetry = clockService.now();
 
-                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
-                            (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
-                    clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
+                                SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
+                                        (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
+                                clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
 
-                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
+                                applyCmdWithRetryOnSafeTimeReorderException(
+                                        clonedSafeTimePropagatingCommand,
+                                        resultFuture,
+                                        attemptsCounter0
+                                );
+                            }
+                    );
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
