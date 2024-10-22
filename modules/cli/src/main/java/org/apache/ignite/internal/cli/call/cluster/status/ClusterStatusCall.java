@@ -36,6 +36,7 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 @Singleton
 public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
+    private static final int READ_TIMEOUT = 50_000;
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
@@ -81,6 +82,6 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
     }
 
     private org.apache.ignite.rest.client.model.ClusterState fetchClusterState(String url) throws ApiException {
-        return new ClusterManagementApi(clientFactory.getClient(url).setConnectTimeout(100_000).setReadTimeout(100_000)).clusterState();
+        return new ClusterManagementApi(clientFactory.getClient(url).setReadTimeout(READ_TIMEOUT)).clusterState();
     }
 }
