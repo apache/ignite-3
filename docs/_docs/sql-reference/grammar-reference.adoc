@@ -179,6 +179,18 @@ Referenced by:
 * link:sql-reference/distribution-zones#create-zone[CREATE ZONE]
 
 '''
+== parameter
+
+[.diagram-container]
+Diagram(
+NonTerminal('parameter_name'),
+Terminal('='),
+NonTerminal('parameter_value'))
+
+Parameters:
+
+* `parameter_name` - the name of the parameter.
+* `parameter_value` - the value of the parameter.
 
 When a parameter is specified, you can provide it as a literal value or as an identifier. For example:
 
