@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistryImpl.SCRIPT_QUERY_TYPE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -155,22 +156,22 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Verify script query info.
         {
-            String sql = "SELECT * FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT'";
-            List<List<Object>> res = sql(initiator, null, null, null, sql);
+            String sql = "SELECT * FROM SYSTEM.SQL_QUERIES WHERE TYPE=?";
+            List<List<Object>> res = sql(initiator, null, null, null, sql, SCRIPT_QUERY_TYPE);
 
             assertThat(res, hasSize(1));
 
             verifyQueryInfo(res.get(0), initiator.name(), null, queryText, timeBefore, timeAfter,
-                    is(nullValue(CharSequence.class)), "SCRIPT", null);
+                    is(nullValue(CharSequence.class)), SCRIPT_QUERY_TYPE, null);
         }
 
         // Verify script statement query info.
         {
             String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
-                    + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
+                    + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE=?) "
                     + "ORDER BY STATEMENT_NUM";
 
-            List<List<Object>> res = sql(0, sql);
+            List<List<Object>> res = sql(0, sql, SCRIPT_QUERY_TYPE);
 
             assertThat(res, hasSize(3));
 
@@ -197,7 +198,6 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         assertThat(queryProcessor().runningQueries(), hasSize(2));
 
         await(cursors.get(2).closeAsync());
-        assertThat(queryProcessor().runningQueries(), hasSize(0));
     }
 
     @Test

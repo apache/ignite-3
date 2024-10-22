@@ -519,7 +519,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
         Long queryTimeout = properties.get(QueryProperty.QUERY_TIMEOUT);
 
-        RunningQueryInfo queryInfo = runningQueriesRegistry.registerQuery(schemaName, sql, txContext);
+        RunningQueryInfo queryInfo = runningQueriesRegistry.registerQuery(schemaName, sql, txContext.explicitTx());
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -549,9 +549,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     .defaultSchemaName(schemaName)
                     .operationTime(operationTime)
                     .txContext(txContext)
+                    .queryInfo(queryInfo)
                     .build();
 
-            return executeParsedStatement(operationContext, result, queryInfo, null);
+            return executeParsedStatement(operationContext, result, null);
         })
         .whenComplete((r, e) -> {
             if (e != null) {
@@ -628,7 +629,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeParsedStatement(
             SqlOperationContext operationContext,
             ParsedResult parsedResult,
-            RunningQueryInfo queryInfo,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement
     ) {
         QueryTransactionContext txContext = operationContext.txContext();
@@ -638,6 +638,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ensureStatementMatchesTx(parsedResult.queryType(), txContext);
 
         HybridTimestamp operationTime = operationContext.operationTime();
+
+        RunningQueryInfo queryInfo = operationContext.queryInfo();
+
+        assert queryInfo != null;
 
         return waitForMetadata(operationTime)
                 .thenCompose(none -> {
@@ -655,7 +659,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                         txContext.updateObservableTime(deriveMinimalRequiredTime(plan));
                     }
 
-                    return executePlan(operationContext, plan, queryInfo, nextStatement);
+                    return executePlan(operationContext, plan, nextStatement);
                 });
     }
 
@@ -676,7 +680,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executePlan(
             SqlOperationContext ctx,
             QueryPlan plan,
-            RunningQueryInfo queryInfo,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatement) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -697,6 +700,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     dataCursor,
                     nextStatement
             );
+
+            RunningQueryInfo queryInfo = ctx.queryInfo();
+
+            assert queryInfo != null;
 
             runningQueriesRegistry.registerCursor(queryInfo, cursor);
 
@@ -969,9 +976,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                             .defaultSchemaName(schemaName)
                             .txContext(scriptTxContext)
                             .operationTime(operationTime)
+                            .queryInfo(queryInfo)
                             .build();
 
-                    fut = executeParsedStatement(operationContext, parsedResult, queryInfo, nextCurFut);
+                    fut = executeParsedStatement(operationContext, parsedResult, nextCurFut);
                 }
 
                 boolean implicitTx = scriptTxContext.explicitTx() == null;

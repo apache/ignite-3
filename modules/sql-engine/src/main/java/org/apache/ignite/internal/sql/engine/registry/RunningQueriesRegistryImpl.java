@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -41,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link RunningQueriesRegistry}.
  */
 public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
+    public static String SCRIPT_QUERY_TYPE = "SCRIPT";
+
     private final Map<UUID, RunningQueryInfo> runningQueries = new ConcurrentHashMap<>();
 
     private final AtomicInteger openedCursorsCount = new AtomicInteger();
@@ -56,19 +57,10 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
     }
 
     @Override
-    public RunningQueryInfo registerQuery(String schema, String sql, QueryTransactionContext txContext) {
-        QueryTransactionWrapper txWrapper = txContext.explicitTx();
+    public RunningQueryInfo registerQuery(String schema, String sql, @Nullable QueryTransactionWrapper txWrapper) {
         String explicitTxId = txWrapper != null ? txWrapper.unwrap().id().toString() : null;
 
-        RunningQueryInfoImpl queryInfo = putQueryInfo(UUID.randomUUID(), schema, sql, null, explicitTxId);
-
-        if (explicitTxId == null) {
-            // If there is no explicit transaction, we need to set
-            // the implicit transaction ID if one is to be started.
-            txContext.setImplicitTxStartCallback(tx -> queryInfo.transactionId(tx.id()));
-        }
-
-        return queryInfo;
+        return putQueryInfo(UUID.randomUUID(), schema, sql, null, explicitTxId);
     }
 
     @Override
@@ -77,7 +69,7 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
         QueryTransactionWrapper txWrapper = scriptTxContext.explicitTx();
         String txId = txWrapper != null ? txWrapper.unwrap().id().toString() : null;
 
-        RunningQueryInfoImpl queryInfo = putQueryInfo(queryId, schema, sql, "SCRIPT", txId);
+        RunningQueryInfoImpl queryInfo = putQueryInfo(queryId, schema, sql, SCRIPT_QUERY_TYPE, txId);
 
         return new RunningScriptInfoTrackerImpl(queryInfo, scriptTxContext, runningQueries);
     }

@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
-import java.util.Objects;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -38,7 +36,6 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
     private final HybridTimestampTracker observableTimeTracker;
     private final @Nullable QueryTransactionWrapper tx;
     private final TransactionInflights transactionInflights;
-    private volatile Consumer<InternalTransaction> implicitTxCallback = ignored -> {};
 
     /** Constructor. */
     public QueryTransactionContextImpl(
@@ -51,13 +48,6 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         this.observableTimeTracker = observableTimeTracker;
         this.tx = tx != null ? new QueryTransactionWrapperImpl(tx, false, transactionInflights) : null;
         this.transactionInflights = transactionInflights;
-    }
-
-    @Override
-    public void setImplicitTxStartCallback(Consumer<InternalTransaction> callback) {
-        Objects.requireNonNull(callback, "callback");
-
-        implicitTxCallback = callback;
     }
 
     /**
@@ -73,7 +63,6 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
 
         if (tx == null) {
             transaction = txManager.begin(observableTimeTracker, readOnly);
-            implicitTxCallback.accept(transaction);
             result = new QueryTransactionWrapperImpl(transaction, true, transactionInflights);
         } else {
             transaction = tx.unwrap();

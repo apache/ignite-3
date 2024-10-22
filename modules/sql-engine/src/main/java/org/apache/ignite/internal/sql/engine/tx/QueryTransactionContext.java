@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +32,4 @@ public interface QueryTransactionContext {
 
     /** Returns explicit transaction if one was provided by user. */
     @Nullable QueryTransactionWrapper explicitTx();
-
-    /** Register a callback to be invoked when a new implicit transaction is started. */
-    void setImplicitTxStartCallback(Consumer<InternalTransaction> callback);
 }

@@ -20,9 +20,10 @@ package org.apache.ignite.internal.sql.engine.registry;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Registry that keeps track of running queries and open cursors.
@@ -35,7 +36,7 @@ public interface RunningQueriesRegistry {
     Collection<RunningQueryInfo> queries();
 
     /** Registers a new query. */
-    RunningQueryInfo registerQuery(String schema, String sql, QueryTransactionContext txContext);
+    RunningQueryInfo registerQuery(String schema, String sql, @Nullable QueryTransactionWrapper txWrapper);
 
     /** Registers a new multi-statement query. */
     RunningScriptInfoTracker registerScript(String schema, String sql, ScriptTransactionContext scriptTxContext);

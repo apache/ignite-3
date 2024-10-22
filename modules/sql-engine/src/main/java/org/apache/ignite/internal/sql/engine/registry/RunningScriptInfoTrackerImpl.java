@@ -74,6 +74,9 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
         }
 
         UUID queryId = UUID.randomUUID();
+
+        // This can be an explicit transaction passed as a parameter
+        // or started using the tx control script statement.
         QueryTransactionWrapper txWrapper = scriptTxCtx.explicitTx();
 
         RunningQueryInfoImpl statementQueryInfo = new RunningQueryInfoImpl(
@@ -88,10 +91,6 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
         );
 
         runningQueries.put(queryId, statementQueryInfo);
-
-        if (txWrapper == null) {
-            scriptTxCtx.setImplicitTxStartCallback(tx -> statementQueryInfo.transactionId(tx.id()));
-        }
 
         return statementQueryInfo;
     }
