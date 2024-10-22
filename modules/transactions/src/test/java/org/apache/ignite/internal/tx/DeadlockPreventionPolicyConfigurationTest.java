@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link org.apache.ignite.internal.tx.configuration.DeadlockPreventionPolicyConfigurationSchema}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class DeadlockPreventionPolicyConfigurationTest {
+public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration transactionConfigurationDefault;
 
