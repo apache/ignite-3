@@ -74,6 +74,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -399,7 +400,7 @@ public class ItTxTestCluster {
             ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = new HybridClockImpl();
-            TestClockService clockService = new TestClockService(clock);
+            TestClockService clockService = new TestClockService(clock, new ClockWaiter("test-node", clock));
 
             String nodeName = node.name();
 
