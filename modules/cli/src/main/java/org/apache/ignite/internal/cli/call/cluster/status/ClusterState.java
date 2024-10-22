@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.cli.call.cluster.status;
 
 import java.util.List;
+import org.apache.ignite.rest.client.model.ClusterStatus;
 
 /**
  * Class that represents the cluster status.
  */
-public class ClusterStatus {
+public class ClusterState {
 
     private final int nodeCount;
 
@@ -38,8 +39,18 @@ public class ClusterStatus {
 
     private final List<String> metadataStorageNodes;
 
-    private ClusterStatus(int nodeCount, boolean initialized, String name,
-            boolean connected, String nodeUrl, List<String> cmgNodes, List<String> metadataStorageNodes) {
+    private final ClusterStatus clusterStatus;
+
+    private ClusterState(
+            int nodeCount,
+            boolean initialized,
+            String name,
+            boolean connected,
+            String nodeUrl,
+            List<String> cmgNodes,
+            List<String> metadataStorageNodes,
+            ClusterStatus clusterStatus
+    ) {
         this.nodeCount = nodeCount;
         this.initialized = initialized;
         this.name = name;
@@ -47,6 +58,7 @@ public class ClusterStatus {
         this.nodeUrl = nodeUrl;
         this.cmgNodes = cmgNodes;
         this.metadataStorageNodes = metadataStorageNodes;
+        this.clusterStatus = clusterStatus;
     }
 
     public String nodeCount() {
@@ -77,17 +89,21 @@ public class ClusterStatus {
         return metadataStorageNodes;
     }
 
-    /**
-     * Builder for {@link ClusterStatus}.
-     */
-    public static ClusterStatusBuilder builder() {
-        return new ClusterStatusBuilder();
+    public ClusterStatus clusterStatus() {
+        return clusterStatus;
     }
 
     /**
-     * Builder for {@link ClusterStatus}.
+     * Builder for {@link ClusterState}.
      */
-    public static class ClusterStatusBuilder {
+    public static ClusterStateBuilder builder() {
+        return new ClusterStateBuilder();
+    }
+
+    /**
+     * Builder for {@link ClusterState}.
+     */
+    public static class ClusterStateBuilder {
         private int nodeCount;
 
         private boolean initialized;
@@ -102,47 +118,66 @@ public class ClusterStatus {
 
         private List<String> metadataStorageNodes;
 
-        private ClusterStatusBuilder() {
+        private ClusterStatus clusterStatus;
+
+        private ClusterStateBuilder() {
 
         }
 
-        public ClusterStatusBuilder nodeCount(int nodeCount) {
+        public ClusterStateBuilder nodeCount(int nodeCount) {
             this.nodeCount = nodeCount;
             return this;
         }
 
-        public ClusterStatusBuilder initialized(boolean initialized) {
+        public ClusterStateBuilder initialized(boolean initialized) {
             this.initialized = initialized;
             return this;
         }
 
-        public ClusterStatusBuilder name(String name) {
+        public ClusterStateBuilder name(String name) {
             this.name = name;
             return this;
         }
 
-        public ClusterStatusBuilder connected(boolean connected) {
+        public ClusterStateBuilder connected(boolean connected) {
             this.connected = connected;
             return this;
         }
 
-        public ClusterStatusBuilder connectedNodeUrl(String connectedNodeUrl) {
+        public ClusterStateBuilder connectedNodeUrl(String connectedNodeUrl) {
             this.connectedNodeUrl = connectedNodeUrl;
             return this;
         }
 
-        public ClusterStatusBuilder cmgNodes(List<String> cmgNodes) {
+        public ClusterStateBuilder cmgNodes(List<String> cmgNodes) {
             this.cmgNodes = cmgNodes;
             return this;
         }
 
-        public ClusterStatusBuilder metadataStorageNodes(List<String> metadataStorageNodes) {
+        public ClusterStateBuilder metadataStorageNodes(List<String> metadataStorageNodes) {
             this.metadataStorageNodes = metadataStorageNodes;
             return this;
         }
 
-        public ClusterStatus build() {
-            return new ClusterStatus(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes, metadataStorageNodes);
+        public ClusterStateBuilder clusterStatus(ClusterStatus clusterStatus) {
+            this.clusterStatus = clusterStatus;
+            return this;
+        }
+
+        /**
+         * Returns new cluster state instance.
+         */
+        public ClusterState build() {
+            return new ClusterState(
+                    nodeCount,
+                    initialized,
+                    name,
+                    connected,
+                    connectedNodeUrl,
+                    cmgNodes,
+                    metadataStorageNodes,
+                    clusterStatus
+            );
         }
     }
 }

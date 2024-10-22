@@ -20,23 +20,24 @@ package org.apache.ignite.internal.cli.decorators;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterState;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.rest.client.model.ClusterStatus;
 
 /**
- * Decorator for {@link ClusterStatus}.
+ * Decorator for {@link ClusterState}.
  */
-public class ClusterStatusDecorator implements Decorator<ClusterStatus, TerminalOutput> {
+public class ClusterStatusDecorator implements Decorator<ClusterState, TerminalOutput> {
     @Override
-    public TerminalOutput decorate(ClusterStatus data) {
+    public TerminalOutput decorate(ClusterState data) {
         return data.isInitialized()
                 ? () -> ansi(String.format(
                 "[name: %s, nodes: %s, status: %s, cmgNodes: %s, msNodes: %s]",
                 data.getName(),
                 data.nodeCount(),
-                fg(Color.GREEN).mark("active"),
+                status(data.clusterStatus()),
                 data.getCmgNodes(),
                 data.getMsNodes()
         ))
@@ -44,5 +45,18 @@ public class ClusterStatusDecorator implements Decorator<ClusterStatus, Terminal
                         "[nodes: %s, status: %s]",
                         data.nodeCount(), fg(Color.RED).mark("not initialized")
                 ));
+    }
+
+    private static String status(ClusterStatus status) {
+        switch (status) {
+            case MS_MAJORITY_LOST:
+                return fg(Color.RED).mark("Metastore majority lost");
+            case HEALTHY:
+                return fg(Color.GREEN).mark("active");
+            case CMG_MAJORITY_LOST:
+                return fg(Color.RED).mark("CMG majority lost");
+            default:
+                return "";
+        }
     }
 }

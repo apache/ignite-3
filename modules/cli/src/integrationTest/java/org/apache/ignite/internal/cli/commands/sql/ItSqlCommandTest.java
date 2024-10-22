@@ -33,6 +33,8 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     void nonExistingFile() {
         execute("sql", "--file", "nonexisting", "--jdbc-url", JDBC_URL);
 
+        CLUSTER.stopNode(0);
+
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
