@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -1090,23 +1089,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             return failedFuture(new NodeStoppingException());
         }
 
-        UUID metastorageRepairClusterId = metastorageRepairingConfigIndex == null ? null : requiredClusterId();
-
         try {
             return raftServiceAfterJoin()
-                    .thenCompose(service -> service.changeMetastorageNodes(
-                            newMetastorageNodes,
-                            metastorageRepairClusterId,
-                            metastorageRepairingConfigIndex
-                    ));
+                    .thenCompose(service -> service.changeMetastorageNodes(newMetastorageNodes, metastorageRepairingConfigIndex));
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private UUID requiredClusterId() {
-        ClusterState clusterState = clusterStateStorageMgr.getClusterState();
-        return requireNonNull(clusterState, "Still no cluster state.").clusterTag().clusterId();
     }
 
     /**

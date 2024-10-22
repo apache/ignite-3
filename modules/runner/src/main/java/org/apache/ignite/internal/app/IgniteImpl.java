@@ -364,6 +364,8 @@ public class IgniteImpl implements Ignite {
 
     private final LogicalTopologyService logicalTopologyService;
 
+    private final ComponentWorkingDir metastorageWorkDir;
+
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
 
@@ -667,7 +669,7 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
+        metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "meta-storage log",
@@ -1786,6 +1788,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClockService clockService() {
         return clockService;
+    }
+
+    @TestOnly
+    public ComponentWorkingDir metastorageWorkDir() {
+        return metastorageWorkDir;
     }
 
     /** Returns the node's transaction manager. */

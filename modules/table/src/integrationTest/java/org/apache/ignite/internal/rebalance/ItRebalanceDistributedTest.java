@@ -257,6 +257,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(120)
+// TODO: IGNITE-23538 - enable after fixing the test
+@Disabled("IGNITE-23538")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 

@@ -55,6 +55,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.jetbrains.annotations
 }
 

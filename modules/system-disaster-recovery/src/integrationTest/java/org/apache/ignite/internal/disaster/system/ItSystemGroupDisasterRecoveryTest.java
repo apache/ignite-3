@@ -35,6 +35,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -129,12 +130,16 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
         initiateMigrationToNewCluster(oldClusterNodeIndex, newClusterNodeIndex);
     }
 
-    void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
+    final void initiateMigrationToNewCluster(int nodeMissingRepairIndex, int repairedNodeIndex) throws Exception {
         recoveryClient.initiateMigration(
                 "localhost",
                 cluster.httpPort(nodeMissingRepairIndex),
                 "localhost",
                 cluster.httpPort(repairedNodeIndex)
         );
+    }
+
+    final void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
+        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
     }
 }

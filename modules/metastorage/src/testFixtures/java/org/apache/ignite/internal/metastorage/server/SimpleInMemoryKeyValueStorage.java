@@ -796,6 +796,11 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public ChecksumAndRevisions checksumAndRevisions(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void clear() {
         rwLock.writeLock().lock();
 

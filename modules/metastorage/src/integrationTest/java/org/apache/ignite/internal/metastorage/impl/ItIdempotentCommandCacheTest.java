@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -205,6 +206,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             );
 
             cmgManager = mock(ClusterManagementGroupManager.class);
+            configureCmgManagerToStartMetastorage(cmgManager);
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -36,15 +35,6 @@ public interface MetaStorageInfo extends NetworkMessage, Serializable {
     Set<String> metaStorageNodes();
 
     /**
-     * ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
-     * happened in the current cluster incarnation.
-     *
-     * <p>This can only contain current cluster ID; if there were earlier MG repairs, they happened in other incarnations of the cluster,
-     * so they will not leave a trace here.
-     */
-    @Nullable UUID metastorageRepairClusterId();
-
-    /**
      * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
      * repair happened in the current cluster incarnation.
      *
@@ -53,4 +43,11 @@ public interface MetaStorageInfo extends NetworkMessage, Serializable {
      * a trace here.
      */
     @Nullable Long metastorageRepairingConfigIndex();
+
+    /**
+     * Returns whether MG was being repaired in this cluster incarnation.
+     */
+    default boolean metastorageRepairedInThisClusterIncarnation() {
+        return metastorageRepairingConfigIndex() != null;
+    }
 }

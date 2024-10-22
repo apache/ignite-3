@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -397,6 +398,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         if (bytes == null) {
             throw new CompactedException(revision, compactionRevision);
+        }
+
+        return bytesToLong(bytes);
+    }
+
+    private long checksumByRevisionOrZero(long revision) throws RocksDBException {
+        byte[] bytes = revisionToChecksum.get(longToBytes(revision));
+
+        if (bytes == null) {
+            return 0;
         }
 
         return bytesToLong(bytes);
@@ -1314,6 +1325,33 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public ChecksumAndRevisions checksumAndRevisions(long revision) {
+        rwLock.readLock().lock();
+
+        try {
+            return new ChecksumAndRevisions(
+                    checksumByRevisionOrZero(revision),
+                    minChecksummedRevisionOrZero(),
+                    rev
+            );
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private long minChecksummedRevisionOrZero() {
+        try (
+                var options = new ReadOptions();
+                RocksIterator it = revisionToChecksum.newIterator(options)
+        ) {
+            it.seekToFirst();
+            return it.isValid() ? bytesToLong(it.key()) : 0;
         }
     }
 
