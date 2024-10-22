@@ -930,20 +930,7 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        AtomicReference<HeapLockManager> lockMgrRef = new AtomicReference<>();
-
-        Supplier<LockManager> lockManagerFactory = () -> {
-            if (lockMgrRef.get() == null) {
-                DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                        txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                        txConfig.deadlockPreventionPolicy().waitTimeout().value()
-                );
-
-                lockMgrRef.compareAndSet(null, new HeapLockManager(deadlockPreventionPolicy));
-            }
-
-            return lockMgrRef.get();
-        };
+        Supplier<LockManager> lockManagerFactory = lockManagerFactory(txConfig);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1480,6 +1467,26 @@ public class IgniteImpl implements Ignite {
         }
 
         return igniteException;
+    }
+
+    private Supplier<LockManager> lockManagerFactory(TransactionConfiguration txConfig) {
+        return new Supplier<>() {
+            private final AtomicReference<LockManager> lockManagerRef = new AtomicReference<>();
+
+            @Override
+            public LockManager get() {
+                if (lockManagerRef.get() == null) {
+                    DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                            txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                            txConfig.deadlockPreventionPolicy().waitTimeout().value()
+                    );
+
+                    lockManagerRef.compareAndSet(null, new HeapLockManager(deadlockPreventionPolicy));
+                }
+
+                return lockManagerRef.get();
+            }
+        };
     }
 
     /**
