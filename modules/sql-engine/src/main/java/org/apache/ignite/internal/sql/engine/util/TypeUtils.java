@@ -33,6 +33,7 @@ import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -108,22 +109,29 @@ public class TypeUtils {
     );
 
     private static class SupportedParamClassesHolder {
-        static final Set<Class<?>> supportedParamClasses;
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+        static final Set<ColumnType> UNSUPPORTED_COLUMN_TYPES_AS_PARAMETERS = Set.of(ColumnType.PERIOD, ColumnType.DURATION);
+        static final Set<Class<?>> SUPPORTED_PARAM_CLASSES;
 
         static {
-            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::javaClass).collect(Collectors.toSet());
-            supportedParamClasses.add(boolean.class);
-            supportedParamClasses.add(byte.class);
-            supportedParamClasses.add(short.class);
-            supportedParamClasses.add(int.class);
-            supportedParamClasses.add(long.class);
-            supportedParamClasses.add(float.class);
-            supportedParamClasses.add(double.class);
+            Set<Class<?>> supportedClasses = Arrays.stream(ColumnType.values())
+                    .filter(t -> !UNSUPPORTED_COLUMN_TYPES_AS_PARAMETERS.contains(t))
+                    .map(ColumnType::javaClass).collect(Collectors.toSet());
+
+            supportedClasses.add(boolean.class);
+            supportedClasses.add(byte.class);
+            supportedClasses.add(short.class);
+            supportedClasses.add(int.class);
+            supportedClasses.add(long.class);
+            supportedClasses.add(float.class);
+            supportedClasses.add(double.class);
+
+            SUPPORTED_PARAM_CLASSES = Collections.unmodifiableSet(supportedClasses);
         }
     }
 
     private static Set<Class<?>> supportedParamClasses() {
-        return SupportedParamClassesHolder.supportedParamClasses;
+        return SupportedParamClassesHolder.SUPPORTED_PARAM_CLASSES;
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
