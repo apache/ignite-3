@@ -73,6 +73,18 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void test0() {
+        sql("SELECT NULL as a, NULL as b, NULL as c, NULL as d, 1 as id UNION SELECT 'Кирилл' as a, 'Müller' as b, '我是谁' as c, 'ASCII' as d, 2 as id ORDER BY 1 NULLS FIRST");
+
+        sql("CREATE TABLE test (a INTEGER, s VARCHAR);");
+
+        sql("INSERT INTO test VALUES (11, 'hello'), (12, 'world'), (11, NULL)");
+
+        //var rows = sql("SELECT val FROM string_table");
+    }
+
     /** Tests correctness with unicode. */
     @Test
     public void testUnicodeStrings() {

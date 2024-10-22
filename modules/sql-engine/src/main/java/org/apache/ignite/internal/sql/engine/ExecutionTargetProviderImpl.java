@@ -101,7 +101,7 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<TokenizedAssignments>> collectAssignments(
+    public CompletableFuture<List<TokenizedAssignments>> collectAssignments(
             IgniteTable table, HybridTimestamp operationTime, boolean includeBackups
     ) {
         int partitions = table.partitions();
