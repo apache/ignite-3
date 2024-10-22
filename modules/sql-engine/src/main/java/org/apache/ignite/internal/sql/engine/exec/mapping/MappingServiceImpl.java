@@ -224,6 +224,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         CompletableFuture<List<MappedFragment>> composed = topology.thenCompose(t -> {
             MappingContext context = new MappingContext(localNodeName, t.nodes());
+            templatesCache.invalidate(multiStepPlan.id()); // !!!!
+            FragmentsTemplate template0 = getOrCreateTemplate(multiStepPlan, context);
 
             MappingsCacheValue cacheValue = mappingsCache.compute(
                     new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
@@ -232,7 +234,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             IntSet tableIds = new IntOpenHashSet();
                             boolean topologyAware = false;
 
-                            for (Fragment fragment : template.fragments) {
+                            for (Fragment fragment : template0.fragments) {
                                 topologyAware = topologyAware || !fragment.systemViews().isEmpty();
                                 for (IgniteDataSource source : fragment.tables().values()) {
                                     tableIds.add(source.id());
@@ -241,11 +243,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
                             long topVer = topologyAware ? t.version() : Long.MAX_VALUE;
 
-                            return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template, key.mapOnBackups));
+                            return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template0, key.mapOnBackups));
                         }
 
                         if (val.topVer < t.version()) {
-                            return new MappingsCacheValue(t.version(), val.tableIds, mapFragments(context, template, key.mapOnBackups));
+                            return new MappingsCacheValue(t.version(), val.tableIds, mapFragments(context, template0, key.mapOnBackups));
                         }
 
                         return val;
@@ -257,9 +259,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
 
         return composed;
-
-
-
     }
 
     private CompletableFuture<MappedFragments> mapFragments(
@@ -283,8 +282,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                                 )
                 ))
                 .collect(Collectors.toList());
-
-        //allOf(targets.toArray(new CompletableFuture[0])).join();
 
         return allOf(targets.toArray(new CompletableFuture[0]))
                 .thenApply(ignored -> {
@@ -439,7 +436,15 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                         v -> v.stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
                                 .collect(Collectors.toList()));
 
-                return ret11.thenApply(l -> new TopologySnapshot(100, l));
+                return ret11.thenApply(l -> {
+                    LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
+
+                    List<String> allNodes = topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList());
+
+                    l.addAll(allNodes);
+
+                    return new TopologySnapshot(100, l);
+                });
             }
         }
 
@@ -479,6 +484,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     idGenerator.nextId(), context.cluster(), fragments
             );
         });
+    }
+
+    private FragmentsTemplate getTemplate(MultiStepPlan plan, MappingContext context) {
+        // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
+        IdGenerator idGenerator = new IdGenerator(0);
+
+        List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).split(plan.root());
+
+        return new FragmentsTemplate(
+                idGenerator.nextId(), context.cluster(), fragments
+        );
     }
 
     private static class FragmentsTemplate {
