@@ -1465,7 +1465,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     RowId rowId = currentRow.rowId();
 
-                    return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
+                    return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
                                 return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                                     BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
@@ -1516,7 +1516,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexCursor.next();
 
-        return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
+        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)
                 .thenComposeAsync(rowLock -> { // Table row S lock
                     return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                         if (resolvedReadResult != null && resolvedReadResult.binaryRow() != null) {
@@ -3310,7 +3310,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X))
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X))
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
@@ -3382,10 +3382,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
         return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)) // S lock on RowId
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S)) // S lock on RowId
                 .thenCompose(ignored -> {
                     if (equalValues(actualRow, expectedRow)) {
-                        return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X) // X lock on RowId
+                        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X) // X lock on RowId
                                 .thenCompose(ignored0 -> takeRemoveLockOnIndexes(actualRow, rowId, txId))
                                 .thenApply(exclusiveRowLock -> rowId);
                     }
@@ -3402,7 +3402,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow binaryRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X)) // X lock on RowId
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X)) // X lock on RowId
                 .thenCompose(ignored -> takeRemoveLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(ignored -> rowId);
     }
@@ -3414,7 +3414,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S) // S lock on RowId
+        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S) // S lock on RowId
                 .thenApply(ignored -> rowId);
     }
 
@@ -3486,10 +3486,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForReplace(BinaryRow expectedRow, @Nullable BinaryRow oldRow,
             BinaryRow newRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(replicationGroupId), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S))
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.S))
                 .thenCompose(ignored -> {
                     if (oldRow != null && equalValues(oldRow, expectedRow)) {
-                        return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X) // X lock on RowId
+                        return lockManager.acquire(txId, new LockKey(replicationGroupId, rowId), LockMode.X) // X lock on RowId
                                 .thenCompose(ignored1 -> takePutLockOnIndexes(newRow, rowId, txId))
                                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
                     }
