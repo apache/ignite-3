@@ -38,7 +38,7 @@ public interface RunningScriptInfoTracker {
     RunningQueryInfo registerStatement(String sql, SqlQueryType queryType);
 
     /** Must be called when sub-statement unregisters from the {@link RunningQueriesRegistry}. */
-    void onSubStatementUnregistered();
+    void onStatementUnregistered();
 
     /** Sets remaining sub-statements count and switches script execution phase to {@link QueryExecutionPhase#EXECUTION}. */
     void onInitializationComplete(int statementsCount);

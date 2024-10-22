@@ -95,7 +95,7 @@ public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
             RunningScriptInfoTracker script = ((RunningQueryInfoImpl) info).script();
 
             if (script != null) {
-                script.onSubStatementUnregistered();
+                script.onStatementUnregistered();
             }
         }
     }

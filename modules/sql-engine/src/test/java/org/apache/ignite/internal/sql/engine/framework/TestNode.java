@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +67,8 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfoImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -317,14 +320,20 @@ public class TestNode implements LifecycleAware {
     }
 
     private SqlOperationContext.Builder createContext(QueryTransactionContext txContext, Object... params) {
+        UUID queryId = UUID.randomUUID();
+
+        RunningQueryInfo queryInfo = new RunningQueryInfoImpl(queryId, SqlCommon.DEFAULT_SCHEMA_NAME, "",
+                Instant.now(), null, null, null, null);
+
         return SqlOperationContext.builder()
-                .queryId(UUID.randomUUID())
+                .queryId(queryId)
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .txContext(txContext)
                 .parameters(params)
+                .queryInfo(queryInfo)
                 .prefetchCallback(new PrefetchCallback());
     }
 

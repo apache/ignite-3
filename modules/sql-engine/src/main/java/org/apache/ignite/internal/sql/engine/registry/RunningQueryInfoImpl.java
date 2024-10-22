@@ -41,7 +41,10 @@ public class RunningQueryInfoImpl implements RunningQueryInfo {
     private volatile @Nullable String queryType;
     private volatile @Nullable AsyncSqlCursor<?> cursor;
 
-    RunningQueryInfoImpl(
+    /**
+     * Constructor.
+     */
+    public RunningQueryInfoImpl(
             UUID queryId,
             String schema,
             String sql,

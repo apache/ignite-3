@@ -56,7 +56,7 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
     }
 
     @Override
-    public void onSubStatementUnregistered() {
+    public void onStatementUnregistered() {
         int remainingCount = registeredStatementsCounter.decrementAndGet();
 
         if (remainingCount == 0 && remainingStatementsCounter.get() == 0) {
