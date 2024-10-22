@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.sql.engine.sql;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+/** Object type for a KILL statement. */
+public enum IgniteSqlKillObjectType {
+    /** SQL Query or SQL script. */
+    QUERY,
+    /** Transaction. */
+    TRANSACTION,
+    /** Compute job. */
+    COMPUTE
 }
