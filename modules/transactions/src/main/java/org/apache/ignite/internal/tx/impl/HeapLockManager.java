@@ -539,7 +539,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                             // Validate reordering with IX locks.
                             for (Lock lock : ixlockOwners.values()) {
                                 // Allow only high priority transactions to wait.
-                                if (TxIdPriorityComparator.INSTANCE.compare(lock.txId(), txId) > 0) {
+                                if (TxIdPriorityComparator.INSTANCE.compare(lock.txId(), txId) < 0) {
                                     return failedFuture(lockException(txId, lock.txId()));
                                 }
                             }
@@ -617,9 +617,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                 default:
                     assert false : "Unsupported coarse lock mode: " + lockMode;
-            }
 
-            return null; // Should not be here.
+                    return null; // Should not be here.
+            }
         }
 
         /**
@@ -634,13 +634,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             switch (lock.lockMode()) {
                 case S:
+                    IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter = null;
+
                     stripedLock.writeLock().lock();
 
                     try {
                         Lock removed = slockOwners.remove(lock.txId());
 
                         if (removed == null) {
-                            IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter = slockWaiters.remove(lock.txId());
+                            waiter = slockWaiters.remove(lock.txId());
 
                             if (waiter != null) {
                                 removed = waiter.get1();
@@ -650,6 +652,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                         assert removed != null : "Attempt to release not requested lock: " + lock.txId();
                     } finally {
                         stripedLock.writeLock().unlock();
+                    }
+
+                    if (waiter != null) {
+                        waiter.get2().complete(waiter.get1());
                     }
 
                     break;
