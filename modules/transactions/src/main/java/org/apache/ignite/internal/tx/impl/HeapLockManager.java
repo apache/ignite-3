@@ -167,13 +167,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy(coarse) lock.
-            // Try fast path.
-            CoarseLockState state = coarseMap.get(lockKey);
-
-            if (state == null) {
-                // Atomically init state.
-                state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
-            }
+            CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
 
             return state.acquire(txId, lockKey, lockMode);
         }
