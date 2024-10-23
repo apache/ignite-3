@@ -37,7 +37,7 @@ public class SafeTimeReorderException extends IgniteInternalException {
     }
 
     /**
-     * maxObservableSafeTime at the moment of violation.
+     * Returns maxObservableSafeTime at the moment of violation.
      *
      * @return maxObservableSafeTime at the moment of violation.
      */
