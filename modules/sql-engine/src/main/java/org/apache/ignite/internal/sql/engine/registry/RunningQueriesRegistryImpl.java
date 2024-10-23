@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link RunningQueriesRegistry}.
  */
 public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {
-    public static String SCRIPT_QUERY_TYPE = "SCRIPT";
+    public static final String SCRIPT_QUERY_TYPE = "SCRIPT";
 
     private final Map<UUID, RunningQueryInfo> runningQueries = new ConcurrentHashMap<>();
 
