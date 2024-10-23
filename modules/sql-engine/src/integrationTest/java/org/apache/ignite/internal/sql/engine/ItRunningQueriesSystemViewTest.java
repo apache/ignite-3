@@ -151,7 +151,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         assertThat(cursors, hasSize(3));
-        assertThat(queryProcessor().runningQueries(), hasSize(4));
+        assertThat(queryProcessor().runningQueries(), is(4));
 
         // Verify script query info.
         {
@@ -196,10 +196,10 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Closing cursors.
         await(cursors.get(0).closeAsync());
-        assertThat(queryProcessor().runningQueries(), hasSize(3));
+        assertThat(queryProcessor().runningQueries(), is(3));
 
         await(cursors.get(1).closeAsync());
-        assertThat(queryProcessor().runningQueries(), hasSize(2));
+        assertThat(queryProcessor().runningQueries(), is(2));
 
         await(cursors.get(2).closeAsync());
     }
@@ -221,9 +221,8 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries().size() == 4, 5_000);
-
-        assertThat(queryProcessor().runningQueries(), hasSize(4));
+        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
+        assertThat(queryProcessor().runningQueries(), is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
                 + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
@@ -256,7 +255,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void checkCleanupOnError() throws InterruptedException {
-        // parsing errors
+        // Parsing error.
         {
             assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query", () -> sql("CREATE TABLE b"));
             checkNoPendingQueries();
@@ -265,7 +264,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
             checkNoPendingQueries();
         }
 
-        // validation
+        // Validation.
         {
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Failed to validate query", () -> sql("insert into test values ('a')"));
             checkNoPendingQueries();
@@ -275,7 +274,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
             checkNoPendingQueries();
         }
 
-        // constraint violation
+        // Constraint violation.
         {
             assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "PK unique constraint is violated",
                     () -> sql("insert into test values (1),(1)"));
@@ -288,7 +287,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         sql("INSERT INTO test VALUES(-1),(0)");
 
-        // runtime err
+        // Runtime error.
         {
             assertThrowsSqlException(Sql.RUNTIME_ERR, "Division by zero", () -> sql("SELECT 1/id FROM test"));
             checkNoPendingQueries();
@@ -306,9 +305,8 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         for (Ignite node : nodes) {
             SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
 
-            boolean success = waitForCondition(() -> queryProcessor.runningQueries().isEmpty(), 5_000);
-
-            assertTrue(success, "node=" + node.name() + ", count=" + queryProcessor().runningQueries().size());
+            boolean success = waitForCondition(() -> queryProcessor.runningQueries() == 0, 5_000);
+            assertTrue(success, "node=" + node.name() + ", count=" + queryProcessor().runningQueries());
         }
     }
 

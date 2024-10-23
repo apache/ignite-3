@@ -34,7 +34,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -831,9 +830,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return runningQueriesRegistry.openedCursorsCount();
     }
 
+    /** Returns the number of running queries. */
     @TestOnly
-    public Collection<? extends RunningQueryInfo> runningQueries() {
-        return runningQueriesRegistry.queries();
+    public int runningQueries() {
+        return runningQueriesRegistry.queries().size();
     }
 
     private class MultiStatementHandler {
