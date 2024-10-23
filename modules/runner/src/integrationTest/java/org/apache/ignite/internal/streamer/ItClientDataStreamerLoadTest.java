@@ -20,6 +20,7 @@ package org.apache.ignite.internal.streamer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +58,11 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     @BeforeAll
     public static void startClient() {
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            clients[i] = IgniteClient.builder().addresses("localhost").build();
+            clients[i] = IgniteClient.builder()
+                    .addresses("localhost")
+                    .heartbeatInterval(1000)
+                    .heartbeatTimeout(2000)
+                    .build();
         }
     }
 
@@ -105,10 +110,12 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     private static void streamData(IgniteClient client) {
         RecordView<Tuple> view = client.tables().table(TABLE_NAME).recordView();
         CompletableFuture<Void> streamerFut;
+        Random rnd = new Random();
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
-                    .perPartitionParallelOperations(2)
+                    .perPartitionParallelOperations(rnd.nextInt(1, 3))
+                    .pageSize(rnd.nextInt(100, 1000))
                     .build();
 
             streamerFut = view.streamData(publisher, options);
