@@ -327,7 +327,6 @@ public class TestNode implements LifecycleAware {
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .txContext(txContext)
                 .parameters(params)
-                .queryInfo(new NoopRunningQueryInfo(queryId))
                 .prefetchCallback(new PrefetchCallback());
     }
 
