@@ -73,12 +73,14 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @Test
     public void testHighLoad() {
-        // 4 partitions, 1 parallel ops = ~40s
-        // 10 partitions, 1 parallel ops = ~23s
-        // 10 partitions, 4 parallel ops = ~25s
-        // 10 partitions, 2 parallel ops = ~24s
+        // TODO: Stream in parallel from all clients
+        for (IgniteClient client : clients) {
+            streamData(client);
+        }
+    }
 
-        RecordView<Tuple> view = defaultTable().recordView();
+    private static void streamData(IgniteClient client) {
+        RecordView<Tuple> view = client.tables().table(TABLE_NAME).recordView();
         view.upsert(null, tuple(2, "_"));
         view.upsert(null, tuple(3, "baz"));
 
