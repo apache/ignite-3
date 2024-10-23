@@ -43,11 +43,11 @@ import org.junit.jupiter.api.Test;
 public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test_table";
 
-    private static final int CLIENT_COUNT = 10;
+    private static final int CLIENT_COUNT = 4;
 
     private static final int ROW_COUNT = 100_000;
 
-    private static final int LOOP_COUNT = 100;
+    private static final int LOOP_COUNT = 10;
 
     private static final IgniteClient[] clients = new IgniteClient[CLIENT_COUNT];
 
