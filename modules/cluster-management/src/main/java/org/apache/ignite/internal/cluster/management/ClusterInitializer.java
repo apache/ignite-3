@@ -191,7 +191,7 @@ public class ClusterInitializer {
     }
 
     private CompletableFuture<Void> awaitCorrectClusterTopology() {
-        return new ClusterNodesJoinAwaiter(clusterService, logicalTopology);
+        return new ClusterNodesJoinAwaiter(clusterService, logicalTopology).awaitAllNodesToJoin();
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
