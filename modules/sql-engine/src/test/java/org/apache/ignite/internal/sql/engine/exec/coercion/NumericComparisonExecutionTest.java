@@ -59,7 +59,7 @@ public class NumericComparisonExecutionTest extends BaseTypeCheckExecutionTest {
     @EnumSource
     public void comparisonGreat(NumericPair typePair) throws Exception {
         try (ClusterWrapper testCluster = testCluster(typePair, dataProvider(typePair))) {
-            testCluster.process("SELECT c1 < c2 FROM t", checkReturnResult());
+            testCluster.process("SELECT c1 > c2 FROM t", checkReturnResult());
         }
     }
 }

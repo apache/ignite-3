@@ -179,7 +179,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
 

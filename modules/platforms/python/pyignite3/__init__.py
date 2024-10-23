@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import datetime
 import decimal
 import uuid
@@ -22,53 +23,53 @@ from pyignite3 import native_type_code
 
 __version__ = '3.0.0-beta2'
 
-# PEP 249 is supported
 apilevel = '2.0'
+"""PEP 249 is supported."""
 
-# Threads may share the module, but not connections.
 threadsafety = 1
+"""Threads may share the module, but not connections."""
 
-# Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
+"""Parameter style is a question mark, e.g. '...WHERE name=?'."""
 
-# Null constant
 NULL = None
+"""Null constant."""
 
-# Boolean type
 BOOLEAN = bool
+"""Boolean type."""
 
-# Integer type
 INT = int
+"""Integer type."""
 
-# Floating point type
 FLOAT = float
+"""Floating point type."""
 
-# String type
 STRING = str
+"""String type."""
 
-# Binary type
 BINARY = bytes
+"""Binary type."""
 
-# Big number (Decimal) type
 NUMBER = decimal.Decimal
+"""Big number (Decimal) type."""
 
-# Date type
 DATE = datetime.date
+"""Date type."""
 
-# Time type
 TIME = datetime.time
+"""Time type."""
 
-# Date-Time type
 DATETIME = datetime.datetime
+"""Date-Time type."""
 
-# Duration type
 DURATION = datetime.timedelta
+"""Duration type."""
 
-# UUID type
 UUID = uuid.UUID
+"""UUID type."""
 
-# This type object is used to describe the “Row ID” column in a database.
 ROWID = UUID
+"""Type object that is used to describe the “Row ID” column in a database."""
 
 
 class TIMESTAMP(float):
@@ -81,7 +82,7 @@ class TIMESTAMP(float):
 # noinspection PyPep8Naming
 def Date(year, month, day):
     """
-    This function constructs an object holding a date value.
+    Function that is used to construct an object holding a date value.
     """
     return DATE(year=year, month=month, day=day)
 
@@ -89,7 +90,7 @@ def Date(year, month, day):
 # noinspection PyPep8Naming
 def Time(hour, minute, second):
     """
-    This function constructs an object holding a time value.
+    Function that is used to construct an object holding a time value.
     """
     return TIME(hour=hour, minute=minute, second=second)
 
@@ -97,7 +98,7 @@ def Time(hour, minute, second):
 # noinspection PyPep8Naming
 def Timestamp(year, month, day, hour, minute, second):
     """
-    This function constructs an object holding a time stamp value.
+    Function that is used to construct an object holding a time stamp value.
     """
     dt = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
     ts = dt.timestamp()
@@ -107,8 +108,8 @@ def Timestamp(year, month, day, hour, minute, second):
 # noinspection PyPep8Naming
 def DateFromTicks(ticks):
     """
-    This function constructs an object holding a date value from the given ticks value (number of seconds since
-    the epoch; see the documentation of the standard Python time module for details).
+    Function that is used to construct an object holding a date value from the given ticks value (number of seconds
+    since the epoch; see the documentation of the standard Python time module for details).
     """
     return DATE.fromtimestamp(ticks)
 
@@ -116,8 +117,8 @@ def DateFromTicks(ticks):
 # noinspection PyPep8Naming
 def TimeFromTicks(ticks):
     """
-    This function constructs an object holding a time value from the given ticks value (number of seconds since
-    the epoch; see the documentation of the standard Python time module for details).
+    Function that is used to construct an object holding a time value from the given ticks value (number of seconds
+    since the epoch; see the documentation of the standard Python time module for details).
     """
     return DATETIME.fromtimestamp(ticks).time()
 
@@ -125,8 +126,8 @@ def TimeFromTicks(ticks):
 # noinspection PyPep8Naming
 def TimestampFromTicks(ticks):
     """
-    This function constructs an object holding a time stamp value from the given ticks value (number of seconds since
-    the epoch; see the documentation of the standard Python time module for details).
+    Function that is used to construct an object holding a time stamp value from the given ticks value (number of
+    seconds since the epoch; see the documentation of the standard Python time module for details).
     """
     return TIMESTAMP(ticks)
 
@@ -134,7 +135,7 @@ def TimestampFromTicks(ticks):
 # noinspection PyPep8Naming
 def Binary(string: Union[str, bytes]):
     """
-    This function constructs an object capable of holding a binary (long) string value.
+    Function that is used to construct an object capable of holding a binary (long) string value.
     """
     if isinstance(string, bytes):
         return string
@@ -144,8 +145,8 @@ def Binary(string: Union[str, bytes]):
 
 class Error(Exception):
     """
-    Exception that is the base class of all other error exceptions. You can use this to catch all errors with one single
-    except statement. Warnings are not considered errors and thus should not use this class as base.
+    Exception that is the base class of all other error exceptions. You can use this exception to catch all errors in
+    one except statement. Warnings are not considered errors and thus should not use this class as base.
     """
     pass
 
@@ -153,67 +154,69 @@ class Error(Exception):
 # noinspection PyShadowingBuiltins
 class Warning(Exception):
     """
-    Exception raised for important warnings like data truncations while inserting, etc.
+    Exception that is raised for important warnings like data truncations while inserting, etc.
     """
     pass
 
 
 class InterfaceError(Error):
     """
-    Exception raised for errors that are related to the database interface rather than the database itself.
+    Exception that is raised for errors that are related to the database interface rather than the database itself.
     """
     pass
 
 
 class DatabaseError(Error):
     """
-    Exception raised for errors that are related to the database.
+    Exception that is raised for errors that are related to the database (for example, the database being unavailable).
     """
     pass
 
 
 class DataError(DatabaseError):
     """
-    Exception raised for errors that are due to problems with the processed data like division by zero, numeric value
-    out of range, etc..
+    Exception that is raised for errors that are caused by problems with data (for example, division by zero, numeric
+    value out of range, etc.).
     """
     pass
 
 
 class InternalError(DatabaseError):
     """
-    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    Exception raised when the database encounters an internal error, e.g. the cursor is not valid anymore, the
+    transaction is out of sync, etc.
     """
     pass
 
 
 class OperationalError(DatabaseError):
     """
-    Exception raised for errors that are related to the database’s operation and not necessarily under the control of
-    the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction could not be
-    processed, a memory allocation error occurred during processing, etc.
+    Exception that is raised for errors that are related to the database’s operation and not necessarily under the
+    control of the programmer, e.g. an unexpected disconnect occurs, the data source name is not found, a transaction
+    could not be processed, a memory allocation error occurred during processing, etc.
     """
     pass
 
 
 class ProgrammingError(DatabaseError):
     """
-    Exception raised for programming errors, e.g. table not found or already exists, syntax error in the SQL statement,
-    wrong number of parameters specified, etc.
+    Exception that is raised for programming errors, e.g. table not found or already exists, syntax error in the SQL
+    statement, wrong number of parameters specified, etc.
     """
     pass
 
 
 class IntegrityError(DatabaseError):
     """
-    Exception raised when the relational integrity of the database is affected, e.g. a foreign key check fails.
+    Exception that is raised when the relational integrity of the database is affected (for example, a foreign key check
+    fails).
     """
     pass
 
 
 class NotSupportedError(DatabaseError):
     """
-    Exception raised in case a method or database API was used which is not supported by the database.
+    Exception that is raised when an unsupported method or database API was used.
     """
     pass
 
@@ -278,8 +281,8 @@ class Cursor:
     Attributes
     ----------
     arraysize: int
-        a read/write attribute, that specifies the number of rows to fetch at a time with .fetchmany().
-        It defaults to 1 meaning to fetch a single row at a time.
+        Attribute that is used to specify the maximum number of rows that can be fetched at a time with the .fetchmany()
+        method. Default value: 1 (single row).
     """
     arraysize: int = 1
 
@@ -310,7 +313,7 @@ class Cursor:
 
     def next(self) -> Sequence[Optional[Any]]:
         """
-        Return the next row from the currently executing SQL statement using the same semantics as .fetchone().
+        Return the next row from the currently executing SQL statement by using the same semantics as .fetchone().
         A StopIteration exception is raised when the result set is exhausted.
         """
         res = self.fetchone()
@@ -321,8 +324,8 @@ class Cursor:
     @property
     def description(self) -> Optional[List[ColumnDescription]]:
         """
-        This read-only attribute is a sequence of 7-item sequences.
-        Each of these sequences contains information describing one result column:
+        Read-only attribute that is a sequence of 7-item sequences.
+        Each of these sequences contains information describing one result column. The following sequences are stored:
         - name
         - type_code
         - display_size
@@ -330,10 +333,11 @@ class Cursor:
         - precision
         - scale
         - null_ok
+
         The first two items (name and type_code) are mandatory, the other five are optional and are set to None if
         no meaningful values can be provided.
-        This attribute will be None for operations that do not return rows or if the cursor has not had an operation
-        invoked via the .execute*() method yet.
+        This attribute will be None for operations that do not return rows or if the cursor did not have an operation
+        invoked via the .execute() method yet.
         """
         if self._py_cursor is None or self._is_non_sql_query():
             return None
@@ -348,9 +352,9 @@ class Cursor:
     @property
     def rowcount(self) -> int:
         """
-        This read-only attribute specifies the number of rows that the last .execute*() produced (for DQL statements
+        Read-only attribute that specifies the number of rows that the last .execute() produced (for DQL statements
         like SELECT) or affected (for DML statements like UPDATE or INSERT).
-        The attribute is -1 in case no .execute*() has been performed on the cursor or the rowcount of the last
+        The attribute value is -1 if no .execute() has been performed on the cursor or the rowcount of the last
         operation is cannot be determined by the interface.
         """
         if self._py_cursor is None:
@@ -360,7 +364,7 @@ class Cursor:
     @property
     def rownumber(self) -> Optional[int]:
         """
-        This read-only attribute provides the current 0-based index of the cursor in the result set or None if the index
+        Read-only attribute that provides the current 0-based index of the cursor in the result set or None if the index
         cannot be determined.
         The index can be seen as index of the cursor in a sequence (the result set). The next fetch operation will fetch
         the row indexed by .rownumber in that sequence.
@@ -370,15 +374,15 @@ class Cursor:
     @property
     def connection(self):
         """
-        This read-only attribute return a reference to the Connection object on which the cursor was created.
+        Read-only attribute that returns a reference to the Connection object on which the cursor was created.
         """
         return self._conn
 
     @property
     def lastrowid(self):
         """
-        This read-only attribute provides the rowid of the last modified row (most databases return a rowid only when a
-        single INSERT operation is performed). As Ignite does not support rowids, this attribute is always set to None.
+        Read-only attribute that provides the rowid of the last modified row.
+        As Ignite does not support rowids, this attribute is always set to None.
         """
         return None
 
@@ -390,7 +394,7 @@ class Cursor:
 
     def close(self):
         """
-        Close active cursor.
+        Close the active cursor.
         Completes without errors on successfully closed cursors.
         """
         if self._py_cursor is not None:
@@ -444,7 +448,7 @@ class Cursor:
     def fetchone(self) -> Optional[Sequence[Optional[Any]]]:
         """
         Fetch the next row of a query result set, returning a single sequence, or None when no more data is available.
-        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        An Error (or subclass) exception is raised if the previous call to .execute() did not produce any result set
         or no call was issued yet.
         """
         if self._py_cursor is None:
@@ -474,7 +478,7 @@ class Cursor:
         parameter. If this is not possible due to the specified number of rows not being available, fewer rows will be
         returned.
 
-        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        An Error (or subclass) exception is raised if the previous call to .execute() did not produce any result set
         or no call was issued yet.
         """
         if self._py_cursor is None:
@@ -498,7 +502,7 @@ class Cursor:
     def fetchall(self) -> Optional[Sequence[Sequence[Optional[Any]]]]:
         """
         Fetch all remaining rows of a query result, returning them as a sequence of sequences.
-        An Error (or subclass) exception is raised if the previous call to .execute*() did not produce any result set
+        An Error (or subclass) exception is raised if the previous call to .execute() did not produce any result set
         or no call was issued yet.
         """
         if self._py_cursor is None:
@@ -535,7 +539,7 @@ class Cursor:
 
 class Connection:
     """
-    Connection class. Represents a single connection to the Ignite cluster.
+    Connection class. Represents a single connection to an Ignite cluster.
     """
 
     Error = Error
@@ -598,17 +602,17 @@ class Connection:
     @property
     def autocommit(self) -> bool:
         """
-        Attribute to query and set the autocommit mode of the connection.
-        Return True if the connection is operating in autocommit (non-transactional) mode. Return False if
-        the connection is operating in manual commit (transactional) mode.
+        Attribute that is used to query and set the autocommit mode of the connection.
+        Returns True if the connection is operating in autocommit (non-transactional) mode.
+        Returns False if the connection is operating in manual commit (transactional) mode.
 
         Setting the attribute to True or False adjusts the connection’s mode accordingly.
 
-        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
-        and start a new transaction.
+        Changing the setting from True to False (disabling autocommit) will cause the connection to leave autocommit
+        mode and start a new transaction.
 
-        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
-        transactions are handled.
+        Changing from False to True (enabling autocommit) will put the connection in a state, in which every query is
+        executed as a separate transaction.
         """
         if self._py_connection is None:
             return True
@@ -617,14 +621,14 @@ class Connection:
     @autocommit.setter
     def autocommit(self, value):
         """
-        Attribute to query and set the autocommit mode of the connection.
+        Attribute that is used to query and set the autocommit mode of the connection.
         Setting the attribute to True or False adjusts the connection’s mode accordingly.
 
-        Changing the setting from True to False (disabling autocommit) will have the database leave autocommit mode
-        and start a new transaction.
+        Changing the setting from True to False (disabling autocommit) will cause the connection to leave autocommit
+        mode and start a new transaction.
 
-        Changing from False to True (enabling autocommit) has database dependent semantics with respect to how pending
-        transactions are handled.
+        Changing from False to True (enabling autocommit) will put the connection in a state, in which every query is
+        executed as a separate transaction.
         """
         self.setautocommit(value)
 
@@ -670,7 +674,7 @@ def connect(address: [str], **kwargs) -> Connection:
         A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
 
     Keyword Arguments
-    ----------
+    -----------------
     identity: str, optional
         An identifier to use for authentication. E.g. username.
     secret: str, optional
@@ -678,14 +682,14 @@ def connect(address: [str], **kwargs) -> Connection:
     schema: str, optional
         A schema name to be used by default. Default value: 'PUBLIC'.
     timezone: str, optional
-        A timezone to use as a client's timezone. Used to correctly work with date/time values, received from client.
-        By default, a server's timezone is used.
+        A timezone to use as a client's timezone. Required to correctly work with date/time values, received from
+        client. By default, a server's timezone is used.
     page_size: int, optional
-        A maximum number of rows, which are received or sent in a single request. Default value: 1024.
+        Maximum number of rows that can be received or sent in a single request. Default value: 1024.
     timeout: int, optional
-        A timeout in seconds to use for any network operation. Default value: 30.
+        A timeout for network operations, in seconds. Default value: 30.
     autocommit: bool, optional
-        The autocommit mode of the connection. Default value: True.
+        Connection autocommit mode. Default value: True (enabled).
     """
     return _pyignite3_extension.connect(address=address, **kwargs)
 

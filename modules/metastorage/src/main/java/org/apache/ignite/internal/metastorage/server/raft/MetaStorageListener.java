@@ -40,13 +40,13 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -65,6 +65,8 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     private final KeyValueStorage storage;
 
     private final Consumer<CommittedConfiguration> onConfigurationCommitted;
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Constructor.
@@ -211,7 +213,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     public void onConfigurationCommitted(CommittedConfiguration config) {
         RaftGroupConfiguration configuration = RaftGroupConfiguration.fromCommittedConfiguration(config);
 
-        storage.saveConfiguration(ByteUtils.toBytes(configuration), config.index(), config.term());
+        storage.saveConfiguration(configurationConverter.toBytes(configuration), config.index(), config.term());
 
         onConfigurationCommitted.accept(config);
     }

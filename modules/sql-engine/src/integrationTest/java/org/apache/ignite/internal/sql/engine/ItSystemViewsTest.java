@@ -27,7 +27,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -53,11 +52,8 @@ public class ItSystemViewsTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Override
     @BeforeAll
-    protected void beforeAll(TestInfo testInfo) {
-        super.beforeAll(testInfo);
-
+    void beforeAll() {
         IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 

@@ -123,7 +123,6 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
     /**
      * Get a set threads.
-     * TODO: IGNITE-15161. Filter will be removed after the stopping for all components is implemented.
      *
      * @return Set of threads.
      */

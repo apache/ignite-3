@@ -15,27 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.version;
+package org.apache.ignite.internal.configuration;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
-import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+/** System property configuration schema. */
+@Config
+public class SystemPropertyConfigurationSchema {
+    @InjectedName
+    public String name;
 
-class ItVersionCommandTest extends CliIntegrationTest {
-
-    @Test
-    @DisplayName("Should print cli version that is got from pom.xml")
-    void printVersion() {
-        // When
-        execute("--version");
-
-        // Then
-        assertAll(
-                this::assertExitCodeIsZero,
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Apache Ignite CLI ver")
-        );
-    }
+    @Value
+    public String propertyValue;
 }
