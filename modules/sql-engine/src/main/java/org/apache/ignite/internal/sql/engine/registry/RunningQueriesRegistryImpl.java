@@ -36,7 +36,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 
-/**git
+/**
  * Implementation of {@link RunningQueriesRegistry}.
  */
 public class RunningQueriesRegistryImpl implements RunningQueriesRegistry {

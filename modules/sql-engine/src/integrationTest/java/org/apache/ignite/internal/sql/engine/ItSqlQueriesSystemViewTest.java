@@ -55,7 +55,7 @@ import org.junit.jupiter.api.Test;
 /**
  * End-to-end tests to verify {@code SQL_QUERIES} system view.
  */
-public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
+public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     @BeforeAll
     void beforeAll() {
         await(systemViewManager().completeRegistration());
@@ -83,16 +83,16 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         assertQuery(query)
                 .withDefaultSchema("SYSTEM")
                 .columnMetadata(
-                        new MetadataMatcher().name("INITIATOR_NODE").type(ColumnType.STRING),
-                        new MetadataMatcher().name("ID").type(ColumnType.STRING).precision(36),
-                        new MetadataMatcher().name("PHASE").type(ColumnType.STRING),
-                        new MetadataMatcher().name("TYPE").type(ColumnType.STRING),
-                        new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING),
-                        new MetadataMatcher().name("SQL").type(ColumnType.STRING),
-                        new MetadataMatcher().name("START_TIME").type(ColumnType.TIMESTAMP),
-                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).precision(36),
-                        new MetadataMatcher().name("PARENT_ID").type(ColumnType.STRING).precision(36),
-                        new MetadataMatcher().name("STATEMENT_NUM").type(ColumnType.INT32)
+                        new MetadataMatcher().name("INITIATOR_NODE").type(ColumnType.STRING).nullable(false),
+                        new MetadataMatcher().name("ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("PHASE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("TYPE").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("SCHEMA").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("SQL").type(ColumnType.STRING).nullable(true),
+                        new MetadataMatcher().name("START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
+                        new MetadataMatcher().name("TRANSACTION_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("PARENT_ID").type(ColumnType.STRING).precision(36).nullable(true),
+                        new MetadataMatcher().name("STATEMENT_NUM").type(ColumnType.INT32).nullable(true)
                 )
                 .returnRowCount(1)
                 .check();
