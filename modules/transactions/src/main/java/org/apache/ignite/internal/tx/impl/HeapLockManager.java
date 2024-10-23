@@ -82,7 +82,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Striped lock concurrency.
      */
-    private static final int CONCURRENCY = Math.min(1, Runtime.getRuntime().availableProcessors() / 2);
+    private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
     /**
      * Empty slots.
