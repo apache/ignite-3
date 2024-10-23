@@ -632,7 +632,7 @@ public class ItTxTestCluster {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient ? clientClock : clocks.get(localNodeName),
+                startClient ? clientClockService : clockServices.get(localNodeName),
                 timestampTracker,
                 placementDriver,
                 clientTransactionInflights,

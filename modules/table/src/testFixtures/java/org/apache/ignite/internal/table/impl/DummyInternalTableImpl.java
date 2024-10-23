@@ -255,7 +255,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
-                CLOCK,
+                CLOCK_SERVICE,
                 tracker,
                 placementDriver,
                 transactionInflights,
