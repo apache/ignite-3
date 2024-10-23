@@ -182,7 +182,7 @@ public class InternalTableImpl implements InternalTable {
     /** Mutex for the partition maps update. */
     private final Object updatePartitionMapsMux = new Object();
 
-     /** A hybrid logical clock service. */
+    /** A hybrid logical clock service. */
     private final ClockService clockService;
 
     /** Observable timestamp tracker. */
