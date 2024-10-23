@@ -2659,7 +2659,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         attemptsCounter++;
         if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
-                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
+                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETRIES_ON_SAFE_TIME_REORDERING));
         }
 
         int attemptsCounter0 = attemptsCounter;
