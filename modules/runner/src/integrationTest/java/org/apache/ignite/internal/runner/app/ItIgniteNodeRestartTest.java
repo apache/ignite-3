@@ -715,7 +715,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
-                hybridClock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 distributionZoneManager,

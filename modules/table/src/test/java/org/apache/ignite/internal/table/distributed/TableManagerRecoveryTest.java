@@ -351,7 +351,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 mock(ScheduledExecutorService.class),
-                clock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,
