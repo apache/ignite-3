@@ -59,6 +59,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     @BeforeAll
     public static void startClient() {
         for (int i = 0; i < CLIENT_COUNT; i++) {
+            //noinspection resource
             clients[i] = IgniteClient.builder()
                     .addresses("localhost")
                     .heartbeatInterval(1000)
@@ -116,8 +117,8 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
-                    .perPartitionParallelOperations(rnd.nextInt(1, 3))
-                    .pageSize(rnd.nextInt(100, 1000))
+                    .perPartitionParallelOperations(rnd.nextInt(2) + 1)
+                    .pageSize(rnd.nextInt(1000) + 100)
                     .retryLimit(1)
                     .build();
 
