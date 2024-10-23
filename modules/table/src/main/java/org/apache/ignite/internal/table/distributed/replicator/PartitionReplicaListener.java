@@ -259,7 +259,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replication retries limit. */
-    private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
+    private static final int MAX_RETRIES_ON_SAFE_TIME_REORDERING = 1000;
 
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
@@ -2657,9 +2657,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
         attemptsCounter++;
-        if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
+        if (attemptsCounter >= MAX_RETRIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
-                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
+                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETRIES_ON_SAFE_TIME_REORDERING));
         }
 
         int attemptsCounter0 = attemptsCounter;
