@@ -27,7 +27,7 @@ public enum QueryExecutionPhase {
     INITIALIZATION,
 
     /**
-     * Query optimization.
+     * Query validation and optimization.
      */
     OPTIMIZATION,
 
