@@ -172,9 +172,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             if (state == null) {
                 // Atomically init state.
-                CoarseLockState s = new CoarseLockState(lockKey);
-                CoarseLockState cur = coarseMap.putIfAbsent(lockKey, s);
-                state = (cur == null ? s : cur);
+                state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
             }
 
             return state.acquire(txId, lockKey, lockMode);
