@@ -116,6 +116,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
             var options = DataStreamerOptions.builder()
                     .perPartitionParallelOperations(rnd.nextInt(1, 3))
                     .pageSize(rnd.nextInt(100, 1000))
+                    .retryLimit(1)
                     .build();
 
             streamerFut = view.streamData(publisher, options);
