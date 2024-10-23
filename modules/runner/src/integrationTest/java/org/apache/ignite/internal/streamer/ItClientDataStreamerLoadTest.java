@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.streamer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +42,10 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     private static final String TABLE_NAME = "test_table";
 
     private static final int CLIENT_COUNT = 10;
+
+    private static final int ROW_COUNT = 100_000;
+
+    private static final int LOOP_COUNT = 100;
 
     private static final IgniteClient[] clients = new IgniteClient[CLIENT_COUNT];
 
@@ -86,13 +91,19 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
         for (Thread thread : threads) {
             thread.join();
         }
+
+        RecordView<Tuple> view = clients[0].tables().table(TABLE_NAME).recordView();
+
+        for (int i = 0; i < ROW_COUNT; i++) {
+            Tuple res = view.get(null, tupleKey(i));
+
+            assertNotNull(res);
+            assertEquals("foo_" + i, res.value("name"));
+        }
     }
 
     private static void streamData(IgniteClient client) {
         RecordView<Tuple> view = client.tables().table(TABLE_NAME).recordView();
-        view.upsert(null, tuple(2, "_"));
-        view.upsert(null, tuple(3, "baz"));
-
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
@@ -103,17 +114,14 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
             streamerFut = view.streamData(publisher, options);
 
             // Insert same data over and over again.
-            for (int j = 0; j < 100; j++) {
-                for (int i = 0; i < 100_000; i++) {
+            for (int j = 0; j < LOOP_COUNT; j++) {
+                for (int i = 0; i < ROW_COUNT; i++) {
                     publisher.submit(DataStreamerItem.of(tuple(i, "foo_" + i)));
                 }
             }
         }
 
         streamerFut.orTimeout(10, TimeUnit.SECONDS).join();
-
-        assertNotNull(view.get(null, tupleKey(1)));
-        assertNotNull(view.get(null, tupleKey(999)));
     }
 
     private static Tuple tuple(int id, String name) {
