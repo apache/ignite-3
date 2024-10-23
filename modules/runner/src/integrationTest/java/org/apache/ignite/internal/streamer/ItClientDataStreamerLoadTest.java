@@ -22,13 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,12 +35,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Common test logic for data streamer - client and server APIs.
+ * Data streamer load test.
  */
 public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
-    public static final String TABLE_NAME = "test_table";
+    private static final String TABLE_NAME = "test_table";
 
-    private static IgniteClient client;
+    private static final int CLIENT_COUNT = 10;
+
+    private static final IgniteClient[] clients = new IgniteClient[CLIENT_COUNT];
 
     @Override
     protected int initialNodes() {
@@ -50,16 +51,14 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @BeforeAll
     public static void startClient() {
-        client = IgniteClient.builder().addresses("localhost").build();
+        for (int i = 0; i < CLIENT_COUNT; i++) {
+            clients[i] = IgniteClient.builder().addresses("localhost").build();;
+        }
     }
 
     @AfterAll
-    public static void stopClient() {
-        client.close();
-    }
-
-    private static Ignite ignite() {
-        return client;
+    public static void stopClient() throws Exception {
+        IgniteUtils.closeAll(clients);
     }
 
     @BeforeAll
@@ -104,10 +103,6 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
         assertNotNull(view.get(null, tupleKey(1)));
         assertNotNull(view.get(null, tupleKey(999)));
-    }
-
-    private static Table defaultTable() {
-        return ignite().tables().table(TABLE_NAME);
     }
 
     private static Tuple tuple(int id, String name) {
