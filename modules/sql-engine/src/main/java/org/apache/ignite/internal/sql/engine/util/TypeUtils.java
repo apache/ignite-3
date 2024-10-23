@@ -114,19 +114,9 @@ public class TypeUtils {
         static final Set<Class<?>> SUPPORTED_PARAM_CLASSES;
 
         static {
-            Set<Class<?>> supportedClasses = Arrays.stream(ColumnType.values())
+            SUPPORTED_PARAM_CLASSES = Arrays.stream(ColumnType.values())
                     .filter(t -> !UNSUPPORTED_COLUMN_TYPES_AS_PARAMETERS.contains(t))
-                    .map(ColumnType::javaClass).collect(Collectors.toSet());
-
-            supportedClasses.add(boolean.class);
-            supportedClasses.add(byte.class);
-            supportedClasses.add(short.class);
-            supportedClasses.add(int.class);
-            supportedClasses.add(long.class);
-            supportedClasses.add(float.class);
-            supportedClasses.add(double.class);
-
-            SUPPORTED_PARAM_CLASSES = Collections.unmodifiableSet(supportedClasses);
+                    .map(ColumnType::javaClass).collect(Collectors.toUnmodifiableSet());
         }
     }
 
