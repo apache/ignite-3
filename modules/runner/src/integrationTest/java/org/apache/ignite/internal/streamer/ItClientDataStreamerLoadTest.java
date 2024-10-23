@@ -72,10 +72,19 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     }
 
     @Test
-    public void testHighLoad() {
-        // TODO: Stream in parallel from all clients
-        for (IgniteClient client : clients) {
-            streamData(client);
+    public void testHighLoad() throws InterruptedException {
+        Thread[] threads = new Thread[CLIENT_COUNT];
+
+        for (int i = 0; i < clients.length; i++) {
+            IgniteClient client = clients[i];
+            Thread thread = new Thread(() -> streamData(client));
+            thread.start();
+
+            threads[i] = thread;
+        }
+
+        for (Thread thread : threads) {
+            thread.join();
         }
     }
 
