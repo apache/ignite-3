@@ -596,7 +596,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
             } else {
-                throw new SafeTimeReorderException();
+                throw new SafeTimeReorderException(maxObservableSafeTime);
             }
         }
 

@@ -71,6 +71,14 @@ public final class RpcRequests {
          */
         @Nullable
         String leaderId();
+
+         /**
+          * Violated maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          *
+          * @return maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          */
+        @Nullable
+        Long maxObservableSafeTimeViolatedValue();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE)
