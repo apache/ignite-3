@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.versioned;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializes and deserializes objects in a versioned way: that is, includes version to make it possible to deserialize objects serialized
@@ -94,5 +100,39 @@ public abstract class VersionedSerializer<T> {
         byte ver = (byte) (hdr & 0xFF);
 
         return readExternalData(ver, in);
+    }
+
+    protected static void writeNullableString(@Nullable String str, IgniteDataOutput out) throws IOException {
+        out.writeVarInt(str == null ? -1 : str.length());
+        if (str != null) {
+            out.writeByteArray(str.getBytes(UTF_8));
+        }
+    }
+
+    protected static @Nullable String readNullableString(IgniteDataInput in) throws IOException {
+        int lengthOrMinusOne = in.readVarIntAsInt();
+        if (lengthOrMinusOne == -1) {
+            return null;
+        }
+
+        return new String(in.readByteArray(lengthOrMinusOne), UTF_8);
+    }
+
+    protected static void writeStringSet(Set<String> strings, IgniteDataOutput out) throws IOException {
+        out.writeVarInt(strings.size());
+        for (String str : strings) {
+            out.writeUTF(str);
+        }
+    }
+
+    protected static Set<String> readStringSet(IgniteDataInput in) throws IOException {
+        int size = in.readVarIntAsInt();
+
+        Set<String> result = new HashSet<>(IgniteUtils.capacity(size));
+        for (int i = 0; i < size; i++) {
+            result.add(in.readUTF());
+        }
+
+        return result;
     }
 }
