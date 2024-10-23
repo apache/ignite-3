@@ -56,15 +56,6 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
     }
 
     @Override
-    public void onStatementUnregistered() {
-        int remainingCount = registeredStatementsCounter.decrementAndGet();
-
-        if (remainingCount == 0 && remainingStatementsCounter.get() == 0) {
-            runningQueries.remove(scriptInfo.queryId());
-        }
-    }
-
-    @Override
     public @Nullable RunningQueryInfo registerStatement(String sql, SqlQueryType queryType) {
         remainingStatementsCounter.decrementAndGet();
 
@@ -93,6 +84,15 @@ class RunningScriptInfoTrackerImpl implements RunningScriptInfoTracker {
         runningQueries.put(queryId, statementQueryInfo);
 
         return statementQueryInfo;
+    }
+
+    @Override
+    public void onStatementUnregistered() {
+        int remainingCount = registeredStatementsCounter.decrementAndGet();
+
+        if (remainingCount == 0 && remainingStatementsCounter.get() == 0) {
+            runningQueries.remove(scriptInfo.queryId());
+        }
     }
 
     @Override
