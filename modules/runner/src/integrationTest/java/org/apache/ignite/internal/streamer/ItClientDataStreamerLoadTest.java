@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
@@ -52,7 +53,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @Override
     protected int initialNodes() {
-        return 1;
+        return 2;
     }
 
     @BeforeAll
@@ -62,6 +63,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
                     .addresses("localhost")
                     .heartbeatInterval(1000)
                     .heartbeatTimeout(2000)
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
                     .build();
         }
     }
