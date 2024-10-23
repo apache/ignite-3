@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -44,10 +45,21 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
-/** Metastorage compaction trigger. */
-// TODO: IGNITE-23293 позже добавить большую документацию
-// TODO: IGNITE-23293 реализовать
-// TODO: IGNITE-23279 Add configurations
+/**
+ * Metastorage compaction trigger.
+ *
+ * <p>Algorithm:</p>
+ * <ol>
+ *     <li>Metastorage leader waits locally for the start of scheduled compaction.</li>
+ *     <li>Metastorage leader locally calculates revision for compaction: it takes the current safe time and subtracts the data
+ *     availability time and uses that timestamp to get the revision.</li>
+ *     <li>If the revision is less than or equal to the last compacted revision, then go to point 6.</li>
+ *     <li>Metastorage leader creates and sends a {@link CompactionCommand} (see the command description what each node will do) with a new
+ *     revision for compaction.</li>
+ *     <li>Metastorage leader locally gets notification of the completion of the local compaction for the new revision.</li>
+ *     <li>Metastorage leader locally schedules a new start of compaction.</li>
+ * </ol>
+ */
 // TODO: IGNITE-23280 Turn on compaction
 public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
@@ -72,9 +84,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             = new PendingComparableValuesTracker<>(-1L);
 
     /** Compaction start interval (in milliseconds). */
+    // TODO: IGNITE-23279 Change configuration
     private final long startInterval = IgniteSystemProperties.getLong("IGNITE_COMPACTION_START_INTERVAL", Long.MAX_VALUE);
 
     /** Data availability time (in milliseconds). */
+    // TODO: IGNITE-23279 Change configuration
     private final long dataAvailabilityTime = IgniteSystemProperties.getLong("IGNITE_COMPACTION_DATA_AVAILABILITY_TIME", Long.MAX_VALUE);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -162,21 +176,34 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                             }
                         });
             }
+        } catch (Throwable t) {
+            LOG.error("Unknown error on new metastorage compaction revision", t);
+
+            inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
         } finally {
             lock.unlock();
         }
     }
 
     private HybridTimestamp createCandidateCompactionRevisionTimestampBusy() {
-        return metaStorageManager.clusterTime().currentSafeTime().subtractPhysicalTime(dataAvailabilityTime);
+        HybridTimestamp safeTime = metaStorageManager.clusterTime().currentSafeTime();
+
+        return safeTime.getPhysical() <= dataAvailabilityTime
+                ? HybridTimestamp.MIN_VALUE
+                : safeTime.subtractPhysicalTime(dataAvailabilityTime);
     }
 
-    /** Calculates a new revision for metastorage compaction, returns {@code null} if the revision is already compacted. */
+    /** Returns {@code null} if there is no need to compact yet. */
     private @Nullable Long calculateCandidateCompactionRevisionBusy(HybridTimestamp candidateTimestamp) {
         try {
-            long compactionRevision = storage.revisionByTimestamp(candidateTimestamp);
+            long candidateCompactionRevision = storage.revisionByTimestamp(candidateTimestamp);
+            long currentStorageRevision = storage.revision();
 
-            return compactionRevision <= storage.getCompactionRevision() ? null : compactionRevision;
+            if (candidateCompactionRevision >= currentStorageRevision) {
+                candidateCompactionRevision = currentStorageRevision - 1;
+            }
+
+            return candidateCompactionRevision <= storage.getCompactionRevision() ? null : candidateCompactionRevision;
         } catch (CompactedException exception) {
             // Revision has already been compacted, we need to plan the next compaction.
             return null;
