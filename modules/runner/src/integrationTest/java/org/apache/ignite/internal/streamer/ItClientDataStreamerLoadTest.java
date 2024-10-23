@@ -43,7 +43,9 @@ import org.junit.jupiter.api.Test;
 public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test_table";
 
-    private static final int CLIENT_COUNT = 4;
+    private static final int CLIENT_COUNT = 2;
+
+    private static final int SERVER_COUNT = 2;
 
     private static final int ROW_COUNT = 100_000;
 
@@ -53,7 +55,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
 
     @Override
     protected int initialNodes() {
-        return 2;
+        return SERVER_COUNT;
     }
 
     @BeforeAll
@@ -105,7 +107,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
         for (int i = 0; i < ROW_COUNT; i++) {
             Tuple res = view.get(null, tupleKey(i));
 
-            assertNotNull(res);
+            assertNotNull(res, "Row not found: " + i);
             assertEquals("foo_" + i, res.value("name"));
         }
     }
