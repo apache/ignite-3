@@ -52,7 +52,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     @BeforeAll
     public static void startClient() {
         for (int i = 0; i < CLIENT_COUNT; i++) {
-            clients[i] = IgniteClient.builder().addresses("localhost").build();;
+            clients[i] = IgniteClient.builder().addresses("localhost").build();
         }
     }
 
