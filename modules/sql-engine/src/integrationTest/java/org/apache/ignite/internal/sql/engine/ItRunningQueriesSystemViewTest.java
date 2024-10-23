@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.hasLength;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -161,7 +160,7 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
             assertThat(res, hasSize(1));
 
-            verifyQueryInfo(res.get(0), initiator.name(), null, queryText, timeBefore, timeAfter,
+            verifyQueryInfo(res.get(0), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, queryText, timeBefore, timeAfter,
                     is(nullValue(CharSequence.class)), SCRIPT_QUERY_TYPE, null);
         }
 
@@ -176,11 +175,16 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
             assertThat(res, hasSize(3));
 
             Set<String> transactionIds = new HashSet<>();
+            List<String> expectedQueries = List.of(
+                    "SELECT `X`\nFROM TABLE(`SYSTEM_RANGE`(0, 2))",
+                    "INSERT INTO `TEST`\nVALUES ROW(0),\nROW(1)",
+                    "SELECT `X`\nFROM TABLE(`SYSTEM_RANGE`(3, 5))"
+            );
 
             for (int i = 0; i < res.size(); i++) {
                 List<Object> row = res.get(i);
 
-                verifyQueryInfo(row, initiator.name(), null, null, timeBefore, timeAfter,
+                verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, expectedQueries.get(i), timeBefore, timeAfter,
                         hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).name(), i + 1);
 
                 transactionIds.add((String) row.get(7));
@@ -311,8 +315,8 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     private static void verifyQueryInfo(
             List<Object> row,
             String nodeName,
-            @Nullable String schema,
-            @Nullable String query,
+            String schema,
+            String query,
             long tsBefore,
             long tsAfter,
             Matcher<CharSequence> txIdMatcher,
@@ -334,10 +338,10 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         assertThat(row.get(idx++), equalTo(queryType));
 
         // SCHEMA
-        assertThat(row.get(idx++), equalTo(schema == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schema));
+        assertThat(row.get(idx++), equalTo(schema));
 
         // SQL
-        assertThat(row.get(idx++), query == null ? is(notNullValue()) : equalTo(query));
+        assertThat(row.get(idx++), equalTo(query));
 
         // START_TIME
         assertThat(((Instant) row.get(idx++)).toEpochMilli(), Matchers.allOf(greaterThanOrEqualTo(tsBefore), lessThanOrEqualTo(tsAfter)));
@@ -349,6 +353,6 @@ public class ItRunningQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         assertThat((String) row.get(idx++), statementNum == null ? is(nullValue(CharSequence.class)) : hasLength(36));
 
         // STATEMENT_NUM
-        assertThat(row.get(idx++), statementNum == null ? is(nullValue()) : equalTo(statementNum));
+        assertThat(row.get(idx), statementNum == null ? is(nullValue()) : equalTo(statementNum));
     }
 }
