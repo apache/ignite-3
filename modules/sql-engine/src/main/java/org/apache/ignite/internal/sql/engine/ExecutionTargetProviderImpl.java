@@ -24,19 +24,26 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -71,14 +78,8 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forTable(
-            HybridTimestamp operationTime,
-            ExecutionTargetFactory factory,
-            IgniteTable table,
-            boolean includeBackups
-    ) {
-        return collectAssignments(table, operationTime, includeBackups)
-                .thenApply(factory::partitioned);
+    public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+        return factory.partitioned(assignments);
     }
 
     @Override
@@ -95,9 +96,55 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
                 : factory.allOf(nodes);
     }
 
+    public CompletableFuture<DistributionHolder> distribution(
+            Collection<IgniteTable> tables,
+            HybridTimestamp operationTime,
+            boolean mapOnBackups,
+            String initiatorNode
+    ) {
+        Map<IgniteTable, CompletableFuture<List<TokenizedAssignments>>> mapResult = newHashMap(tables.size());
+        Map<IgniteTable, List<TokenizedAssignments>> mapResultResolved = newHashMap(tables.size());
+
+        for (IgniteTable tbl : tables) {
+            CompletableFuture<List<TokenizedAssignments>> assignments = collectAssignments(tbl, operationTime, mapOnBackups);
+
+            mapResult.put(tbl, assignments);
+        }
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(mapResult.values().toArray(new CompletableFuture[0]));
+
+        CompletableFuture<Map<IgniteTable, List<TokenizedAssignments>>> fut = all.thenApply(v -> mapResult.entrySet().stream()
+                .map(e -> Map.entry(e.getKey(), e.getValue().join()))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
+        );
+
+        CompletableFuture<List<String>> participantNodes = fut.thenApply(
+                v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
+                        .distinct()
+                        .collect(Collectors.toList()));
+
+        return participantNodes.thenApply(nodes -> {
+            nodes.add(initiatorNode);
+
+            // todo: desc join for already completed !!!
+            mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
+
+            // dirty code
+            CompletableFuture<Long> tokenFut = fut.thenApply(
+                    v -> v.values().stream().flatMap(List::stream).map(TokenizedAssignments::token)
+                            .mapToLong(Long::longValue).sum());
+
+            long token = tokenFut.join();
+
+            // todo: fix !!!
+            return new DistributionHolder(token, nodes, mapResultResolved);
+        });
+    }
+
+
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    public CompletableFuture<List<TokenizedAssignments>> collectAssignments(
+    CompletableFuture<List<TokenizedAssignments>> collectAssignments(
             IgniteTable table, HybridTimestamp operationTime, boolean includeBackups
     ) {
         int partitions = table.partitions();
@@ -200,5 +247,29 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
                 return finalAssignments;
             });
         });
+    }
+
+    public static class DistributionHolder {
+        private final List<String> nodes;
+        private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
+        private final long token;
+
+        public DistributionHolder(long token, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+            this.token = token;
+            this.nodes = nodes;
+            this.assignmentsPerTable = assignmentsPerTable;
+        }
+
+        public List<String> nodes() {
+            return nodes;
+        }
+
+        public long token() {
+            return token;
+        }
+
+        public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
+            return assignmentsPerTable;
+        }
     }
 }

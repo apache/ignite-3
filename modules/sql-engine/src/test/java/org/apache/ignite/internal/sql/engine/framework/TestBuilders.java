@@ -1603,13 +1603,8 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forTable(
-                HybridTimestamp operationTime,
-                ExecutionTargetFactory factory,
-                IgniteTable table,
-                boolean includeBackups
-        ) {
-            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
+        public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+/*            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
 
             if (nullOrEmpty(owningNodes)) {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
@@ -1628,11 +1623,11 @@ public class TestBuilders {
                 assignments = owningNodes.stream()
                         .map(nodes -> partitionNodesToAssignment(nodes, 1))
                         .collect(Collectors.toList());
-            }
+            }*/
 
             ExecutionTarget target = factory.partitioned(assignments);
 
-            return CompletableFuture.completedFuture(target);
+            return target;
         }
 
         private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {

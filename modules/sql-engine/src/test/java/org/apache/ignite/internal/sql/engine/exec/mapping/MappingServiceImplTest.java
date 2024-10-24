@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -135,7 +136,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
 
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
 
         assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
@@ -220,7 +221,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -254,7 +255,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Plan with tables that include left node must be invalidated.
         assertNotSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
 
-        verify(targetProvider, times(4)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(4)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -288,7 +289,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
-        verify(targetProvider, times(1)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(1)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
@@ -299,7 +300,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
         assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -324,13 +325,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static ExecutionTargetProvider createTargetProvider(List<String> nodeNames) {
         return new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(
-                    HybridTimestamp operationTime,
-                    ExecutionTargetFactory factory,
-                    IgniteTable table,
-                    boolean includeBackups
-            ) {
-                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+            public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+                return factory.allOf(nodeNames);
             }
 
             @Override

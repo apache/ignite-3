@@ -93,6 +93,7 @@ import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
@@ -1178,17 +1179,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         var targetProvider = new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(
-                    HybridTimestamp operationTime,
-                    ExecutionTargetFactory factory,
-                    IgniteTable table,
-                    boolean includeBackups
-            ) {
+            public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
                 if (mappingException != null) {
-                    return CompletableFuture.failedFuture(mappingException);
+                    throw new RuntimeException(mappingException);
                 }
 
-                return completedFuture(factory.allOf(nodeNames));
+                return factory.allOf(nodeNames);
             }
 
             @Override

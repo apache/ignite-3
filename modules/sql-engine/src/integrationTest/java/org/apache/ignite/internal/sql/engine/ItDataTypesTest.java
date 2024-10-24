@@ -82,6 +82,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO test VALUES (11, 'hello'), (12, 'world'), (11, NULL)");
 
+        sql("INSERT INTO test VALUES (11, 'hello'), (12, 'world'), (11, NULL)");
+
+        sql("CREATE TABLE test1 (a INTEGER, s VARCHAR);");
+
+        sql("INSERT INTO test VALUES (11, 'hello'), (12, 'world'), (11, NULL)");
+
         //var rows = sql("SELECT val FROM string_table");
     }
 
