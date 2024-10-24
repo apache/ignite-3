@@ -143,14 +143,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             throw new IllegalArgumentException("maxSize=" + rawSlotsMaxSize + " < mapSize=" + lockMapSize);
         }
 
-        this.deadlockPreventionPolicy = deadlockPreventionPolicy;
-
         this.rawSlotsMaxSize = rawSlotsMaxSize;
         this.lockMapSize = lockMapSize;
     }
 
     @Override
     public void start(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        this.deadlockPreventionPolicy = deadlockPreventionPolicy;
 
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
                 ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
