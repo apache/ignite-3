@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -43,5 +46,66 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
 
         assertEquals(INTERVAL_DEFAULT_VALUE, config.interval());
         assertEquals(DATA_AVAILABILITY_TIME_DEFAULT_VALUE, config.dataAvailabilityTime());
+    }
+
+    @Test
+    void testInvalidSystemPropertiesOnStart(
+            @InjectConfiguration("mock.properties = {"
+                    + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue = foo, "
+                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue = bar"
+                    + "}")
+            SystemDistributedConfiguration systemConfig
+    ) {
+        var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+
+        assertEquals(INTERVAL_DEFAULT_VALUE, config.interval());
+        assertEquals(DATA_AVAILABILITY_TIME_DEFAULT_VALUE, config.dataAvailabilityTime());
+    }
+
+    @Test
+    void testValidSystemPropertiesOnStart(
+            @InjectConfiguration("mock.properties = {"
+                    + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue = \"100\", "
+                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue = \"500\""
+                    + "}")
+            SystemDistributedConfiguration systemConfig
+    ) {
+        var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+
+        assertEquals(100, config.interval());
+        assertEquals(500, config.dataAvailabilityTime());
+    }
+
+    @Test
+    void testInvalidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
+        var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+
+        changeSystemConfig(systemConfig, "foo", "bar");
+
+        assertEquals(INTERVAL_DEFAULT_VALUE, config.interval());
+        assertEquals(DATA_AVAILABILITY_TIME_DEFAULT_VALUE, config.dataAvailabilityTime());
+    }
+
+    @Test
+    void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
+        var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+
+        changeSystemConfig(systemConfig, "100", "500");
+
+        assertEquals(100, config.interval());
+        assertEquals(500, config.dataAvailabilityTime());
+    }
+
+    private static void changeSystemConfig(
+            SystemDistributedConfiguration systemConfig,
+            String intervalValue,
+            String dataAvailabilityTimeValue
+    ) {
+        CompletableFuture<Void> changeFuture = systemConfig.change(c0 -> c0.changeProperties()
+                .create(INTERVAL_SYSTEM_PROPERTY_NAME, c1 -> c1.changePropertyValue(intervalValue))
+                .create(DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME, c1 -> c1.changePropertyValue(dataAvailabilityTimeValue))
+        );
+
+        assertThat(changeFuture, willCompleteSuccessfully());
     }
 }

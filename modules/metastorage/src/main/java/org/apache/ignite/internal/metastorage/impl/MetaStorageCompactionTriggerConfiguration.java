@@ -28,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
-/** Configuration for {@link MetaStorageCompactionTrigger}. */
+/** Configuration for metastorage compaction triggering based on distributed system properties. */
 class MetaStorageCompactionTriggerConfiguration {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTriggerConfiguration.class);
 
@@ -52,6 +52,7 @@ class MetaStorageCompactionTriggerConfiguration {
     /** Guarded by {@link #rwLock}. */
     private long dataAvailabilityTime;
 
+    /** Constructor. */
     MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfiguration) {
         updateSystemProperties(systemDistributedConfiguration.value());
 
@@ -107,10 +108,10 @@ class MetaStorageCompactionTriggerConfiguration {
         try {
             return Long.parseLong(systemPropertyView.propertyValue());
         } catch (NumberFormatException e) {
-            LOG.error(
-                    "Invalid format for system property '{}' expecting a long value, default value '{}' will be used",
-                    e,
-                    systemPropertyName, defaultValue
+            LOG.warn(
+                    "Invalid number format of system property value, default value will be used: "
+                            + "[systemPropertyName={}, invalidValue={}, defaultValue={}]",
+                    systemPropertyName, systemPropertyView.propertyValue(), defaultValue
             );
 
             return defaultValue;
