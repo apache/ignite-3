@@ -78,7 +78,9 @@ import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersion
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -202,12 +204,18 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         return spy(new TableImpl(
                 internalTable,
-                new HeapLockManager(),
+                lockManager(),
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
                 table.primaryKeyIndexId()
         ));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     private int tableId() {

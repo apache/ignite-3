@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
@@ -60,6 +61,7 @@ public class LockManagerBenchmark {
     @Setup
     public void setUp() {
         lockManager = new HeapLockManager();
+        ((HeapLockManager) lockManager).start(new WaitDieDeadlockPreventionPolicy());
         generator = new TransactionIdGenerator(0);
         clock = new TestHybridClock(() -> 0L);
     }

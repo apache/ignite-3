@@ -33,11 +33,17 @@ import org.junit.jupiter.api.Test;
  * Tests coarse lock modes. It allows IX, S locks and upgrade from S to SIX (S, then IX).
  */
 public class CoarseGrainedLockManagerTest {
-    private final HeapLockManager lockManager = new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+    private final HeapLockManager lockManager = lockManager();
 
     @AfterEach
     void after() {
         assertTrue(lockManager.isEmpty());
+    }
+
+    private static HeapLockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     @Test
