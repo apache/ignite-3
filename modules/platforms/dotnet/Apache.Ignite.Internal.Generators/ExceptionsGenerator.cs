@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#pragma warning disable CA1062 // Validate arguments of public methods
 namespace Apache.Ignite.Internal.Generators
 {
     using System;

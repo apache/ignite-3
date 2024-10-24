@@ -40,6 +40,7 @@ dotnet_diagnostic.CA2016.severity = error # Forward the CancellationToken parame
 dotnet_diagnostic.CA2017.severity = error # Parameter count mismatch in logging template
 dotnet_diagnostic.CA1806.severity = error # Do not ignore method results
 dotnet_diagnostic.CA1813.severity = error # Avoid unsealed attributes
+dotnet_diagnostic.CA1062.severity = error # Validate arguments of public methods // TODO - review
 dotnet_diagnostic.SA1600.severity = error # Elements should be documented
 
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
