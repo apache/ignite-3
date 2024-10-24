@@ -55,9 +55,6 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Default timeout for retrying replica operation. */
-    public static final int DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL = 10;
-
     /** Message service. */
     private final MessagingService messagingService;
 
