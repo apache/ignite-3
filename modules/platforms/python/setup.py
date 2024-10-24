@@ -74,6 +74,15 @@ class CMakeExtension(Extension):
 
 
 class CMakeBuild(build_ext):
+    def cmake_project_version(version):
+        """
+        Strips the pre-release portion of the project version string to satisfy CMake requirements
+        """
+        dash_index = version.find("-")
+        if dash_index != -1:
+            return version[:dash_index]
+        return version
+
     def build_extensions(self):
         try:
             subprocess.check_output(['cmake', '--version'])
@@ -91,7 +100,7 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
                 f'-DPYTHON_EXECUTABLE={sys.executable}',
                 f'-DEXTENSION_FILENAME={ext_file}',
-                f'-DIGNITE_VERSION={version}',
+                f'-DIGNITE_VERSION={cmake_project_version(version)}',
             ]
 
             if platform.system() == 'Windows':
