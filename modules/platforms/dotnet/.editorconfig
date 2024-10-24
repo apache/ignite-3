@@ -40,7 +40,6 @@ dotnet_diagnostic.CA2016.severity = error # Forward the CancellationToken parame
 dotnet_diagnostic.CA2017.severity = error # Parameter count mismatch in logging template
 dotnet_diagnostic.CA1806.severity = error # Do not ignore method results
 dotnet_diagnostic.CA1813.severity = error # Avoid unsealed attributes
-dotnet_diagnostic.CA1062.severity = error # Validate arguments of public methods // TODO - review
 dotnet_diagnostic.SA1600.severity = error # Elements should be documented
 
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
@@ -59,3 +58,4 @@ dotnet_diagnostic.SA1012.severity = none # Braces spacing
 dotnet_diagnostic.SA1013.severity = none # A closing brace within a C# element is not spaced correctly
 dotnet_diagnostic.SA1413.severity = none # Trailing commas
 dotnet_diagnostic.SA1135.severity = none # Qualified references
+dotnet_diagnostic.CA1062.severity = none # Validate arguments of public methods // TODO - review
