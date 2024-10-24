@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
 /**
