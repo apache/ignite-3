@@ -27,7 +27,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
-
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
