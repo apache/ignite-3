@@ -39,7 +39,7 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
 
     @Override
     protected LockManager lockManager() {
-        return new HeapLockManager(deadlockPreventionPolicy());
+        return lockManager(deadlockPreventionPolicy());
     }
 
     @Test

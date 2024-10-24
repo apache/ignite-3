@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS;
@@ -1044,7 +1043,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterService clusterService;
 
-        private final LockManager lockManager;
+        private final HeapLockManager lockManager;
 
         private final TxManager txManager;
 
@@ -1263,8 +1262,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
                     replicationConfiguration,
-                    threadPoolsManager.commonScheduler(),
-                    () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
+                    threadPoolsManager.commonScheduler()
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -1413,7 +1411,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    () -> mock(LockManager.class),
+                    mock(LockManager.class),
                     replicaSvc,
                     txManager,
                     dataStorageMgr,

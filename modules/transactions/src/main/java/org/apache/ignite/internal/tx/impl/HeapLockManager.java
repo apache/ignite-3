@@ -52,11 +52,13 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
+import org.apache.ignite.internal.tx.configuration.DeadlockPreventionPolicyConfiguration;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
@@ -76,6 +78,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     public static final int SLOTS = 131072;
 
+    /** Lock map size. */
+    private final int lockMapSize;
+
+    /** Raw slots size. */
+    private final int rawSlotsMaxSize;
+
     /**
      * Empty slots.
      */
@@ -84,22 +92,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Mapped slots.
      */
-    private final ConcurrentHashMap<LockKey, LockState> locks;
+    private ConcurrentHashMap<LockKey, LockState> locks;
 
     /**
      * Raw slots.
      */
-    private final LockState[] slots;
+    private LockState[] slots;
 
     /**
      * The policy.
      */
-    private final DeadlockPreventionPolicy deadlockPreventionPolicy;
+    private DeadlockPreventionPolicy deadlockPreventionPolicy;
 
     /**
      * Executor that is used to fail waiters after timeout.
      */
-    private final Executor delayedExecutor;
+    private Executor delayedExecutor;
 
     /**
      * Enlisted transactions.
@@ -118,48 +126,55 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Constructor.
      */
     public HeapLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS, new HeapUnboundedLockManager());
-    }
-
-    /**
-     * Constructor.
-     */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        this(deadlockPreventionPolicy, SLOTS, SLOTS, new HeapUnboundedLockManager(deadlockPreventionPolicy));
+        this(SLOTS, SLOTS, new HeapUnboundedLockManager());
     }
 
     /**
      * Constructor.
      *
-     * @param deadlockPreventionPolicy Deadlock prevention policy.
-     * @param maxSize Raw slots size.
-     * @param mapSize Lock map size.
+     * @param rawSlotsMaxSize Raw slots size.
+     * @param lockMapSize Lock map size.
      */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy, int maxSize, int mapSize, LockManager parentLockManager) {
-        if (mapSize > maxSize) {
-            throw new IllegalArgumentException("maxSize=" + maxSize + " < mapSize=" + mapSize);
+    public HeapLockManager(int rawSlotsMaxSize, int lockMapSize, LockManager parentLockManager) {
+        if (lockMapSize > rawSlotsMaxSize) {
+            throw new IllegalArgumentException("maxSize=" + rawSlotsMaxSize + " < mapSize=" + lockMapSize);
         }
 
         this.parentLockManager = Objects.requireNonNull(parentLockManager);
+
+        this.rawSlotsMaxSize = rawSlotsMaxSize;
+        this.lockMapSize = lockMapSize;
+
+        parentLockManager.listen(LockEvent.LOCK_CONFLICT, parentLockConflictListener);
+    }
+
+    private void start(DeadlockPreventionPolicyConfiguration deadlockPreventionPolicyConfiguration) {
+        start(new DeadlockPreventionPolicyImpl(
+                deadlockPreventionPolicyConfiguration.txIdComparator().value(),
+                deadlockPreventionPolicyConfiguration.waitTimeout().value()
+        ));
+    }
+
+    @Override
+    public void start(DeadlockPreventionPolicy deadlockPreventionPolicy) {
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
+
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
                 ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
                 : null;
 
-        locks = new ConcurrentHashMap<>(mapSize);
+        locks = new ConcurrentHashMap<>(lockMapSize);
 
-        LockState[] tmp = new LockState[maxSize];
+        LockState[] tmp = new LockState[rawSlotsMaxSize];
         for (int i = 0; i < tmp.length; i++) {
             LockState lockState = new LockState();
-            if (i < mapSize) {
+            if (i < lockMapSize) {
                 empty.add(lockState);
             }
             tmp[i] = lockState;
         }
 
         slots = tmp; // Atomic init.
-
-        parentLockManager.listen(LockEvent.LOCK_CONFLICT, parentLockConflictListener);
     }
 
     @Override

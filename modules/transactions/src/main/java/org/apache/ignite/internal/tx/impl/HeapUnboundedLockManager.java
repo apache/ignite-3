@@ -85,6 +85,11 @@ public class HeapUnboundedLockManager extends AbstractEventProducer<LockEvent, L
     }
 
     @Override
+    public void start(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+
+    }
+
+    @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         while (true) {
             LockState state = lockState(lockKey);

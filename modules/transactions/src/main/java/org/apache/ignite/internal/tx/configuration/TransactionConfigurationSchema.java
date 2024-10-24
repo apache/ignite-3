@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.tx.configuration;
 
-import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
-
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -58,11 +55,6 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1000)
     public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
-
-    @Value(hasDefault = true)
-    @Range(max = 10_000)
-    @Immutable
-    public int replicaOperationRetryInterval = DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 
     @ConfigValue
     public DeadlockPreventionPolicyConfigurationSchema deadlockPreventionPolicy;

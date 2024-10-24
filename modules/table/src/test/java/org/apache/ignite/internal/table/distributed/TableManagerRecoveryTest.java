@@ -341,7 +341,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
                 replicaMgr,
-                () -> null,
+                null,
                 null,
                 tm,
                 dsm,

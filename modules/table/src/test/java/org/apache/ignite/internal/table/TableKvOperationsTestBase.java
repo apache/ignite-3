@@ -33,8 +33,10 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -70,11 +72,17 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
         return new TableImpl(
                 internalTable,
                 new DummySchemaManagerImpl(schema),
-                new HeapLockManager(),
+                lockManager(),
                 schemaVersions,
                 mock(IgniteSql.class),
                 -1
         );
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     protected final DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {

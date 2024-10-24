@@ -94,7 +94,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static GcConfiguration gcConfig;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
@@ -147,7 +147,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(
-                                DeadlockPreventionPolicy.NO_OP,
                                 HeapLockManager.SLOTS,
                                 CACHE_SIZE,
                                 new HeapUnboundedLockManager()),

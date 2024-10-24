@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.replicator.configuration;
 
+import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -50,4 +52,8 @@ public class ReplicationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 2000, max = 120000)
     public long leaseExpirationInterval = 5_000;
+
+    @Value(hasDefault = true)
+    @Range(max = 10_000)
+    public int replicaOperationRetryInterval = DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 }

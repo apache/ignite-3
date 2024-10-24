@@ -38,7 +38,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Override
     protected LockManager lockManager() {
-        return new HeapLockManager(deadlockPreventionPolicy());
+        return lockManager(deadlockPreventionPolicy());
     }
 
     @Test

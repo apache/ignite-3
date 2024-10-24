@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.ReplicaService.DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL;
 import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.NATURAL;
 import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.NONE;
 import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.REVERSE;
@@ -53,22 +52,13 @@ public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstrac
     @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NONE } }")
     private TransactionConfiguration transactionConfigurationMockedNone;
 
-    @InjectConfiguration("mock: { replicaOperationRetryInterval: 1000 }")
-    private TransactionConfiguration transactionConfigurationMockedInterval;
-
     @Test
     public void checkDefaults() {
         assertEquals(0, transactionConfigurationDefault.deadlockPreventionPolicy().waitTimeout().value());
         assertEquals(NATURAL.toString(),
                 transactionConfigurationDefault.deadlockPreventionPolicy().txIdComparator().value());
-        assertEquals(DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL, transactionConfigurationDefault.replicaOperationRetryInterval().value());
 
         assertPolicyIsCorrect(createPolicy(transactionConfigurationDefault), transactionConfigurationDefault);
-    }
-
-    @Test
-    public void checkMockedInterval() {
-        assertEquals(1000, transactionConfigurationMockedInterval.replicaOperationRetryInterval().value());
     }
 
     @Test

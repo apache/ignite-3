@@ -56,7 +56,6 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -118,10 +117,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
 
-    private final Supplier<LockManager> lockManagerFactory;
-
     /** Lock manager. */
-    private LockManager lockManager;
+    private final LockManager lockManager;
 
     /** Executor that runs async write intent switch actions. */
     private final ExecutorService writeIntentSwitchPool;
@@ -234,7 +231,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaService,
-                () -> lockManager,
+                lockManager,
                 clockService,
                 transactionIdGenerator,
                 placementDriver,
@@ -254,7 +251,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      * @param replicaService Replica service.
-     * @param lockManagerFactory Lock manager factory.
+     * @param lockManager Lock manager.
      * @param clockService Clock service.
      * @param transactionIdGenerator Used to generate transaction IDs.
      * @param placementDriver Placement driver.
@@ -271,7 +268,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             MessagingService messagingService,
             TopologyService topologyService,
             ReplicaService replicaService,
-            Supplier<LockManager> lockManagerFactory,
+            LockManager lockManager,
             ClockService clockService,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
@@ -283,7 +280,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LowWatermark lowWatermark
     ) {
         this.txConfig = txConfig;
-        this.lockManagerFactory = lockManagerFactory;
+        this.lockManager = lockManager;
         this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
@@ -315,6 +312,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 topologyService,
                 replicaService,
                 placementDriverHelper,
+                lockManager,
                 partitionOperationsExecutor
         );
 
@@ -324,7 +322,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
-                txId -> lockManager.releaseAll(txId),
+                lockManager,
                 clockService,
                 writeIntentSwitchProcessor,
                 resourcesRegistry
@@ -739,7 +737,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            lockManager = lockManagerFactory.get();
+            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
+            );
+
+            lockManager.start(deadlockPreventionPolicy);
 
             localNodeId = topologyService.localMember().id();
 
@@ -750,7 +753,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             txStateVolatileStorage.start();
 
-            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs(), lockManager);
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
             txCleanupRequestSender.start();
 

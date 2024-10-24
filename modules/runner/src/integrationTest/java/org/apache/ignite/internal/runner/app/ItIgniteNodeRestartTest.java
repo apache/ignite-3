@@ -461,8 +461,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfiguration,
-                threadPoolsManager.commonScheduler(),
-                () -> DEFAULT_REPLICA_OPERATION_RETRY_INTERVAL
+                threadPoolsManager.commonScheduler()
         );
 
         var lockManager = new HeapLockManager();
@@ -611,7 +610,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaService,
-                () -> lockManager,
+                lockManager,
                 clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
@@ -707,7 +706,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
                 replicaMgr,
-                () -> lockManager,
+                lockManager,
                 replicaService,
                 txManager,
                 dataStorageManager,

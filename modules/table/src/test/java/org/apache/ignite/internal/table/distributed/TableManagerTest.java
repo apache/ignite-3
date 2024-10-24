@@ -814,7 +814,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
                 replicaMgr,
-                () -> null,
+                null,
                 null,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir),

@@ -771,8 +771,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig,
-                threadPoolsManager.commonScheduler(),
-                () -> txConfig.replicaOperationRetryInterval().value()
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
@@ -930,7 +929,7 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        Supplier<LockManager> lockManagerFactory = lockManagerFactory(txConfig);
+        LockManager lockMgr = new HeapLockManager();
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -939,7 +938,7 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
-                lockManagerFactory,
+                lockMgr,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
@@ -973,7 +972,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
                 replicaMgr,
-                lockManagerFactory,
+                lockMgr,
                 replicaSvc,
                 txManager,
                 dataStorageMgr,
@@ -1467,26 +1466,6 @@ public class IgniteImpl implements Ignite {
         }
 
         return igniteException;
-    }
-
-    private Supplier<LockManager> lockManagerFactory(TransactionConfiguration txConfig) {
-        return new Supplier<>() {
-            private final AtomicReference<LockManager> lockManagerRef = new AtomicReference<>();
-
-            @Override
-            public LockManager get() {
-                if (lockManagerRef.get() == null) {
-                    DeadlockPreventionPolicy deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                            txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                            txConfig.deadlockPreventionPolicy().waitTimeout().value()
-                    );
-
-                    lockManagerRef.compareAndSet(null, new HeapLockManager(deadlockPreventionPolicy));
-                }
-
-                return lockManagerRef.get();
-            }
-        };
     }
 
     /**

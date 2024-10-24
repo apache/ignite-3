@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.OneOf;
 
 /**
@@ -29,10 +28,8 @@ import org.apache.ignite.configuration.validation.OneOf;
 public class DeadlockPreventionPolicyConfigurationSchema {
     @OneOf({"NATURAL", "REVERSED", "NONE"})
     @Value(hasDefault = true)
-    @Immutable
     public String txIdComparator = "NATURAL";
 
     @Value(hasDefault = true)
-    @Immutable
     public long waitTimeout = 0;
 }
