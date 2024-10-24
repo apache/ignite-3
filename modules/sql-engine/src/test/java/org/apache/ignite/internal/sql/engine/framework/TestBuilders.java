@@ -728,7 +728,7 @@ public class TestBuilders {
                         systemViewManager.register(() -> systemViews);
 
                         LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
-                        mappingService.onTopologyLeap(newTopology);
+                        //mappingService.onTopologyLeap(newTopology);
                         systemViewManager.onTopologyLeap(newTopology);
 
                         return new TestNode(
@@ -1603,13 +1603,8 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forTable(
-                HybridTimestamp operationTime,
-                ExecutionTargetFactory factory,
-                IgniteTable table,
-                boolean includeBackups
-        ) {
-            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
+        public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+/*            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
 
             if (nullOrEmpty(owningNodes)) {
                 throw new AssertionError("DataProvider is not configured for table " + table.name());
@@ -1628,11 +1623,11 @@ public class TestBuilders {
                 assignments = owningNodes.stream()
                         .map(nodes -> partitionNodesToAssignment(nodes, 1))
                         .collect(Collectors.toList());
-            }
+            }*/
 
             ExecutionTarget target = factory.partitioned(assignments);
 
-            return CompletableFuture.completedFuture(target);
+            return target;
         }
 
         private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
@@ -1643,21 +1638,17 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+        public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
             List<String> nodes = owningNodesBySystemViewName.apply(view.name());
 
             if (nullOrEmpty(nodes)) {
-                return CompletableFuture.failedFuture(
-                        new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                + " any active nodes in the cluster", view.name()))
-                );
+                throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                + " any active nodes in the cluster", view.name()));
             }
 
-            return CompletableFuture.completedFuture(
-                    view.distribution() == IgniteDistributions.single()
-                            ? factory.oneOf(nodes)
-                            : factory.allOf(nodes)
-            );
+            return view.distribution() == IgniteDistributions.single()
+                    ? factory.oneOf(nodes)
+                    : factory.allOf(nodes);
         }
     }
 }

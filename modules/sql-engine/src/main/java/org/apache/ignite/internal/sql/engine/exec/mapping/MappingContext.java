@@ -32,21 +32,13 @@ class MappingContext {
 
     private final ExecutionTargetFactory targetFactory;
 
-    private RelOptCluster cluster;
+    static final RelOptCluster CLUSTER = Commons.cluster();
 
     MappingContext(String localNode, List<String> nodes) {
         this.localNode = localNode;
         this.nodes = nodes;
 
         this.targetFactory = nodes.size() > 64 ? new LargeClusterFactory(nodes) : new SmallClusterFactory(nodes);
-    }
-
-    public RelOptCluster cluster() {
-        if (cluster == null) {
-            cluster = Commons.cluster();
-        }
-
-        return cluster;
     }
 
     public String localNode() {
@@ -57,7 +49,7 @@ class MappingContext {
         return nodes;
     }
 
-    public ExecutionTargetFactory targetFactory() {
+    ExecutionTargetFactory targetFactory() {
         return targetFactory;
     }
 }

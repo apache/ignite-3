@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -128,14 +129,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         MappingServiceImpl mappingService = new MappingServiceImpl(
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
-
 
         List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
 
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
 
         assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
@@ -147,7 +145,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String localNodeName = "NODE0";
 
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, List.of(localNodeName));
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class), new LogicalTopologySnapshot(1, logicalNodes(localNodeName)));
 
         CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
 
@@ -167,11 +164,10 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertFalse(mappingFuture.isDone());
 
         // Join another node affect nothing.
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));
         assertThat(mappingFuture, willThrowFast(TimeoutException.class));
 
         // Joining local node completes initialization.
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
+        //mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
         assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
@@ -190,14 +186,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertFalse(mappingFuture.isDone());
 
         // Join another node affect nothing.
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));*/
 
         assertThat(mappingFuture, willThrowFast(TimeoutException.class));
 
         // Joining local node completes initialization.
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));*/
 
         assertThat(mappingFuture, willSucceedFast());
         assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
@@ -214,13 +210,13 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
 
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));*/
 
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -229,8 +225,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         LogicalNode newNode = Mockito.mock(LogicalNode.class);
         Mockito.when(newNode.name()).thenReturn("NODE2");
 
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1", "NODE2")));*/
 
         // Plan with tables only must not be invalidated on node join.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -239,8 +235,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Plan with system views must be invalidated.
         assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
-        mappingService.onNodeLeft(newNode,
-                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1")));
+/*        mappingService.onNodeLeft(newNode,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1")));*/
 
         // Plan with tables that don't include a left node should not be invalidated.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -248,13 +244,13 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         LogicalNode node1 = Mockito.mock(LogicalNode.class);
         Mockito.when(node1.name()).thenReturn("NODE1");
 
-        mappingService.onNodeLeft(node1,
-                new LogicalTopologySnapshot(3, logicalNodes("NODE")));
+/*        mappingService.onNodeLeft(node1,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE")));*/
 
         // Plan with tables that include left node must be invalidated.
         assertNotSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
 
-        verify(targetProvider, times(4)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(4)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -284,11 +280,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
 
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
-
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
-        verify(targetProvider, times(1)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(1)).forTable(any(), any());
         verify(targetProvider, times(1)).forSystemView(any(), any());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
@@ -299,7 +292,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
         assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
-        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+        verify(targetProvider, times(2)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
@@ -324,20 +317,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static ExecutionTargetProvider createTargetProvider(List<String> nodeNames) {
         return new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(
-                    HybridTimestamp operationTime,
-                    ExecutionTargetFactory factory,
-                    IgniteTable table,
-                    boolean includeBackups
-            ) {
-                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+            public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+                return factory.allOf(nodeNames);
             }
 
             @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.completedFuture(view.distribution() == IgniteDistributions.single()
+            public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                return view.distribution() == IgniteDistributions.single()
                         ? factory.oneOf(nodeNames)
-                        : factory.allOf(nodeNames));
+                        : factory.allOf(nodeNames);
             }
         };
     }

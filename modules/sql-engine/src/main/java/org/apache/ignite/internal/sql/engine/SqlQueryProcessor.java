@@ -336,11 +336,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                taskExecutor
+                taskExecutor,
+                logicalTopologyService
         );
 
-        logicalTopologyService.addEventListener(mappingService);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
+        //placementDriver.listen(PrimaryReplicaEvent.ASSIGMENTS_CHANGED, mappingService::onPrimaryReplicaExpired);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),

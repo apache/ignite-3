@@ -24,19 +24,26 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -71,33 +78,62 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forTable(
-            HybridTimestamp operationTime,
-            ExecutionTargetFactory factory,
-            IgniteTable table,
-            boolean includeBackups
-    ) {
-        return collectAssignments(table, operationTime, includeBackups)
-                .thenApply(factory::partitioned);
+    public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+        return factory.partitioned(assignments);
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+    public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
         List<String> nodes = systemViewManager.owningNodes(view.name());
 
         if (nullOrEmpty(nodes)) {
-            return failedFuture(
-                    new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                            + " any active nodes in the cluster", view.name()))
-            );
+            throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                            + " any active nodes in the cluster", view.name()));
         }
 
-        return completedFuture(
-                view.distribution() == IgniteDistributions.single()
-                        ? factory.oneOf(nodes)
-                        : factory.allOf(nodes)
-        );
+        return view.distribution() == IgniteDistributions.single()
+                ? factory.oneOf(nodes)
+                : factory.allOf(nodes);
     }
+
+    public CompletableFuture<DistributionHolder> distribution(
+            Collection<IgniteTable> tables,
+            HybridTimestamp operationTime,
+            boolean mapOnBackups,
+            String initiatorNode
+    ) {
+        Map<IgniteTable, CompletableFuture<List<TokenizedAssignments>>> mapResult = newHashMap(tables.size());
+        Map<IgniteTable, List<TokenizedAssignments>> mapResultResolved = newHashMap(tables.size());
+
+        for (IgniteTable tbl : tables) {
+            CompletableFuture<List<TokenizedAssignments>> assignments = collectAssignments(tbl, operationTime, mapOnBackups);
+
+            mapResult.put(tbl, assignments);
+        }
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(mapResult.values().toArray(new CompletableFuture[0]));
+
+        CompletableFuture<Map<IgniteTable, List<TokenizedAssignments>>> fut = all.thenApply(v -> mapResult.entrySet().stream()
+                .map(e -> Map.entry(e.getKey(), e.getValue().join()))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
+        );
+
+        CompletableFuture<List<String>> participantNodes = fut.thenApply(
+                v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
+                        .distinct()
+                        .collect(Collectors.toList()));
+
+        return participantNodes.thenApply(nodes -> {
+            nodes.add(initiatorNode);
+
+            // this is a safe join, because we have waited for all futures to be completed
+            mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
+
+            // todo: fix !!!
+            return new DistributionHolder(0, nodes, mapResultResolved);
+        });
+    }
+
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
@@ -204,5 +240,29 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
                 return finalAssignments;
             });
         });
+    }
+
+    public static class DistributionHolder {
+        private final List<String> nodes;
+        private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
+        private final long token;
+
+        public DistributionHolder(long token, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+            this.token = token;
+            this.nodes = nodes;
+            this.assignmentsPerTable = assignmentsPerTable;
+        }
+
+        public List<String> nodes() {
+            return nodes;
+        }
+
+        public long token() {
+            return token;
+        }
+
+        public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
+            return assignmentsPerTable;
+        }
     }
 }

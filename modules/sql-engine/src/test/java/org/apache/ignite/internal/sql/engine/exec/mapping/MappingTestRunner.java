@@ -207,7 +207,7 @@ final class MappingTestRunner {
                 partitionPruner,
                 Runnable::run
         );
-        mappingService.onTopologyLeap(snapshot);
+        //mappingService.onTopologyLeap(snapshot);
 
         List<MappedFragment> mappedFragments;
 
