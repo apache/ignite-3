@@ -77,6 +77,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -130,6 +131,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
+    private final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
@@ -178,7 +181,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         storage = new RocksDbKeyValueStorage(
                 clusterService.nodeName(),
                 metastorageWorkDir.dbPath(),
-                new NoOpFailureManager());
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker
+        );
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -190,7 +195,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                msRaftConfigurer
+                msRaftConfigurer,
+                readOperationForCompactionTracker
         );
 
         assertThat(
@@ -280,7 +286,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new NoOpMetricManager(),
                 mock(MetastorageRepairStorage.class),
                 mock(MetastorageRepair.class),
-                RaftGroupOptionsConfigurer.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY,
+                readOperationForCompactionTracker
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -351,15 +358,15 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @Test
     void testReadOperationsFutureWithoutReadOperations() {
-        assertTrue(metaStorageManager.readOperationsFuture(0).isDone());
-        assertTrue(metaStorageManager.readOperationsFuture(1).isDone());
+        assertTrue(readOperationForCompactionTracker.collect(0).isDone());
+        assertTrue(readOperationForCompactionTracker.collect(1).isDone());
     }
 
     /**
-     * Tests {@link MetaStorageManagerImpl#readOperationsFuture} as expected in use.
+     * Tests tracking only read operations from the leader, local reads must be tracked by the {@link KeyValueStorage} itself.
      * <ul>
      *     <li>Creates read operations from the leader and local ones.</li>
-     *     <li>Set a new compaction revision via {@link MetaStorageManagerImpl#setCompactionRevisionLocally}.</li>
+     *     <li>Set a new compaction revision via {@link KeyValueStorage#setCompactionRevision}.</li>
      *     <li>Wait for the completion of read operations on the new compaction revision.</li>
      * </ul>
      *
@@ -381,9 +388,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
-        metaStorageManager.setCompactionRevisionLocally(1);
+        storage.setCompactionRevision(1);
 
-        CompletableFuture<Void> readOperationsFuture = metaStorageManager.readOperationsFuture(1);
+        CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(1);
         assertFalse(readOperationsFuture.isDone());
 
         getLocallyCursor.close();
@@ -395,8 +402,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests that read operations from the leader and local ones created after {@link MetaStorageManagerImpl#setCompactionRevisionLocally}
-     * will not affect future from {@link MetaStorageManagerImpl#readOperationsFuture} on a new compaction revision.
+     * Tests that read operations from the leader and local ones created after {@link KeyValueStorage#setCompactionRevision}
+     * will not affect future from {@link ReadOperationForCompactionTracker#collect} on a new compaction revision.
      *
      * <p>Due to the difficulty of testing all reading from leader methods at once, we test each of them separately.</p>
      */
@@ -406,7 +413,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
-        metaStorageManager.setCompactionRevisionLocally(1);
+        storage.setCompactionRevision(1);
 
         var startSendReadActionRequestFuture = new CompletableFuture<Void>();
         var continueSendReadActionRequestFuture = new CompletableFuture<Void>();
@@ -418,7 +425,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
-        assertTrue(metaStorageManager.readOperationsFuture(1).isDone());
+        assertTrue(readOperationForCompactionTracker.collect(1).isDone());
 
         getLocallyCursor.close();
 

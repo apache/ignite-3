@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
-/**
- * Extension for system configuration schema.
- */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
+    implementation libs.auto.service.annotations
 }
+
+description = 'ignite-configuration-system'

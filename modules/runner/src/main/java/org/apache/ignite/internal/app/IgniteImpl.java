@@ -156,6 +156,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -678,18 +679,28 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(
+                name,
+                metastorageWorkDir.dbPath(),
+                failureManager,
+                readOperationForCompactionTracker
+        );
+
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, metastorageWorkDir.dbPath(), failureManager),
+                storage,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 systemDisasterRecoveryStorage,
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
-                msRaftConfigurer
+                msRaftConfigurer,
+                readOperationForCompactionTracker
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -968,7 +979,6 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
-                clock,
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,

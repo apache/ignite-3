@@ -38,6 +38,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -81,18 +82,21 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
 
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
         return Stream.of(
                 new MetaStorageManagerImpl(
                         clusterService,
                         cmgManager,
                         mock(LogicalTopologyService.class),
                         raftManager,
-                        new SimpleInMemoryKeyValueStorage(mcNodeName),
+                        new SimpleInMemoryKeyValueStorage(mcNodeName, readOperationForCompactionTracker),
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
-                        RaftGroupOptionsConfigurer.EMPTY
+                        RaftGroupOptionsConfigurer.EMPTY,
+                        readOperationForCompactionTracker
                 ),
                 StandaloneMetaStorageManager.create()
         );

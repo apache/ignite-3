@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
-import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * Test class for {@link HeapUnboundedLockManager}.
- */
-public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
-    @Override
-    protected LockManager newInstance() {
-        return new HeapUnboundedLockManager(new WaitDieDeadlockPreventionPolicy());
-    }
+/** System property configuration schema. */
+@Config
+public class SystemPropertyConfigurationSchema {
+    @InjectedName
+    public String name;
 
-    @Override
-    protected LockKey lockKey() {
-        return new LockKey("test");
-    }
+    @Value
+    public String propertyValue;
 }

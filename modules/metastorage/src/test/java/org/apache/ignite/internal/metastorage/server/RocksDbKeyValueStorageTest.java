@@ -49,7 +49,12 @@ import org.junit.jupiter.api.Test;
 public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage(NODE_NAME, workDir.resolve("storage"), new NoOpFailureManager());
+        return new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir.resolve("storage"),
+                new NoOpFailureManager(),
+                new ReadOperationForCompactionTracker()
+        );
     }
 
     @Test
@@ -72,7 +77,12 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
 
         storage.close();
 
-        storage = new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureManager());
+        storage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir.resolve("storage"),
+                new NoOpFailureManager(),
+                new ReadOperationForCompactionTracker()
+        );
 
         storage.start();
 

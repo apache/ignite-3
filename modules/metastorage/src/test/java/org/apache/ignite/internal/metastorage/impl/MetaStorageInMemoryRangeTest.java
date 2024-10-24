@@ -27,6 +27,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 public class MetaStorageInMemoryRangeTest extends MetaStorageRangeTest {
     @Override
     KeyValueStorage getStorage(Path path) {
-        return new SimpleInMemoryKeyValueStorage("test");
+        return new SimpleInMemoryKeyValueStorage("test", readOperationForCompactionTracker);
     }
 }

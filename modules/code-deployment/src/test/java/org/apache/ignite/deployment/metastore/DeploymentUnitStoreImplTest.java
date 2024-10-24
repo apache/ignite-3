@@ -48,7 +48,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -94,9 +94,12 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     public void setup() {
         nodeHistory.clear();
         clusterHistory.clear();
-        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir, new NoOpFailureManager());
 
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage);
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(LOCAL_NODE, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
         NodeStatusWatchListener nodeListener = new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback);
         metastore.registerNodeStatusListener(nodeListener);

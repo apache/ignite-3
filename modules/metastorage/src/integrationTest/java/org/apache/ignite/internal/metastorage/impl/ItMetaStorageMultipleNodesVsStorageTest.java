@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
@@ -68,7 +69,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ConfigurationExtension.class)
 abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMultipleNodesAbstractTest {
     @Override
-    abstract KeyValueStorage createStorage(String nodeName, Path path);
+    abstract KeyValueStorage createStorage(String nodeName, Path path, ReadOperationForCompactionTracker readOperationForCompactionTracker);
 
     /**
      * Tests that an incoming node gets registered as a Learner and receives Meta Storage updates.

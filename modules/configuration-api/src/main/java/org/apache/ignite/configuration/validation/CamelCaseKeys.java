@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.configuration.validation;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * TimeoutDeadlockPreventionUnboundedTest.
+ * Signifies that a {@link NamedConfigValue} only has elements with keys in lower camel case, for example 'v', 'value', 'valueOne' and
+ * 'valueOneAndTwo'.
  */
-public class TimeoutDeadlockPreventionUnboundedTest extends TimeoutDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface CamelCaseKeys {
 }

@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.sql.engine.sql;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
-
-/**
- * NoWaitDeadlockPreventionUnboundedTest.
- */
-public class NoWaitDeadlockPreventionUnboundedTest extends NoWaitDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+/** Object type for a KILL statement. */
+public enum IgniteSqlKillObjectType {
+    /** SQL Query or SQL script. */
+    QUERY,
+    /** Transaction. */
+    TRANSACTION,
+    /** Compute job. */
+    COMPUTE
 }

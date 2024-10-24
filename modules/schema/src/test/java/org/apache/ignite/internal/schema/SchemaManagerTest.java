@@ -52,7 +52,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -86,8 +85,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private MetaStorageManager metaStorageManager;
 
-    private final SimpleInMemoryKeyValueStorage metaStorageKvStorage = new SimpleInMemoryKeyValueStorage("test");
-
     private SchemaManager schemaManager;
 
     private ArgumentCaptor<EventListener<CatalogEventParameters>> tableCreatedListener;
@@ -96,7 +93,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
+        metaStorageManager = spy(StandaloneMetaStorageManager.create("test"));
         assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);

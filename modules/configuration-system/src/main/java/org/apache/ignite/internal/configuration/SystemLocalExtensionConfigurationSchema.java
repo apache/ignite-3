@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
-/**
- * NoneDeadlockPreventionUnboundedTest.
- */
-public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+/** Extension for local system configuration schema. */
+@ConfigurationExtension
+public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
+    @ConfigValue
+    public SystemLocalConfigurationSchema system;
 }

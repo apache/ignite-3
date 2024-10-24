@@ -17,25 +17,15 @@
 
 package org.apache.ignite.internal.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.validation.CamelCaseKeys;
 
-/**
- * {@link ConfigurationModule} for node-local system configuration.
- */
-@AutoService(ConfigurationModule.class)
-public class SystemLocalConfigurationModule implements ConfigurationModule {
-
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
-
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(SystemLocalExtensionConfigurationSchema.class);
-    }
+/** Distributed system configuration schema. */
+@Config
+public class SystemDistributedConfigurationSchema {
+    /** System properties. */
+    @CamelCaseKeys
+    @NamedConfigValue
+    public SystemPropertyConfigurationSchema properties;
 }

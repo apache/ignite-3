@@ -71,7 +71,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -90,6 +89,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -133,8 +133,6 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
-
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -257,13 +255,28 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureManager failureManager) {
-        super(nodeName, failureManager);
+    public RocksDbKeyValueStorage(
+            String nodeName,
+            Path dbPath,
+            FailureManager failureManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
+        super(
+                nodeName,
+                failureManager,
+                readOperationForCompactionTracker,
+                Executors.newSingleThreadExecutor(NamedThreadFactory.create(
+                        nodeName,
+                        "metastorage-compaction-executor",
+                        Loggers.forClass(RocksDbKeyValueStorage.class)
+                ))
+        );
 
         this.dbPath = dbPath;
 
-        this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", log));
     }
 
     @Override
@@ -408,6 +421,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {
@@ -1255,7 +1269,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -1278,7 +1292,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             db.write(defaultWriteOptions, batch);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
@@ -1433,6 +1447,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return value;
     }
 
+    @Override
+    protected boolean isInRecoveryState() {
+        return recoveryStatus.get() != RecoveryStatus.DONE;
+    }
+
     private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
@@ -1464,7 +1483,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
-        long readOperationId = readOperationIdGeneratorForTracker++;
+        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
         long compactionRevisionBeforeCreateCursor = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevision);

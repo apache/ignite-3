@@ -33,6 +33,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.TestMetasStorageUtils;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -150,7 +151,12 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
-            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureManager());
+            var s = new RocksDbKeyValueStorage(
+                    name,
+                    listenerPersistencePath,
+                    new NoOpFailureManager(),
+                    new ReadOperationForCompactionTracker()
+            );
 
             s.start();
 
