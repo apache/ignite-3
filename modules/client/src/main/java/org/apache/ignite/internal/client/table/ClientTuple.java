@@ -91,6 +91,14 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         }
 
         if (fullBinaryTuple) {
+            if (part == TuplePart.KEY && column.keyIndex() < 0) {
+                return -1;
+            }
+
+            if (part == TuplePart.VAL && column.valIndex() < 0) {
+                return -1;
+            }
+
             return column.schemaIndex();
         }
 

@@ -1007,14 +1007,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     protected abstract ResultSet<SqlRow> executeForRead(IgniteSql sql, @Nullable Transaction tx, Statement statement, Object... args);
 
-    protected SqlException checkSqlError(
+    protected void checkSqlError(
             int code,
             String msg,
             IgniteSql sql,
             String query,
             Object... args
     ) {
-        return assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
+        assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
     }
 
     protected abstract long[] executeBatch(String query, BatchedArguments args);

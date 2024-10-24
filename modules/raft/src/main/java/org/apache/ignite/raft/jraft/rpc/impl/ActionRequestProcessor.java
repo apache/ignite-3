@@ -114,7 +114,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     try {
                         writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
                     } catch (SafeTimeReorderException e) {
-                        rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
+                        rpcCtx.sendResponse(
+                                factory.errorResponse()
+                                    .maxObservableSafeTimeViolatedValue(e.maxObservableSafeTimeViolatedValue())
+                                    .errorCode(RaftError.EREORDER.getNumber())
+                                    .build()
+                        );
 
                         return;
                     }

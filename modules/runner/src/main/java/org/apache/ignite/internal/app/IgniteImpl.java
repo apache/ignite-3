@@ -982,7 +982,6 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
-                clock,
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,
