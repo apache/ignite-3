@@ -86,6 +86,8 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
                 willCompleteSuccessfully()
         );
 
+        startMetastorageOn(List.of(node0, node1, node2));
+
         node0.waitWatches();
         node1.waitWatches();
         node2.waitWatches();

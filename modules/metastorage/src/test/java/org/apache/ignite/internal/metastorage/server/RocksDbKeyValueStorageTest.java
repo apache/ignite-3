@@ -339,4 +339,55 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
 
         return checksum.getValue();
     }
+
+    @Test
+    public void checksumAndRevisionsForChecksummedRevision() {
+        byte[] key = key(1);
+
+        putToMs(key, keyValue(1, 1));
+        putToMs(key, keyValue(1, 2));
+        putToMs(key, keyValue(1, 3));
+
+        ChecksumAndRevisions checksumAndRevisions = storage.checksumAndRevisions(2);
+
+        assertThat(checksumAndRevisions.checksum(), is(-3394571179261091112L));
+        assertThat(checksumAndRevisions.minChecksummedRevision(), is(1L));
+        assertThat(checksumAndRevisions.maxChecksummedRevision(), is(3L));
+    }
+
+    @Test
+    public void checksumAndRevisionsForEmptyStorage() {
+        ChecksumAndRevisions checksumAndRevisions = storage.checksumAndRevisions(1);
+
+        assertThat(checksumAndRevisions.checksum(), is(0L));
+        assertThat(checksumAndRevisions.minChecksummedRevision(), is(0L));
+        assertThat(checksumAndRevisions.maxChecksummedRevision(), is(0L));
+    }
+
+    @Test
+    public void checksumAndRevisionsForNotYetCreatedRevision() {
+        putToMs(key(1), keyValue(1, 1));
+
+        ChecksumAndRevisions checksumAndRevisions = storage.checksumAndRevisions(2);
+
+        assertThat(checksumAndRevisions.checksum(), is(0L));
+        assertThat(checksumAndRevisions.minChecksummedRevision(), is(1L));
+        assertThat(checksumAndRevisions.maxChecksummedRevision(), is(1L));
+    }
+
+    @Test
+    public void checksumAndRevisionsForCompactedRevision() {
+        byte[] key = key(1);
+
+        putToMs(key, keyValue(1, 1));
+        putToMs(key, keyValue(1, 2));
+
+        storage.compact(1);
+
+        ChecksumAndRevisions checksumAndRevisions = storage.checksumAndRevisions(1);
+
+        assertThat(checksumAndRevisions.checksum(), is(0L));
+        assertThat(checksumAndRevisions.minChecksummedRevision(), is(2L));
+        assertThat(checksumAndRevisions.maxChecksummedRevision(), is(2L));
+    }
 }

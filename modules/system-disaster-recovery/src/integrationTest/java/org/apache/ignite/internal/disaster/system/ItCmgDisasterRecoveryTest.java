@@ -177,10 +177,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertTopologyContainsNode(0, topologySnapshot);
     }
 
-    private void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
-        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
-    }
-
     @Test
     void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
         startAndInitCluster(5, new int[]{0, 1, 2}, new int[]{2, 3, 4});

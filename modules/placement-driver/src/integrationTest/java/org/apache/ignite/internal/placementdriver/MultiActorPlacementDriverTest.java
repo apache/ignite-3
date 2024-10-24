@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -247,6 +248,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                     new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metaStorageNodes).build()
             ));
+            configureCmgManagerToStartMetastorage(cmgManager);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
+import org.apache.ignite.internal.metastorage.command.GetChecksumCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -259,6 +261,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Long> currentRevision() {
         GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
+
+        return context.raftService().run(cmd);
+    }
+
+    @Override
+    public CompletableFuture<ChecksumInfo> checksum(long revision) {
+        GetChecksumCommand cmd = context.commandsFactory().getChecksumCommand()
+                .revision(revision)
+                .build();
 
         return context.raftService().run(cmd);
     }

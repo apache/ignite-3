@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
@@ -45,7 +44,6 @@ public class ClusterStateStorageManager {
     /** Prefix for validation tokens. */
     private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
 
-    private static final byte[] METASTORAGE_REPAIR_CLUSTER_ID_KEY = "metastorageRepairClusterId".getBytes(UTF_8);
     private static final byte[] METASTORAGE_REPAIRING_CONFIG_INDEX_KEY = "metastorageRepairingConfigIndex".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
@@ -117,23 +115,10 @@ public class ClusterStateStorageManager {
     /**
      * Saves information about Metastorage repair.
      *
-     * @param repairClusterId ID that the cluster has when performaing the repair.
      * @param repairingConfigIndex Raft index in the Metastorage group under which the forced configuration is (or will be) saved.
      */
-    void saveMetastorageRepairInfo(UUID repairClusterId, long repairingConfigIndex) {
-        storage.putAll(
-                List.of(METASTORAGE_REPAIR_CLUSTER_ID_KEY, METASTORAGE_REPAIRING_CONFIG_INDEX_KEY),
-                List.of(uuidToBytes(repairClusterId), longToBytes(repairingConfigIndex))
-        );
-    }
-
-    /**
-     * Returns ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
-     * happened in the current cluster incarnation.
-     */
-    @Nullable UUID getMetastorageRepairClusterId() {
-        byte[] bytes = storage.get(METASTORAGE_REPAIR_CLUSTER_ID_KEY);
-        return bytes == null ? null : bytesToUuid(bytes);
+    void saveMetastorageRepairInfo(long repairingConfigIndex) {
+        storage.put(METASTORAGE_REPAIRING_CONFIG_INDEX_KEY, longToBytes(repairingConfigIndex));
     }
 
     /**

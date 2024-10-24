@@ -80,6 +80,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        startMetastorageOn(List.of(firstNode));
+
         firstNode.waitWatches();
 
         var key = new ByteArray("foo");
@@ -90,6 +92,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         assertThat(invokeFuture, willBe(true));
 
         Node secondNode = startNode();
+
+        startMetastorageOn(List.of(secondNode));
 
         secondNode.waitWatches();
 
@@ -142,6 +146,10 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -170,6 +178,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();
@@ -216,6 +226,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();
@@ -299,6 +311,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -345,6 +359,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
 
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -371,6 +387,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();

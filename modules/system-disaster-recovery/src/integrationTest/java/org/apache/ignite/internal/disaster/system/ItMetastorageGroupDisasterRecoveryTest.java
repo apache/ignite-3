@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.disaster.system;
 
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -27,27 +29,36 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetastorageDivergedException;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     @Test
@@ -238,7 +249,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
     }
 
     private static RaftGroupService metastorageGroupClient(IgniteImpl ignite)
-            throws NodeStoppingException, ExecutionException, InterruptedException, TimeoutException {
+            throws NodeStoppingException {
         PeersAndLearners config = PeersAndLearners.fromConsistentIds(Set.of(ignite.name()));
         return ignite.raftManager().startRaftGroupService(MetastorageGroupId.INSTANCE, config);
     }
@@ -251,5 +262,108 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         assertThat(leader, is(notNullValue()));
 
         return leader.consistentId();
+    }
+
+    @Test
+    void migratesNodesThatSawNoReparationToNewClusterIfMetastorageDidNotDiverge() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(0);
+
+        ComponentWorkingDir msWorkDir0 = igniteImpl(0).metastorageWorkDir();
+        ComponentWorkingDir msWorkDir1 = igniteImpl(1).metastorageWorkDir();
+
+        IntStream.of(0, 1).parallel().forEach(cluster::stopNode);
+
+        // Copy Metastorage state from old leader (1) to future leader (0) to make sure that 1 is not ahead of 0 and there will be
+        // no Metastorage divergence when we make 0 new leader and migrate 1 to cluster again.
+        copyMetastorageState(msWorkDir1, msWorkDir0);
+
+        // Repair MG with just node 0 in CMG.
+        cluster.startEmbeddedNode(0);
+        initiateMgRepairVia(((IgniteServerImpl) cluster.server(0)).igniteImpl(), 1, 0);
+        IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
+        waitTillMgHasMajority(restartedIgniteImpl0);
+
+        // Starting the node that did not see the repair.
+        migrate(1, 0);
+
+        LogicalTopologySnapshot topologySnapshot = restartedIgniteImpl0.logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
+        assertTopologyContainsNode(1, topologySnapshot);
+    }
+
+    private static void copyMetastorageState(ComponentWorkingDir source, ComponentWorkingDir dest) throws IOException {
+        replaceDir(source.dbPath(), dest.dbPath());
+        replaceDir(source.raftLogPath(), dest.raftLogPath());
+
+        String pathToSnapshots = "metastorage_group_0/snapshot";
+        replaceDir(source.metaPath().resolve(pathToSnapshots), dest.metaPath().resolve(pathToSnapshots));
+    }
+
+    private static void replaceDir(Path sourceDir, Path destDir) throws IOException {
+        assertTrue(Files.isDirectory(sourceDir));
+        assertTrue(Files.isDirectory(destDir));
+
+        assertTrue(IgniteUtils.deleteIfExists(destDir));
+        Files.createDirectory(destDir);
+        copyDir(sourceDir, destDir);
+    }
+
+    private static void copyDir(Path src, Path dest) throws IOException {
+        try (Stream<Path> stream = Files.walk(src)) {
+            stream.forEach(source -> copyFile(source, dest.resolve(src.relativize(source))));
+        }
+    }
+
+    private static void copyFile(Path source, Path dest) {
+        try {
+            Files.copy(source, dest, REPLACE_EXISTING);
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    @Test
+    void detectsMetastorageDivergence() throws Exception {
+        startAndInitCluster(2, new int[]{0}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(0);
+
+        // Stopping node 0 to make sure it does not see the subsequent Metastorage write accepted by the leader (1).
+        // Later, we'll stop node 1, repair MG on 0, try to migrate 1 to the cluster, and, as 1 has a Metastorage put which 0 does not
+        // have, Metastorage divergence will have to be detected.
+        cluster.stopNode(0);
+
+        igniteImpl(1).metaStorageManager().put(new ByteArray("test-key"), new byte[]{42});
+
+        // This makes the MG majority go away.
+        cluster.stopNode(1);
+
+        cluster.startEmbeddedNode(0);
+        initiateMgRepairVia(((IgniteServerImpl) cluster.server(0)).igniteImpl(), 1, 0);
+        IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
+        waitTillMgHasMajority(restartedIgniteImpl0);
+
+        // Starting the node that did not see the repair.
+        initiateMigration(1, 0);
+
+        assertThat(waitForRestartOrShutdownFuture(1), willCompleteSuccessfully());
+
+        // Attempt to migrate should fail.
+        assertThrowsWithCause(MetastorageDivergedException.class, "Metastorage has diverged", () -> cluster.server(1).api());
+
+        // Subsequent restart should also fail.
+        assertThrowsWithCause(MetastorageDivergedException.class, "Metastorage has diverged", () -> cluster.restartNode(1));
+    }
+
+    private static void assertThrowsWithCause(
+            Class<MetastorageDivergedException> causeClass,
+            String causeMessageFragment,
+            Executable action
+    ) {
+        Throwable ex = assertThrows(Throwable.class, action);
+
+        assertTrue(
+                hasCause(ex, causeClass, causeMessageFragment),
+                () -> "Unexpected exception " + ExceptionUtils.getFullStackTrace(ex)
+        );
     }
 }

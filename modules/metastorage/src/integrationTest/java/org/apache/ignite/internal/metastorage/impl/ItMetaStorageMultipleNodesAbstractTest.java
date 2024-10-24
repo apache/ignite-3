@@ -107,6 +107,12 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
         return new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
     }
 
+    void startMetastorageOn(List<Node> nodes) {
+        for (Node node : nodes) {
+            assertThat(node.metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
+    }
+
     class Node {
         private final VaultManager vaultManager;
 
@@ -234,8 +240,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     raftManager,
                     clusterStateStorage,
                     failureManager,
-                    cmgManager,
-                    metaStorageManager
+                    cmgManager
             );
 
             assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());

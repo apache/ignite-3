@@ -245,8 +245,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
-
-            components.add(metaStorageManager);
         }
 
         void start() {
@@ -258,12 +256,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void stop() throws Exception {
-            Collections.reverse(components);
+            List<IgniteComponent> componentsToStop = new ArrayList<>(components);
+            componentsToStop.add(metaStorageManager);
 
-            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
+            Collections.reverse(componentsToStop);
+
+            Stream<AutoCloseable> beforeNodeStop = componentsToStop.stream().map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(() ->
-                    assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
+                    assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
@@ -301,6 +302,11 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         String name = nodes.get(0).name();
 
         nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
+
+        for (Node node : nodes) {
+            assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
+            assertThat(node.metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
 
         for (Node node : nodes) {
             assertThat(node.metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());

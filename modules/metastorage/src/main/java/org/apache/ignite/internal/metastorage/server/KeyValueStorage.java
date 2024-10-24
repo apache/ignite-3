@@ -586,6 +586,15 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long checksum(long revision);
 
     /**
+     * Returns information about a checksum and checksummed revisions. Never throws a {@link CompactedException}; if the requested revision
+     * is compacted, just returns 0 as checksum (and the requested revision will not fall in
+     * {@link ChecksumAndRevisions#minChecksummedRevision()} - {@link ChecksumAndRevisions#maxChecksummedRevision()} interval).
+     *
+     * @param revision Revision for which to obtain a checksum.
+     */
+    ChecksumAndRevisions checksumAndRevisions(long revision);
+
+    /**
      * Clears the content of the storage. Should only be called when no one else uses this storage.
      */
     void clear();

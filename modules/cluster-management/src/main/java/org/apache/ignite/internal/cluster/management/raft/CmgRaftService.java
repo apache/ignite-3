@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -333,14 +332,9 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that completes when the change is finished.
      */
-    public CompletableFuture<Void> changeMetastorageNodes(
-            Set<String> newMetastorageNodes,
-            @Nullable UUID metastorageRepairClusterId,
-            @Nullable Long metastorageRepairingConfigIndex
-    ) {
+    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes, @Nullable Long metastorageRepairingConfigIndex) {
         ChangeMetaStorageInfoCommand command = msgFactory.changeMetaStorageInfoCommand()
                 .metaStorageNodes(Set.copyOf(newMetastorageNodes))
-                .metastorageRepairClusterId(metastorageRepairClusterId)
                 .metastorageRepairingConfigIndex(metastorageRepairingConfigIndex)
                 .build();
         return raftService.run(command);

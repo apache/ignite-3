@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -77,6 +78,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
+        configureCmgManagerToStartMetastorage(cmgManager);
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
