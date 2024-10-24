@@ -498,7 +498,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     private Table defaultTable() {
-        //noinspection resource
         return ignite().tables().table(TABLE_NAME);
     }
 
