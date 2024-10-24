@@ -27,8 +27,6 @@ import org.apache.ignite.internal.tx.TxPriority;
  * first. If the priorities are equal, the IDs are sorted by their natural order.
  */
 public class TxIdPriorityComparator implements Comparator<UUID> {
-    public static final TxIdPriorityComparator INSTANCE = new TxIdPriorityComparator();
-
     private static final Comparator<TxPriority> TX_PRIORITY_COMPARATOR = TxPriority::compareTo;
 
     @Override

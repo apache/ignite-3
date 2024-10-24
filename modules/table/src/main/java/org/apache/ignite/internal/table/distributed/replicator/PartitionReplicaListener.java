@@ -347,6 +347,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private static final boolean SKIP_UPDATES =
+            IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+
     /**
      * The constructor.
      *
@@ -2712,7 +2715,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             );
 
             if (!cmd.full()) {
-                if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
+                if (!SKIP_UPDATES) {
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdate(
                             cmd.txId(),
@@ -2746,7 +2749,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
                     } else {
-                        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
+                        if (!SKIP_UPDATES) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                             storageUpdateHandler.handleUpdate(
                                     cmd.txId(),
