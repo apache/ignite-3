@@ -46,7 +46,13 @@ with open('requirements/install.txt', 'r', encoding='utf-8') as requirements_fil
 with open('README.md', 'r', encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
-version = pkgutil.get_data(PACKAGE_NAME, "_version.txt").decode
+version = None
+
+with open(PACKAGE_NAME + '/_version.txt', 'r') as fd:
+    version = fd.read()
+    if not version:
+        raise RuntimeError('Cannot find version information')
+
 
 def _get_env_variable(name, default='OFF'):
     if name not in os.environ.keys():
