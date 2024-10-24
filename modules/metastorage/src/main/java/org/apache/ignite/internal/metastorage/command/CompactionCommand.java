@@ -15,31 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server.raft;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Meta storage replication group id.
+ * Command to start the metastore compaction locally.
+ *
+ * <p>When processing the command, the following steps will be performed:</p>
+ * <ul>
+ *     <li>{@link KeyValueStorage#saveCompactionRevision} a new metastorage compaction revision locally.</li>
+ *     <li>{@link KeyValueStorage#startCompaction} the metastorage compaction on the new revision locally.</li>
+ * </ul>
  */
-public enum MetastorageGroupId implements ReplicationGroupId {
-    /** Meta storage group id. */
-    INSTANCE("metastorage_group");
-
-    /** Group id string representation. */
-    private final String name;
-
-    /**
-     * The constructor.
-     *
-     * @param name The string representation of the enum.
-     */
-    MetastorageGroupId(String name) {
-        this.name = name;
-    }
-
-    @Override
-    public String toString() {
-        return name;
-    }
+@Transferable(MetastorageCommandsMessageGroup.COMPACTION)
+public interface CompactionCommand extends MetaStorageWriteCommand {
+    /** New metastorage compaction revision. */
+    long compactionRevision();
 }

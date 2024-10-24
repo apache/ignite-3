@@ -68,21 +68,13 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
-    /**
-     * Constructor.
-     *
-     * @param storage Storage.
-     */
+    /** Constructor. */
     @TestOnly
     public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this(storage, clusterTime, newConfig -> {});
     }
 
-    /**
-     * Constructor.
-     *
-     * @param storage Storage.
-     */
+    /** Constructor. */
     public MetaStorageListener(
             KeyValueStorage storage,
             ClusterTimeImpl clusterTime,
