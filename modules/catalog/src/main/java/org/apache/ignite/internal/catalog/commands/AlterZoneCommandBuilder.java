@@ -71,6 +71,14 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     AlterZoneCommandBuilder dataNodesAutoAdjustScaleDown(@Nullable Integer adjust);
 
     /**
+     * Sets timeout between the majority loss event and RAFT group reconfiguration must not be null.
+     *
+     * @param adjust Optional timeout in seconds between node left topology event itself and data nodes switch.
+     * @return This instance.
+     */
+    AlterZoneCommandBuilder partitionDistributionResetScaleDown(@Nullable Integer adjust);
+
+    /**
      * Sets nodes filter.
      *
      * @param filter Optional nodes filter.

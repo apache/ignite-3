@@ -51,12 +51,12 @@ class Option extends QueryPart {
         return new Option("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", adjust);
     }
 
-    public static Option distributionAlgorithm(String distributionAlgorithm) {
-        return new Option("DISTRIBUTION_ALGORITHM", distributionAlgorithm);
+    public static Option partitionDistributionResetScaleDown(Integer adjust) {
+        return new Option("PARTITION_DISTRIBUTION_RESET_SCALE_DOWN", adjust);
     }
 
-    public static Option dataRegion(String dataRegion) {
-        return new Option("DATAREGION", dataRegion);
+    public static Option distributionAlgorithm(String distributionAlgorithm) {
+        return new Option("DISTRIBUTION_ALGORITHM", distributionAlgorithm);
     }
 
     public static Option storageProfiles(String storageProfiles) {

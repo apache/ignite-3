@@ -72,12 +72,13 @@ public class CatalogParamsValidationUtils {
     public static void validateZoneDataNodesAutoAdjustParametersCompatibility(
             @Nullable Integer autoAdjust,
             @Nullable Integer scaleUp,
-            @Nullable Integer scaleDown
+            @Nullable Integer scaleDown,
+            @Nullable Integer resetScaleDown
     ) {
-        if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
+        if (autoAdjust != null && (scaleUp != null || scaleDown != null) && resetScaleDown > 0) {
             throw new CatalogValidationException(
-                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
-                    autoAdjust, scaleUp, scaleDown
+                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}, partitionDistributionResetScaleDown={}]",
+                    autoAdjust, scaleUp, scaleDown, resetScaleDown
             );
         }
     }

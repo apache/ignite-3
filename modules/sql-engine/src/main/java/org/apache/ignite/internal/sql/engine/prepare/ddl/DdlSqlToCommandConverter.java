@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DISTRIBUTION_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITION_DISTRIBUTION_RESET_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
@@ -182,6 +183,8 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
+                PARTITION_DISTRIBUTION_RESET_SCALE_DOWN,
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::partitionDistributionResetScaleDown),
                 STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params)))
         ));
@@ -196,7 +199,9 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleDown)
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
+                PARTITION_DISTRIBUTION_RESET_SCALE_DOWN,
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::partitionDistributionResetScaleDown)
         ));
     }
 

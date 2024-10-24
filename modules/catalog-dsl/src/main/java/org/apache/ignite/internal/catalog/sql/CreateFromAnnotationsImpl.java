@@ -140,6 +140,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
                 createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
             }
 
+            if (zone.partitionDistributionResetScaleDown() > 0) {
+                createZone.partitionDistributionResetScaleDown(zone.partitionDistributionResetScaleDown());
+            }
+
             if (!zone.filter().isEmpty()) {
                 createZone.filter(zone.filter());
             }
