@@ -99,6 +99,20 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class,
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+            names = {"DURATION", "PERIOD"},
+            mode = Mode.INCLUDE
+    )
+    void unsupportedColumnTypes(ColumnType type) {
+        Object param = SqlTestUtils.generateValueByType(type, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE);
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Unsupported dynamic parameter defined.",
+                () -> assertQuery("SELECT ?").withParams(param).check()
+        );
+    }
+
     /**
      * By default derived type of parameter of type BigDecimal is DECIMAL({@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_PRECISION},
      * {@value IgniteSqlValidator#DECIMAL_DYNAMIC_PARAM_SCALE}). This test makes sure it's possible to go beyond default precision and scale

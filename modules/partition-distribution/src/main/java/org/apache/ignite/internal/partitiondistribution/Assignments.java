@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Collections.unmodifiableSet;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,17 +28,14 @@ import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that encapsulates a set of nodes and its metadata.
  */
-public class Assignments implements Serializable {
-    /** Serial version UID. */
-    private static final long serialVersionUID = -59553172012153869L;
-
+public class Assignments {
     /** Empty assignments. */
     public static final Assignments EMPTY =
             new Assignments(Collections.emptySet(), false, HybridTimestamp.NULL_HYBRID_TIMESTAMP);
@@ -140,7 +136,7 @@ public class Assignments implements Serializable {
      * Serializes the instance into an array of bytes.
      */
     public byte[] toBytes() {
-        return ByteUtils.toBytes(this);
+        return VersionedSerialization.toBytes(this, AssignmentsSerializer.INSTANCE);
     }
 
     /**
@@ -158,7 +154,7 @@ public class Assignments implements Serializable {
     @Nullable
     @Contract("null -> null; !null -> !null")
     public static Assignments fromBytes(byte @Nullable [] bytes) {
-        return bytes == null ? null : ByteUtils.fromBytes(bytes);
+        return bytes == null ? null : VersionedSerialization.fromBytes(bytes, AssignmentsSerializer.INSTANCE);
     }
 
     @Override
