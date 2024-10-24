@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -73,12 +74,13 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     @BeforeEach
-    void setUp(@Mock ClusterService clusterService) {
+    void setUp(@Mock ClusterService clusterService, @Mock LogicalTopology logicalTopology) {
         when(clusterService.messagingService()).thenReturn(messagingService);
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         clusterInitializer = new ClusterInitializer(
                 clusterService,
+                logicalTopology,
                 hocon -> hocon,
                 new TestConfigurationValidator()
         );

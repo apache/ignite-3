@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.List;
@@ -36,11 +38,13 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -56,6 +60,8 @@ public class ClusterInitializer {
 
     private final ClusterService clusterService;
 
+    private final LogicalTopology logicalTopology;
+
     private final ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher;
 
     private final ConfigurationValidator clusterConfigurationValidator;
@@ -65,10 +71,12 @@ public class ClusterInitializer {
     /** Constructor. */
     public ClusterInitializer(
             ClusterService clusterService,
+            LogicalTopology logicalTopology,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
             ConfigurationValidator clusterConfigurationValidator
     ) {
         this.clusterService = clusterService;
+        this.logicalTopology = logicalTopology;
         this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
         this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
@@ -159,7 +167,7 @@ public class ClusterInitializer {
                                     initMessage.metaStorageNodes()
                             );
 
-                            return CompletableFutures.<Void>nullCompletedFuture();
+                            return awaitCorrectClusterTopology();
                         } else {
                             if (e instanceof CompletionException) {
                                 e = e.getCause();
@@ -180,6 +188,10 @@ public class ClusterInitializer {
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    private CompletableFuture<Void> awaitCorrectClusterTopology() {
+        return new ClusterNodesJoinAwaiter(clusterService, logicalTopology);
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
