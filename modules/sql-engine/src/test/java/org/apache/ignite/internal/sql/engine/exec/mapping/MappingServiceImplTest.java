@@ -334,10 +334,10 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.completedFuture(view.distribution() == IgniteDistributions.single()
+            public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                return view.distribution() == IgniteDistributions.single()
                         ? factory.oneOf(nodeNames)
-                        : factory.allOf(nodeNames));
+                        : factory.allOf(nodeNames);
             }
         };
     }

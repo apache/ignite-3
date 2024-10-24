@@ -1192,8 +1192,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
+            public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                throw new AssertionError("Not supported");
             }
         };
 

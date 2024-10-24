@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -37,7 +38,6 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -48,7 +48,7 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.ExecutionTargetProviderImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopologySnapshot;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.DistributionHolder.TopologySnapshot;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -68,7 +68,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
  * Always uses latest topology snapshot to map query.
  */
 public class MappingServiceImpl implements MappingService {
-    private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
+    private final DistributionHolder topologyHolder = new DistributionHolder();
     private final CompletableFuture<Void> initialTopologyFuture = new CompletableFuture<>();
 
     private final String localNodeName;
@@ -178,13 +178,13 @@ public class MappingServiceImpl implements MappingService {
                                 }
                             }
 
-                            long topVer = topologyAware ? topology.version() : Long.MAX_VALUE;
+                            long topVer = topologyAware ? topology.token() : Long.MAX_VALUE;
 
                             return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template, assignmentsPerTable));
                         }
 
-                        if (val.topVer < topology.version()) {
-                            return new MappingsCacheValue(topology.version(), val.tableIds, mapFragments(context, template, assignmentsPerTable));
+                        if (val.topVer < topology.token()) {
+                            return new MappingsCacheValue(topology.token(), val.tableIds, mapFragments(context, template, assignmentsPerTable));
                         }
 
                         return val;
@@ -203,19 +203,15 @@ public class MappingServiceImpl implements MappingService {
         IdGenerator idGenerator = new IdGenerator(template.nextId);
         List<Fragment> fragments = new ArrayList<>(template.fragments);
 
-        Stream<IntObjectPair<ExecutionTarget>> ss1 = fragments.stream().flatMap(fragment -> fragment.tables().values().stream()
+        Stream<IntObjectPair<ExecutionTarget>> tableTargets = fragments.stream().flatMap(fragment -> fragment.tables().values().stream()
                 .map(table -> IntObjectPair.of(table.id(), context.targetFactory().partitioned(assignmentsPerTable.get(table)))));
 
-        Stream<IntObjectPair<ExecutionTarget>> ss2 = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                .map(view -> IntObjectPair.of(view.id(), targetProvider.forSystemView(context.targetFactory(), view).join()))); /// !!!
-
-        List<IntObjectPair<ExecutionTarget>> targets0 = Stream.concat(ss1, ss2).collect(Collectors.toList());
+        Stream<IntObjectPair<ExecutionTarget>> viewTargets = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
+                .map(view -> IntObjectPair.of(view.id(), targetProvider.forSystemView(context.targetFactory(), view))));
 
         Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
-        for (IntObjectPair<ExecutionTarget> pair : targets0) {
-            targetsById.put(pair.firstInt(), pair.second());
-        }
+        Stream.concat(tableTargets, viewTargets).map(pair -> targetsById.put(pair.firstInt(), pair.second()));
 
         FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
 
@@ -290,10 +286,8 @@ public class MappingServiceImpl implements MappingService {
     /**
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
-    class LogicalTopologyHolder {
-
+    class DistributionHolder {
         CompletableFuture<TopologySnapshot> topology(Collection<IgniteTable> tables, HybridTimestamp operationTime, boolean mapOnBackups) {
-            List<CompletableFuture<List<TokenizedAssignments>>> result = new ArrayList<>();
             Map<IgniteTable, CompletableFuture<List<TokenizedAssignments>>> mapResult = new HashMap<>();
             Map<IgniteTable, List<TokenizedAssignments>> mapResultResolved = new HashMap<>();
 
@@ -301,51 +295,52 @@ public class MappingServiceImpl implements MappingService {
                 CompletableFuture<List<TokenizedAssignments>> assignments = ((ExecutionTargetProviderImpl) targetProvider).collectAssignments(
                         t, operationTime, mapOnBackups);
 
-                result.add(assignments);
                 mapResult.put(t, assignments);
             }
 
-            CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
+            CompletableFuture<Void> all = CompletableFuture.allOf(mapResult.values().toArray(new CompletableFuture[0]));
 
-            CompletableFuture<List<List<TokenizedAssignments>>> fut = all.thenApply(v -> result.stream()
-                    .map(CompletableFuture::join)
-                    .collect(Collectors.toUnmodifiableList())
+            CompletableFuture<Map<IgniteTable, List<TokenizedAssignments>>> fut = all.thenApply(v -> mapResult.entrySet().stream()
+                    .map(e -> Map.entry(e.getKey(), e.getValue().join()))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
             );
 
             if (tables.isEmpty()) {
                 LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
                 // todo !! fix check for null !!! local node need to be enough or not ?
-                TopologySnapshot ret = new TopologySnapshot(topologySnapshot.version(),
+                // no need to store version for table less queries
+                TopologySnapshot ret = new TopologySnapshot(0,
                         topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList()), null);
                 return CompletableFuture.completedFuture(ret);
             } else {
                 CompletableFuture<List<String>> participantNodes = fut.thenApply(
-                        v -> v.stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
+                        v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
+                                .distinct()
                                 .collect(Collectors.toList()));
 
-                return participantNodes.thenApply(l -> {
-                    l.add(localNodeName);
+/*                CompletableFuture<Long> token = fut.thenApply(
+                        v -> v.values().stream().flatMap(List::stream).map(TokenizedAssignments::token)
+                                .mapToLong(Long::longValue).sum());*/
 
+                return participantNodes.thenApply(nodes -> {
+                    nodes.add(localNodeName);
+
+                    // todo: desc join for already completed !!!
                     mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-                    return new TopologySnapshot(100, l, mapResultResolved);
+                    // todo: fix !!!
+                    return new TopologySnapshot(100, nodes, mapResultResolved);
                 });
             }
-        }
-
-        private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
-            return topology.nodes().stream()
-                    .map(LogicalNode::name)
-                    .collect(Collectors.toUnmodifiableList());
         }
 
         class TopologySnapshot {
             private final List<String> nodes;
             private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
-            private final long version;
+            private final long token;
 
-            TopologySnapshot(long version, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
-                this.version = version;
+            TopologySnapshot(long token, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+                this.token = token;
                 this.nodes = nodes;
                 this.assignmentsPerTable = assignmentsPerTable;
             }
@@ -354,11 +349,11 @@ public class MappingServiceImpl implements MappingService {
                 return nodes;
             }
 
-            public long version() {
-                return version;
+            public long token() {
+                return token;
             }
 
-            public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
+            Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
                 return assignmentsPerTable;
             }
         }

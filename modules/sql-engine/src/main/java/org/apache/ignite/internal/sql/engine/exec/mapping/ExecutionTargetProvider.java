@@ -50,5 +50,5 @@ public interface ExecutionTargetProvider {
      * @param view A view to create execution target for.
      * @return A future representing the result.
      */
-    CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view);
+    ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view);
 }

@@ -82,21 +82,17 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+    public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
         List<String> nodes = systemViewManager.owningNodes(view.name());
 
         if (nullOrEmpty(nodes)) {
-            return failedFuture(
-                    new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                            + " any active nodes in the cluster", view.name()))
-            );
+            throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                            + " any active nodes in the cluster", view.name()));
         }
 
-        return completedFuture(
-                view.distribution() == IgniteDistributions.single()
-                        ? factory.oneOf(nodes)
-                        : factory.allOf(nodes)
-        );
+        return view.distribution() == IgniteDistributions.single()
+                ? factory.oneOf(nodes)
+                : factory.allOf(nodes);
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
