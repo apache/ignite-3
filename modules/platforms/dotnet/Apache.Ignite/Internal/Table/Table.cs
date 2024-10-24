@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -38,6 +39,10 @@ namespace Apache.Ignite.Internal.Table
     /// <summary>
     /// Table API.
     /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1001:Types that own disposable fields should be disposable",
+        Justification = "SemaphoreSlim.m_waitHandle is not used.")]
     internal sealed class Table : ITable
     {
         /// <summary>
