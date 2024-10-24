@@ -19,8 +19,8 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
@@ -219,16 +219,22 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
         // raftOptions is ignored as fsync status is passed via dbOptions.
 
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, writeOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, raftNodeStorageId, writeOptions, executorService);
     }
 
     @Override
     public void destroyLogStorage(String uri) {
         try {
-            RocksDbSharedLogStorage.destroyAllEntriesBetween(db, confHandle, dataHandle, groupStartPrefix(uri), groupEndPrefix(uri));
+            RocksDbSharedLogStorage.destroyAllEntriesBetween(
+                    db,
+                    confHandle,
+                    dataHandle,
+                    raftNodeStorageStartPrefix(uri),
+                    raftNodeStorageEndPrefix(uri)
+            );
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }
