@@ -55,6 +55,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -305,13 +306,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all subscription messages to peers are sent.
      */
     public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
-        assert !serverEventHandler.isSubscribed() : "The node already subscribed";
+        if (serverEventHandler.isSubscribed()) {
+            eventsClientListener.addLeaderElectionListener(groupId(), callback);
+        } else {
+            serverEventHandler.setOnLeaderElectedCallback(callback);
+        }
 
         int peers = peers().size();
 
         var futs = new CompletableFuture[peers];
-
-        serverEventHandler.setOnLeaderElectedCallback(callback);
 
         for (int i = 0; i < peers; i++) {
             Peer peer = peers().get(i);
@@ -358,6 +361,22 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         serverEventHandler.setOnLeaderElectedCallback(null);
         serverEventHandler.resetLeader();
 
+        return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
+    }
+
+    /**
+     * TODO.
+     *
+     * @param callback TODO.
+     * @return TODO.
+     */
+    public CompletableFuture<Void> unsubscribeLeader(LeaderElectionListener callback) {
+        eventsClientListener.removeLeaderElectionListener(groupId(), callback);
+
+        return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
+    }
+
+    private @NotNull CompletableFuture<Void> sendUnsubscribeLeaderMessageAndClearSubscribersMap() {
         var peers = peers();
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 

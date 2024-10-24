@@ -78,6 +78,11 @@ public class ReplicaImpl implements Replica {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
+    // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
+    //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
+    /** Completes when leader is elected. */
+    private final CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
+
     /** Container of the elected leader. */
     private final AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
@@ -126,6 +131,8 @@ public class ReplicaImpl implements Replica {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.replicaReservationClosure = replicaReservationClosure;
+
+        raftClient.subscribeLeader(this::onLeaderElected);
     }
 
     @Override
@@ -151,6 +158,18 @@ public class ReplicaImpl implements Replica {
     @Override
     public ReplicationGroupId groupId() {
         return replicaGrpId;
+    }
+
+    private void onLeaderElected(ClusterNode clusterNode, long term) {
+        leaderRef.set(clusterNode);
+
+        if (!leaderFuture.isDone()) {
+            leaderFuture.complete(leaderRef);
+        }
+    }
+
+    private CompletableFuture<ClusterNode> leaderFuture() {
+        return leaderFuture.thenApply(AtomicReference::get);
     }
 
     @Override
@@ -187,55 +206,49 @@ public class ReplicaImpl implements Replica {
         LOG.info("Received LeaseGrantedMessage for replica [groupId={}, leaseStartTime={}, force={}].", groupId(), msg.leaseStartTime(),
                 msg.force());
 
-        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(leaderWithTerm -> {
-                    assert !leaderWithTerm.isEmpty();
+        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
+            HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
-                    String leaderConsistentId = leaderWithTerm.leader().consistentId();
+            if (leaseExpirationTime != null) {
+                assert clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
+                        : "Invalid lease expiration time in message, msg=" + msg;
+            }
 
-                    HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
+            if (msg.force()) {
+                // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
+                // group leader are received.
 
-                    if (leaseExpirationTime != null) {
-                        assert clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
-                                : "Invalid lease expiration time in message, msg=" + msg;
-                    }
+                return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
+                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                msg.leaseStartTime().longValue(),
+                                localNode.id(),
+                                localNode.name()
+                        ))
+                        .thenCompose(v -> {
+                            CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
-                    if (msg.force()) {
-                        // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
-                        // group leader are received.
-
-                        return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                                .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                        msg.leaseStartTime().longValue(),
-                                        localNode.id(),
-                                        localNode.name()
-                                ))
-                                .thenCompose(v -> {
-                                    CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                            acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
-
-                                    if (leaderConsistentId.equals(localNode.name())) {
-                                        return respFut;
-                                    } else {
-                                        return raftClient.transferLeadership(new Peer(localNode.name()))
-                                                .thenCompose(ignored -> respFut);
-                                    }
-                                });
-                    } else {
-                        if (leaderConsistentId.equals(localNode.name())) {
-                            return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                                    .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                            msg.leaseStartTime().longValue(),
-                                            localNode.id(),
-                                            localNode.name()
-                                    ))
-                                    .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
-                        } else {
-                            return proposeLeaseRedirect(leaderConsistentId);
-                        }
-                    }
-                })
-        );
+                            if (leader.equals(localNode)) {
+                                return respFut;
+                            } else {
+                                return raftClient.transferLeadership(new Peer(localNode.name()))
+                                        .thenCompose(ignored -> respFut);
+                            }
+                        });
+            } else {
+                if (leader.equals(localNode)) {
+                    return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
+                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                    msg.leaseStartTime().longValue(),
+                                    localNode.id(),
+                                    localNode.name()
+                            ))
+                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                } else {
+                    return proposeLeaseRedirect(leader);
+                }
+            }
+        }));
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(
@@ -267,12 +280,12 @@ public class ReplicaImpl implements Replica {
         return completedFuture(resp);
     }
 
-    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(String groupLeaderConsistentId) {
-        LOG.info("Proposing lease redirection [groupId={}, proposed node={}].", groupId(), groupLeaderConsistentId);
+    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
+        LOG.info("Proposing lease redirection [groupId={}, proposed node={}].", groupId(), groupLeader);
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
-                .redirectProposal(groupLeaderConsistentId)
+                .redirectProposal(groupLeader.name())
                 .build();
 
         return completedFuture(resp);

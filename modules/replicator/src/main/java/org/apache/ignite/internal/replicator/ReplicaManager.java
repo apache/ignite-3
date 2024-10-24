@@ -88,6 +88,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -1201,6 +1202,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
 
+        private LeaderElectionListener onLeaderElectedFailoverCallback;
+
         ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
@@ -1233,14 +1236,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
                     replicaManager.replica(replicationGroupId)
-                            .thenAccept(replica ->
-                                replica.raftClient().subscribeLeader(
-                                        (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                                                replica,
-                                                replicationGroupId,
-                                                term
-                                        )
-                                ));
+                            .thenAccept(replica -> {
+                                onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                                        replica,
+                                        replicationGroupId,
+                                        term
+                                );
+
+                                replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
+                            });
 
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
@@ -1266,8 +1270,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        replicaManager.replica(parameters.groupId())
-                                        .thenAccept(expiredPrimaryReplica -> expiredPrimaryReplica.raftClient().unsubscribeLeader());
+                        replicaManager.replica(parameters.groupId()).thenAccept(expiredPrimaryReplica -> expiredPrimaryReplica.raftClient()
+                                .unsubscribeLeader(onLeaderElectedFailoverCallback)
+                        );
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
