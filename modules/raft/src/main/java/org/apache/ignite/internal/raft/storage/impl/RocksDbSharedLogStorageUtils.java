@@ -21,20 +21,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 class RocksDbSharedLogStorageUtils {
     /**
-     * Returns start prefix for the group.
+     * Returns start prefix for the raft node.
      *
-     * @param groupId ID of the group.
+     * @param raftNodeStorageId ID of the raft node storage.
      */
-    static byte[] groupStartPrefix(String groupId) {
-        return (groupId + (char) 0).getBytes(UTF_8);
+    static byte[] raftNodeStorageStartPrefix(String raftNodeStorageId) {
+        return (raftNodeStorageId + (char) 0).getBytes(UTF_8);
     }
 
     /**
-     * Returns end prefix for the group.
+     * Returns end prefix for the raft node.
      *
-     * @param groupId ID of the group.
+     * @param raftNodeStorageId ID of the raft node storage.
      */
-    static byte[] groupEndPrefix(String groupId) {
-        return (groupId + (char) 1).getBytes(UTF_8);
+    static byte[] raftNodeStorageEndPrefix(String raftNodeStorageId) {
+        return (raftNodeStorageId + (char) 1).getBytes(UTF_8);
     }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
@@ -112,15 +112,15 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, groupId, executor);
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
+        RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, raftNodeStorageId, executor);
         return new VolatileLogStorage(createLogStorageBudget(), new OnHeapLogs(), spiltOnDisk);
     }
 
     @Override
     public void destroyLogStorage(String uri) {
         try {
-            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, groupStartPrefix(uri), groupEndPrefix(uri));
+            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, raftNodeStorageStartPrefix(uri), raftNodeStorageEndPrefix(uri));
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage spillout for " + uri, e);
         }
