@@ -2291,24 +2291,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignments newConfiguration,
             long currentRevision
     ) {
-        TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
-                .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
-
-        ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(newConfiguration.toBytes())
-                .order(BinaryTuple.ORDER);
-
-        BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                .elementCount(newConfiguration.nodes().size())
-                .tuple(pendingAssignmentsBytes)
-                .build();
-
-        ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY
-                .changePeersAndLearnersReplicaRequest()
-                .groupId(partitionIdMessage)
-                .pendingAssignments(pendingAssignmentsMessage)
-                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                .build();
-
         metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
             // Do not change peers of the raft group if this is a stale event.
             // Note that we start raft node before for the sake of the consistency in a
@@ -2316,6 +2298,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             if (currentRevision < latestPendingAssignmentsEntry.revision()) {
                 return;
             }
+
+            TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
+                    .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
+
+            ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(newConfiguration.toBytes())
+                    .order(BinaryTuple.ORDER);
+
+            BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
+                    .elementCount(newConfiguration.nodes().size())
+                    .tuple(pendingAssignmentsBytes)
+                    .build();
+
+            ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersReplicaRequest()
+                    .groupId(partitionIdMessage)
+                    .pendingAssignments(pendingAssignmentsMessage) // TODO: remove?
+                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    .build();
 
             replicaSvc.invoke(localNode(), request);
         });

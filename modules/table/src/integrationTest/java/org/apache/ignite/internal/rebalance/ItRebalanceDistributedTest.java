@@ -1358,7 +1358,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                            .thenApply(Entry::value)
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

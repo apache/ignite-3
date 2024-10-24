@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -228,7 +229,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager,
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> nullCompletedFuture() // TODO: check me
             );
 
             replicaManagers.put(nodeName, replicaManager);

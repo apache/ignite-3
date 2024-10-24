@@ -602,13 +602,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersReplicaRequest request) {
         TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
 
-        RaftGroupService raftClient;
-
-        if (raftCommandRunner instanceof RaftGroupService) {
-            raftClient = (RaftGroupService) raftCommandRunner;
-        } else {
-            raftClient = ((RaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner());
-        }
+        RaftGroupService raftClient = raftCommandRunner instanceof RaftGroupService
+                ? (RaftGroupService) raftCommandRunner
+                : ((RaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner());
 
         return raftClient.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
@@ -642,7 +638,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                             replicaGrpId.partitionId(),
                             catalogService.table(replicaGrpId.tableId(), catalogService.latestCatalogVersion()).name()
                     );
-
 
                     return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
                 });

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -464,7 +465,8 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> nullCompletedFuture() // TODO: check me
             );
 
             assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());

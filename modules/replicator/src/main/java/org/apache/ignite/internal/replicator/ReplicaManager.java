@@ -260,7 +260,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter,
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this(
                 nodeName,
@@ -277,7 +278,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftManager,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                replicaStartStopExecutor
+                replicaStartStopExecutor,
+                getPendingAssignmentsSupplier
         );
 
         this.groupIdConverter = groupIdConverter;
@@ -316,7 +318,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor
+            Executor replicaStartStopExecutor,
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -333,7 +336,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
-        this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
+        this.replicaStateManager = new ReplicaStateManager(
+                replicaStartStopExecutor,
+                clockService,
+                placementDriver,
+                getPendingAssignmentsSupplier,
+                this
+        );
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -1190,15 +1199,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         volatile UUID localNodeId;
 
+        private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
         ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
                 PlacementDriver placementDriver,
+                Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
                 ReplicaManager replicaManager
         ) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
+            this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
             this.replicaManager = replicaManager;
         }
 
@@ -1209,17 +1222,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-            ReplicationGroupId groupId = parameters.groupId();
-            ReplicaStateContext context = getContext(groupId);
+            TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
+            ReplicaStateContext context = getContext(replicationGroupId);
 
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED
-                            : "Unexpected primary replica state STOPPED [groupId=" + groupId
+                            : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
+
+                    replicaManager.replica(replicationGroupId)
+                            .thenAccept(replica ->
+                                replica.raftClient().subscribeLeader(
+                                        (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                                                replica,
+                                                replicationGroupId,
+                                                term
+                                        )
+                                ));
+
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId, parameters.startTime());
+                    context.assertReservation(replicationGroupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1227,7 +1251,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(groupId, context);
+                            executeDeferredReplicaStop(replicationGroupId, context);
                         }
                     }
                 }
@@ -1242,6 +1266,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
+                        replicaManager.replica(parameters.groupId())
+                                        .thenAccept(expiredPrimaryReplica -> expiredPrimaryReplica.raftClient().unsubscribeLeader());
+
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1257,6 +1284,31 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             return falseCompletedFuture();
+        }
+
+        private void changePeersAndLearnersAsyncIfPendingExists(
+                Replica primaryReplica,
+                TablePartitionId replicationGroupId,
+                long term
+        ) {
+            getPendingAssignmentsSupplier.apply(replicationGroupId)
+                    .thenAccept(pendings -> {
+
+                        if (pendings == null) {
+                            return;
+                        }
+
+                        Assignments newConfiguration = Assignments.fromBytes(pendings);
+
+                        PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
+
+                        LOG.info(
+                                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                                replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
+                        );
+
+                        primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
+                    });
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {

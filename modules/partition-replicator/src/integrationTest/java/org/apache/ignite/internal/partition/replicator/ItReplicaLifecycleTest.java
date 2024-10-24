@@ -113,6 +113,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -128,6 +129,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -1241,8 +1243,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
-                    t -> converter.get().apply(t)
-            );
+                    t -> converter.get().apply(t),
+                    replicaGrpId -> metaStorageManager.get(ZoneRebalanceUtil.pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
+                            .thenApply(Entry::value)
+                );
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
