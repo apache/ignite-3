@@ -193,8 +193,8 @@ artifacts {
             builtBy cmakeBuildClient
         }
 
-        def projectVersion = cmakeProjectVersion(project.projectVersion.toString())
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.$projectVersion")) {
+        def cmakeProjectVersion = cmakeProjectVersion(project.projectVersion.toString())
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.$cmakeProjectVersion")) {
             builtBy cmakeBuildClient
         }
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
@@ -209,7 +209,7 @@ artifacts {
             odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
                 builtBy cmakeBuildOdbc
             }
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.$projectVersion")) {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.$cmakeProjectVersion")) {
                 builtBy cmakeBuildOdbc
             }
         }
