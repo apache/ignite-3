@@ -19,6 +19,8 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger.COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger.COMPACTION_INTERVAL_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,8 +50,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test for {@link MetaStorageCompactionTrigger}. */
-@WithSystemProperty(key = "IGNITE_COMPACTION_START_INTERVAL", value = "10")
-@WithSystemProperty(key = "IGNITE_COMPACTION_DATA_AVAILABILITY_TIME", value = "10")
+@WithSystemProperty(key = COMPACTION_INTERVAL_PROPERTY, value = "10")
+@WithSystemProperty(key = COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY, value = "10")
 public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrationTest {
     private static final ByteArray FOO_KEY = ByteArray.fromString("foo_key");
 

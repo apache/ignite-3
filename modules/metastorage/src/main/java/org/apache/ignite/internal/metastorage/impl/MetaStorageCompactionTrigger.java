@@ -64,6 +64,12 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
+    /** System property that defines compaction start interval (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
+    public static final String COMPACTION_INTERVAL_PROPERTY = "IGNITE_COMPACTION_INTERVAL";
+
+    /** System property that defines data availability time (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
+    public static final String COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY = "IGNITE_COMPACTION_DATA_AVAILABILITY_TIME";
+
     private final String localNodeName;
 
     private final KeyValueStorage storage;
@@ -85,11 +91,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
     /** Compaction start interval (in milliseconds). */
     // TODO: IGNITE-23279 Change configuration
-    private final long startInterval = IgniteSystemProperties.getLong("IGNITE_COMPACTION_START_INTERVAL", Long.MAX_VALUE);
+    private final long startInterval = IgniteSystemProperties.getLong(COMPACTION_INTERVAL_PROPERTY, Long.MAX_VALUE);
 
     /** Data availability time (in milliseconds). */
     // TODO: IGNITE-23279 Change configuration
-    private final long dataAvailabilityTime = IgniteSystemProperties.getLong("IGNITE_COMPACTION_DATA_AVAILABILITY_TIME", Long.MAX_VALUE);
+    private final long dataAvailabilityTime = IgniteSystemProperties.getLong(COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY, Long.MAX_VALUE);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -166,7 +172,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
                                 if (!(cause instanceof NodeStoppingException)) {
                                     LOG.error(
-                                            "Unknown error on new metastorage compaction revision: ",
+                                            "Unknown error on new metastorage compaction revision: {}",
                                             cause,
                                             newCompactionRevision
                                     );
@@ -177,7 +183,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         });
             }
         } catch (Throwable t) {
-            LOG.error("Unknown error on new metastorage compaction revision", t);
+            LOG.error("Unknown error on new metastorage compaction revision scheduling", t);
 
             inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
         } finally {
