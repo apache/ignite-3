@@ -85,6 +85,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -213,10 +214,13 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             storage = spy(new RocksDbKeyValueStorage(
                     clusterService.nodeName(),
                     metastorageWorkDir.dbPath(),
-                    new NoOpFailureManager()
+                    new NoOpFailureManager(),
+                    readOperationForCompactionTracker
             ));
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -229,7 +233,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
@@ -525,12 +530,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 .fromConsistentIds(nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet()));
 
         try {
-            CompletableFuture<RaftGroupService> raftServiceFuture = node.raftManager
+            return node.raftManager
                     .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
-
-            assertThat(raftServiceFuture, willCompleteSuccessfully());
-
-            return raftServiceFuture.join();
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }

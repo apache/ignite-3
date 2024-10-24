@@ -36,8 +36,8 @@ public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
     /** Returns node's minimum required time. */
     long minimumRequiredTime();
 
-    /** Returns node's minimum starting time among locally started active RW transactions. */
-    long minimumActiveTxTime();
+    /** Returns node's minimum time required by active RW transactions. */
+    long activeTxMinimumRequiredTime();
 
     /** Returns available table partitions. */
     List<AvailablePartitionsMessage> partitions();

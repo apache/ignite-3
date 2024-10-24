@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -76,6 +75,7 @@ import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -102,6 +102,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -110,6 +111,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
 
     public static final int MAX_LENGTH_OF_ALIASES = 256;
+    public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
+    public static final int DECIMAL_DYNAMIC_PARAM_SCALE = 6;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
@@ -725,6 +728,19 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+        // if we already know the type, no need to re-derive
+        RelDataType type = getValidatedNodeTypeIfKnown(expr);
+        if (type != null) {
+            if (expr instanceof SqlDynamicParam) {
+                // Validated node type may be reassigned by the operators return type inference strategy and
+                // operands checker. Both of them are ot aware about DynamicParamState we use for validation,
+                // thus we need to update return type even if it was already assigned.
+                setDynamicParamType((SqlDynamicParam) expr, type);
+            }
+
+            return type;
+        }
+
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
         }
@@ -860,6 +876,25 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         // propagate null type validation
         if (nullType) {
+            return;
+        }
+
+        returnType = typeFactory().createTypeWithNullability(returnType, operandType.isNullable());
+
+        setValidatedNodeType(expr, returnType);
+
+        if (castOperand instanceof SqlDynamicParam 
+                && operandType.getSqlTypeName() == SqlTypeName.DECIMAL
+                && returnType.getSqlTypeName() == SqlTypeName.DECIMAL
+        ) {
+            // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and 
+            // DECIMAL_DYNAMIC_PARAM_SCALE at the beginning of the class declaration). Although this default seems
+            // reasonable, it may not satisfy all of users. For those who need better control over type of dyn params
+            // there is an ability to specify more precise type by CAST operation. Therefore if type of the dyn param
+            // is decimal, and it immediately casted to DECIMAL as well, we need override type of the dyn param to desired
+            // one.
+            setDynamicParamType((SqlDynamicParam) castOperand, returnType);
+
             return;
         }
 
@@ -1294,7 +1329,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private void inferDynamicParamType(RelDataType inferredType, SqlDynamicParam dynamicParam) {
-        RelDataType type = deriveDynamicParamType(dynamicParam);
+        RelDataType type = deriveDynamicParamTypeIfNotKnown(dynamicParam);
 
         /*
          * If inferredType type is unknown and parameter is not specified, then use unknown type.
@@ -1317,20 +1352,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
+    private RelDataType deriveDynamicParamTypeIfNotKnown(SqlDynamicParam dynamicParam) {
+        RelDataType validatedNodeType = getValidatedNodeTypeIfKnown(dynamicParam);
+
+        if (validatedNodeType != null) {
+            return validatedNodeType;
+        }
+
+        return deriveDynamicParamType(dynamicParam);
+    }
+
     /** Derives the type of the given dynamic parameter. */
     private RelDataType deriveDynamicParamType(SqlDynamicParam dynamicParam) {
         dynamicParamNodes.put(dynamicParam, dynamicParam);
 
         if (isUnspecified(dynamicParam)) {
-            RelDataType validatedNodeType = getValidatedNodeTypeIfKnown(dynamicParam);
+            setDynamicParamType(dynamicParam, unknownType);
 
-            if (validatedNodeType == null) {
-                setDynamicParamType(dynamicParam, unknownType);
-                return unknownType;
-            } else {
-                setDynamicParamType(dynamicParam, validatedNodeType);
-                return validatedNodeType;
-            }
+            return unknownType;
         } else {
             Object value = getDynamicParamValue(dynamicParam);
             RelDataType parameterType = deriveTypeFromDynamicParamValue(value);
@@ -1347,20 +1386,40 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
-        IgniteTypeFactory typeFactory = typeFactory();
-
-        RelDataType parameterType;
-        // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
-        // If so call createCustomType with appropriate arguments.
-        if (value instanceof UUID) {
-            parameterType = typeFactory.createCustomType(UuidType.NAME);
-        } else if (value == null) {
-            parameterType = typeFactory.createSqlType(SqlTypeName.NULL);
-        } else {
-            parameterType = typeFactory.toSql(typeFactory.createType(value.getClass()));
+        if (value == null) {
+            return typeFactory.createSqlType(SqlTypeName.NULL);
         }
 
-        return parameterType;
+        Class<?> valueClass = value.getClass();
+
+        if (valueClass == Character.class) {
+            valueClass = String.class;
+        }
+
+        NativeTypeSpec spec = NativeTypeSpec.fromClass(valueClass);
+
+        assert spec != null : "Unable to derive type from value: " + value;
+
+        switch (spec) {
+            case INT8: return typeFactory.createSqlType(SqlTypeName.TINYINT);
+            case INT16: return typeFactory.createSqlType(SqlTypeName.SMALLINT);
+            case INT32: return typeFactory.createSqlType(INTEGER);
+            case INT64: return typeFactory.createSqlType(SqlTypeName.BIGINT);
+            case FLOAT: return typeFactory.createSqlType(SqlTypeName.REAL);
+            case DOUBLE: return typeFactory.createSqlType(SqlTypeName.DOUBLE);
+            case BOOLEAN: return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
+            case UUID: return typeFactory().createCustomType(UuidType.NAME);
+            case DATE: return typeFactory.createSqlType(SqlTypeName.DATE);
+            case TIME: return typeFactory.createSqlType(SqlTypeName.TIME);
+            case DATETIME: return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
+            case TIMESTAMP: return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+            case DECIMAL: return typeFactory.createSqlType(
+                    SqlTypeName.DECIMAL, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
+            );
+            case BYTES: return typeFactory.createSqlType(SqlTypeName.VARBINARY, BasicSqlType.PRECISION_NOT_SPECIFIED);
+            case STRING: return typeFactory.createSqlType(SqlTypeName.VARCHAR, BasicSqlType.PRECISION_NOT_SPECIFIED);
+            default: throw new AssertionError("Unknown type " + spec);
+        }
     }
 
     /** if dynamic parameter is not specified, set its type to the provided type, otherwise return the type of its value. */
@@ -1372,7 +1431,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             return nullableContextType;
         } else {
-            return deriveDynamicParamType(dynamicParam);
+            return deriveDynamicParamTypeIfNotKnown(dynamicParam);
         }
     }
 
@@ -1418,20 +1477,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 continue;
             }
 
-            Object value = state.value;
-            RelDataType valueType = deriveTypeFromDynamicParamValue(value);
             RelDataType derivedType = getValidatedNodeTypeIfKnown(node);
             RelDataType paramType = state.resolvedType;
-
-            // Ensure that derived type matches parameter's value.
-            if (!SqlTypeUtil.equalSansNullability(derivedType, valueType)) {
-                String message = format(
-                        "Type of dynamic parameter#{} value type does not match. Expected: {} derived: {}",
-                        i, valueType.getFullTypeString(), derivedType.getFullTypeString()
-                );
-
-                throw new AssertionError(message);
-            }
 
             if (!Objects.equals(paramType, derivedType)) {
                 String message = format(

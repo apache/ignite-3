@@ -23,14 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -38,24 +30,23 @@ import org.junit.jupiter.api.Test;
 class PojoConverterTest {
     @Test
     void allTypes() {
-        Pojo src = new Pojo(
-                true, (byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", UUID.randomUUID(), new byte[]{1, 2, 3},
-                LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(),
-                Period.of(1, 2, 3), Duration.of(1, ChronoUnit.DAYS)
-        );
+        Pojo src = Pojo.generateTestPojo(true);
         Tuple tuple = toTuple(src);
         Pojo dst = new Pojo();
         fromTuple(dst, tuple);
         assertThat(dst, is(src));
     }
 
+    /*
+     * Nested Pojo is null in this case.
+     */
     @Test
-    void nestedPojo() {
-        assertThrows(
-                PojoConversionException.class,
-                () -> toTuple(new ChildPojo()),
-                "Can't convert subclasses"
-        );
+    void allTypesWithoutNested() {
+        Pojo src = Pojo.generateTestPojo(false);
+        Tuple tuple = toTuple(src);
+        Pojo dst = new Pojo();
+        fromTuple(dst, tuple);
+        assertThat(dst, is(src));
     }
 
     @Test

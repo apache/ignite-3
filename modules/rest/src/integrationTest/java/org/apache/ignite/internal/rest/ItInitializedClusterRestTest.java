@@ -242,7 +242,10 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then
         assertThat(response.statusCode(), is(200));
-        // And version is a semver
-        assertThat(response.body(), matchesRegex(IgniteProductVersion.VERSION_PATTERN));
+        // And version contains product name and version which is a semver
+        assertAll(
+                () -> assertThat(response.body(), hasJsonPath("$.version", matchesRegex(IgniteProductVersion.VERSION_PATTERN))),
+                () -> assertThat(response.body(), hasJsonPath("$.product", is("Apache Ignite")))
+        );
     }
 }

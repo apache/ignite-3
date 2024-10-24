@@ -76,6 +76,15 @@ public interface IgniteDataOutput extends DataOutput {
     void cleanup();
 
     /**
+     * Writes a long value as a varint. Non-negative values and -1 are encoded efficiently with respect to compactness.
+     * Negative values (like -2) take a lot more space.
+     *
+     * @param val Value to write.
+     * @throws IOException If something goes wrong.
+     */
+    void writeVarInt(long val) throws IOException;
+
+    /**
      * Writes array of {@code byte}s.
      *
      * @param arr Array.

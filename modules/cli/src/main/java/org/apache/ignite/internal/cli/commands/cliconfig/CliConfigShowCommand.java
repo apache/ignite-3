@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.decorators.ProfileDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -43,7 +42,6 @@ public class CliConfigShowCommand extends BaseCommand implements Callable<Intege
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new StringCallInput(profileName.getProfileName()))
-                .decorator(new ProfileDecorator())
         );
     }
 }

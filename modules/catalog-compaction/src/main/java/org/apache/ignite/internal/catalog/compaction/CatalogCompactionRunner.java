@@ -72,7 +72,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
@@ -125,7 +125,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
-    private final ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider;
+    private final ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider;
 
     private final ReplicaService replicaService;
 
@@ -162,7 +162,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
             Executor executor,
-            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
+            ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService
     ) {
         this.localNodeName = localNodeName;
@@ -175,7 +175,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.executor = executor;
-        this.activeLocalTxMinimumBeginTimeProvider = activeLocalTxMinimumBeginTimeProvider;
+        this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
         this.localMinTimeCollectorService = minimumRequiredTimeCollectorService;
     }
 
@@ -291,7 +291,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenComposeAsync(timeHolder -> {
 
                     long minRequiredTime = timeHolder.minRequiredTime;
-                    long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
+                    long txMinRequiredTime = timeHolder.txMinRequiredTime;
                     Map<String, Map<Integer, BitSet>> allPartitions = timeHolder.allPartitions;
 
                     CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(
@@ -301,13 +301,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             allPartitions
                     );
 
-                    LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}].", minActiveTxBeginTime);
+                    LOG.debug("Propagate minimum required tx time to replicas [timestamp={}].", txMinRequiredTime);
 
                     CompletableFuture<Void> propagateToReplicasFut =
-                            propagateTimeToNodes(minActiveTxBeginTime, topologySnapshot.nodes())
+                            propagateTimeToNodes(txMinRequiredTime, topologySnapshot.nodes())
                                     .whenComplete((ignore, ex) -> {
                                         if (ex != null) {
-                                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                                            LOG.warn("Failed to propagate minimum required tx time to replicas.", ex);
                                         }
                                     });
 
@@ -349,7 +349,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
-                    long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
+                    long globalMinimumTxRequiredTime = activeLocalTxMinimumRequiredTimeProvider.minimumRequiredTime();
 
                     Map<String, Map<Integer, BitSet>> allPartitions = new HashMap<>();
                     allPartitions.put(localNodeName, localPartitions);
@@ -364,14 +364,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
                         }
 
-                        if (response.minimumActiveTxTime() < globalMinimumActiveTxTime) {
-                            globalMinimumActiveTxTime = response.minimumActiveTxTime();
+                        if (response.activeTxMinimumRequiredTime() < globalMinimumTxRequiredTime) {
+                            globalMinimumTxRequiredTime = response.activeTxMinimumRequiredTime();
                         }
 
                         allPartitions.put(nodeId, availablePartitionListToMap(response.partitions()));
                     }
 
-                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime, allPartitions);
+                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumTxRequiredTime, allPartitions);
                 });
     }
 
@@ -666,7 +666,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
-                    .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
+                    .activeTxMinimumRequiredTime(activeLocalTxMinimumRequiredTimeProvider.minimumRequiredTime())
                     .partitions(availablePartitionsMessages(availablePartitions))
                     .build();
 
@@ -721,12 +721,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     static class TimeHolder {
         final long minRequiredTime;
-        final long minActiveTxBeginTime;
+        final long txMinRequiredTime;
         final Map<String, Map<Integer, BitSet>> allPartitions;
 
-        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, Map<String, Map<Integer, BitSet>> allPartitions) {
+        private TimeHolder(long minRequiredTime, long txMinRequiredTime, Map<String, Map<Integer, BitSet>> allPartitions) {
             this.minRequiredTime = minRequiredTime;
-            this.minActiveTxBeginTime = minActiveTxBeginTime;
+            this.txMinRequiredTime = txMinRequiredTime;
             this.allPartitions = allPartitions;
         }
     }

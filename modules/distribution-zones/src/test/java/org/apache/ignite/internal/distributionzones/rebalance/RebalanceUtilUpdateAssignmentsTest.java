@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -85,6 +87,8 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtilUpdateAssignmentsTest.class);
+
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
@@ -129,9 +133,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
+        String nodeName = "test";
 
-        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
+
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
 
@@ -498,21 +504,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             keyValueStorage.put(
                     RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(),
                     toBytes(currentStableAssignments, assignmentsTimestamp),
-                    HybridTimestamp.MIN_VALUE);
+                    KV_UPDATE_CONTEXT);
         }
 
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(),
                     toBytes(currentPendingAssignments, assignmentsTimestamp),
-                    HybridTimestamp.MIN_VALUE);
+                    KV_UPDATE_CONTEXT);
         }
 
         if (currentPlannedAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(),
                     toBytes(currentPlannedAssignments, assignmentsTimestamp),
-                    HybridTimestamp.MIN_VALUE);
+                    KV_UPDATE_CONTEXT);
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(

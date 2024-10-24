@@ -55,6 +55,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
@@ -524,9 +525,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         try {
             storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(
-                        new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
-                );
+                storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
                 storage.lastApplied(config.index(), config.term());
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
@@ -580,16 +579,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
-    public void onLeaderStart() {
-        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
-    }
-
-    @Override
     public boolean onBeforeApply(Command command) {
         // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
             long proposedSafeTime = cmd.safeTime().longValue();
+
+            if (maxObservableSafeTime == -1) {
+                maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
+                LOG.info("maxObservableSafeTime is initialized with [" + maxObservableSafeTime + "].");
+            }
 
             // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
             // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
@@ -597,11 +596,17 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
             } else {
-                throw new SafeTimeReorderException();
+                throw new SafeTimeReorderException(maxObservableSafeTime);
             }
         }
 
         return false;
+    }
+
+    @Override
+    public void onLeaderStop() {
+        maxObservableSafeTime = -1;
+        LOG.info("maxObservableSafeTime is set to [" + maxObservableSafeTime + "] on leader stop.");
     }
 
     /**

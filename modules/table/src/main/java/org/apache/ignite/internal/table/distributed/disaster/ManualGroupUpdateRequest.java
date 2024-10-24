@@ -74,9 +74,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
-    /** Serial version UID. */
-    private static final long serialVersionUID = 0L;
-
     private final UUID operationId;
 
     /**

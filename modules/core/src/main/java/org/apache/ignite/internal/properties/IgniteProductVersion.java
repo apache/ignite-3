@@ -59,6 +59,9 @@ public class IgniteProductVersion implements Serializable {
     /** Version of the current node. */
     public static final IgniteProductVersion CURRENT_VERSION = fromString(IgniteProperties.get(IgniteProperties.VERSION));
 
+    /** Product name of the current node. */
+    public static final String CURRENT_PRODUCT = IgniteProperties.get(IgniteProperties.PRODUCT);
+
     /** Major version number. */
     private final byte major;
 

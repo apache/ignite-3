@@ -46,13 +46,19 @@ class SimpleInMemoryKeyValueStorageSnapshot implements Serializable {
 
     final long savedCompactionRevision;
 
+    final long term;
+
+    final long index;
+
     SimpleInMemoryKeyValueStorageSnapshot(
             Map<byte[], List<Long>> keysIdx,
             Map<Long, Long> tsToRevMap,
             Map<Long, HybridTimestamp> revToTsMap,
             Map<Long, Map<byte[], ValueSnapshot>> revsIdx,
             long rev,
-            long savedCompactionRevision
+            long savedCompactionRevision,
+            long term,
+            long index
     ) {
         this.keysIdx = keysIdx;
         this.tsToRevMap = tsToRevMap;
@@ -60,5 +66,7 @@ class SimpleInMemoryKeyValueStorageSnapshot implements Serializable {
         this.revsIdx = revsIdx;
         this.rev = rev;
         this.savedCompactionRevision = savedCompactionRevision;
+        this.term = term;
+        this.index = index;
     }
 }

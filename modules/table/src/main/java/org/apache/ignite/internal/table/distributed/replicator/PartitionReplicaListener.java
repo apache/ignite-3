@@ -259,7 +259,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replication retries limit. */
-    private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
+    private static final int MAX_RETRIES_ON_SAFE_TIME_REORDERING = 1000;
 
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
@@ -2657,25 +2657,37 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
         attemptsCounter++;
-        if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
+        if (attemptsCounter >= MAX_RETRIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
-                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
+                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETRIES_ON_SAFE_TIME_REORDERING));
         }
 
+        int attemptsCounter0 = attemptsCounter;
         raftClient.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
                     assert cmd instanceof SafeTimePropagatingCommand;
 
+                    SafeTimeReorderException safeTimeReorderException = (SafeTimeReorderException) (ex instanceof SafeTimeReorderException
+                            ? ex : ex.getCause());
+
                     SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
 
-                    HybridTimestamp safeTimeForRetry = clockService.now();
+                    clockService.waitFor(hybridTimestamp(safeTimeReorderException.maxObservableSafeTimeViolatedValue())).thenRun(
+                            () -> {
+                                HybridTimestamp safeTimeForRetry = clockService.now();
 
-                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
-                            (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
-                    clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
+                                SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
+                                        (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
+                                clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
 
-                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
+                                applyCmdWithRetryOnSafeTimeReorderException(
+                                        clonedSafeTimePropagatingCommand,
+                                        resultFuture,
+                                        attemptsCounter0
+                                );
+                            }
+                    );
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
@@ -3520,7 +3532,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
-        HybridTimestamp now = clockService.now();
+        HybridTimestamp current = clockService.current();
 
         if (request instanceof PrimaryReplicaRequest) {
             Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
@@ -3541,7 +3553,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                 if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                        || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
+                        || clockService.before(primaryReplicaMeta.getExpirationTime(), current)
                         || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
                 ) {
                     throw new PrimaryReplicaMissException(
@@ -3557,7 +3569,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue());
             };
 
-            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, current);
 
             if (meta != null) {
                 try {
@@ -3567,9 +3579,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             }
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, now).thenApply(validateClo);
+            return placementDriver.getPrimaryReplica(replicationGroupId, current).thenApply(validateClo);
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+            return placementDriver.getPrimaryReplica(replicationGroupId, current)
                     .thenApply(primaryReplica -> new IgniteBiTuple<>(
                             primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
                             null

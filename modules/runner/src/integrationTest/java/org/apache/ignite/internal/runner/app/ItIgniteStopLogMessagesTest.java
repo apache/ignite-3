@@ -85,8 +85,8 @@ public class ItIgniteStopLogMessagesTest extends ClusterPerTestIntegrationTest {
 
     @AfterEach
     @Override
-    public void tearDown() {
-        super.tearDown();
+    public void stopCluster() {
+        super.stopCluster();
 
         logInspectors.forEach(FailureMessageInspector::stop);
 
@@ -94,7 +94,7 @@ public class ItIgniteStopLogMessagesTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
-     * Modifies the state of the cluster, actual assertions happen in the {@link #tearDown} method.
+     * Modifies the state of the cluster, actual assertions happen in the {@link #stopCluster} method.
      */
     @Test
     void testNoErrorMessagesOnStop() {

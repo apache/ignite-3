@@ -32,13 +32,12 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 
 /** Base class for catalog compaction unit testing. */
 abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
-    private final HybridClock clock = new HybridClockImpl();
+    final HybridClock clock = new HybridClockImpl();
 
     private final ClockWaiter clockWaiter = new ClockWaiter("test-node", clock);
 
@@ -53,7 +52,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
     /** Creates catalog manager. */
     private CatalogManagerImpl createCatalogManager(String nodeName) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
         CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
 
         assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());

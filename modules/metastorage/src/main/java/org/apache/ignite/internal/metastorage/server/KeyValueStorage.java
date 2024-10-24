@@ -32,6 +32,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -221,38 +222,69 @@ public interface KeyValueStorage extends ManuallyCloseable {
     List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /**
+     * Saves an index and a term into the storage. These values are used to determine a storage state after restart.
+     *
+     * @param index Index value.
+     * @param term Term value.
+     */
+    void setIndexAndTerm(long index, long term);
+
+    /**
+     * Returns an index and term pair.
+     *
+     * @return An index and term pair. {@code null} if no {@link #setIndexAndTerm(long, long)} has been called yet on this storage.
+     */
+    @Nullable IndexWithTerm getIndexWithTerm();
+
+    /**
+     * Saves an arbitrary storage configuration as a byte array.
+     *
+     * @param configuration Configuration bytes.
+     * @param index Operation's index.
+     * @param term Operation's term.
+     */
+    void saveConfiguration(byte[] configuration, long index, long term);
+
+    /**
+     * Returns configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}.
+     *
+     * @return Configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}. {@code null} if it's never been called.
+     */
+    byte @Nullable [] getConfiguration();
+
+    /**
      * Inserts an entry with the given key and given value.
      *
      * @param key The key.
      * @param value The value.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void put(byte[] key, byte[] value, HybridTimestamp opTs);
+    void put(byte[] key, byte[] value, KeyValueUpdateContext context);
 
     /**
      * Inserts entries with given keys and given values.
      *
      * @param keys The key list.
      * @param values The values list.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
+    void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context);
 
     /**
      * Removes an entry with the given key.
      *
      * @param key The key.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void remove(byte[] key, HybridTimestamp opTs);
+    void remove(byte[] key, KeyValueUpdateContext context);
 
     /**
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      */
-    void removeAll(List<byte[]> keys, HybridTimestamp opTs);
+    void removeAll(List<byte[]> keys, KeyValueUpdateContext context);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
@@ -260,7 +292,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param condition Condition.
      * @param success Success operations.
      * @param failure Failure operations.
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      * @param commandId Command Id.
      * @return Result of test condition.
      */
@@ -268,7 +300,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
             Condition condition,
             List<Operation> success,
             List<Operation> failure,
-            HybridTimestamp opTs,
+            KeyValueUpdateContext context,
             CommandId commandId
     );
 
@@ -276,13 +308,13 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
-     * @param opTs Operation's timestamp.
+     * @param context Operation's context.
      * @param commandId Command Id.
      * @return execution result
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
+    StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId);
 
     /**
      * Returns cursor by latest entries which correspond to the given keys range.
@@ -388,12 +420,34 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws MetaStorageException If there is an error during the metastorage compaction process.
      * @see #stopCompaction()
      * @see #setCompactionRevision(long)
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     void compact(long revision);
 
     /**
-     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     * Starts local compaction of metastorage.
+     *
+     * <p>Algorithm:</p>
+     * <ul>
+     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
+     *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
+     *     asynchronously waiting for their completion.</li>
+     *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
+     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompactionCompleteLocally} for
+     *     {@link #registerCompactionListener registered} listeners.</li>
+     * </ul>
+     *
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
+     *
+     * @param compactionRevision Compaction revision.
+     */
+    void startCompaction(long compactionRevision);
+
+    /**
+     * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
      *
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
      * recommended to invoke this method before stopping the external component.</p>
@@ -464,9 +518,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Advances MetaStorage Safe Time to a new value without creating a new revision.
      *
-     * @param newSafeTime New Safe Time value.
+     * @param context Operation's context.
      */
-    void advanceSafeTime(HybridTimestamp newSafeTime);
+    void advanceSafeTime(KeyValueUpdateContext context);
 
     /**
      * Saves the compaction revision to the storage meta.
@@ -481,10 +535,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision to save.
+     * @param context Operation's context.
      * @throws MetaStorageException If there is an error while saving a compaction revision.
      * @see #setCompactionRevision(long)
      */
-    void saveCompactionRevision(long revision);
+    void saveCompactionRevision(long revision, KeyValueUpdateContext context);
 
     /**
      * Sets the compaction revision, but does not save it, after invoking this method the metastorage read methods will throw a
@@ -493,17 +548,34 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
      * @param revision Compaction revision.
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     void setCompactionRevision(long revision);
 
     /**
-     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if it has never been updated.
      *
      * @see #setCompactionRevision(long)
-     * @see #saveCompactionRevision(long)
+     * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     long getCompactionRevision();
+
+    /**
+     * Returns a future that will complete when all read operations that were started before {@code compactionRevisionExcluded}.
+     *
+     * <p>Current method is expected to be invoked after {@link #setCompactionRevision} on the same revision.</p>
+     *
+     * <p>Future completes without exception.</p>
+     *
+     * @param compactionRevisionExcluded Compaction revision of interest.
+     */
+    CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
+
+    /** Adds a metastore compaction listener. */
+    void registerCompactionListener(CompactionListener listener);
+
+    /** Removes a metastore compaction listener. */
+    void unregisterCompactionListener(CompactionListener listener);
 
     /**
      * Returns checksum corresponding to the revision.
@@ -512,4 +584,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws CompactedException If the requested revision has been compacted.
      */
     long checksum(long revision);
+
+    /**
+     * Clears the content of the storage. Should only be called when no one else uses this storage.
+     */
+    void clear();
 }

@@ -33,7 +33,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * End-to-end tests to verify zones system view.
@@ -43,11 +42,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
 
     private static final String ALTER_ZONE_NAME = "NEW_TEST_ZONE";
 
-    @Override
     @BeforeAll
-    protected void beforeAll(TestInfo testInfo) {
-        super.beforeAll(testInfo);
-
+    void beforeAll() {
         IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 

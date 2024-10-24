@@ -20,13 +20,21 @@ package org.apache.ignite.internal.client.proto.pojo;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 
 /** Converts POJO to Tuple and back. */
 public class PojoConverter {
+    private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
+            .map(ColumnType::javaClass)
+            .collect(Collectors.toUnmodifiableSet());
 
     /**
      * Converts POJO to Tuple. Supports public and private non-static fields.
@@ -37,11 +45,6 @@ public class PojoConverter {
      */
     public static Tuple toTuple(Object obj) throws PojoConversionException {
         Class<?> clazz = obj.getClass();
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23092
-        if (clazz.getSuperclass() != Object.class) {
-            throw new PojoConversionException("Can't convert subclasses");
-        }
 
         PojoMapper<?> mapper;
         try {
@@ -61,7 +64,7 @@ public class PojoConverter {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-23261
                 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
                 VarHandle varHandle = lookup.unreflectVarHandle(field);
-                tuple.set(columnName, varHandle.get(obj));
+                tuple.set(columnName, convertToTupleIfNeeded(field, varHandle.get(obj)));
             } catch (IllegalAccessException e) {
                 throw new PojoConversionException("Cannot access field `" + fieldName + "`", e);
             } catch (NoSuchFieldException e) {
@@ -92,7 +95,7 @@ public class PojoConverter {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-23261
                 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
                 VarHandle varHandle = lookup.unreflectVarHandle(field);
-                varHandle.set(obj, value);
+                varHandle.set(obj, convertFromNestedTupleIfNeeded(field, value));
             } catch (UnsupportedOperationException e) {
                 throw new PojoConversionException("Field for the column `" + fieldName + "` is final", e);
             } catch (ClassCastException e) {
@@ -104,6 +107,32 @@ public class PojoConverter {
         }
     }
 
+    private static Object convertToTupleIfNeeded(Field field, Object obj) {
+        if (isNativeType(field.getType())) {
+            return obj;
+        }
+        if (obj == null) {
+            return null;
+        }
+        return toTuple(obj);
+    }
+
+    private static Object convertFromNestedTupleIfNeeded(Field field, Object value) throws IllegalAccessException {
+        if (isNativeType(field.getType())) {
+            return value;
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            Object obj = field.getType().getDeclaredConstructor().newInstance();
+            fromTuple(obj, (Tuple) value);
+            return obj;
+        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException e) {
+            throw new PojoConversionException("Field for the column `" + field.getName() + "` cannot be converted", e);
+        }
+    }
+
     private static Field getField(Class<?> clazz, String fieldName) {
         try {
             return clazz.getDeclaredField(fieldName);
@@ -112,4 +141,7 @@ public class PojoConverter {
         }
     }
 
+    private static boolean isNativeType(Class<?> clazz) {
+        return NATIVE_TYPES.contains(clazz) || clazz.isPrimitive();
+    }
 }

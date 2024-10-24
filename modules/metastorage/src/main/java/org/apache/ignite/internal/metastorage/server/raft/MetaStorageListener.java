@@ -39,6 +39,8 @@ import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
@@ -63,6 +65,8 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     private final KeyValueStorage storage;
 
     private final Consumer<CommittedConfiguration> onConfigurationCommitted;
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Constructor.
@@ -207,7 +211,9 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onConfigurationCommitted(CommittedConfiguration config) {
-        RaftGroupListener.super.onConfigurationCommitted(config);
+        RaftGroupConfiguration configuration = RaftGroupConfiguration.fromCommittedConfiguration(config);
+
+        storage.saveConfiguration(configurationConverter.toBytes(configuration), config.index(), config.term());
 
         onConfigurationCommitted.accept(config);
     }
@@ -220,7 +226,12 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public boolean onSnapshotLoad(Path path) {
-        storage.restoreSnapshot(path);
+        // Startup snapshot should always be ignored, because we always restore from rocksdb folder instead of a separate set of SST files.
+        if (!path.toString().isEmpty()) { // See "org.apache.ignite.internal.metastorage.impl.raft.StartupMetaStorageSnapshotReader.getPath"
+            storage.restoreSnapshot(path);
+        }
+
+        // Restore internal state.
         writeHandler.onSnapshotLoad();
         return true;
     }

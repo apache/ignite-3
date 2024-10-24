@@ -43,6 +43,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -213,9 +215,11 @@ public class ItTxTestCluster {
     private ClusterService client;
 
     private HybridClock clientClock;
+    private ClockWaiter clientClockWaiter;
     private ClockService clientClockService;
 
     private Map<String, HybridClock> clocks;
+    private Collection<ClockWaiter> clockWaiters;
     protected Map<String, ClockService> clockServices;
 
     private ReplicaService clientReplicaSvc;
@@ -373,6 +377,7 @@ public class ItTxTestCluster {
 
         // Start raft servers. Each raft server can hold multiple groups.
         clocks = new HashMap<>(nodes);
+        clockWaiters = new ArrayList<>(nodes);
         clockServices = new HashMap<>(nodes);
         raftServers = new HashMap<>(nodes);
         replicaManagers = new HashMap<>(nodes);
@@ -399,11 +404,14 @@ public class ItTxTestCluster {
             ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = new HybridClockImpl();
-            TestClockService clockService = new TestClockService(clock);
+            ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock);
+            assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            TestClockService clockService = new TestClockService(clock, clockWaiter);
 
             String nodeName = node.name();
 
             clocks.put(nodeName, clock);
+            clockWaiters.add(clockWaiter);
             clockServices.put(nodeName, clockService);
 
             Path partitionsWorkDir = workDir.resolve("node" + i);
@@ -624,7 +632,7 @@ public class ItTxTestCluster {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient ? clientClock : clocks.get(localNodeName),
+                startClient ? clientClockService : clockServices.get(localNodeName),
                 timestampTracker,
                 placementDriver,
                 clientTransactionInflights,
@@ -985,6 +993,16 @@ public class ItTxTestCluster {
         if (clientTxManager != null) {
             assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
+
+        if (clientClockWaiter != null) {
+            assertThat(clientClockWaiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
+
+        if (clockWaiters != null) {
+            for (ClockWaiter clockWaiter : clockWaiters) {
+                assertThat(clockWaiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            }
+        }
     }
 
     /**
@@ -1010,8 +1028,9 @@ public class ItTxTestCluster {
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
         clientClock = new HybridClockImpl();
-
-        clientClockService = new TestClockService(clientClock);
+        clientClockWaiter = new ClockWaiter("client-node", clientClock);
+        assertThat(clientClockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        clientClockService = new TestClockService(clientClock, clientClockWaiter);
 
         LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 

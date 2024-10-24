@@ -27,8 +27,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -60,7 +59,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -173,6 +175,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         lenient().when(messagingService.respond(any(ClusterNode.class), any(NetworkMessage.class), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
+        lenient().when(cmgManager.clusterState()).thenReturn(completedFuture(usualClusterState));
+
         manager = new SystemDisasterRecoveryManagerImpl(
                 thisNodeName,
                 topologyService,
@@ -180,6 +186,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 vaultManager,
                 restarter,
                 metastorageMaintenance,
+                cmgManager,
                 new ConstantClusterIdSupplier(clusterId)
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
@@ -207,7 +214,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         VaultEntry entry = vaultManager.get(CLUSTER_STATE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
-        ClusterState savedState = fromBytes(entry.value());
+        ClusterState savedState = VersionedSerialization.fromBytes(entry.value(), ClusterStatePersistentSerializer.INSTANCE);
         assertThat(savedState, is(equalTo(usualClusterState)));
     }
 
@@ -237,6 +244,26 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(ex.getMessage(), is("Some of proposed CMG nodes are not online: [abc]."));
     }
 
+    @Test
+    void resetClusterRepairingCmgUsesCurrentCmgNodesIfNotSpecified() {
+        int replicationFactor = 1;
+
+        ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
+
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        prepareNodeStateForClusterReset();
+
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
+                .thenReturn(completedFuture(successResponseMessage));
+
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(null, replicationFactor);
+        assertThat(future, willCompleteSuccessfully());
+
+        verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
+
+        assertThat(messageCaptor.getValue().newCmgNodes(), is(usualClusterState.cmgNodes()));
+    }
+
     @ParameterizedTest
     @EnumSource(ResetCluster.class)
     void resetClusterRequiresClusterState(ResetCluster action) {
@@ -258,7 +285,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void putClusterState() {
-        vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
+        vaultManager.put(
+                CLUSTER_STATE_VAULT_KEY,
+                VersionedSerialization.toBytes(usualClusterState, ClusterStatePersistentSerializer.INSTANCE)
+        );
     }
 
     private void markInitConfigApplied() {
@@ -430,7 +460,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         VaultEntry entry = vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
-        ResetClusterMessage savedMessage = fromBytes(entry.value());
+        ResetClusterMessage savedMessage = VersionedSerialization.fromBytes(
+                entry.value(),
+                ResetClusterMessagePersistentSerializer.INSTANCE
+        );
 
         assertThatResetClusterMessageContentIsAsExpected(savedMessage, mgRepair);
     }
@@ -620,6 +653,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     void resetClusterWithMgRequiresPositiveMgReplicationFactor(int metastorageReplicationFactor) {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+
         ClusterResetException ex = assertWillThrow(
                 manager.resetClusterRepairingMetastorage(List.of(thisNodeName), metastorageReplicationFactor),
                 ClusterResetException.class

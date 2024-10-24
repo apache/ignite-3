@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -178,7 +179,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
 
@@ -426,7 +427,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), assignmentsBytes,
-                clock.now()
+                kvContext(clock.now())
         );
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
@@ -460,7 +461,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             keyValueStorage.put(
                     stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), assignmentsBytes,
-                    clock.now()
+                    kvContext(clock.now())
             );
         }
 
@@ -592,7 +593,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
 
-            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i), timestamp), clock.now());
+            keyValueStorage.put(stableAssignmentPartitionKey,
+                    Assignments.toBytes(initialAssignments.get(i), timestamp),
+                    kvContext(clock.now())
+            );
         }
     }
 

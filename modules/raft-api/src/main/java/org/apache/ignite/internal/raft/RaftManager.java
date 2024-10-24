@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -50,7 +49,7 @@ public interface RaftManager extends IgniteComponent {
      * @param factory Service factory.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+    <T extends RaftGroupService> T startRaftGroupNode(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -72,7 +71,7 @@ public interface RaftManager extends IgniteComponent {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+    RaftGroupService startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -94,7 +93,7 @@ public interface RaftManager extends IgniteComponent {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+    RaftGroupService startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -117,7 +116,7 @@ public interface RaftManager extends IgniteComponent {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+    <T extends RaftGroupService> T startRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -153,10 +152,10 @@ public interface RaftManager extends IgniteComponent {
      *
      * @param groupId Raft group ID.
      * @param configuration Peers and Learners of the Raft group.
-     * @return Future that will be completed with an instance of a Raft group service.
+     * @return An instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<RaftGroupService> startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
+    RaftGroupService startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
             throws NodeStoppingException;
 
     /**
@@ -165,11 +164,12 @@ public interface RaftManager extends IgniteComponent {
      * @param groupId Raft group ID.
      * @param configuration Peers and Learners of the Raft group.
      * @param factory Factory that should be used to create raft service.
-     * @param commandsMarshaller Marshaller that should be used to serialize commands. {@code null} if default marshaller should be used.
-     * @return Future that will be completed with an instance of a Raft group service.
+     * @param commandsMarshaller Marshaller that should be used to serialize commands. {@code null} if default marshaller should be
+     *         used.
+     * @return Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
+    <T extends RaftGroupService> T startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,

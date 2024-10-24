@@ -128,7 +128,7 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Removes a watch (identified by its listener). */
-    public void removeWatch(WatchListener listener) {
+    void removeWatch(WatchListener listener) {
         watches.removeIf(watch -> watch.listener() == listener);
     }
 
@@ -362,12 +362,12 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Unregisters a Meta Storage revision update listener. */
-    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.remove(listener);
     }
 
     /** Explicitly notifies revision update listeners. */
-    public CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
+    CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
         // Lazy set.
         List<CompletableFuture<?>> futures = List.of();
 
@@ -380,5 +380,18 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns a future that will complete when the task in the WatchEvent queue is complete.
+     *
+     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.</p>
+     */
+    public CompletableFuture<Void> addTaskToWatchEventQueue(Runnable task) {
+        CompletableFuture<Void> future = notificationFuture.thenRunAsync(task, watchExecutor);
+
+        notificationFuture = future;
+
+        return future;
     }
 }

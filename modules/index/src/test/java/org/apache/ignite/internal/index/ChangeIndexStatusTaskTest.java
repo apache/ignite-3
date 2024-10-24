@@ -80,7 +80,6 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -115,7 +114,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     @Spy
     private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
-    private final MetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+    private final MetaStorageManager metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
     private final ExecutorService executor = spy(newSingleThreadExecutor());
 

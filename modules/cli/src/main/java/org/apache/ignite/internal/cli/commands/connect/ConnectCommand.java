@@ -28,7 +28,7 @@ import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -40,7 +40,7 @@ import picocli.CommandLine.Parameters;
 public class ConnectCommand extends BaseCommand implements Callable<Integer> {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
+    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = RestEndpointUrlConverter.class)
     private URL nodeUrl;
 
     @ArgGroup(exclusive = false)

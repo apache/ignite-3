@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,7 +78,6 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Cluster of nodes used for testing.
  */
-@SuppressWarnings("resource")
 public class Cluster {
     private static final IgniteLogger LOG = Loggers.forClass(Cluster.class);
 
@@ -114,7 +115,7 @@ public class Cluster {
     private final String defaultNodeBootstrapConfigTemplate;
 
     /** Embedded nodes. */
-    private final List<IgniteServer> igniteServers = new ArrayList<>();
+    private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
 
     /** Cluster nodes. */
     private final List<Ignite> nodes = new CopyOnWriteArrayList<>();
@@ -274,7 +275,10 @@ public class Cluster {
         );
 
         IgniteServer node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
-        setListAtIndex(igniteServers, nodeIndex, node);
+
+        synchronized (igniteServers) {
+            setListAtIndex(igniteServers, nodeIndex, node);
+        }
 
         CompletableFuture<Void> registrationFuture = node.waitForInitAsync().thenRun(() -> {
             synchronized (nodes) {
@@ -283,7 +287,6 @@ public class Cluster {
 
             if (stopped) {
                 // Make sure we stop even a node that finished starting after the cluster has been stopped.
-
                 node.shutdown();
             }
         });
@@ -308,14 +311,16 @@ public class Cluster {
     }
 
     private static <T> void setListAtIndex(List<T> list, int i, T element) {
-        while (list.size() < i) {
-            list.add(null);
+        if (list.size() < i) {
+            list.addAll(nCopies(i - list.size(), null));
         }
 
         if (list.size() < i + 1) {
             list.add(element);
         } else {
-            list.set(i, element);
+            T prev = list.set(i, element);
+
+            assert prev == null : String.format("Found previous value %s at index %d", prev, i);
         }
     }
 
@@ -393,27 +398,18 @@ public class Cluster {
         return newIgniteNode;
     }
 
-    private void checkNodeIndex(int index) {
-        if (index < 0) {
-            throw new IllegalArgumentException("Index cannot be negative");
-        }
-        if (index >= nodes.size()) {
-            throw new IllegalArgumentException("Cluster only contains " + nodes.size() + " nodes, but node with index "
-                    + index + " was tried to be accessed");
-        }
-    }
-
     /**
      * Stops a node by index.
      *
      * @param index Node index in the cluster.
      */
     public void stopNode(int index) {
-        checkNodeIndex(index);
+        IgniteServer server = igniteServers.set(index, null);
 
-        igniteServers.get(index).shutdown();
+        if (server != null) {
+            server.shutdown();
+        }
 
-        igniteServers.set(index, null);
         nodes.set(index, null);
     }
 
@@ -513,7 +509,12 @@ public class Cluster {
     public void shutdown() {
         stopped = true;
 
-        igniteServers.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+        List<IgniteServer> serversToStop = new ArrayList<>(igniteServers);
+
+        Collections.fill(igniteServers, null);
+        Collections.fill(nodes, null);
+
+        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
     }
 
     /**

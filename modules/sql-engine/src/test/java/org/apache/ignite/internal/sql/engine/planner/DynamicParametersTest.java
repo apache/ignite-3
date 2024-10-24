@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
+
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -193,7 +197,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 "diff", null, 1)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), CAST(?1):INTEGER, ?2))"),
+                        .project("CASE(=($t0, ?0), 0, CASE(IS NULL($t1), CAST(?1):INTEGER, ?2))"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
@@ -207,7 +211,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 "diff", 1, null)
                         .parameterTypes(nullableStr, nullableInt, nullType)
-                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), ?1, CAST(?2):INTEGER))"),
+                        .project("CASE(=($t0, ?0), 0, CASE(IS NULL($t1), ?1, CAST(?2):INTEGER))"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
@@ -228,12 +232,29 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 checkStatement()
+                        .sql("SELECT ?", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE)))
+                        .ok(),
+
+                checkStatement()
                         .sql("SELECT ?", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
+                        // We are going to cast at runtime.
+                        .project("?0"),
+
+                checkStatement()
+                        .sql("SELECT CAST(? AS DECIMAL(60, 30))", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
+                        // We are going to cast at runtime.
+                        .project("?0"),
+
+                checkStatement()
+                        .sql("SELECT ?::DECIMAL(60, 30)", BigDecimal.ONE)
+                        .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
                         // We are going to cast at runtime.
                         .project("?0"),
 

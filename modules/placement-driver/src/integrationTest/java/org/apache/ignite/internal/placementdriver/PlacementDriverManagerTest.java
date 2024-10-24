@@ -75,6 +75,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -217,7 +218,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 eventsClientListener
         );
 
-        var storage = new SimpleInMemoryKeyValueStorage(nodeName);
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
 
         ClockService clockService = new TestClockService(nodeClock);
 
@@ -239,7 +242,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                msRaftConfigurer
+                msRaftConfigurer,
+                readOperationForCompactionTracker
         );
 
         placementDriverManager = new PlacementDriverManager(

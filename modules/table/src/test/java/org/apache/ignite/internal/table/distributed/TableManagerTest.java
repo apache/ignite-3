@@ -98,7 +98,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -274,7 +273,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
-        catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        catalogMetastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
@@ -350,7 +349,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testPreconfiguredTable() throws Exception {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+                .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -661,7 +660,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+                .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
 
         createZone(1, 1);
 
@@ -825,7 +824,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 mock(ScheduledExecutorService.class),
-                clock,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,

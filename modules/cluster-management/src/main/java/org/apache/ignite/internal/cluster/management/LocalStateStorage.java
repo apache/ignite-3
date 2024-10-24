@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import java.io.Serializable;
+import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,9 +38,7 @@ import org.jetbrains.annotations.Nullable;
 class LocalStateStorage {
     private static final ByteArray CMG_STATE_VAULT_KEY = ByteArray.fromString("cmg_state");
 
-    static class LocalState implements Serializable {
-        private static final long serialVersionUID = -5069326157367860480L;
-
+    static class LocalState {
         private final Set<String> cmgNodeNames;
 
         private final ClusterTag clusterTag;
@@ -68,7 +71,11 @@ class LocalStateStorage {
     @Nullable LocalState getLocalState() {
         VaultEntry entry = vault.get(CMG_STATE_VAULT_KEY);
 
-        return entry == null ? null : ByteUtils.fromBytes(entry.value());
+        if (entry == null) {
+            return null;
+        }
+
+        return VersionedSerialization.fromBytes(entry.value(), LocalStateSerializer.INSTANCE);
     }
 
     /**
@@ -77,7 +84,7 @@ class LocalStateStorage {
      * @param state Local state to save.
      */
     void saveLocalState(LocalState state) {
-        vault.put(CMG_STATE_VAULT_KEY, ByteUtils.toBytes(state));
+        vault.put(CMG_STATE_VAULT_KEY, VersionedSerialization.toBytes(state, LocalStateSerializer.INSTANCE));
     }
 
     /**
@@ -85,5 +92,35 @@ class LocalStateStorage {
      */
     void clear() {
         vault.remove(CMG_STATE_VAULT_KEY);
+    }
+
+    private static class LocalStateSerializer extends VersionedSerializer<LocalState> {
+        private static final CmgMessagesFactory CMG_MESSAGES_FACTORY = new CmgMessagesFactory();
+
+        private static final LocalStateSerializer INSTANCE = new LocalStateSerializer();
+
+        @Override
+        protected void writeExternalData(LocalState state, IgniteDataOutput out) throws IOException {
+            out.writeVarInt(state.cmgNodeNames().size());
+            for (String cmgNodeName : state.cmgNodeNames()) {
+                out.writeUTF(cmgNodeName);
+            }
+
+            out.writeUTF(state.clusterTag().clusterName());
+            out.writeUuid(state.clusterTag().clusterId());
+        }
+
+        @Override
+        protected LocalState readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+            int cmgNodesCount = in.readVarIntAsInt();
+            Set<String> cmgNodeNames = new HashSet<>(cmgNodesCount);
+            for (int i = 0; i < cmgNodesCount; i++) {
+                cmgNodeNames.add(in.readUTF());
+            }
+
+            ClusterTag clusterTag = ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, in.readUTF(), in.readUuid());
+
+            return new LocalState(cmgNodeNames, clusterTag);
+        }
     }
 }

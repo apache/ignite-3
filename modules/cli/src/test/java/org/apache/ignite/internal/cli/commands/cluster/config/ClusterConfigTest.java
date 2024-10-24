@@ -45,6 +45,23 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
+    @DisplayName("show --url http://localhost:10300/")
+    void trailingSlash() {
+        clientAndServer
+                .when(request()
+                        .withMethod("GET")
+                        .withPath("/management/v1/configuration/cluster")
+                )
+                .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
+
+        execute("cluster config show --url " + mockUrl + "/");
+
+        assertSuccessfulOutputIs("autoAdjust {\n"
+                + "    enabled=true\n"
+                + "}\n");
+    }
+
+    @Test
     @DisplayName("show --url http://localhost:10300 local.baseline")
     void showSubtree() {
         clientAndServer

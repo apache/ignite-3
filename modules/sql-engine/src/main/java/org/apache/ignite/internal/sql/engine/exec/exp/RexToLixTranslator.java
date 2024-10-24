@@ -496,8 +496,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     switch (targetType.getSqlTypeName()) {
     case CHAR:
     case BINARY:
-      pad = true;
-      // fall through
     case VARCHAR:
     case VARBINARY:
       final int targetPrecision = targetType.getPrecision();

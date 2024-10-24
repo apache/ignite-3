@@ -48,11 +48,13 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -69,9 +71,11 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
     @Override
     MetaStorageManager createMetastore() {
-        var keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        return StandaloneMetaStorageManager.create(keyValueStorage);
+        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        return StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
     }
 
     @Override

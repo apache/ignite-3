@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -49,7 +50,9 @@ import org.junit.jupiter.api.BeforeEach;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
-    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
+    private static final String NODE_NAME = "test";
+
+    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
 
@@ -74,7 +77,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage("test", metaStorageManager);
+        return new DistributedConfigurationStorage(NODE_NAME, metaStorageManager);
     }
 
     /**
@@ -92,7 +95,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                     toServerCondition(condition),
                     success,
                     failure,
-                    HybridTimestamp.MIN_VALUE,
+                    kvContext(HybridTimestamp.MIN_VALUE),
                     new CommandIdGenerator(UUID::randomUUID).newId()
             );
 

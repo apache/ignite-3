@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -79,8 +82,10 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
         RaftManager raftManager = raftManager(remoteRevision);
 
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
         clock = new HybridClockImpl();
-        kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker));
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -92,20 +97,21 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                RaftGroupOptionsConfigurer.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY,
+                readOperationForCompactionTracker
         );
     }
 
     private RaftManager raftManager(long remoteRevision) throws Exception {
         RaftManager raft = mock(RaftManager.class);
 
-        RaftGroupService service = mock(RaftGroupService.class);
+        RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionCommand.class)))
                 .thenAnswer(invocation -> completedFuture(remoteRevision));
 
-        when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any(), any()))
-                .thenAnswer(invocation -> completedFuture(service));
+        when(raft.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> service);
 
         return raft;
     }
@@ -169,7 +175,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
         for (int i = 0; i < targetRevision; i++) {
-            kvs.put(new byte[0], new byte[0], clock.now());
+            kvs.put(new byte[0], new byte[0], kvContext(clock.now()));
         }
 
         assertThat(msDeployFut, willSucceedFast());
