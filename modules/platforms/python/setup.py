@@ -53,6 +53,14 @@ with open(PACKAGE_NAME + '/_version.txt', 'r') as fd:
     if not version:
         raise RuntimeError('Cannot find version information')
 
+def cmake_project_version(version):
+    """
+    Strips the pre-release portion of the project version string to satisfy CMake requirements
+    """
+    dash_index = version.find("-")
+    if dash_index != -1:
+        return version[:dash_index]
+    return version
 
 def _get_env_variable(name, default='OFF'):
     if name not in os.environ.keys():
@@ -74,15 +82,6 @@ class CMakeExtension(Extension):
 
 
 class CMakeBuild(build_ext):
-    def cmake_project_version(version):
-        """
-        Strips the pre-release portion of the project version string to satisfy CMake requirements
-        """
-        dash_index = version.find("-")
-        if dash_index != -1:
-            return version[:dash_index]
-        return version
-
     def build_extensions(self):
         try:
             subprocess.check_output(['cmake', '--version'])
