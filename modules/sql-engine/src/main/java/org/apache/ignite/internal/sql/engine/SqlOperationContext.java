@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
@@ -43,6 +44,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
+    private final @Nullable RunningQueryInfo queryInfo;
 
     /**
      * Private constructor, used by a builder.
@@ -55,7 +57,8 @@ public final class SqlOperationContext {
             @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
-            @Nullable PrefetchCallback prefetchCallback
+            @Nullable PrefetchCallback prefetchCallback,
+            @Nullable RunningQueryInfo queryInfo
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -65,6 +68,7 @@ public final class SqlOperationContext {
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
         this.prefetchCallback = prefetchCallback;
+        this.queryInfo = queryInfo;
     }
 
     public static Builder builder() {
@@ -123,6 +127,15 @@ public final class SqlOperationContext {
     }
 
     /**
+     * Returns info about running query.
+     *
+     * <p>May be null on remote side, but never null on node initiator.
+     */
+    public @Nullable RunningQueryInfo queryInfo() {
+        return queryInfo;
+    }
+
+    /**
      * Returns the operation time.
      *
      * <p>The time the operation started is the logical time it runs, and all the time readings during the execution time as well as all
@@ -142,6 +155,7 @@ public final class SqlOperationContext {
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private HybridTimestamp operationTime;
         private @Nullable QueryTransactionContext txContext;
+        private @Nullable RunningQueryInfo queryInfo;
 
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
@@ -187,6 +201,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder queryInfo(RunningQueryInfo queryInfo) {
+            this.queryInfo = queryInfo;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -197,7 +216,8 @@ public final class SqlOperationContext {
                     txContext,
                     cancel,
                     defaultSchemaName,
-                    prefetchCallback
+                    prefetchCallback,
+                    queryInfo
             );
         }
     }

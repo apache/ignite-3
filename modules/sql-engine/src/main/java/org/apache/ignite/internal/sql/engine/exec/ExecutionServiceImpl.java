@@ -101,6 +101,7 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -320,8 +321,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert txContext != null;
 
         QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+        InternalTransaction tx = txWrapper.unwrap();
 
-        AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(txWrapper.unwrap(), plan);
+        AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(tx, plan);
+
+        if (txWrapper.implicit()) {
+            RunningQueryInfo queryInfo = operationContext.queryInfo();
+
+            assert queryInfo != null;
+
+            queryInfo.transactionId(tx.id());
+        }
 
         PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
 
