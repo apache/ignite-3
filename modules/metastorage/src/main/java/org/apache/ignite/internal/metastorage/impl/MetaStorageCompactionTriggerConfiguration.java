@@ -29,20 +29,30 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /** Configuration for metastorage compaction triggering based on distributed system properties. */
-class MetaStorageCompactionTriggerConfiguration {
+public class MetaStorageCompactionTriggerConfiguration {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTriggerConfiguration.class);
 
-    /** Compaction start interval (in milliseconds). Default value is {@link #INTERVAL_DEFAULT_VALUE}. */
-    private static final String INTERVAL_SYSTEM_PROPERTY_NAME = "metastorageCompactionInterval";
+    /**
+     * System property that defines compaction start interval (in milliseconds).
+     *
+     * <p>Default value is {@link #INTERVAL_DEFAULT_VALUE}.</p>
+     */
+    public static final String INTERVAL_SYSTEM_PROPERTY_NAME = "metastorageCompactionInterval";
 
-    /** Data availability time (in milliseconds). Default value is {@link #DATA_AVAILABILITY_TIME_DEFAULT_VALUE}. */
-    private static final String DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME = "metastorageCompactionDataAvailabilityTime";
+    /**
+     * System property that defines compaction data availability time (in milliseconds).
+     *
+     * <p>Default value is {@link #DATA_AVAILABILITY_TIME_DEFAULT_VALUE}.</p>
+     */
+    public static final String DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME = "metastorageCompactionDataAvailabilityTime";
 
+    /** Default value for the {@link #INTERVAL_SYSTEM_PROPERTY_NAME}. */
     // TODO: IGNITE-23280 Make default 1 minute
-    private static final long INTERVAL_DEFAULT_VALUE = Long.MAX_VALUE;
+    public static final long INTERVAL_DEFAULT_VALUE = Long.MAX_VALUE;
 
+    /** Default value for the {@link #DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME}. */
     // TODO: IGNITE-23280 Make default 1 hour
-    private static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = Long.MAX_VALUE;
+    public static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = Long.MAX_VALUE;
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
@@ -53,7 +63,7 @@ class MetaStorageCompactionTriggerConfiguration {
     private long dataAvailabilityTime;
 
     /** Constructor. */
-    MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfiguration) {
+    public MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfiguration) {
         updateSystemProperties(systemDistributedConfiguration.value());
 
         systemDistributedConfiguration.listen(ctx -> {
