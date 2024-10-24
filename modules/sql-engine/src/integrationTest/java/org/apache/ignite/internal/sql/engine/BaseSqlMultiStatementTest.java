@@ -82,7 +82,7 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 .build();
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
-                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, query, params)
+                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, null, query, params)
         );
 
         return Objects.requireNonNull(cursor);

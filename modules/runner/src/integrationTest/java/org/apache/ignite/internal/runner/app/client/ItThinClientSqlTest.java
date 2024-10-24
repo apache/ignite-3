@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -59,7 +60,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
-    void testExecuteAsyncSimpleSelect() {
+    void testExecuteAsyncSimpleSelect() throws InterruptedException {
         AsyncResultSet<SqlRow> resultSet = client().sql()
                 .executeAsync(null, "select 1 as num, 'hello' as str")
                 .join();
@@ -81,6 +82,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, columns.size());
         assertEquals("NUM", columns.get(0).name());
         assertEquals("STR", columns.get(1).name());
+
+        TimeUnit.HOURS.sleep(10);
     }
 
     @Test

@@ -54,7 +54,7 @@ public class ClientSqlQueryMetadataRequest {
                 .set(QueryProperty.DEFAULT_SCHEMA, schema)
                 .build();
 
-        return processor.prepareSingleAsync(properties, tx, query).thenAccept(meta -> writeMeta(out, meta));
+        return processor.prepareSingleAsync(properties, tx, null, query).thenAccept(meta -> writeMeta(out, meta));
     }
 
     private static void writeMeta(ClientMessagePacker out, QueryMetadata meta) {

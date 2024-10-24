@@ -90,7 +90,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
                     ))
             );
 
@@ -136,7 +136,7 @@ public class AbstractMultiNodeBenchmark {
 
         getAllFromCursor(
                 await(igniteImpl.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createTableStatement
                 ))
         );
     }

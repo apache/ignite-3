@@ -22,12 +22,16 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Holds query cancel state.
@@ -35,9 +39,39 @@ import org.jetbrains.annotations.Nullable;
 public class QueryCancel {
     private final List<Cancellable> cancelActions = new ArrayList<>(3);
 
+    private final QueryCancellationToken cancellationToken;
+
     private Reason reason;
 
     private volatile CompletableFuture<Void> timeoutFut;
+
+    /** Constructor. */
+    public QueryCancel() {
+        this.cancellationToken = new InternalCancellationTokenImpl(null);
+    }
+
+    /** Constructor. */
+    public QueryCancel(@Nullable CancellationToken cancellationToken) {
+        this.cancellationToken = new InternalCancellationTokenImpl(cancellationToken);
+    }
+
+    /** Constructor. */
+    @TestOnly
+    public QueryCancel(QueryCancellationToken cancellationToken) {
+        this.cancellationToken = Objects.requireNonNull(cancellationToken, "cancellationToken");
+    }
+
+    /** Throws a {@link QueryCancelledException} if either this object or its {@link CancellationToken} were cancelled. */
+    public synchronized void throwIfCancelled() {
+        setCancelledIfTokenWasCancelled();
+
+        if (reason != null) {
+            boolean timeout = reason == Reason.TIMEOUT;
+            String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
+
+            throw new QueryCancelledException(message);
+        }
+    }
 
     /**
      * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
@@ -49,6 +83,8 @@ public class QueryCancel {
      */
     public synchronized void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
+
+        setCancelledIfTokenWasCancelled();
 
         if (reason != null) {
             boolean timeout = reason == Reason.TIMEOUT;
@@ -63,6 +99,8 @@ public class QueryCancel {
 
             String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
             throw new QueryCancelledException(message);
+        } else {
+            cancellationToken.addCancelAction(clo);
         }
 
         cancelActions.add(clo);
@@ -98,11 +136,20 @@ public class QueryCancel {
             fut.complete(null);
         }, timeoutMillis, MILLISECONDS);
 
-        add((timeout) -> {
-            // Cancel the future if we didn't timeout,
-            // since in the case of a timeout it is already completed.
-            if (!timeout) {
-                f.cancel(false);
+        add(new Cancellable() {
+            @Override
+            public void cancel(boolean timeout) {
+                // Cancel the future if we didn't timeout,
+                // since in the case of a timeout it is already completed.
+                if (!timeout) {
+                    f.cancel(false);
+                    fut.complete(null);
+                }
+            }
+
+            @Override
+            public CompletableFuture<Void> future() {
+                return fut;
             }
         });
 
@@ -128,6 +175,8 @@ public class QueryCancel {
 
     /** Returns {@code true} if the cancellation procedure has already been started. */
     public synchronized boolean isCancelled() {
+        setCancelledIfTokenWasCancelled();
+
         return reason != null;
     }
 
@@ -161,8 +210,49 @@ public class QueryCancel {
         }
     }
 
-    enum Reason {
+    private void setCancelledIfTokenWasCancelled() {
+        if (reason == null && cancellationToken.isCancelled()) {
+            reason = Reason.CANCEL;
+        }
+    }
+
+    private enum Reason {
         CANCEL,
         TIMEOUT
+    }
+
+    /** Adapter for a cancellation token. */
+    public interface QueryCancellationToken {
+
+        void addCancelAction(Cancellable action);
+
+        boolean isCancelled();
+    }
+
+    static class InternalCancellationTokenImpl implements QueryCancellationToken {
+
+        private final CancellationToken token;
+
+        InternalCancellationTokenImpl(@Nullable CancellationToken token) {
+            this.token = token;
+        }
+
+        @Override
+        public void addCancelAction(Cancellable action) {
+            if (token == null) {
+                return;
+            }
+
+            CancelHandleHelper.addCancelAction(token, () -> action.cancel(false), action.future());
+        }
+
+        @Override
+        public boolean isCancelled() {
+            if (token == null) {
+                return false;
+            }
+
+            return CancelHandleHelper.isCancelled(token);
+        }
     }
 }

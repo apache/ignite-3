@@ -380,14 +380,14 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(props, observableTimeTracker, null, sql, args).join();
+                    queryProcessor.queryAsync(props, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
 
         Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, sql, args).join();
+                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }

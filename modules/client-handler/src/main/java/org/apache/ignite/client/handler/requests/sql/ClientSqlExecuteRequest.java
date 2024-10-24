@@ -167,8 +167,13 @@ public class ClientSqlExecuteRequest {
                     .build();
 
             CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
-                            properties, transactions.observableTimestampTracker(), (InternalTransaction) transaction, query, arguments)
-                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                            properties,
+                            transactions.observableTimestampTracker(),
+                            (InternalTransaction) transaction,
+                            null,
+                            query,
+                            arguments
+                    ).thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl<>(
                                             cur,

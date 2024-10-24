@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
@@ -235,6 +236,12 @@ public class PrepareServiceImpl implements PrepareService {
         // Or trigger timeout immediately if operation has already timed out.
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
+        try {
+            cancelHandler.throwIfCancelled();
+        } catch (QueryCancelledException e) {
+            return CompletableFuture.failedFuture(SqlExceptionMapperUtil.mapToPublicSqlException(e));
+        }
+
         boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
         PlanningContext planningContext = PlanningContext.builder()

@@ -98,7 +98,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(result.onClose())
                 .thenReturn(closeFuture);
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
         AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
@@ -121,7 +121,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(result.onClose()).thenReturn(new CompletableFuture<>());
         when(result.closeAsync()).thenReturn(nullCompletedFuture());
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
         AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
@@ -139,7 +139,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
     void resultSetIsNotCreatedIfComponentIsStoppedInMiddleOfOperation() throws Exception {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
         CountDownLatch executeQueryLatch = new CountDownLatch(1);
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenAnswer(ignored -> {
                     executeQueryLatch.countDown();
                     return cursorFuture;
@@ -175,7 +175,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
         CountDownLatch executeQueryLatch = new CountDownLatch(3);
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenAnswer(ignored -> {
                     executeQueryLatch.countDown();
 
@@ -206,7 +206,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
                 () -> await(result)
         );
         assertThat(igniteSql.openedCursors(), empty());
-        verify(queryProcessor, times(3)).queryAsync(any(), any(), any(), any(), any(Object[].class));
+        verify(queryProcessor, times(3)).queryAsync(any(), any(), any(), any(), any(), any(Object[].class));
         verify(cursor).closeAsync();
     }
 
@@ -232,7 +232,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(result.onClose())
                 .thenReturn(closeFuture);
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
         AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
@@ -264,7 +264,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(cursor2.hasNextResult()).thenReturn(false);
         when(cursor2.closeAsync()).thenReturn(nullCompletedFuture());
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(cursor1));
 
         Void rs = await(igniteSql.executeScriptAsync("SELECT 1; SELECT 2"));
@@ -281,7 +281,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(cursor1.nextResult()).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Broken")));
         when(cursor1.closeAsync()).thenReturn(nullCompletedFuture());
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(cursor1));
 
         assertThrowsSqlException(
@@ -310,7 +310,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(cursor2.nextResult()).thenReturn(CompletableFuture.failedFuture(lastCursorScriptException));
         when(cursor2.closeAsync()).thenReturn(CompletableFuture.failedFuture(cursorCloseException2));
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(cursor1));
 
         SqlException sqlEx = assertThrowsExactly(SqlException.class, () -> await(igniteSql.executeScriptAsync("SELECT 1; SELECT 2")));
@@ -336,7 +336,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         when(cursor2.closeAsync()).thenReturn(nullCompletedFuture());
 
-        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(cursor1));
 
         Thread thread = new Thread(() -> {
