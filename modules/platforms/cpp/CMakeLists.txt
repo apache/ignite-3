@@ -16,7 +16,14 @@
 #
 
 cmake_minimum_required(VERSION 3.18)
-project(Ignite.C++ VERSION 3.0.0 LANGUAGES CXX)
+
+file(READ _version.txt IGNITE_VERSION)
+if(NOT DEFINED IGNITE_VERSION)
+  set(IGNITE_VERSION 3.0.0)
+  message(WARNING "Failed to read version from File. Using default version \"${IGNITE_VERSION}\".")
+endif()
+
+project(Ignite.C++ VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

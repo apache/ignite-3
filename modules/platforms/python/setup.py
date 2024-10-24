@@ -19,6 +19,7 @@ import subprocess
 import setuptools
 import sys
 import multiprocessing
+import pkgutil
 from pprint import pprint
 from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
@@ -45,13 +46,7 @@ with open('requirements/install.txt', 'r', encoding='utf-8') as requirements_fil
 with open('README.md', 'r', encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
-version = None
-with open(PACKAGE_NAME + '/__init__.py', 'r') as fd:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-                        fd.read(), re.MULTILINE).group(1)
-    if not version:
-        raise RuntimeError('Cannot find version information')
-
+version = pkgutil.get_data(PACKAGE_NAME, "_version.txt").decode
 
 def _get_env_variable(name, default='OFF'):
     if name not in os.environ.keys():
@@ -90,6 +85,7 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
                 f'-DPYTHON_EXECUTABLE={sys.executable}',
                 f'-DEXTENSION_FILENAME={ext_file}',
+                f'-DIGNITE_VERSION={version}',
             ]
 
             if platform.system() == 'Windows':

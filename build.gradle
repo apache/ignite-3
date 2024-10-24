@@ -70,11 +70,16 @@ ext {
     ]
 
     product = "Apache Ignite"
+    projectVersion = project.hasProperty('projectVersion') ? project.property('projectVersion') : '3.0.0-SNAPSHOT'
+    def versionPattern = '\\d+\\.\\d+\\.\\d+(?:\\.(\\d+))?(?:-[0-9A-Za-z]+)?'
+    if (!projectVersion.matches(versionPattern)) {
+        throw new GradleException("Project version $projectVersion doesn't conform to the semver format")
+    }
 }
 
 allprojects {
     group 'org.apache.ignite'
-    version = "3.0.0-SNAPSHOT"
+    version = projectVersion
 
     tasks.withType(Jar).configureEach {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
