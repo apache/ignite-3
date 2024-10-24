@@ -15,35 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands;
+package org.apache.ignite.internal.cli.commands.metric;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 
-import org.junit.jupiter.api.BeforeEach;
-
-/**
- * Tests for non-initialized cluster fir REPL mode.
- */
-public class ItReplNonInitializedClusterTest extends ItNonInitializedClusterTest {
-
+/** Tests for node metric REPL commands. */
+class ItNodeMetricCommandReplTest extends ItNodeMetricCommandTest {
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
     }
 
-    @BeforeEach
-    void connect() {
-        execute("connect");
-
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300" + System.lineSeparator()
-                + "The cluster is not initialized. Run cluster init command to initialize it.")
-        );
-    }
-
     @Override
-    protected String getExpectedErrorMessage() {
-        return CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE;
+    protected int errorExitCode() {
+        return 0;
     }
 }

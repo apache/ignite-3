@@ -22,10 +22,10 @@ import static org.apache.ignite.rest.client.model.DeploymentStatus.UPLOADING;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -296,12 +296,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void nodeMetricSourcesList() throws ApiException {
-        assertThat(nodeMetricApi.listNodeMetricSources(), hasItems(CliIntegrationTest.ALL_METRIC_SOURCES));
-    }
-
-    @Test
-    void nodeMetricSetsList() throws ApiException {
-        assertThat(nodeMetricApi.listNodeMetricSets(), hasSize(CliIntegrationTest.ALL_METRIC_SOURCES.length));
+        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(CliIntegrationTest.ALL_METRIC_SOURCES));
     }
 
     @Test

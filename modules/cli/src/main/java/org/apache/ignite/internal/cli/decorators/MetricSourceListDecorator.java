@@ -26,7 +26,7 @@ import org.apache.ignite.rest.client.model.MetricSource;
 
 /** Decorator for printing list of {@link MetricSource}. */
 public class MetricSourceListDecorator implements Decorator<List<MetricSource>, TerminalOutput> {
-    private static final String[] HEADERS = {"Set name", "Enabled"};
+    private static final String[] HEADERS = {"Source name", "Enabled"};
 
     private final boolean plain;
 

@@ -74,6 +74,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-metrics')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
