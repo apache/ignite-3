@@ -32,8 +32,8 @@ import io.swagger.v3.oas.annotations.servers.Server;
 @OpenAPIDefinition(
         servers = @Server(url = "http://localhost:10300"),
         info = @Info(
-                title = "Ignite REST module",
-                version = "3.0.0-SNAPSHOT",
+                title = "${api.product} REST module",
+                version = "${api.version}",
                 license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
                 contact = @Contact(email = "user@ignite.apache.org")))
 @SecurityRequirement(name = "basicAuth")

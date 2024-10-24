@@ -64,7 +64,9 @@ ext {
     openapiProps = [
             'micronaut.openapi.property.naming.strategy' : 'LOWER_CAMEL_CASE',
             'micronaut.openapi.target.file' : openapiFile.path,
-            'micronaut.openapi.field.visibility.level' : 'PRIVATE'
+            'micronaut.openapi.field.visibility.level' : 'PRIVATE',
+            'api.version' : project.version,
+            'api.product' : project.product
     ]
 }
 

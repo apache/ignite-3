@@ -38,9 +38,9 @@ public class VersionTests
     [Test]
     public void TestAssemblyVersionMatchesJavaServerVersion()
     {
-        var buildGradle = Path.Combine(TestUtils.RepoRootDir, "build.gradle");
+        var buildGradle = Path.Combine(TestUtils.RepoRootDir, "gradle.properties");
         var buildGradleText = File.ReadAllText(buildGradle);
-        var versionMatch = Regex.Match(buildGradleText, @"version\s*=\s*""(.*?)""");
+        var versionMatch = Regex.Match(buildGradleText, @"projectVersion\s*=\s*(.*?)\s");
 
         Assert.IsTrue(versionMatch.Success);
 
