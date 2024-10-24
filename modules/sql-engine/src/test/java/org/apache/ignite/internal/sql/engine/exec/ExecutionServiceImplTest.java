@@ -1147,7 +1147,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
 
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
+        //mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,

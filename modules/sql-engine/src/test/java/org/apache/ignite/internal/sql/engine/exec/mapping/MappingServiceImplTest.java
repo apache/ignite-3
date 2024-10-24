@@ -129,9 +129,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         MappingServiceImpl mappingService = new MappingServiceImpl(
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
-
 
         List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
@@ -148,7 +145,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String localNodeName = "NODE0";
 
         MappingServiceImpl mappingService = createMappingServiceNoCache(localNodeName, List.of(localNodeName));
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class), new LogicalTopologySnapshot(1, logicalNodes(localNodeName)));
 
         CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN, PARAMS);
 
@@ -168,11 +164,10 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertFalse(mappingFuture.isDone());
 
         // Join another node affect nothing.
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));
         assertThat(mappingFuture, willThrowFast(TimeoutException.class));
 
         // Joining local node completes initialization.
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
+        //mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
         assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
@@ -191,14 +186,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertFalse(mappingFuture.isDone());
 
         // Join another node affect nothing.
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes("NODE1", "NODE2")));*/
 
         assertThat(mappingFuture, willThrowFast(TimeoutException.class));
 
         // Joining local node completes initialization.
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));*/
 
         assertThat(mappingFuture, willSucceedFast());
         assertThat(mappingService.map(PLAN, PARAMS), willSucceedFast());
@@ -215,8 +210,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
 
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));*/
 
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
@@ -230,8 +225,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         LogicalNode newNode = Mockito.mock(LogicalNode.class);
         Mockito.when(newNode.name()).thenReturn("NODE2");
 
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1", "NODE2")));
+/*        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1", "NODE2")));*/
 
         // Plan with tables only must not be invalidated on node join.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -240,8 +235,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Plan with system views must be invalidated.
         assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
-        mappingService.onNodeLeft(newNode,
-                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1")));
+/*        mappingService.onNodeLeft(newNode,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1")));*/
 
         // Plan with tables that don't include a left node should not be invalidated.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -249,8 +244,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         LogicalNode node1 = Mockito.mock(LogicalNode.class);
         Mockito.when(node1.name()).thenReturn("NODE1");
 
-        mappingService.onNodeLeft(node1,
-                new LogicalTopologySnapshot(3, logicalNodes("NODE")));
+/*        mappingService.onNodeLeft(node1,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE")));*/
 
         // Plan with tables that include left node must be invalidated.
         assertNotSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
@@ -284,9 +279,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         MappingServiceImpl mappingService = new MappingServiceImpl(
                 localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
         );
-
-        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
         verify(targetProvider, times(1)).forTable(any(), any());

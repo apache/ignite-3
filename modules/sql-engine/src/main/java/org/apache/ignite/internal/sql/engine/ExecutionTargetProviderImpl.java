@@ -126,25 +126,18 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
         return participantNodes.thenApply(nodes -> {
             nodes.add(initiatorNode);
 
-            // todo: desc join for already completed !!!
+            // this is a safe join, because we have waited for all futures to be completed
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-            // dirty code
-            CompletableFuture<Long> tokenFut = fut.thenApply(
-                    v -> v.values().stream().flatMap(List::stream).map(TokenizedAssignments::token)
-                            .mapToLong(Long::longValue).sum());
-
-            long token = tokenFut.join();
-
             // todo: fix !!!
-            return new DistributionHolder(token, nodes, mapResultResolved);
+            return new DistributionHolder(0, nodes, mapResultResolved);
         });
     }
 
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    CompletableFuture<List<TokenizedAssignments>> collectAssignments(
+    private CompletableFuture<List<TokenizedAssignments>> collectAssignments(
             IgniteTable table, HybridTimestamp operationTime, boolean includeBackups
     ) {
         int partitions = table.partitions();
