@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -255,6 +256,18 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(valTupleFullData, valTuplePartialData);
         assertEquals(valTupleUser, valTupleFullData);
         assertEquals(valTupleUser, valTuplePartialData);
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
+    public void testValOnlyDoesNotReturnKeyColumns() {
+        Tuple valTupleWithFullRow = createTuplePart(TuplePart.VAL, false);
+
+        assertEquals(-1, valTupleWithFullRow.columnIndex("I32"));
+        assertEquals(-1, valTupleWithFullRow.columnIndex("\"STR\""));
+
+        assertThrows(IllegalArgumentException.class, () -> valTupleWithFullRow.byteValue("I32"), "Column doesn't exist [name=I32]");
+        assertThrows(IllegalArgumentException.class, () -> valTupleWithFullRow.byteValue("\"STR\""), "Column doesn't exist [name=\"STR\"]");
     }
 
     @Override
