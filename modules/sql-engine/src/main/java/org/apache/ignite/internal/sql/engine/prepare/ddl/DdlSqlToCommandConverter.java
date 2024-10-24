@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.PRIMARY_ZONE;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
@@ -121,7 +119,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
@@ -143,9 +140,6 @@ import org.jetbrains.annotations.Nullable;
  * Converts the DDL AST tree to the appropriate catalog command.
  */
 public class DdlSqlToCommandConverter {
-    /** Mapping: Table option ID -> DDL option info. */
-    private final Map<TableOptionEnum, DdlOptionInfo<CreateTableCommandBuilder, ?>> tableOptionInfos;
-
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommandBuilder, ?>> zoneOptionInfos;
 
@@ -163,11 +157,6 @@ public class DdlSqlToCommandConverter {
                 .stream()
                 .map(Enum::name)
                 .collect(Collectors.toSet());
-
-        this.tableOptionInfos = new EnumMap<>(Map.of(
-                PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommandBuilder::zone),
-                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommandBuilder::storageProfile)
-        ));
 
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
@@ -267,25 +256,6 @@ public class DdlSqlToCommandConverter {
     private CatalogCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommandBuilder tblBuilder = CreateTableCommand.builder();
 
-        if (createTblNode.createOptionList() != null) {
-            for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
-                IgniteSqlCreateTableOption option = (IgniteSqlCreateTableOption) optionNode;
-
-                assert option.key().isSimple() : option.key();
-
-                String optionKey = option.key().getSimple().toUpperCase();
-
-                try {
-                    DdlOptionInfo<CreateTableCommandBuilder, ?> tblOptionInfo = tableOptionInfos.get(TableOptionEnum.valueOf(optionKey));
-
-                    updateCommandOption("Table", optionKey, option.value(), tblOptionInfo, ctx.query(), tblBuilder);
-                } catch (IllegalArgumentException ignored) {
-                    throw new SqlException(
-                            STMT_VALIDATION_ERR, format("Unexpected table option [option={}, query={}]", optionKey, ctx.query()));
-                }
-            }
-        }
-
         List<IgniteSqlPrimaryKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
                 .filter(IgniteSqlPrimaryKeyConstraint.class::isInstance)
                 .map(IgniteSqlPrimaryKeyConstraint.class::cast)
@@ -381,11 +351,23 @@ public class DdlSqlToCommandConverter {
             columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name.getSimple())));
         }
 
+        String storageProfile = null;
+        if (createTblNode.storageProfile() != null) {
+            assert createTblNode.storageProfile().getKind() == SqlKind.LITERAL;
+
+            storageProfile = ((SqlLiteral) createTblNode.storageProfile()).getValueAs(String.class);
+            checkEmptyString(storageProfile);
+        }
+
+        String zone = createTblNode.zone() == null ? null : createTblNode.zone().getSimple();
+
         return tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
                 .tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"))
                 .columns(columns)
                 .primaryKey(primaryKey)
                 .colocationColumns(colocationColumns)
+                .zone(zone)
+                .storageProfile(storageProfile)
                 .ifTableExists(createTblNode.ifNotExists())
                 .build();
     }
@@ -854,7 +836,7 @@ public class DdlSqlToCommandConverter {
     }
 
     private void checkEmptyString(String string) {
-        if (string.isEmpty()) {
+        if (string.isBlank()) {
             throw new SqlException(STMT_VALIDATION_ERR, "String cannot be empty");
         }
     }

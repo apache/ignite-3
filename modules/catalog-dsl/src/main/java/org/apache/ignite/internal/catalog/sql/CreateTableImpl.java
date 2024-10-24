@@ -38,9 +38,9 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
     private final List<Constraint> constraints = new ArrayList<>();
 
-    private final List<Option> withOptions = new ArrayList<>();
-
     private Colocate colocate;
+
+    private Zone zone;
 
     private final List<CreateIndexImpl> indexes = new ArrayList<>();
 
@@ -119,7 +119,7 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl zone(String zone) {
         Objects.requireNonNull(zone, "Zone name must not be null.");
 
-        withOptions.add(Option.primaryZone(zone));
+        this.zone = new Zone(zone.toUpperCase());
         return this;
     }
 
@@ -172,9 +172,8 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
             ctx.sql(" ").visit(colocate);
         }
 
-        if (!withOptions.isEmpty()) {
-            ctx.sql(" ").sql("WITH ");
-            ctx.visit(partsList(withOptions));
+        if (zone != null) {
+            ctx.sql(" ").visit(zone);
         }
 
         ctx.sql(";");

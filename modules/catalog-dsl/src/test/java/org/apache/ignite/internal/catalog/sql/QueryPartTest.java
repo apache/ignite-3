@@ -137,18 +137,6 @@ class QueryPartTest {
     }
 
     @Test
-    void withOptionPart() {
-        Option withOption = Option.primaryZone("z");
-        assertThat(sql(withOption), is("PRIMARY_ZONE='Z'"));
-
-        withOption = Option.partitions(1);
-        assertThat(sql(withOption), is("PARTITIONS=1"));
-
-        withOption = Option.replicas(1);
-        assertThat(sql(withOption), is("REPLICAS=1"));
-    }
-
-    @Test
     void queryPartCollection() {
         QueryPartCollection<Name> collection = QueryPartCollection.partsList(new Name("a"), new Name("b"));
 

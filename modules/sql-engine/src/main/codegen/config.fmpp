@@ -39,7 +39,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
@@ -66,6 +65,8 @@ data: {
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
       "COLOCATE"
+      "STORAGE"
+      "PROFILE"
       "IF"
       "INDEX"
       "ENGINE"
@@ -84,6 +85,8 @@ data: {
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
       "ENGINE"
+      "STORAGE"
+      "PROFILE"
       "SORTED"
       "HASH"
       "UUID"

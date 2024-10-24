@@ -148,7 +148,7 @@ public class TableDefinition {
     /**
      * Returns primary zone name.
      *
-     * @return Zone name to use in the {@code WITH PRIMARY_ZONE} option or {@code null} if not specified.
+     * @return Zone name to use in the {@code ZONE} option or {@code null} if not specified.
      */
     public @Nullable String zoneName() {
         return zoneName;

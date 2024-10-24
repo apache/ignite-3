@@ -56,7 +56,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
 
         executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'",
+                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
                 TABLE_NAME,
                 ZONE_NAME
         ));
