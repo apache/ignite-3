@@ -21,7 +21,6 @@ from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
-from pyignite3 import ignite_version
 
 __version__ = pkgutil.get_data(__name__, "_version.txt").decode
 
