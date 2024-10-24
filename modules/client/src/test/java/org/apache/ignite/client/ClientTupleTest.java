@@ -260,6 +260,18 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
+    public void testKeyOnlyDoesNotReturnValColumns() {
+        Tuple keyTupleWithFullRow = createTuplePart(TuplePart.KEY, false);
+
+        assertEquals(-1, keyTupleWithFullRow.columnIndex("I8"));
+        assertEquals(-1, keyTupleWithFullRow.columnIndex("\"i16\""));
+
+        assertThrows(IllegalArgumentException.class, () -> keyTupleWithFullRow.byteValue("I8"), "Column doesn't exist [name=I8]");
+        assertThrows(IllegalArgumentException.class, () -> keyTupleWithFullRow.byteValue("\"i16\""), "Column doesn't exist [name=\"i16\"]");
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
     public void testValOnlyDoesNotReturnKeyColumns() {
         Tuple valTupleWithFullRow = createTuplePart(TuplePart.VAL, false);
 
