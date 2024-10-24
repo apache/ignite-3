@@ -386,6 +386,20 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     /**
+     * Create coarse lock exception.
+     *
+     * @param locker Locker.
+     * @param holder Lock holder.
+     * @param abandoned If locker is abandoned.
+     * @return Lock exception.
+     */
+    private static LockException coarseLockException(UUID locker, UUID holder, boolean abandoned) {
+        return new LockException(ACQUIRE_LOCK_ERR,
+                "Failed to acquire the intention table lock due to a conflict [locker=" + locker + ", holder=" + holder + ", abandoned="
+                        + abandoned + ']');
+    }
+
+    /**
      * Common interface for releasing transaction locks.
      */
     interface Releasable {
@@ -514,7 +528,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
                                     for (Lock lock : ixlockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
-                                            return failedFuture(lockException(txId, lock.txId()));
+                                            return notifyAndFail(txId, lock.txId());
                                         }
                                     }
                                 }
@@ -522,19 +536,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 assert false : "Should not reach here";
                             }
 
-                            UUID holderTx = ixlockOwners.keySet().iterator().next();
-                            CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-                            if (res.isCompletedExceptionally()) {
-                                return failedFuture(abandonedLockException(txId, holderTx));
-                            }
-
                             // Validate reordering with IX locks if prevention is enabled.
                             if (deadlockPreventionPolicy.usePriority()) {
                                 for (Lock lock : ixlockOwners.values()) {
                                     // Allow only high priority transactions to wait.
                                     if (txComparator.compare(lock.txId(), txId) < 0) {
-                                        return failedFuture(lockException(txId, lock.txId()));
+                                        return notifyAndFail(txId, lock.txId());
                                     }
                                 }
                             }
@@ -578,7 +585,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                     // Attempt to upgrade to SIX in the presence of concurrent transactions. Deny lock attempt.
                                     for (Lock lock : slockOwners.values()) {
                                         if (!lock.txId().equals(txId)) {
-                                            return failedFuture(lockException(txId, lock.txId()));
+                                            return notifyAndFail(txId, lock.txId());
                                         }
                                     }
                                 }
@@ -588,13 +595,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                             // IX locks never allowed to wait.
                             UUID holderTx = slockOwners.keySet().iterator().next();
-                            CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderTx));
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-                            if (eventResult.isCompletedExceptionally()) {
-                                return failedFuture(abandonedLockException(txId, holderTx));
-                            } else {
-                                return failedFuture(lockException(txId, holderTx));
-                            }
+                            return notifyAndFail(txId, holderTx);
                         } else {
                             Lock lock = new Lock(lockKey, lockMode, txId);
                             Lock prev = ixlockOwners.putIfAbsent(txId, lock); // Avoid overwrite existing lock.
@@ -614,6 +615,19 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                     return null; // Should not be here.
             }
+        }
+
+        /**
+         * Triggers event and fails.
+         *
+         * @param txId Tx id.
+         * @param holderId Holder tx id.
+         * @return Failed future.
+         */
+        CompletableFuture<Lock> notifyAndFail(UUID txId, UUID holderId) {
+            CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderId));
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
+            return failedFuture(coarseLockException(txId, holderId, res.isCompletedExceptionally()));
         }
 
         /**
