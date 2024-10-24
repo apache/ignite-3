@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.18)
 file(READ _version.txt IGNITE_VERSION)
 if(NOT DEFINED IGNITE_VERSION)
   set(IGNITE_VERSION 3.0.0)
-  message(WARNING "Failed to read version from File. Using default version \"${IGNITE_VERSION}\".")
+  message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION}\".")
 endif()
 
 project(Ignite.C++ VERSION ${IGNITE_VERSION} LANGUAGES CXX)

@@ -47,7 +47,7 @@ with open('README.md', 'r', encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
 version = None
-with open(PACKAGE_NAME + '/_version.txt', 'r') as fd:
+with open(os.path.join(PACKAGE_NAME, '_version.txt'), 'r') as fd:
     version = fd.read()
     if not version:
         raise RuntimeError('Cannot find version information')
