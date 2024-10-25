@@ -17,19 +17,23 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -40,8 +44,10 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,7 +82,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
     private final MetaStorageManagerImpl metaStorageManager;
 
+    private final ReadOperationForCompactionTracker readOperationForCompactionTracker;
+
     private final ScheduledExecutorService scheduler;
+
+    private final ExecutorService compactionExecutor;
 
     /** Guarded by {@link #lock}. */
     private @Nullable ScheduledFuture<?> lastScheduledFuture;
@@ -85,9 +95,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     private boolean isLocalNodeLeader;
 
     private final Lock lock = new ReentrantLock();
-
-    private final PendingComparableValuesTracker<Long, Void> completeCompactionRevisionLocallyTracker
-            = new PendingComparableValuesTracker<>(-1L);
 
     /** Compaction start interval (in milliseconds). */
     // TODO: IGNITE-23279 Change configuration
@@ -107,22 +114,29 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
      * @param localNodeName Local node name.
      * @param storage Storage.
      * @param metaStorageManager Metastorage manager.
+     * @param readOperationForCompactionTracker Tracker of read operations, both local and from the leader.
      * @param scheduler Scheduler to run trigger actions.
      */
     public MetaStorageCompactionTrigger(
             String localNodeName,
             KeyValueStorage storage,
             MetaStorageManagerImpl metaStorageManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
             ScheduledExecutorService scheduler
     ) {
         this.localNodeName = localNodeName;
         this.storage = storage;
         this.metaStorageManager = metaStorageManager;
+        this.readOperationForCompactionTracker = readOperationForCompactionTracker;
         this.scheduler = scheduler;
 
-        storage.registerCompactionListener(
-                compactionRevision -> inBusyLockSafe(busyLock, () -> onCompactionCompleteLocallyBusy(compactionRevision))
+        compactionExecutor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
+
+        storage.registerCompactionRevisionUpdateListener(compactionRevision -> {
+            inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
+        });
 
         metaStorageManager.addElectionListener(newLeader -> inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader)));
     }
@@ -141,6 +155,8 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         busyLock.block();
 
         cancelLastScheduledFutureBusy();
+
+        IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
     }
@@ -162,17 +178,14 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             } else {
                 metaStorageManager
                         .sendCompactionCommand(newCompactionRevision)
-                        .thenCompose(
-                                unused -> inBusyLockAsync(busyLock, () -> awaitCompleteCompactionLocallyFutureBusy(newCompactionRevision))
-                        )
-                        .thenRun(() -> inBusyLock(busyLock, this::scheduleNextCompactionBusy))
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
                                 Throwable cause = unwrapCause(throwable);
 
                                 if (!(cause instanceof NodeStoppingException)) {
                                     LOG.error(
-                                            "Unknown error on new metastorage compaction revision: {}",
+                                            "Unknown error occurred while sending the metastorage compaction command: "
+                                                    + "[newCompactionRevision={}]",
                                             cause,
                                             newCompactionRevision
                                     );
@@ -216,10 +229,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<Void> awaitCompleteCompactionLocallyFutureBusy(long compactionRevision) {
-        return completeCompactionRevisionLocallyTracker.waitFor(compactionRevision);
-    }
-
     private void scheduleNextCompactionBusy() {
         lock.lock();
 
@@ -236,8 +245,27 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         }
     }
 
-    private void onCompactionCompleteLocallyBusy(long compactionRevision) {
-        completeCompactionRevisionLocallyTracker.update(compactionRevision, null);
+    private void onCompactionRevisionUpdateBusy(long compactionRevision) {
+        supplyAsync(() -> readOperationForCompactionTracker.collect(compactionRevision), compactionExecutor)
+                .thenComposeAsync(Function.identity(), compactionExecutor)
+                .thenRunAsync(() -> storage.compact(compactionRevision), compactionExecutor)
+                .whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        LOG.info("Metastore compaction completed successfully: [compactionRevision={}]", compactionRevision);
+                    } else {
+                        Throwable cause = unwrapCause(throwable);
+
+                        if (!(cause instanceof NodeStoppingException)) {
+                            LOG.error(
+                                    "Unknown error on new metastorage compaction revision: {}",
+                                    cause,
+                                    compactionRevision
+                            );
+                        }
+                    }
+
+                    inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
+                });
     }
 
     private void onLeaderElectedBusy(ClusterNode newLeader) {

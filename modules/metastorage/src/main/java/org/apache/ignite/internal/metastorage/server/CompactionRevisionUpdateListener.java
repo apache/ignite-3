@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-
-/**
- * Command to start the metastore compaction locally.
- *
- * <p>Invokes {@link KeyValueStorage#updateCompactionRevision} on command processing.</p>
- */
-@Transferable(MetastorageCommandsMessageGroup.COMPACTION)
-public interface CompactionCommand extends MetaStorageWriteCommand {
-    /** New metastorage compaction revision. */
-    long compactionRevision();
+/** Metastorage compaction revision update listener in the WatchEvent queue. */
+@FunctionalInterface
+public interface CompactionRevisionUpdateListener {
+    /**
+     * Invoked when metastorage compaction revision is updated.
+     *
+     * <p>Listener code is executed in a WatchEvent queue thread, which should not be kept for long.</p>
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     */
+    void onUpdate(long compactionRevision);
 }

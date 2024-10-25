@@ -71,7 +71,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -266,12 +265,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         super(
                 nodeName,
                 failureManager,
-                readOperationForCompactionTracker,
-                Executors.newSingleThreadExecutor(NamedThreadFactory.create(
-                        nodeName,
-                        "metastorage-compaction-executor",
-                        Loggers.forClass(RocksDbKeyValueStorage.class)
-                ))
+                readOperationForCompactionTracker
         );
 
         this.dbPath = dbPath;
@@ -421,7 +415,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {

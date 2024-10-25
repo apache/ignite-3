@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -936,12 +937,12 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     @Test
     void testReadOperationsFutureWithoutReadOperations() {
-        assertTrue(storage.readOperationsFuture(0).isDone());
-        assertTrue(storage.readOperationsFuture(1).isDone());
+        assertTrue(readOperationForCompactionTracker.collect(0).isDone());
+        assertTrue(readOperationForCompactionTracker.collect(1).isDone());
     }
 
     /**
-     * Tests {@link KeyValueStorage#readOperationsFuture} as expected in use.
+     * Tests tracking only read operations from the storage, reading from the leader tracks {@link MetaStorageManagerImpl} itself.
      * <ul>
      *     <li>Create read operations, we only need cursors since reading one entry or a batch is synchronized with
      *     {@link KeyValueStorage#setCompactionRevision}.</li>
@@ -959,7 +960,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         try {
             storage.setCompactionRevision(3);
 
-            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(3);
             assertFalse(readOperationsFuture.isDone());
 
             range0.stream().forEach(entry -> {});
@@ -980,7 +981,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     /**
      * Tests that cursors created after {@link KeyValueStorage#setCompactionRevision} will not affect future from
-     * {@link KeyValueStorage#readOperationsFuture} on a new compaction revision.
+     * {@link ReadOperationForCompactionTracker#collect} on a new compaction revision.
      */
     @Test
     void testReadOperationsFutureForReadOperationAfterSetCompactionRevision() throws Exception {
@@ -994,7 +995,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
             rangeAfterSetCompactionRevision0 = storage.range(FOO_KEY, FOO_KEY);
             rangeAfterSetCompactionRevision1 = storage.range(FOO_KEY, FOO_KEY, 5);
 
-            CompletableFuture<Void> readOperationsFuture = storage.readOperationsFuture(3);
+            CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(3);
             assertFalse(readOperationsFuture.isDone());
 
             rangeBeforeSetCompactionRevision.close();
@@ -1011,56 +1012,30 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
-    /** Tests {@link KeyValueStorage#startCompaction} case from method description when storage is in recovery state. */
+    /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is in recovery state. */
     @Test
-    void testStartCompactionWithoutStartWatches() {
-        var completeCompactionFuture = new CompletableFuture<Long>();
-        storage.registerCompactionListener(completeCompactionFuture::complete);
+    void testUpdateCompactionRevisionWithoutStartWatches() {
+        var updateCompactionRevisionFuture = new CompletableFuture<Long>();
+        storage.registerCompactionRevisionUpdateListener(updateCompactionRevisionFuture::complete);
 
-        storage.startCompaction(3);
-        assertEquals(3, storage.getCompactionRevision());
+        storage.updateCompactionRevision(1, kvContext(clock.now()));
+        assertEquals(1, storage.getCompactionRevision());
 
-        assertThat(completeCompactionFuture, willTimeoutFast());
-
-        // Let's make sure that nothing happens after the watch starts.
-        startWatches();
-        assertEquals(3, storage.getCompactionRevision());
-        assertThat(completeCompactionFuture, willTimeoutFast());
+        assertThat(updateCompactionRevisionFuture, willTimeoutFast());
     }
 
-    /** Tests {@link KeyValueStorage#startCompaction} case from method description when storage is <b>not</b> in recovery state. */
+    /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is <b>not</b> in recovery state. */
     @Test
-    void testStartCompaction() {
-        var completeCompactionFuture = new CompletableFuture<Long>();
-        storage.registerCompactionListener(completeCompactionFuture::complete);
+    void testUpdateCompactionRevision() {
+        var updateCompactionRevisionFuture = new CompletableFuture<Long>();
+        storage.registerCompactionRevisionUpdateListener(updateCompactionRevisionFuture::complete);
 
-        var startHandleWatchEventFuture = new CompletableFuture<Void>();
-        var finishHandleWatchEventFuture = new CompletableFuture<Void>();
-
-        watchExact(FOO_KEY, startHandleWatchEventFuture, finishHandleWatchEventFuture);
         startWatches();
 
-        storage.put(FOO_KEY, SOME_VALUE, kvContext(clock.now()));
-        assertThat(startHandleWatchEventFuture, willCompleteSuccessfully());
+        storage.updateCompactionRevision(1, kvContext(clock.now()));
 
-        storage.startCompaction(3);
-
-        Cursor<Entry> rangeCursor = storage.range(FOO_KEY, FOO_KEY);
-
-        // Since we blocked the WatchEvent queue, we can't complete the compaction.
-        assertThat(completeCompactionFuture, willTimeoutFast());
-        assertEquals(-1, storage.getCompactionRevision());
-
-        finishHandleWatchEventFuture.complete(null);
-
-        // We have unlocked the WatchEvent queue, but the cursor has not yet been closed.
-        assertThat(completeCompactionFuture, willTimeoutFast());
-        assertEquals(3, storage.getCompactionRevision());
-
-        rangeCursor.close();
-
-        assertThat(completeCompactionFuture, willBe(3L));
-        assertEquals(3, storage.getCompactionRevision());
+        assertThat(updateCompactionRevisionFuture, willBe(1L));
+        assertEquals(1, storage.getCompactionRevision());
     }
 
     private List<Integer> collectRevisions(byte[] key) {

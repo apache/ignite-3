@@ -231,10 +231,7 @@ public class MetaStorageWriteHandler {
         } else if (command instanceof CompactionCommand) {
             CompactionCommand cmd = (CompactionCommand) command;
 
-            long compactionRevision = cmd.compactionRevision();
-
-            storage.saveCompactionRevision(compactionRevision, context);
-            storage.startCompaction(compactionRevision);
+            storage.updateCompactionRevision(cmd.compactionRevision(), context);
 
             clo.result(null);
         } else {

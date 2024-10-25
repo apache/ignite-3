@@ -50,12 +50,9 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -74,8 +71,6 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(SimpleInMemoryKeyValueStorage.class);
-
     /**
      * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
      *
@@ -147,7 +142,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     /** Constructor. */
     public SimpleInMemoryKeyValueStorage(String nodeName, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
-        super(nodeName, new NoOpFailureManager(), readOperationForCompactionTracker, ForkJoinPool.commonPool());
+        super(nodeName, new NoOpFailureManager(), readOperationForCompactionTracker);
     }
 
     @Override

@@ -711,6 +711,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 storage,
                 metaStorageMgr,
+                readOperationForCompactionTracker,
                 threadPoolsManager.commonScheduler()
         );
 

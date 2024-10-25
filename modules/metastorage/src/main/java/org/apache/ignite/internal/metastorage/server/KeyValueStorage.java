@@ -425,28 +425,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void compact(long revision);
 
     /**
-     * Starts local compaction of metastorage.
-     *
-     * <p>Algorithm:</p>
-     * <ul>
-     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
-     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
-     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
-     *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
-     *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
-     *     asynchronously waiting for their completion.</li>
-     *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
-     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompactionCompleteLocally} for
-     *     {@link #registerCompactionListener registered} listeners.</li>
-     * </ul>
-     *
-     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
-     *
-     * @param compactionRevision Compaction revision.
-     */
-    void startCompaction(long compactionRevision);
-
-    /**
      * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
      *
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
@@ -561,21 +539,31 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long getCompactionRevision();
 
     /**
-     * Returns a future that will complete when all read operations that were started before {@code compactionRevisionExcluded}.
+     * Updates the metastorage compaction revision.
      *
-     * <p>Current method is expected to be invoked after {@link #setCompactionRevision} on the same revision.</p>
+     * <p>Algorithm:</p>
+     * <ul>
+     *     <li>Invokes {@link #saveCompactionRevision}.</li>
+     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes {@link CompactionRevisionUpdateListener#onUpdate} for
+     *     {@link #registerCompactionRevisionUpdateListener registered listeners} and completes.</li>
+     * </ul>
      *
-     * <p>Future completes without exception.</p>
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
-     * @param compactionRevisionExcluded Compaction revision of interest.
+     * @param revision Compaction revision to update.
+     * @param context Operation's context.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
      */
-    CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
+    void updateCompactionRevision(long revision, KeyValueUpdateContext context);
 
-    /** Adds a metastore compaction listener. */
-    void registerCompactionListener(CompactionListener listener);
+    /** Adds a metastorage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
-    /** Removes a metastore compaction listener. */
-    void unregisterCompactionListener(CompactionListener listener);
+    /** Removes a metastorage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
     /**
      * Returns checksum corresponding to the revision.
