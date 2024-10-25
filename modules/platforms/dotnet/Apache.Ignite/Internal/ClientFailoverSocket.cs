@@ -439,13 +439,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Throws if disposed.
         /// </summary>
-        private void ThrowIfDisposed()
-        {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(ClientFailoverSocket));
-            }
-        }
+        private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
         /// <summary>
         /// Gets the next connected socket, or connects a new one.

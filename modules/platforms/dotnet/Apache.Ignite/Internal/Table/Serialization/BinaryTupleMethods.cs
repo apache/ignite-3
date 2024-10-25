@@ -103,7 +103,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetBigDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBigDecimalNullable))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytesNullable))!;
 
-        private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
+        private static readonly Dictionary<Type, MethodInfo> WriteMethods = new()
         {
             { typeof(string), AppendString },
             { typeof(sbyte), AppendByte },
@@ -137,7 +137,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(BigDecimal?), AppendBigDecimalNullable }
         };
 
-        private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
+        private static readonly Dictionary<Type, MethodInfo> ReadMethods = new()
         {
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
