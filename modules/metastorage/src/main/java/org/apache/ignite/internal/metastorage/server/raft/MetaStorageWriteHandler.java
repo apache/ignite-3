@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
@@ -184,7 +185,7 @@ public class MetaStorageWriteHandler {
     private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, long index, long term) {
         HybridTimestamp opTime = command.safeTime();
 
-        KeyValueUpdateContext context = new KeyValueUpdateContext(index, term, opTime);
+        var context = new KeyValueUpdateContext(index, term, opTime);
 
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
@@ -227,6 +228,14 @@ public class MetaStorageWriteHandler {
             evictIdempotentCommandsCache(cmd.evictionTimestamp(), context);
 
             clo.result(null);
+        } else if (command instanceof CompactionCommand) {
+            CompactionCommand cmd = (CompactionCommand) command;
+
+            storage.updateCompactionRevision(cmd.compactionRevision(), context);
+
+            clo.result(null);
+        } else {
+            throw new AssertionError(String.format("Unsupported command: [context=%s, command=%s]", context, command));
         }
     }
 
