@@ -1235,16 +1235,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    replicaManager.replica(replicationGroupId)
-                            .thenAccept(replica -> {
-                                onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                                        replica,
-                                        replicationGroupId,
-                                        term
-                                );
+                    CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
 
-                                replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
-                            });
+                    assert replicaFuture != null;
+
+                    Replica replica = replicaFuture.join();
+                    onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                            replica,
+                            replicationGroupId,
+                            term
+                    );
+
+                    replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
 
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
@@ -1270,9 +1272,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        replicaManager.replica(parameters.groupId()).thenAccept(expiredPrimaryReplica -> expiredPrimaryReplica.raftClient()
+                        CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
+
+                        assert replicaFuture != null;
+
+                        Replica expiredPrimaryReplica = replicaFuture.join();
+                        expiredPrimaryReplica.raftClient()
                                 .unsubscribeLeader(onLeaderElectedFailoverCallback)
-                        );
+                                .join();
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
@@ -1296,24 +1303,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
-            getPendingAssignmentsSupplier.apply(replicationGroupId)
-                    .thenAccept(pendings -> {
+            byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
-                        if (pendings == null) {
-                            return;
-                        }
+            if (pendings == null) {
+                LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
+                return;
+            }
 
-                        Assignments newConfiguration = Assignments.fromBytes(pendings);
+            Assignments newConfiguration = Assignments.fromBytes(pendings);
 
-                        PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
+            PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
 
-                        LOG.info(
-                                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                                replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
-                        );
+            LOG.info(
+                    "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                    replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
+            );
 
-                        primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
-                    });
+            primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {

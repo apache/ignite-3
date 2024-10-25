@@ -602,6 +602,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersReplicaRequest request) {
         TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
 
+        LOG.info("!!! req grpId={}", replicaGrpId);
+
         RaftGroupService raftClient = raftCommandRunner instanceof RaftGroupService
                 ? (RaftGroupService) raftCommandRunner
                 : ((RaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner());

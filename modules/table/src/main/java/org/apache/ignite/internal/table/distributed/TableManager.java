@@ -2088,6 +2088,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             boolean isRecovery
     ) {
+        LOG.info("?!?!?!");
         if (pendingAssignmentsEntry.value() == null) {
             return nullCompletedFuture();
         }
@@ -2278,6 +2279,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
             if (!isPrimary) {
+                LOG.info("!!! not a primary grpId={}", groupId);
                 return;
             }
 
@@ -2291,6 +2293,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignments newConfiguration,
             long currentRevision
     ) {
+        LOG.info("!!! sending grpId={}", replicationGroupId);
         metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
             // Do not change peers of the raft group if this is a stale event.
             // Note that we start raft node before for the sake of the consistency in a
