@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver;
+package org.apache.ignite.internal.replicator;
 
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
+/**
+ * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
+ */
+public interface PartitionGroupId extends ReplicationGroupId {
+    /** Returns ID of the partitioned object. */
+    int objectId();
 
-/** Replica lease meta. */
-public interface ReplicaMeta {
-    /** Gets a leaseholder node consistent ID (assigned to a node once), {@code null} if nothing holds the lease. */
-    @Nullable String getLeaseholder();
-
-    /** Gets a leaseholder node ID (changes on every node startup), {@code null} if nothing holds the lease. */
-    @Nullable UUID getLeaseholderId();
-
-    /** Gets a lease start timestamp. */
-    HybridTimestamp getStartTime();
-
-    /** Gets a lease expiration timestamp. */
-    HybridTimestamp getExpirationTime();
+    /** Returns partition ID. */
+    int partitionId();
 }

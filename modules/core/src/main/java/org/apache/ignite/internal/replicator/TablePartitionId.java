@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.replicator;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Should be refactored to ZonePartitionId.
+
 /**
  * The class is used to identify a table replication group.
  */
-public class TablePartitionId implements ReplicationGroupId {
+public class TablePartitionId implements PartitionGroupId {
 
     /** Table id. */
     private final int tableId;
@@ -52,11 +53,17 @@ public class TablePartitionId implements ReplicationGroupId {
         return new TablePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
 
+    @Override
+    public int objectId() {
+        return tableId;
+    }
+
     /**
      * Get the partition id.
      *
      * @return Partition id.
      */
+    @Override
     public int partitionId() {
         return partId;
     }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.disaster.system;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -67,20 +65,6 @@ public class ResetClusterMessagePersistentSerializer extends VersionedSerializer
         }
     }
 
-    private static void writeStringSet(Set<String> strings, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(strings.size());
-        for (String str : strings) {
-            out.writeUTF(str);
-        }
-    }
-
-    private static void writeNullableString(@Nullable String str, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(str == null ? -1 : str.length());
-        if (str != null) {
-            out.writeByteArray(str.getBytes(UTF_8));
-        }
-    }
-
     @Override
     protected ResetClusterMessage readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         Set<String> newCmgNodes = readStringSet(in);
@@ -106,12 +90,6 @@ public class ResetClusterMessagePersistentSerializer extends VersionedSerializer
                 .build();
     }
 
-    private static Set<String> readStringSet(IgniteDataInput in) throws IOException {
-        int size = in.readVarIntAsInt();
-
-        return readStringSet(size, in);
-    }
-
     private static Set<String> readStringSet(int size, IgniteDataInput in) throws IOException {
         Set<String> result = new HashSet<>(size);
         for (int i = 0; i < size; i++) {
@@ -119,15 +97,6 @@ public class ResetClusterMessagePersistentSerializer extends VersionedSerializer
         }
 
         return result;
-    }
-
-    private static @Nullable String readNullableString(IgniteDataInput in) throws IOException {
-        int lengthOrMinusOne = in.readVarIntAsInt();
-        if (lengthOrMinusOne == -1) {
-            return null;
-        }
-
-        return new String(in.readByteArray(lengthOrMinusOne), UTF_8);
     }
 
     private static List<UUID> readFormerClusterIds(IgniteDataInput in) throws IOException {
