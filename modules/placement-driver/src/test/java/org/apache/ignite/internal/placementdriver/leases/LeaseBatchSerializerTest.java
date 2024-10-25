@@ -46,8 +46,8 @@ class LeaseBatchSerializerTest {
 
     private static final long STANDARD_LEASE_DURATION_MS = 5000;
 
-    private static final String SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBiScDBm5vZGUxBm5vZGUyA+/Nq5B4VjQSIUNlhwm63P4BIUNlhwm63P7vzauQeFY0Eg"
-            + "ICAgMHCQIBCAJlAgE";
+    private static final String SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz+782rkHhWNBICA"
+            + "gIDBwmJJwEIAmWJJwE=";
 
     private final LeaseBatchSerializer serializer = new LeaseBatchSerializer();
 

@@ -51,7 +51,6 @@ import org.jetbrains.annotations.Nullable;
  *       <MIN_EXPIRATION_TIME_PHYSICAL_PART> (varint) // Self-explanatory
  *       <COMMON_EXPIRATION_TIME_PHYSICAL_PART_DELTA> (varint) // Delta between physical part of common expiration time and min exp. time
  *       <COMMON_EXPIRATION_TIME_LOGICAL_PART> (varint) // Logical part of most common expiration time
- *       <PERIOD_GCD> (varint) // GCD of all leases' periods (where period is difference between physical parts of exp. and start times)
  *       <NODE_DICTIONARY>
  *
  *     <NODE_DICTIONARY> ::=
@@ -82,7 +81,7 @@ import org.jetbrains.annotations.Nullable;
  *       ]
  *
  *       <HOLDER_AND_PROPOSED_CANDIDATE> ::=
- *         <HOLDER_AND_PROPOSED_CANDIDATE_COMPACTLY> (byte) // Only if number of node names in the dictionary is 8 or less; lowerest 3 bits
+ *         <HOLDER_AND_PROPOSED_CANDIDATE_COMPACTLY> (byte) // Only if number of node names in the dictionary is 8 or less; lowest 3 bits
  *                                                          // encode holder index (in the nodes table), and next 3 bits are for proposed
  *                                                          // candidate index (in the names table)
  *         | <HOLDER_INDEX> (varint) [ <PROPOSED_CANDIDATE> (varint) ] // Proposed candidate is only written if HAS_PROPOSED_CANDIDATE
@@ -92,7 +91,7 @@ import org.jetbrains.annotations.Nullable;
  *         [ EXPIRATION_TIME_LOGICAL_PART ] (varint) // Only written if HAS_EXPIRATION_TIME_LOGICAL flag is 1
  *
  *       <START_TIME> ::=
- *         <PERIOD> // Difference between physical parts of expirationTime and startTime expressed in periodGcds
+ *         <PERIOD> // Difference between physical parts of expirationTime and startTime
  *         <START_TIME_LOGICAL_PART (varint)
  * }</pre>
  *
@@ -146,12 +145,10 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     protected void writeExternalData(LeaseBatch batch, IgniteDataOutput out) throws IOException {
         long minExpirationTimePhysical = minExpirationTimePhysicalPart(batch);
         HybridTimestamp commonExpirationTime = mostFrequentExpirationTime(batch);
-        long periodGcd = periodGcd(batch);
 
         out.writeVarInt(minExpirationTimePhysical);
         out.writeVarInt(commonExpirationTime.getPhysical() - minExpirationTimePhysical);
         out.writeVarInt(commonExpirationTime.getLogical());
-        out.writeVarInt(periodGcd);
 
         NodesDictionary nodesDictionary = buildNodesDictionary(batch);
         nodesDictionary.writeTo(out);
@@ -167,7 +164,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                 + tableLeases.size() + " of them are table leases, " + zoneLeases.size() + " are zone leases, but "
                 + (batch.leases().size() - tableLeases.size() - zoneLeases.size()) + " are neither";
 
-        writePartitionedGroupLeases(tableLeases, minExpirationTimePhysical, commonExpirationTime, periodGcd, nodesDictionary, out);
+        writePartitionedGroupLeases(tableLeases, minExpirationTimePhysical, commonExpirationTime, nodesDictionary, out);
 
         assert zoneLeases.isEmpty() : "There are zone leases which are not supported yet";
     }
@@ -205,21 +202,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         return commonExpirationTime;
     }
 
-    private static long periodGcd(LeaseBatch batch) {
-        long currentGcd = -1;
-        for (Lease lease : batch.leases()) {
-            long period = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
-            assert period >= 0 : "Period is " + period + " for " + lease;
-
-            if (period > 0) {
-                currentGcd = currentGcd == -1 ? period : gcd(currentGcd, period);
-            }
-        }
-
-        // If there is no single positive period (maybe the batch is empty?), any value will do.
-        return currentGcd > 0 ? currentGcd : 1;
-    }
-
     private static NodesDictionary buildNodesDictionary(LeaseBatch batch) {
         NodesDictionary nodesDictionary = new NodesDictionary();
 
@@ -241,7 +223,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             List<Lease> leases,
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out
     ) throws IOException {
@@ -266,7 +247,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                     objectLeases,
                     minExpirationTimePhysical,
                     commonExpirationTime,
-                    periodGcd,
                     nodesDictionary,
                     out,
                     objectIdBase
@@ -283,7 +263,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             List<Lease> objectLeases,
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out,
             int objectIdBase
@@ -297,7 +276,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
         int partitionId = 0;
         for (Lease lease : objectLeases) {
-            partitionId = writeLease(lease, partitionId, minExpirationTimePhysical, commonExpirationTime, periodGcd, nodesDictionary, out);
+            partitionId = writeLease(lease, partitionId, minExpirationTimePhysical, commonExpirationTime, nodesDictionary, out);
         }
 
         return objectId;
@@ -308,7 +287,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             int partitionId,
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out
     ) throws IOException {
@@ -361,9 +339,8 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             }
         }
 
-        long periodInMillis = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
-        long periodInGcds =   periodInMillis / periodGcd;
-        out.writeVarInt(periodInGcds);
+        long periodIn = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+        out.writeVarInt(periodIn);
         out.writeVarInt(lease.getStartTime().getLogical());
 
         return partitionId + 1;
@@ -400,7 +377,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     protected LeaseBatch readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         long minExpirationTimePhysical = in.readVarInt();
         HybridTimestamp commonExpirationTime = new HybridTimestamp(minExpirationTimePhysical + in.readVarInt(), in.readVarIntAsInt());
-        long periodGcd = in.readVarInt();
         NodesDictionary nodesDictionary = NodesDictionary.readFrom(in);
 
         List<Lease> leases = new ArrayList<>();
@@ -408,7 +384,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         readPartitionedGroupLeases(
                 minExpirationTimePhysical,
                 commonExpirationTime,
-                periodGcd,
                 nodesDictionary,
                 leases,
                 in,
@@ -421,7 +396,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static void readPartitionedGroupLeases(
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             List<Lease> leases,
             IgniteDataInput in,
@@ -434,7 +408,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             objectIdBase = readLeasesForObject(
                     minExpirationTimePhysical,
                     commonExpirationTime,
-                    periodGcd,
                     nodesDictionary,
                     leases,
                     in,
@@ -447,7 +420,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static int readLeasesForObject(
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             List<Lease> leases,
             IgniteDataInput in,
@@ -463,7 +435,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                     objectId,
                     minExpirationTimePhysical,
                     commonExpirationTime,
-                    periodGcd,
                     nodesDictionary,
                     in,
                     groupIdFactory
@@ -481,7 +452,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             int objectId,
             long minExpirationTimePhysical,
             HybridTimestamp commonExpirationTime,
-            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataInput in,
             GroupIdFactory groupIdFactory
@@ -528,11 +498,10 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             expirationTime = commonExpirationTime;
         }
 
-        long periodInGcds = in.readVarInt();
-        long periodInMillis = periodInGcds * periodGcd;
+        long period = in.readVarInt();
         int startLogical = in.readVarIntAsInt();
 
-        HybridTimestamp startTime = new HybridTimestamp(expirationTime.getPhysical() - periodInMillis, startLogical);
+        HybridTimestamp startTime = new HybridTimestamp(expirationTime.getPhysical() - period, startLogical);
 
         return new Lease(
                 leaseHolder,
@@ -556,14 +525,6 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
     private static boolean flagSet(int flags, int mask) {
         return (flags & mask) != 0;
-    }
-
-    private static long gcd(long a, long b) {
-        if (b == 0) {
-            return a;
-        }
-
-        return gcd(b, a % b);
     }
 
     @FunctionalInterface
