@@ -413,9 +413,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         LOG.info("Trying to reenter Metastorage group");
 
         return validateMetastorageForDivergence(metastorageNodes)
-                .thenRun(() -> {
-                    prepareMetaStorageReentry(currentClusterId);
-                });
+                .thenRun(() -> prepareMetaStorageReentry(currentClusterId));
     }
 
     private CompletableFuture<Void> validateMetastorageForDivergence(Set<String> metastorageNodes) {
