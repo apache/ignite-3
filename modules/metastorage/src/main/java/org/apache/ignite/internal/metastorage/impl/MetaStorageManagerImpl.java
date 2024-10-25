@@ -393,6 +393,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
+    /**
+     * Returns whether this node did not witness a Metastorage Repair in the current cluster incarnation. 'Did not witness' here means
+     * that the node neither participated in the repair (that is, provided information about its Metastorage group index+term to the repair
+     * conductor) nor it was migrated to the repaired cluster after the repair and passed through Metastorage vaidation (for divergence)
+     * and re-entry procedure.
+     *
+     * @param metaStorageInfo Information about Metastorage.
+     * @param currentClusterId Current cluster ID.
+     */
     private boolean thisNodeDidNotWitnessMetaStorageRepair(MetaStorageInfo metaStorageInfo, UUID currentClusterId) {
         UUID locallyWitnessedRepairClusterId = metastorageRepairStorage.readWitnessedMetastorageRepairClusterId();
 
