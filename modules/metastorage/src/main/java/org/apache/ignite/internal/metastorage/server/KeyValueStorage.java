@@ -378,10 +378,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Before calling this method, watches will not receive any updates.</p>
      *
      * @param startRevision Revision to start processing updates from.
-     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
-     *         revision and modified entries (processed by at least one watch) as its argument.
+     * @param callback Watch event handling callback.
      */
-    void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback);
+    void startWatches(long startRevision, WatchEventHandlingCallback callback);
 
     /**
      * Unregisters a watch listener.
@@ -547,8 +546,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
      *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
      *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
-     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes {@link CompactionRevisionUpdateListener#onUpdate} for
-     *     {@link #registerCompactionRevisionUpdateListener registered listeners} and completes.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes
+     *     {@link WatchEventHandlingCallback#onCompactionRevisionUpdated}.</li>
      * </ul>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
@@ -558,12 +557,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws MetaStorageException If there is an error while saving a compaction revision.
      */
     void updateCompactionRevision(long revision, KeyValueUpdateContext context);
-
-    /** Adds a metastorage compaction revision update listener. */
-    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
-
-    /** Removes a metastorage compaction revision update listener. */
-    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
     /**
      * Returns checksum corresponding to the revision.

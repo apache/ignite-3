@@ -63,7 +63,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -72,8 +71,8 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
@@ -193,6 +192,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /** Tracks only reads from the leader, local reads are tracked by the storage itself. */
     private final ReadOperationForCompactionTracker readOperationFromLeaderForCompactionTracker;
 
+    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
+
     /**
      * The constructor.
      *
@@ -235,6 +236,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.readOperationFromLeaderForCompactionTracker = readOperationForCompactionTracker;
 
         learnerManager = new MetaStorageLearnerManager(busyLock, logicalTopologyService, metaStorageSvcFut);
+
+        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
+                clusterService.nodeName(),
+                storage,
+                metaStorageSvcFut,
+                clusterTime,
+                readOperationForCompactionTracker
+        );
+
+        electionListeners.add(metaStorageCompactionTrigger::onLeaderElected);
     }
 
     /**
@@ -708,6 +719,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             IgniteUtils.closeAllManually(
+                    metaStorageCompactionTrigger,
                     () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
                     () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
@@ -755,7 +767,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         try {
             return recoveryFinishedFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
-                        storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
+                        storage.startWatches(revision + 1, new WatchEventHandlingCallback() {
                             @Override
                             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                                 MetaStorageManagerImpl.this.onSafeTimeAdvanced(newSafeTime);
@@ -764,6 +776,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                             @Override
                             public void onRevisionApplied(long revision) {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
+                            }
+
+                            @Override
+                            public void onCompactionRevisionUpdated(long compactionRevision) {
+                                metaStorageCompactionTrigger.onCompactionRevisionUpdate(compactionRevision);
                             }
                         });
                     }))
@@ -1231,17 +1248,5 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
             throw t;
         }
-    }
-
-    /**
-     * Sends command {@link CompactionCommand} to the leader.
-     *
-     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
-     *
-     * @param compactionRevision New metastorage compaction revision.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
-        return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
     }
 }

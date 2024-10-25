@@ -31,13 +31,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -87,8 +87,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
     protected final ReadOperationForCompactionTracker readOperationForCompactionTracker;
-
-    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -188,6 +186,23 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
+        assert revision >= 0 : revision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            saveCompactionRevision(revision, context, true);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    protected abstract void saveCompactionRevision(long compactionRevision, KeyValueUpdateContext context, boolean advanceSafeTime);
+
+    @Override
     public void setCompactionRevision(long revision) {
         assert revision >= 0 : revision;
 
@@ -222,16 +237,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         try {
             assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
-            saveCompactionRevision(compactionRevision, context);
+            saveCompactionRevision(compactionRevision, context, false);
 
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
             } else {
-                watchProcessor.addTaskToWatchEventQueue(() -> {
-                    setCompactionRevision(compactionRevision);
-
-                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
-                });
+                watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -311,16 +322,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         Predicate<byte[]> exactPredicate = k -> KEY_COMPARATOR.compare(k, key) == 0;
 
         watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
-    }
-
-    @Override
-    public void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        compactionRevisionUpdateListeners.add(listener);
-    }
-
-    @Override
-    public void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        compactionRevisionUpdateListeners.remove(listener);
     }
 
     /** Notifies of revision update. Must be called under the {@link #rwLock}. */
@@ -414,5 +415,26 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
 
         return res;
+    }
+
+    protected WatchEventHandlingCallback createWrapper(WatchEventHandlingCallback callback) {
+        return new WatchEventHandlingCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                callback.onSafeTimeAdvanced(newSafeTime);
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+                callback.onRevisionApplied(revision);
+            }
+
+            @Override
+            public void onCompactionRevisionUpdated(long compactionRevision) {
+                setCompactionRevision(compactionRevision);
+
+                callback.onCompactionRevisionUpdated(compactionRevision);
+            }
+        };
     }
 }

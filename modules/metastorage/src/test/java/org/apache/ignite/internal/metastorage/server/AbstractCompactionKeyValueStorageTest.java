@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,6 +85,9 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock);
+
+    private final PendingComparableValuesTracker<Long, Void> updateCompactionRevisionInWatchEvenQueue
+            = new PendingComparableValuesTracker<>(Long.MIN_VALUE);
 
     ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -283,7 +286,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         HybridTimestamp now0 = clock.now();
         HybridTimestamp now1 = clock.now();
 
-        startListenUpdateSafeTime();
+        startWatches();
 
         storage.saveCompactionRevision(0, new KeyValueUpdateContext(1, 1, now0));
         assertEquals(-1, storage.getCompactionRevision());
@@ -1015,26 +1018,20 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is in recovery state. */
     @Test
     void testUpdateCompactionRevisionWithoutStartWatches() {
-        var updateCompactionRevisionFuture = new CompletableFuture<Long>();
-        storage.registerCompactionRevisionUpdateListener(updateCompactionRevisionFuture::complete);
-
         storage.updateCompactionRevision(1, kvContext(clock.now()));
         assertEquals(1, storage.getCompactionRevision());
 
-        assertThat(updateCompactionRevisionFuture, willTimeoutFast());
+        assertThat(updateCompactionRevisionInWatchEvenQueue.waitFor(1L), willTimeoutFast());
     }
 
     /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is <b>not</b> in recovery state. */
     @Test
     void testUpdateCompactionRevision() {
-        var updateCompactionRevisionFuture = new CompletableFuture<Long>();
-        storage.registerCompactionRevisionUpdateListener(updateCompactionRevisionFuture::complete);
-
         startWatches();
 
         storage.updateCompactionRevision(1, kvContext(clock.now()));
 
-        assertThat(updateCompactionRevisionFuture, willBe(1L));
+        assertThat(updateCompactionRevisionInWatchEvenQueue.waitFor(1L), willCompleteSuccessfully());
         assertEquals(1, storage.getCompactionRevision());
     }
 
@@ -1121,21 +1118,18 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         );
     }
 
-    private void startListenUpdateSafeTime() {
-        storage.startWatches(storage.revision() + 1, new OnRevisionAppliedCallback() {
+    private void startWatches() {
+        storage.startWatches(storage.revision() + 1, new WatchEventHandlingCallback() {
             @Override
             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                 clusterTime.updateSafeTime(newSafeTime);
             }
 
             @Override
-            public void onRevisionApplied(long revision) {
+            public void onCompactionRevisionUpdated(long compactionRevision) {
+                updateCompactionRevisionInWatchEvenQueue.update(compactionRevision, null);
             }
         });
-    }
-
-    private void startWatches() {
-        startListenUpdateSafeTime();
     }
 
     private void watchExact(

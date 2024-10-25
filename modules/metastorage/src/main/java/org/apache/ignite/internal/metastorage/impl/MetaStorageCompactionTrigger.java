@@ -19,13 +19,11 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -34,17 +32,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -67,7 +65,7 @@ import org.jetbrains.annotations.Nullable;
  * </ol>
  */
 // TODO: IGNITE-23280 Turn on compaction
-public class MetaStorageCompactionTrigger implements IgniteComponent {
+class MetaStorageCompactionTrigger implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
     /** System property that defines compaction start interval (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
@@ -80,13 +78,13 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
     private final KeyValueStorage storage;
 
-    private final MetaStorageManagerImpl metaStorageManager;
+    private final CompletableFuture<MetaStorageServiceImpl> metastorageServiceFuture;
+
+    private final ClusterTime clusterTime;
 
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
-    private final ScheduledExecutorService scheduler;
-
-    private final ExecutorService compactionExecutor;
+    private final ScheduledExecutorService compactionExecutor;
 
     /** Guarded by {@link #lock}. */
     private @Nullable ScheduledFuture<?> lastScheduledFuture;
@@ -113,43 +111,32 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
      *
      * @param localNodeName Local node name.
      * @param storage Storage.
-     * @param metaStorageManager Metastorage manager.
+     * @param metastorageServiceFuture Metastorage service future.
+     * @param clusterTime Cluster time.
      * @param readOperationForCompactionTracker Tracker of read operations, both local and from the leader.
-     * @param scheduler Scheduler to run trigger actions.
      */
-    public MetaStorageCompactionTrigger(
+    MetaStorageCompactionTrigger(
             String localNodeName,
             KeyValueStorage storage,
-            MetaStorageManagerImpl metaStorageManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            ScheduledExecutorService scheduler
+            CompletableFuture<MetaStorageServiceImpl> metastorageServiceFuture,
+            ClusterTime clusterTime,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
         this.localNodeName = localNodeName;
         this.storage = storage;
-        this.metaStorageManager = metaStorageManager;
+        this.metastorageServiceFuture = metastorageServiceFuture;
+        this.clusterTime = clusterTime;
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
-        this.scheduler = scheduler;
 
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
-
-        storage.registerCompactionRevisionUpdateListener(compactionRevision -> {
-            inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
-        });
-
-        metaStorageManager.addElectionListener(newLeader -> inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader)));
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+    public void close() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
+            return;
         }
 
         busyLock.block();
@@ -157,8 +144,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         cancelLastScheduledFutureBusy();
 
         IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
-
-        return nullCompletedFuture();
     }
 
     private void doCompactionBusy() {
@@ -176,8 +161,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             if (newCompactionRevision == null) {
                 scheduleNextCompactionBusy();
             } else {
-                metaStorageManager
-                        .sendCompactionCommand(newCompactionRevision)
+                metastorageServiceFuture.thenCompose(svc -> svc.sendCompactionCommand(newCompactionRevision))
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
                                 Throwable cause = unwrapCause(throwable);
@@ -205,7 +189,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     }
 
     private HybridTimestamp createCandidateCompactionRevisionTimestampBusy() {
-        HybridTimestamp safeTime = metaStorageManager.clusterTime().currentSafeTime();
+        HybridTimestamp safeTime = clusterTime.currentSafeTime();
 
         return safeTime.getPhysical() <= dataAvailabilityTime
                 ? HybridTimestamp.MIN_VALUE
@@ -234,7 +218,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
         try {
             if (isLocalNodeLeader) {
-                lastScheduledFuture = scheduler.schedule(
+                lastScheduledFuture = compactionExecutor.schedule(
                         () -> inBusyLock(busyLock, this::doCompactionBusy),
                         startInterval,
                         MILLISECONDS
@@ -243,6 +227,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         } finally {
             lock.unlock();
         }
+    }
+
+    /** Invokes when the metastorage compaction revision is updated. */
+    void onCompactionRevisionUpdate(long compactionRevision) {
+        inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
     }
 
     private void onCompactionRevisionUpdateBusy(long compactionRevision) {
@@ -266,6 +255,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
                     inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
                 });
+    }
+
+    /** Invokes when a new leader is elected. */
+    void onLeaderElected(ClusterNode newLeader) {
+        inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
 
     private void onLeaderElectedBusy(ClusterNode newLeader) {

@@ -460,7 +460,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
         assert startRevision > 0 : startRevision;
 
         rwLock.readLock().lock();
@@ -468,7 +468,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         try {
             areWatchesEnabled = true;
 
-            watchProcessor.setRevisionCallback(revisionCallback);
+            watchProcessor.setWatchEventHandlingCallback(createWrapper(callback));
 
             replayUpdates(startRevision);
         } finally {
@@ -765,23 +765,13 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
-        assert revision >= 0 : revision;
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
+        savedCompactionRevision = revision;
 
-        rwLock.writeLock().lock();
+        setIndexAndTerm(context.index, context.term);
 
-        try {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
-            savedCompactionRevision = revision;
-
-            setIndexAndTerm(context.index, context.term);
-
-            if (!isInRecoveryState()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
-            }
-        } finally {
-            rwLock.writeLock().unlock();
+        if (advanceSafeTime && !isInRecoveryState()) {
+            watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
 

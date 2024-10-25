@@ -155,7 +155,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -329,9 +328,6 @@ public class IgniteImpl implements Ignite {
 
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
-
-    /** Metastorage compaction trigger. */
-    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
 
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
@@ -705,14 +701,6 @@ public class IgniteImpl implements Ignite {
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer,
                 readOperationForCompactionTracker
-        );
-
-        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
-                name,
-                storage,
-                metaStorageMgr,
-                readOperationForCompactionTracker,
-                threadPoolsManager.commonScheduler()
         );
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -1372,8 +1360,7 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
-                                resourceVacuumManager,
-                                metaStorageCompactionTrigger
+                                resourceVacuumManager
                         );
 
                         // The system view manager comes last because other components
