@@ -149,8 +149,13 @@ def createChecksums = tasks.register('createChecksums', Checksum) {
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-def signArtifacts = tasks.register('signArtifacts', Sign) {
+// Create separate sign tasks to satisfy artifacts handler requirement for a single output
+// See https://docs.gradle.org/current/dsl/org.gradle.api.artifacts.dsl.ArtifactHandler.html
+def signNuGetZip = tasks.register('signNuGetZip', Sign) {
     sign zipNuGet
+}
+
+def signCppClientZip = tasks.register('signCppClientZip', Sign) {
     sign zipCppClient
 }
 
@@ -173,12 +178,7 @@ configurations {
 
 if (project.hasProperty('prepareRelease')) {
     artifacts {
-        platformsRelease(file("$buildDir/distributions")) {
-            builtBy signArtifacts
-        }
-        platformsRelease(file("$buildDir/checksums")) {
-            builtBy createChecksums
-        }
+        platformsRelease zipNuGet, signNuGetZip, zipCppClient, signCppClientZip, createChecksums
     }
 }
 

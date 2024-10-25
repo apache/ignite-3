@@ -299,12 +299,13 @@ ospackage {
 
 if (project.hasProperty('prepareRelease')) {
     artifacts {
-        dbRelease(file("$buildDir/distributions")) {
-            builtBy signDbZip, buildDeb, buildRpm
+        // Workaround multiple files output by buildDeb (*.deb and *.changes)
+        buildDeb.outputs.files.each {
+            dbRelease(it) {
+                builtBy buildDeb
+            }
         }
-        dbRelease(file("$buildDir/checksums")) {
-            builtBy createChecksums
-        }
+        dbRelease distZip, signDbZip, buildRpm, createChecksums
     }
 }
 

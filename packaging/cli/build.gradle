@@ -203,11 +203,12 @@ configurations {
 
 if (project.hasProperty('prepareRelease')) {
     artifacts {
-        cliRelease(file("$buildDir/distributions")) {
-            builtBy signCliZip, buildDeb, buildRpm
+        // Workaround multiple files output by buildDeb (*.deb and *.changes)
+        buildDeb.outputs.files.each {
+            cliRelease(it) {
+                builtBy buildDeb
+            }
         }
-        cliRelease(file("$buildDir/checksums")) {
-            builtBy createChecksums
-        }
+        cliRelease distZip, signCliZip, buildRpm, createChecksums
     }
 }

@@ -176,11 +176,6 @@ def signAllDistZip = tasks.register('signAllDistZip', Sign) {
 
 def prepareRelease = tasks.register('prepareRelease', Copy) {
     from configurations.release
-    dependsOn createChecksums, signAllSrcZip, signAllDistZip
-    from file("$buildDir/distributions")
-    from file("$buildDir/checksums")
-    include '*.zip', '*.asc', '*.sha512'
-    include '*.rpm', '*.deb', '*.changes'
-    include '*.jar'
+    from allSrcZip, signAllSrcZip, allDistZip, signAllDistZip, createChecksums
     into file("$buildDir/release")
 }
