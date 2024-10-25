@@ -20,7 +20,7 @@ package org.apache.ignite.internal.disaster.system;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -55,10 +54,8 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 
 class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     @Test
@@ -322,6 +319,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         }
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     void detectsMetastorageDivergence() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
@@ -348,22 +346,10 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         assertThat(waitForRestartOrShutdownFuture(1), willCompleteSuccessfully());
 
         // Attempt to migrate should fail.
-        assertThrowsWithCause(MetastorageDivergedException.class, "Metastorage has diverged", () -> cluster.server(1).api());
+        assertThrowsWithCause(() -> cluster.server(1).api(), MetastorageDivergedException.class, "Metastorage has diverged");
 
         // Subsequent restart should also fail.
-        assertThrowsWithCause(MetastorageDivergedException.class, "Metastorage has diverged", () -> cluster.restartNode(1));
+        assertThrowsWithCause(() -> cluster.restartNode(1), MetastorageDivergedException.class, "Metastorage has diverged");
     }
 
-    private static void assertThrowsWithCause(
-            Class<MetastorageDivergedException> causeClass,
-            String causeMessageFragment,
-            Executable action
-    ) {
-        Throwable ex = assertThrows(Throwable.class, action);
-
-        assertTrue(
-                hasCause(ex, causeClass, causeMessageFragment),
-                () -> "Unexpected exception " + ExceptionUtils.getFullStackTrace(ex)
-        );
-    }
 }
