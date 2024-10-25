@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
-/**
- * TimeoutDeadlockPreventionUnboundedTest.
- */
-public class TimeoutDeadlockPreventionUnboundedTest extends TimeoutDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
+    implementation libs.auto.service.annotations
 }
+
+description = 'ignite-configuration-system'

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 
 /**
@@ -39,6 +40,12 @@ public abstract class AbstractLockingTest {
     private Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
 
     protected abstract LockManager lockManager();
+
+    protected static LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(deadlockPreventionPolicy);
+        return lockManager;
+    }
 
     protected UUID beginTx() {
         return TestTransactionIds.newTransactionId();

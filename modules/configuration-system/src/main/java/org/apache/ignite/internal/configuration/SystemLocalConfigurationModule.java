@@ -23,12 +23,9 @@ import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * {@link ConfigurationModule} for node-local system configuration.
- */
+/** {@link ConfigurationModule} for node-local system configuration. */
 @AutoService(ConfigurationModule.class)
 public class SystemLocalConfigurationModule implements ConfigurationModule {
-
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;

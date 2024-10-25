@@ -29,12 +29,12 @@ import org.jetbrains.annotations.Nullable;
 /** Request to reset cluster. */
 @Schema(description = "Reset cluster.")
 public class ResetClusterRequest {
-    @Schema(description = "Names of the proposed CMG nodes. Optional if Metastorage replication factor is specified, then "
-            + "current CMG nodes will be used.")
+    @Schema(description = "Names of the proposed CMG nodes. Optional if the MG group is being repaired. If not specified, the current "
+            + "CMG nodes are used.")
     @IgniteToStringInclude
     private final @Nullable List<String> cmgNodeNames;
 
-    @Schema(description = "Number of nodes in the Raft voting member set for Metastorage.")
+    @Schema(description = "Number of nodes in the voting member set of the Metastorage RAFT group.")
     @IgniteToStringInclude
     private final @Nullable Integer metastorageReplicationFactor;
 

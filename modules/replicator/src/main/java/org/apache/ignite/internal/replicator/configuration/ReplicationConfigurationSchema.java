@@ -50,4 +50,8 @@ public class ReplicationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 2000, max = 120000)
     public long leaseExpirationInterval = 5_000;
+
+    @Value(hasDefault = true)
+    @Range(max = 10_000)
+    public int replicaOperationRetryInterval = 10;
 }

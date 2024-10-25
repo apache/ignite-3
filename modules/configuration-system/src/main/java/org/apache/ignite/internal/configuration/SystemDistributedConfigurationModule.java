@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * NoneDeadlockPreventionUnboundedTest.
- */
-public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
+/** {@link ConfigurationModule} for cluster-wide system configuration. */
+public class SystemDistributedConfigurationModule implements ConfigurationModule {
     @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
+
+    @Override
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(SystemDistributedExtensionConfigurationSchema.class);
     }
 }
