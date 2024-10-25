@@ -129,7 +129,6 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
             // this is a safe join, because we have waited for all futures to be completed
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-            // todo: fix !!!
             return new DistributionHolder(nodes, mapResultResolved);
         });
     }

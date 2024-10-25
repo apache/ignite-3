@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
@@ -41,6 +44,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.ExecutionTargetProviderImpl;
@@ -52,11 +56,15 @@ import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * An implementation of {@link MappingService}.
@@ -172,7 +180,6 @@ public class MappingServiceImpl implements MappingService {
                             return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, localNodeName));
                         };
 
-
                     long topologyVer = logicalTopologyService.localLogicalTopology().version();
                         
                     if (val.topologyVersion != topologyVer) {
@@ -186,14 +193,13 @@ public class MappingServiceImpl implements MappingService {
     }
 
     private CompletableFuture<DistributionHolder> distribution(
-            Collection<IgniteTable> tables,
             HybridTimestamp operationTime,
             boolean mapOnBackups,
-            List<Fragment> fragments
+            List<Fragment> fragments,
+            List<String> viewNodes
     ) {
-        List<String> viewNodes = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                        .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
-                .collect(Collectors.toList());
+        Set<IgniteTable> tables = fragments.stream().flatMap(fragment -> fragment.tables().values().stream())
+                .collect(Collectors.toSet());
 
         if (!viewNodes.isEmpty()) {
             DistributionHolder holder = new DistributionHolder(viewNodes, Map.of());
@@ -219,40 +225,31 @@ public class MappingServiceImpl implements MappingService {
             boolean mapOnBackups,
             String localNodeName
     ) {
-        Set<IgniteTable> tables = template.fragments.stream().flatMap(fragment -> fragment.tables().values().stream()).collect(Collectors.toSet());
+        List<String> viewNodes = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
+                        .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
+                .collect(Collectors.toList());
 
-        CompletableFuture<DistributionHolder> distrFut = distribution(tables, clock.now(), mapOnBackups, template.fragments);
+        CompletableFuture<DistributionHolder> distrFut = distribution(clock.now(), mapOnBackups, template.fragments, viewNodes);
 
         return distrFut.thenApply(distr -> {
-            List<String> viewNodes = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                            .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
-                    .collect(Collectors.toList());
+            Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
             List<String> nodes = Stream.concat(distr.nodes().stream(), viewNodes.stream()).distinct().collect(
                     Collectors.toList());
 
-            IdGenerator idGenerator = new IdGenerator(template.nextId);
-            List<Fragment> fragments = new ArrayList<>(template.fragments);
-
-            MappingContext context = new MappingContext(localNodeName, nodes);
-
-            ExecutionTargetFactory targetFactory = context.targetFactory();
-
-            Stream<IntObjectPair<ExecutionTarget>> tableTargets = fragments.stream().flatMap(fragment -> fragment.tables().values().stream()
-                    .map(table -> IntObjectPair.of(table.id(), targetProvider.forTable(targetFactory, distr.assignmentsPerTable().get(table)))));
-
-            Stream<IntObjectPair<ExecutionTarget>> viewTargets = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                    .map(view -> IntObjectPair.of(view.id(), targetProvider.forSystemView(targetFactory, view))));
-
-            Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
-
-            List<IntObjectPair<ExecutionTarget>> allTargets = Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
+            List<IntObjectPair<ExecutionTarget>> allTargets = prepareTargets(template, distr, nodes, viewNodes);
 
             for (IntObjectPair<ExecutionTarget> pair : allTargets) {
                 targetsById.put(pair.firstInt(), pair.second());
             }
 
+            MappingContext context = new MappingContext(localNodeName, nodes);
+
             FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
+
+            IdGenerator idGenerator = new IdGenerator(template.nextId);
+
+            List<Fragment> fragments = new ArrayList<>(template.fragments);
 
             List<FragmentMapping> mappings = mapper.map(fragments, idGenerator);
 
@@ -317,6 +314,41 @@ public class MappingServiceImpl implements MappingService {
 
             return new MappedFragments(mappedFragmentsList, targetNodes);
         });
+    }
+
+    private List<IntObjectPair<ExecutionTarget>> prepareTargets(
+            FragmentsTemplate template,
+            DistributionHolder distr,
+            List<String> nodes,
+            List<String> viewNodes
+    ) {
+        MappingContext context = new MappingContext(localNodeName, nodes);
+
+        ExecutionTargetFactory targetFactory = context.targetFactory();
+
+        Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
+                fragment.tables().values().stream()
+                        .map(table -> IntObjectPair.of(table.id(), forTable(targetFactory, distr.assignmentsPerTable().get(table)))));
+
+        Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
+                .map(view -> IntObjectPair.of(view.id(), forSystemView(targetFactory, view, viewNodes))));
+
+        return Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
+    }
+
+    private static ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
+        if (nullOrEmpty(nodes)) {
+            throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                    + " any active nodes in the cluster", view.name()));
+        }
+
+        return view.distribution() == IgniteDistributions.single()
+                ? factory.oneOf(nodes)
+                : factory.allOf(nodes);
+    }
+
+    private static ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+        return factory.partitioned(assignments);
     }
 
     private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
