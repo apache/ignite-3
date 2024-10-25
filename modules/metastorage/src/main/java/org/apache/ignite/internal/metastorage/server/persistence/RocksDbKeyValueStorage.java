@@ -1345,13 +1345,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private long minChecksummedRevisionOrZero() {
+    private long minChecksummedRevisionOrZero() throws RocksDBException {
         try (
                 var options = new ReadOptions();
                 RocksIterator it = revisionToChecksum.newIterator(options)
         ) {
             it.seekToFirst();
-            return it.isValid() ? bytesToLong(it.key()) : 0;
+
+            if (it.isValid()) {
+                it.status();
+
+                return bytesToLong(it.key());
+            }
+            return 0;
         }
     }
 
