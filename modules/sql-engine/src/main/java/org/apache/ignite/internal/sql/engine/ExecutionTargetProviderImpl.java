@@ -130,7 +130,7 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
             // todo: fix !!!
-            return new DistributionHolder(0, nodes, mapResultResolved);
+            return new DistributionHolder(nodes, mapResultResolved);
         });
     }
 
@@ -245,20 +245,14 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
     public static class DistributionHolder {
         private final List<String> nodes;
         private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
-        private final long token;
 
-        public DistributionHolder(long token, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
-            this.token = token;
+        public DistributionHolder(List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
         }
 
         public List<String> nodes() {
             return nodes;
-        }
-
-        public long token() {
-            return token;
         }
 
         public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {

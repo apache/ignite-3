@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
@@ -28,16 +26,13 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
@@ -46,8 +41,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.ExecutionTargetProviderImpl;
@@ -150,7 +143,6 @@ public class MappingServiceImpl implements MappingService {
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-        // !!! to think !!!
         mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));
 
         return CompletableFutures.falseCompletedFuture();
@@ -159,7 +151,6 @@ public class MappingServiceImpl implements MappingService {
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, MappingContext.CLUSTER);
 
-        List<Fragment> fragments = new ArrayList<>(template.fragments);
         boolean mapOnBackups = parameters.mapOnBackups();
 
         MappingsCacheValue cacheValue = mappingsCache.compute(
@@ -181,41 +172,37 @@ public class MappingServiceImpl implements MappingService {
                             return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, localNodeName));
                         };
 
-                        return val;
-                    });
 
-/*                        if (val.topologyToken != distribution.token()) {
-                        CompletableFuture<DistributionHolder> distrFut1 = distribution(tables, clock.now(), mapOnBackups);
-                        CompletableFuture<MappingContext> contextFut = distrFut1.thenApply(dist -> new MappingContext(localNodeName, dist.nodes()));
+                    long topologyVer = logicalTopologyService.localLogicalTopology().version();
+                        
+                    if (val.topologyVersion != topologyVer) {
+                        return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups, localNodeName));
+                    }
 
-                        return new MappingsCacheValue(distribution.token(), val.tableIds, mapFragments(contextFut, template,
-                                assignmentsPerTable));
-                    }*/
-
-               // }
-        //);
+                    return val;
+                });
 
         return cacheValue.mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
 
-    public CompletableFuture<DistributionHolder> distribution(Collection<IgniteTable> tables, HybridTimestamp operationTime,
-            boolean mapOnBackups, List<Fragment> fragments) {
-
+    private CompletableFuture<DistributionHolder> distribution(
+            Collection<IgniteTable> tables,
+            HybridTimestamp operationTime,
+            boolean mapOnBackups,
+            List<Fragment> fragments
+    ) {
         List<String> viewNodes = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                         .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
                 .collect(Collectors.toList());
 
         if (!viewNodes.isEmpty()) {
-            LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
-
-            DistributionHolder holder = new DistributionHolder(topologySnapshot.version(), viewNodes, Map.of());
+            DistributionHolder holder = new DistributionHolder(viewNodes, Map.of());
 
             return CompletableFuture.completedFuture(holder);
-        }
-        else if (tables.isEmpty()) {
+        } else if (tables.isEmpty()) {
             LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
 
-            DistributionHolder holder = new DistributionHolder(topologySnapshot.version(),
+            DistributionHolder holder = new DistributionHolder(
                     topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList()), Map.of());
 
             return CompletableFuture.completedFuture(holder);
@@ -236,7 +223,7 @@ public class MappingServiceImpl implements MappingService {
 
         CompletableFuture<DistributionHolder> distrFut = distribution(tables, clock.now(), mapOnBackups, template.fragments);
 
-        CompletableFuture<MappedFragments> contextFut = distrFut.thenApply(distr -> {
+        return distrFut.thenApply(distr -> {
             List<String> viewNodes = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                             .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
                     .collect(Collectors.toList());
@@ -330,8 +317,6 @@ public class MappingServiceImpl implements MappingService {
 
             return new MappedFragments(mappedFragmentsList, targetNodes);
         });
-
-        return contextFut;
     }
 
     private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
@@ -375,12 +360,12 @@ public class MappingServiceImpl implements MappingService {
     }
 
     private static class MappingsCacheValue {
-        private final long topologyToken;
+        private final long topologyVersion;
         private final IntSet tableIds;
         private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyToken, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
-            this.topologyToken = topologyToken;
+        MappingsCacheValue(long topologyVersion, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
+            this.topologyVersion = topologyVersion;
             this.tableIds = tableIds;
             this.mappedFragments = mappedFragments;
         }
