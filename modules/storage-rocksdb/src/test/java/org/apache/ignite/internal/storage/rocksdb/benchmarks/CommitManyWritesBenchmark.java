@@ -165,7 +165,7 @@ public class CommitManyWritesBenchmark {
         /** Setup method. */
         @Setup
         public void setUp(CommitManyWritesBenchmark benchmark) {
-            UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0);
+            UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0, false);
 
             MvPartitionStorage partitionStorage = benchmark.tableStorage.getMvPartition(partitionId);
 
@@ -212,7 +212,7 @@ public class CommitManyWritesBenchmark {
     public void addAndCommitManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(clock.now(), 0, false);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
@@ -234,7 +234,7 @@ public class CommitManyWritesBenchmark {
     public void addManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(clock.now(), 0, false);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));

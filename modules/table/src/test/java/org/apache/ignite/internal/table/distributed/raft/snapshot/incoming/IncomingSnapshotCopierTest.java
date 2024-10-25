@@ -773,6 +773,6 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static UUID generateTxId() {
-        return TransactionIds.transactionId(CLOCK.now(), 1);
+        return TransactionIds.transactionId(CLOCK.now(), 1, false);
     }
 }

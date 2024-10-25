@@ -137,7 +137,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testNoTriggerNoState() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         RowId rowId = new RowId(0);
 
@@ -146,7 +146,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(1, rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         // Should trigger lock conflict listener in OrphanDetector.
         lockManager.acquire(concurrentTxId, new LockKey(1, rowId), LockMode.X);
@@ -163,7 +163,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testNoTriggerCommittedState() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TablePartitionId tpId = new TablePartitionId(1, 0);
 
@@ -174,7 +174,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now());
 
@@ -195,7 +195,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testNoTriggerAbortedState() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TablePartitionId tpId = new TablePartitionId(1, 0);
 
@@ -206,7 +206,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null);
 
@@ -227,7 +227,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testNoTriggerFinishingState() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TablePartitionId tpId = new TablePartitionId(1, 0);
 
@@ -235,7 +235,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null);
 
@@ -259,7 +259,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testNoTriggerCoordinatorAlive() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TablePartitionId tpId = new TablePartitionId(1, 0);
 
@@ -267,7 +267,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
 
@@ -290,7 +290,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTriggerOnLockConflictCoordinatorDead() {
-        UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
+        UUID orphanTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TablePartitionId tpId = new TablePartitionId(1, 0);
 
@@ -301,7 +301,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);
 
-        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
+        UUID concurrentTxId = idGenerator.transactionIdFor(clock.now(), false);
 
         TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
 

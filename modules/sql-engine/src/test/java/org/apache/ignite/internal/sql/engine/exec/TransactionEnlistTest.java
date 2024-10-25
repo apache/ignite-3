@@ -85,7 +85,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testEnlistCall() {
-        NoOpTransaction tx = NoOpTransaction.readWrite("t1");
+        NoOpTransaction tx = NoOpTransaction.readWrite("t1", false);
 
         NoOpTransaction spiedTx = Mockito.spy(tx);
 
