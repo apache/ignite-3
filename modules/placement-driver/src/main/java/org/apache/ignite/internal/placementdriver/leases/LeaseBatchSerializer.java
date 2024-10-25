@@ -117,7 +117,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         long periodGcd = periodGcd(batch);
 
         out.writeVarInt(minExpirationTimePhysical);
-        out.writeVarInt(commonExpirationTime.getPhysical());
+        out.writeVarInt(commonExpirationTime.getPhysical() - minExpirationTimePhysical);
         out.writeVarInt(commonExpirationTime.getLogical());
         out.writeVarInt(periodGcd);
 
@@ -371,7 +371,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     @Override
     protected LeaseBatch readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         long minExpirationTimePhysical = in.readVarInt();
-        HybridTimestamp commonExpirationTime = new HybridTimestamp(in.readVarInt(), in.readVarIntAsInt());
+        HybridTimestamp commonExpirationTime = new HybridTimestamp(minExpirationTimePhysical + in.readVarInt(), in.readVarIntAsInt());
         long periodGcd = in.readVarInt();
         NodesDictionary nodesDictionary = NodesDictionary.readFrom(in);
 
