@@ -35,14 +35,11 @@ class MappingContext {
 
     private final ExecutionTargetFactory targetFactory;
 
-    private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
-
     static final RelOptCluster CLUSTER = Commons.cluster();
 
-    MappingContext(String localNode, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+    MappingContext(String localNode, List<String> nodes) {
         this.localNode = localNode;
         this.nodes = nodes;
-        this.assignmentsPerTable = assignmentsPerTable;
 
         this.targetFactory = nodes.size() > 64 ? new LargeClusterFactory(nodes) : new SmallClusterFactory(nodes);
     }
@@ -57,9 +54,5 @@ class MappingContext {
 
     ExecutionTargetFactory targetFactory() {
         return targetFactory;
-    }
-
-    public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
-        return assignmentsPerTable;
     }
 }

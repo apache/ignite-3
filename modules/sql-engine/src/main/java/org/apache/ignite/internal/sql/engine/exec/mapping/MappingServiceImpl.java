@@ -76,7 +76,7 @@ public class MappingServiceImpl implements MappingService {
     private final ClockService clock;
     private final ExecutionTargetProvider targetProvider;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final Cache<MappingsCacheKey, CompletableFuture<MappingsCacheValue>> mappingsCache;
+    private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
     private final Executor taskExecutor;
     private final PartitionPruner partitionPruner;
     private final LogicalTopologyService logicalTopologyService;
@@ -160,23 +160,12 @@ public class MappingServiceImpl implements MappingService {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, MappingContext.CLUSTER);
 
         List<Fragment> fragments = new ArrayList<>(template.fragments);
-        Set<IgniteTable> tables = fragments.stream().flatMap(fragment -> fragment.tables().values().stream()).collect(Collectors.toSet());
         boolean mapOnBackups = parameters.mapOnBackups();
 
-        CompletableFuture<MappingsCacheValue> cacheValue = mappingsCache.compute(
+        MappingsCacheValue cacheValue = mappingsCache.compute(
                 new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
                 (key, val) -> {
                     if (val == null) {
-                        CompletableFuture<DistributionHolder> distrFut = distribution(tables, clock.now(), mapOnBackups, fragments);
-
-                        CompletableFuture<MappingsCacheValue> contextFut = distrFut.thenApply(distr -> {
-                            List<String> viewNodes = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                                            .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
-                                            .collect(Collectors.toList());
-
-                            List<String> nodes = Stream.concat(distr.nodes().stream(), viewNodes.stream()).distinct().collect(
-                                    Collectors.toList());
-
                             IntSet tableIds = new IntOpenHashSet();
                             boolean topologyAware = false;
 
@@ -189,13 +178,11 @@ public class MappingServiceImpl implements MappingService {
 
                             long topVer = topologyAware ? logicalTopologyService.localLogicalTopology().version() : Long.MAX_VALUE;
 
-                            MappingContext context = new MappingContext(localNodeName, nodes, distr.assignmentsPerTable());
+                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, localNodeName));
+                        };
 
-                            return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template));
-                        });
-
-                        return contextFut;
-                    }
+                        return val;
+                    });
 
 /*                        if (val.topologyToken != distribution.token()) {
                         CompletableFuture<DistributionHolder> distrFut1 = distribution(tables, clock.now(), mapOnBackups);
@@ -205,25 +192,33 @@ public class MappingServiceImpl implements MappingService {
                                 assignmentsPerTable));
                     }*/
 
-                    return val;
-                }
-        );
+               // }
+        //);
 
-        return cacheValue.thenApply(val -> applyPartitionPruning(val.mappedFragments.fragments, parameters));
+        return cacheValue.mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
 
     public CompletableFuture<DistributionHolder> distribution(Collection<IgniteTable> tables, HybridTimestamp operationTime,
             boolean mapOnBackups, List<Fragment> fragments) {
-        if (tables.isEmpty()) {
-            List<String> viewNodes = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                            .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
-                    .collect(Collectors.toList());
 
+        List<String> viewNodes = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
+                        .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
+                .collect(Collectors.toList());
+
+        if (!viewNodes.isEmpty()) {
             LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
 
-            DistributionHolder ret = new DistributionHolder(topologySnapshot.version(), viewNodes, Map.of());
+            DistributionHolder holder = new DistributionHolder(topologySnapshot.version(), viewNodes, Map.of());
 
-            return CompletableFuture.completedFuture(ret);
+            return CompletableFuture.completedFuture(holder);
+        }
+        else if (tables.isEmpty()) {
+            LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
+
+            DistributionHolder holder = new DistributionHolder(topologySnapshot.version(),
+                    topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList()), Map.of());
+
+            return CompletableFuture.completedFuture(holder);
         } else {
             // TODO: change it !!!!
             ExecutionTargetProviderImpl targetProvider0 = (ExecutionTargetProviderImpl) targetProvider;
@@ -233,11 +228,12 @@ public class MappingServiceImpl implements MappingService {
     }
 
     private CompletableFuture<MappedFragments> mapFragments(
-            MappingContext context,
             FragmentsTemplate template,
-            Collection<IgniteTable> tables,
-            boolean mapOnBackups
+            boolean mapOnBackups,
+            String localNodeName
     ) {
+        Set<IgniteTable> tables = template.fragments.stream().flatMap(fragment -> fragment.tables().values().stream()).collect(Collectors.toSet());
+
         CompletableFuture<DistributionHolder> distrFut = distribution(tables, clock.now(), mapOnBackups, template.fragments);
 
         CompletableFuture<MappedFragments> contextFut = distrFut.thenApply(distr -> {
@@ -248,14 +244,15 @@ public class MappingServiceImpl implements MappingService {
             List<String> nodes = Stream.concat(distr.nodes().stream(), viewNodes.stream()).distinct().collect(
                     Collectors.toList());
 
-
             IdGenerator idGenerator = new IdGenerator(template.nextId);
             List<Fragment> fragments = new ArrayList<>(template.fragments);
+
+            MappingContext context = new MappingContext(localNodeName, nodes);
 
             ExecutionTargetFactory targetFactory = context.targetFactory();
 
             Stream<IntObjectPair<ExecutionTarget>> tableTargets = fragments.stream().flatMap(fragment -> fragment.tables().values().stream()
-                    .map(table -> IntObjectPair.of(table.id(), targetProvider.forTable(targetFactory, context.assignmentsPerTable().get(table)))));
+                    .map(table -> IntObjectPair.of(table.id(), targetProvider.forTable(targetFactory, distr.assignmentsPerTable().get(table)))));
 
             Stream<IntObjectPair<ExecutionTarget>> viewTargets = fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                     .map(view -> IntObjectPair.of(view.id(), targetProvider.forSystemView(targetFactory, view))));
@@ -380,9 +377,9 @@ public class MappingServiceImpl implements MappingService {
     private static class MappingsCacheValue {
         private final long topologyToken;
         private final IntSet tableIds;
-        private final MappedFragments mappedFragments;
+        private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topologyToken, IntSet tableIds, MappedFragments mappedFragments) {
+        MappingsCacheValue(long topologyToken, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
             this.topologyToken = topologyToken;
             this.tableIds = tableIds;
             this.mappedFragments = mappedFragments;
