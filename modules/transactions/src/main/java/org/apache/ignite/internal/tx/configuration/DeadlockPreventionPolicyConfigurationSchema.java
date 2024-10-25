@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.tx.configuration;
 
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Class that contains the tests for lock manager events producing for {@link HeapLockManager}.
+ * Configuration schema for deadlock prevention policy.
  */
-public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
-    @Override
-    protected LockManager lockManager() {
-        return lockManager(new WaitDieDeadlockPreventionPolicy());
-    }
+@Config
+public class DeadlockPreventionPolicyConfigurationSchema {
+    @OneOf({"NATURAL", "REVERSED", "NONE"})
+    @Value(hasDefault = true)
+    public String txIdComparator = "NATURAL";
+
+    @Value(hasDefault = true)
+    public long waitTimeout = 0;
 }

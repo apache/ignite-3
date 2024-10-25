@@ -84,6 +84,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
+    /** Lock map size. */
+    private final int lockMapSize;
+
+    /** Raw slots size. */
+    private final int rawSlotsMaxSize;
+
     /**
      * Empty slots.
      */
@@ -92,22 +98,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Mapped slots.
      */
-    private final ConcurrentHashMap<LockKey, LockState> locks;
+    private ConcurrentHashMap<LockKey, LockState> locks;
 
     /**
      * Raw slots.
      */
-    private final LockState[] slots;
+    private LockState[] slots;
 
     /**
      * The policy.
      */
-    private final DeadlockPreventionPolicy deadlockPreventionPolicy;
+    private DeadlockPreventionPolicy deadlockPreventionPolicy;
 
     /**
      * Executor that is used to fail waiters after timeout.
      */
-    private final Executor delayedExecutor;
+    private Executor delayedExecutor;
 
     /**
      * Enlisted transactions.
@@ -123,39 +129,38 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Constructor.
      */
     public HeapLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS);
-    }
-
-    /**
-     * Constructor.
-     */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        this(deadlockPreventionPolicy, SLOTS, SLOTS);
+        this(SLOTS, SLOTS);
     }
 
     /**
      * Constructor.
      *
-     * @param deadlockPreventionPolicy Deadlock prevention policy.
-     * @param maxSize Raw slots size.
-     * @param mapSize Lock map size.
+     * @param rawSlotsMaxSize Raw slots size.
+     * @param lockMapSize Lock map size.
      */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy, int maxSize, int mapSize) {
-        if (mapSize > maxSize) {
-            throw new IllegalArgumentException("maxSize=" + maxSize + " < mapSize=" + mapSize);
+    public HeapLockManager(int rawSlotsMaxSize, int lockMapSize) {
+        if (lockMapSize > rawSlotsMaxSize) {
+            throw new IllegalArgumentException("maxSize=" + rawSlotsMaxSize + " < mapSize=" + lockMapSize);
         }
 
+        this.rawSlotsMaxSize = rawSlotsMaxSize;
+        this.lockMapSize = lockMapSize;
+    }
+
+    @Override
+    public void start(DeadlockPreventionPolicy deadlockPreventionPolicy) {
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
+
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
                 ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
                 : null;
 
-        locks = new ConcurrentHashMap<>(mapSize);
+        locks = new ConcurrentHashMap<>(lockMapSize);
 
-        LockState[] tmp = new LockState[maxSize];
+        LockState[] tmp = new LockState[rawSlotsMaxSize];
         for (int i = 0; i < tmp.length; i++) {
             LockState lockState = new LockState();
-            if (i < mapSize) {
+            if (i < lockMapSize) {
                 empty.add(lockState);
             }
             tmp[i] = lockState;

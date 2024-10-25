@@ -218,6 +218,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -287,7 +288,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(PART_ID);
 
-    private final LockManager lockManager = new HeapLockManager();
+    private final LockManager lockManager = lockManager();
 
     private final Function<Command, CompletableFuture<?>> defaultMockRaftFutureClosure = cmd -> {
         if (cmd instanceof WriteIntentSwitchCommand) {
@@ -660,6 +661,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @AfterEach
     public void clearMocks() {
         Mockito.framework().clearInlineMocks();
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     private static SchemaDescriptor schemaDescriptorWith(int ver) {
