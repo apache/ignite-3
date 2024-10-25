@@ -51,8 +51,8 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     @Test
     void testInvalidSystemPropertiesOnStart(
             @InjectConfiguration("mock.properties = {"
-                    + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue = foo, "
-                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue = bar"
+                    + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue = not-a-long, "
+                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue = not-a-long"
                     + "}")
             SystemDistributedConfiguration systemConfig
     ) {
@@ -80,7 +80,7 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     void testInvalidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
         var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
 
-        changeSystemConfig(systemConfig, "foo", "bar");
+        changeSystemConfig(systemConfig, "not-a-long", "not-a-long");
 
         assertEquals(INTERVAL_DEFAULT_VALUE, config.interval());
         assertEquals(DATA_AVAILABILITY_TIME_DEFAULT_VALUE, config.dataAvailabilityTime());
