@@ -17,72 +17,68 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
+
 /**
  * Defines possible condition types, which can be applied to a revision.
  */
-public enum ConditionType {
+public enum ConditionType implements TransferableEnum {
     /** Equality condition type for a revision. */
-    REV_EQUAL,
+    REV_EQUAL(0),
 
     /** Inequality condition type for a revision. */
-    REV_NOT_EQUAL,
+    REV_NOT_EQUAL(1),
 
     /** Greater than condition type for a revision. */
-    REV_GREATER,
+    REV_GREATER(2),
 
     /** Less than condition type for a revision. */
-    REV_LESS,
+    REV_LESS(3),
 
     /** Less than or equal to condition type for a revision. */
-    REV_LESS_OR_EQUAL,
+    REV_LESS_OR_EQUAL(4),
 
     /** Greater than or equal to condition type for a revision. */
-    REV_GREATER_OR_EQUAL,
+    REV_GREATER_OR_EQUAL(5),
 
     /** Equality condition type for a value. */
-    VAL_EQUAL,
+    VAL_EQUAL(6),
 
     /** Inequality condition type for a value. */
-    VAL_NOT_EQUAL,
+    VAL_NOT_EQUAL(7),
 
     /** Greater than condition type for a value. */
-    VAL_GREATER,
+    VAL_GREATER(8),
 
     /** Less than condition type for a value. */
-    VAL_LESS,
+    VAL_LESS(9),
 
     /** Less than or equal to condition type for a value. */
-    VAL_LESS_OR_EQUAL,
+    VAL_LESS_OR_EQUAL(10),
 
     /** Greater than or equal to condition type for a value. */
-    VAL_GREATER_OR_EQUAL,
+    VAL_GREATER_OR_EQUAL(11),
 
     /** Existence condition type for a key. */
-    KEY_EXISTS,
+    KEY_EXISTS(12),
 
     /** Non-existence condition type for a key. */
-    KEY_NOT_EXISTS,
+    KEY_NOT_EXISTS(13),
 
     /** Tombstone condition type for a key. */
-    TOMBSTONE,
+    TOMBSTONE(14),
 
     /** Not-tombstone condition type for a key. */
-    NOT_TOMBSTONE;
+    NOT_TOMBSTONE(15);
 
-    /** Cached array with all enum values. */
-    private static final ConditionType[] VALUES = values();
+    private final int transferableId;
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static ConditionType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    ConditionType(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }
