@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -32,11 +35,14 @@ class MappingContext {
 
     private final ExecutionTargetFactory targetFactory;
 
+    private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
+
     static final RelOptCluster CLUSTER = Commons.cluster();
 
-    MappingContext(String localNode, List<String> nodes) {
+    MappingContext(String localNode, List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
         this.localNode = localNode;
         this.nodes = nodes;
+        this.assignmentsPerTable = assignmentsPerTable;
 
         this.targetFactory = nodes.size() > 64 ? new LargeClusterFactory(nodes) : new SmallClusterFactory(nodes);
     }
@@ -51,5 +57,9 @@ class MappingContext {
 
     ExecutionTargetFactory targetFactory() {
         return targetFactory;
+    }
+
+    public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
+        return assignmentsPerTable;
     }
 }

@@ -343,7 +343,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
                 taskExecutor,
-                logicalTopologyService
+                logicalTopologyService,
+                systemViewManager
         );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
