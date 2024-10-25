@@ -45,7 +45,7 @@ public interface MetaStorageInfo extends NetworkMessage, Serializable {
     @Nullable Long metastorageRepairingConfigIndex();
 
     /**
-     * Returns whether MG was being repaired in this cluster incarnation.
+     * Returns whether MG was repaired in this cluster incarnation.
      */
     default boolean metastorageRepairedInThisClusterIncarnation() {
         return metastorageRepairingConfigIndex() != null;
