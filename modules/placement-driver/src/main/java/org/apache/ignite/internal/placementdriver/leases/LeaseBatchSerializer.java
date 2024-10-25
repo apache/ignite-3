@@ -43,6 +43,59 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link VersionedSerializer} for {@link LeaseBatch} instances.
  *
+ * <p>Format grammar:
+ * <pre>{@code
+ *     <BATCH> ::= <HEADER> <TABLE_LEASES_SECTION>
+ *
+ *     <HEADER> ::=
+ *       <MIN_EXPIRATION_TIME_PHYSICAL_PART> (varint) // Self-explanatory
+ *       <COMMON_EXPIRATION_TIME_PHYSICAL_PART_DELTA> (varint) // Delta between physical part of common expiration time and min exp. time
+ *       <COMMON_EXPIRATION_TIME_LOGICAL_PART> (varint) // Logical part of most common expiration time
+ *       <PERIOD_GCD> (varint) // GCD of all leases' periods (where period is difference between physical parts of exp. and start times)
+ *       <NODE_DICTIONARY>
+ *
+ *     <NODE_DICTIONARY> ::=
+ *       <NAME_COUNT> (varint)
+ *       { <NODE_NAME> (UTF) } (nameCount times)
+ *       <NODE_COUNT> (varint)
+ *       {
+ *         <NODE_ID> (UUID)
+ *         <NODE_NAME_INDEX> (varint) // Index in the name table (defined above)
+ *       } (nodeCount times)
+ *
+ *     <TABLE_LEASES_SECTION> ::=
+ *       <TABLE_COUNT> (varint)
+ *       { <OBJECT_LEASES> } // tableCount of OBJECT_LEASES elements
+ *
+ *     <OBJECT_LEASES> ::=
+ *       <OBJECT_ID_DELTA> (varint) // For first object in section, it's full object ID; for subsequent once, it's object ID minus
+ *                                  // previous object ID
+ *       <LEASE_COUNT> (varint) // Number of leases (including holes) for current object
+ *       { <LEASE> } // leaseCount times
+ *
+ *     <LEASE> ::=
+ *       <FLAGS> (byte)
+ *       [ // Only present if DUMMY_LEASE flag is 0
+ *         <HOLDER_AND_PROPOSED_CANDIDATE>
+ *         [ <EXPIRATION_TIME> ] // Only written if HAS_UNCOMMON_EXPIRATION_TIME flag is 1
+ *         <START_TIME>
+ *       ]
+ *
+ *       <HOLDER_AND_PROPOSED_CANDIDATE> ::=
+ *         <HOLDER_AND_PROPOSED_CANDIDATE_COMPACTLY> (byte) // Only if number of node names in the dictionary is 8 or less; lowerest 3 bits
+ *                                                          // encode holder index (in the nodes table), and next 3 bits are for proposed
+ *                                                          // candidate index (in the names table)
+ *         | <HOLDER_INDEX> (varint) [ <PROPOSED_CANDIDATE> (varint) ] // Proposed candidate is only written if HAS_PROPOSED_CANDIDATE
+ *                                                                     // flag is 1
+ *       <EXPIRATION_TIME> ::=
+ *         <EXPIRATION_TIME_PHYSICAL_PART_DELTA> (varint) // Relative to minExpirationTimePhysicalPart
+ *         [ EXPIRATION_TIME_LOGICAL_PART ] (varint) // Only written if HAS_EXPIRATION_TIME_LOGICAL flag is 1
+ *
+ *       <START_TIME> ::=
+ *         <PERIOD> // Difference between physical parts of expirationTime and startTime expressed in periodGcds
+ *         <START_TIME_LOGICAL_PART (varint)
+ * }</pre>
+ *
  * <p>The following optimizations are applied to minimize the amount of bytes a batch is serialized to:</p>
  * <ul>
  *     <li>Java Serialization is not used to serialize components (it's pretty verbose)</li>
@@ -55,27 +108,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
-    /*
-     * The following optimizations are applied to minimize the number of bytes a batch is serialized to:
-     *
-     * - Java Serialization is not used to serialize components (it's pretty verbose)
-     * - Varints are used extensively
-     * - A dictionary of all nodes mentioned as lease holders and proposed candidates is collected and written in the header once
-     * per batch. This is beneficial as we usually a lot more leases than number of nodes in cluster, so we can just represent nodes
-     * and their names as indices in the dictionary (this is especially effective given we use varints as indices are usually very small).
-     * - Leases are grouped per table/zone ID (aka object ID), so an object ID is only written once per object
-     * - Object IDs are represented as deltas with respect to the previous object; as leases are sorted by object IDs, the deltas are
-     * encoded effectively as varints
-     * - Partition IDs are not written, instead their index represents partition ID. Holes are rare (if possible), so we just write
-     * special markers to denote holes
-     * - Expiration timestamps are always computed from Start timestamps. To account for a possibility of this duration being changed
-     * on the go, we pass the most frequent duration once per batch (in the header), and then we only write lease duration for leases with
-     * uncommon duration (that is, duration different from the most frequent one). We use a flag to distinguish such leases.
-     * - Expiration timestamps always have their logical part equal to 0, so it's never written.
-     * - Physical parts of Start timestamps are coded as deltas with respect to the least timestamp present in the batch; this allows to
-     * have those deltas small and encode them effectively as varints
-     */
-
     /** Serializer instance. */
     public static final LeaseBatchSerializer INSTANCE = new LeaseBatchSerializer();
 
