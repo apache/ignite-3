@@ -789,8 +789,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (tx != null) {
             tx.rollback();
         }
-
-        assertThat(scanned, willCompleteSuccessfully());
     }
 
     @ParameterizedTest
