@@ -108,8 +108,10 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
     }
 
     void startMetastorageOn(List<Node> nodes) {
+        ComponentContext componentContext = new ComponentContext();
+
         for (Node node : nodes) {
-            assertThat(node.metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(node.metaStorageManager.startAsync(componentContext), willCompleteSuccessfully());
         }
     }
 
