@@ -1347,7 +1347,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     private long minChecksummedRevisionOrZero() throws RocksDBException {
         try (
-                var options = new ReadOptions();
+                var options = new ReadOptions().setTailing(true);
                 RocksIterator it = revisionToChecksum.newIterator(options)
         ) {
             it.seekToFirst();
