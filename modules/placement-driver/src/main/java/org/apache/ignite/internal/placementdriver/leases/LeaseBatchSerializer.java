@@ -206,22 +206,18 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     }
 
     private static long periodGcd(LeaseBatch batch) {
-        if (batch.leases().isEmpty()) {
-            // Any value will do for an empty batch.
-            return 1;
-        }
-
         long currentGcd = -1;
         for (Lease lease : batch.leases()) {
             long period = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
-            assert period > 0 : lease;
+            assert period >= 0 : "Period is " + period + " for " + lease;
 
-            currentGcd = currentGcd == -1 ? period : gcd(currentGcd, period);
+            if (period > 0) {
+                currentGcd = currentGcd == -1 ? period : gcd(currentGcd, period);
+            }
         }
 
-        assert currentGcd > 0 : batch;
-
-        return currentGcd;
+        // If there is no single positive period (maybe the batch is empty?), any value will do.
+        return currentGcd > 0 ? currentGcd : 1;
     }
 
     private static NodesDictionary buildNodesDictionary(LeaseBatch batch) {
