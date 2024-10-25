@@ -38,7 +38,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class LeaseBatchSerializerTest {
@@ -46,6 +45,9 @@ class LeaseBatchSerializerTest {
     private static final UUID NODE2_ID = new UUID(0xFEDCBA0987654321L, 0x1234567890ABCDEFL);
 
     private static final long STANDARD_LEASE_DURATION_MS = 5000;
+
+    private static final String SERIALIZED_WITH_V1 = "Ae++Q4mPyJLMMQEBiScDBm5vZGUxBm5vZGUyA+/Nq5B4VjQSIUNlhwm63P4BIUNlhwm63P7vzauQeFY0Eg"
+            + "ICAgMHCQIBCAJlAgE";
 
     private final LeaseBatchSerializer serializer = new LeaseBatchSerializer();
 
@@ -199,10 +201,8 @@ class LeaseBatchSerializerTest {
     }
 
     @Test
-    @Disabled
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++Q4Hox5LMMYknAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz+782rkHhWNBICAgID"
-                + "BwkBAQACZQE=");
+        byte[] bytes = Base64.getDecoder().decode(SERIALIZED_WITH_V1);
         LeaseBatch restoredBatch = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredBatch.leases(), hasSize(2));
