@@ -102,13 +102,6 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateZoneImpl partitionDistributionResetScaleDown(Integer adjust) {
-        Objects.requireNonNull(adjust, "Timeout between the majority loss event and RAFT group reconfiguration must not be null.");
-
-        withOptions.add(Option.partitionDistributionResetScaleDown(adjust));
-        return this;
-    }
-
     CreateZoneImpl filter(String filter) {
         Objects.requireNonNull(filter, "Filter must not be null.");
 

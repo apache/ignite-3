@@ -39,8 +39,6 @@ public class ZoneDefinition {
 
     private final Integer dataNodesAutoAdjustScaleDown;
 
-    private final Integer partitionDistributionResetScaleDown;
-
     private final String filter;
 
     private final String storageProfiles;
@@ -54,7 +52,6 @@ public class ZoneDefinition {
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
-            Integer partitionDistributionResetScaleDown,
             String filter,
             String storageProfiles
     ) {
@@ -66,7 +63,6 @@ public class ZoneDefinition {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-        this.partitionDistributionResetScaleDown = partitionDistributionResetScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
     }
@@ -154,15 +150,6 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns timeout in seconds between the majority loss event and force update of zone's table partitions' RAFT groups configurations.
-     *
-     * @return Timeout.
-     */
-    public Integer partitionDistributionResetScaleDown() {
-        return partitionDistributionResetScaleDown;
-    }
-
-    /**
      * Returns nodes filter.
      *
      * @return Nodes filter.
@@ -200,7 +187,6 @@ public class ZoneDefinition {
                 + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
                 + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
                 + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown
-                + ", partitionDistributionResetScaleDown=" + partitionDistributionResetScaleDown
                 + ", filter='" + filter + '\''
                 + ", storageProfiles='" + storageProfiles + '\''
                 + '}';
@@ -226,8 +212,6 @@ public class ZoneDefinition {
 
         private Integer dataNodesAutoAdjustScaleDown;
 
-        private Integer partitionDistributionResetScaleDown;
-
         private String filter;
 
         private String storageProfiles;
@@ -243,7 +227,6 @@ public class ZoneDefinition {
             dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
-            partitionDistributionResetScaleDown = definition.partitionDistributionResetScaleDown;
             filter = definition.filter;
             storageProfiles = definition.storageProfiles;
         }
@@ -359,20 +342,6 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets timeout in seconds between the majority loss event and force update of zone's table partitions' RAFT groups configurations.
-         *
-         * @param adjust Timeout.
-         * @return This builder instance.
-         */
-        public Builder partitionDistributionResetScaleDown(Integer adjust) {
-            Objects.requireNonNull(adjust,
-                    "Timeout between the majority loss event and RAFT group reconfiguration must not be null.");
-
-            this.partitionDistributionResetScaleDown = adjust;
-            return this;
-        }
-
-        /**
          * Sets nodes filter.
          *
          * @param filter Nodes filter.
@@ -416,7 +385,6 @@ public class ZoneDefinition {
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
-                    partitionDistributionResetScaleDown,
                     filter,
                     storageProfiles
             );

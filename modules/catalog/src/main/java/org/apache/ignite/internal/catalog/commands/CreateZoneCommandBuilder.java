@@ -71,14 +71,6 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
     CreateZoneCommandBuilder dataNodesAutoAdjustScaleDown(@Nullable Integer adjust);
 
     /**
-     * Sets timeout between the majority loss event and RAFT group reconfiguration.
-     *
-     * @param adjust Optional timeout in seconds between node left topology event itself and data nodes switch.
-     * @return This instance.
-     */
-    CreateZoneCommandBuilder partitionDistributionResetScaleDown(@Nullable Integer adjust);
-
-    /**
      * Sets nodes filter.
      *
      * @param filter Optional nodes filter.

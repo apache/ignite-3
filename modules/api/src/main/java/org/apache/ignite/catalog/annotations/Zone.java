@@ -85,13 +85,6 @@ public @interface Zone {
     int dataNodesAutoAdjustScaleDown() default -1;
 
     /**
-     * Timeout in seconds between the majority loss event and force update of zone's table partitions' RAFT groups configurations.
-     *
-     * @return Timeout.
-     */
-    int partitionDistributionResetScaleDown() default -1;
-
-    /**
      * Nodes filter.
      *
      * @return Nodes filter.

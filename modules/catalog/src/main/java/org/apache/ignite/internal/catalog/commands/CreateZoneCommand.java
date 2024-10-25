@@ -63,8 +63,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable Integer dataNodesAutoAdjustScaleDown;
 
-    private final @Nullable Integer partitionDistributionResetScaleDown;
-
     private final @Nullable String filter;
 
     private final List<StorageProfileParams> storageProfileParams;
@@ -79,7 +77,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
-     * @param partitionDistributionResetScaleDown Timeout between the majority loss event and RAFT group reconfiguration must not be null.
      * @param filter Nodes filter.
      * @param storageProfileParams Storage profile params.
      * @throws CatalogValidationException if any of restrictions above is violated.
@@ -92,7 +89,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable Integer partitionDistributionResetScaleDown,
             @Nullable String filter,
             List<StorageProfileParams> storageProfileParams
     ) throws CatalogValidationException {
@@ -103,7 +99,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-        this.partitionDistributionResetScaleDown = partitionDistributionResetScaleDown;
         this.filter = filter;
         this.storageProfileParams = storageProfileParams;
 
@@ -153,13 +148,11 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
-        validateField(partitionDistributionResetScaleDown, 0, null, "Invalid partition distribution reset scale down");
 
         validateZoneDataNodesAutoAdjustParametersCompatibility(
                 dataNodesAutoAdjust,
                 dataNodesAutoAdjustScaleUp,
-                dataNodesAutoAdjustScaleDown,
-                partitionDistributionResetScaleDown
+                dataNodesAutoAdjustScaleDown
         );
 
         validateZoneFilter(filter);
@@ -184,8 +177,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         private @Nullable Integer dataNodesAutoAdjustScaleUp;
 
         private @Nullable Integer dataNodesAutoAdjustScaleDown;
-
-        private @Nullable Integer partitionDistributionResetScaleDown;
 
         private @Nullable String filter;
 
@@ -241,13 +232,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
-        public CreateZoneCommandBuilder partitionDistributionResetScaleDown(Integer adjust) {
-            partitionDistributionResetScaleDown = adjust;
-
-            return this;
-        }
-
-        @Override
         public CreateZoneCommandBuilder filter(String filter) {
             this.filter = filter;
 
@@ -271,7 +255,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
-                    partitionDistributionResetScaleDown,
                     filter,
                     storageProfileParams
             );

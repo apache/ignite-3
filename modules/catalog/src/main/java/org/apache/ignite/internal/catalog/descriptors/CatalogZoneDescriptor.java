@@ -46,9 +46,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /** Data nodes auto adjust scale down timeout. */
     private final int dataNodesAutoAdjustScaleDown;
 
-    /** Partition distribution reset scale down timeout. */
-    private final int partitionDistributionResetScaleDown;
-
     /** Nodes filer. */
     private final String filter;
 
@@ -65,7 +62,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
-     * @param partitionDistributionResetScaleDown Partition distribution reset scale down timeout.
      * @param filter Nodes filter.
      * @param storageProfiles Storage profiles descriptor.
      */
@@ -77,12 +73,11 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
-            int partitionDistributionResetScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles
     ) {
         this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
-                partitionDistributionResetScaleDown, filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
+                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -95,7 +90,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
-     * @param partitionDistributionResetScaleDown Partition distribution reset scale down timeout.
      * @param filter Nodes filter.
      * @param causalityToken Token of the update of the descriptor.
      */
@@ -107,7 +101,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
-            int partitionDistributionResetScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles,
             long causalityToken
@@ -119,7 +112,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-        this.partitionDistributionResetScaleDown = partitionDistributionResetScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
     }
@@ -166,15 +158,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Gets timeout between the majority loss event and RAFT group reconfiguration.
-     *
-     * @return Partition distribution reset scale down timeout.
-     */
-    public int partitionDistributionResetScaleDown() {
-        return partitionDistributionResetScaleDown;
-    }
-
-    /**
      * Returns the nodes filter.
      */
     public String filter() {
@@ -210,7 +193,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjust = input.readInt();
             int dataNodesAutoAdjustScaleUp = input.readInt();
             int dataNodesAutoAdjustScaleDown = input.readInt();
-            int partitionDistributionResetScaleDown = input.readInt();
             String filter = input.readUTF();
 
             return new CatalogZoneDescriptor(
@@ -221,7 +203,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
-                    partitionDistributionResetScaleDown,
                     filter,
                     catalogStorageProfilesDescriptor,
                     updateToken
@@ -241,7 +222,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             output.writeInt(descriptor.dataNodesAutoAdjust());
             output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
             output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
-            output.writeInt(descriptor.partitionDistributionResetScaleDown());
             output.writeUTF(descriptor.filter());
         }
     }
