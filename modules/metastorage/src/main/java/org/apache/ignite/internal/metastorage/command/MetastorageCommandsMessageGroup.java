@@ -67,4 +67,7 @@ public interface MetastorageCommandsMessageGroup {
 
     /** Message type for {@link EvictIdempotentCommandsCacheCommand}. */
     short EVICT_IDEMPOTENT_COMMAND_CACHE = 71;
+
+    /** Message type for {@link CompactionCommand}. */
+    short COMPACTION = 72;
 }
