@@ -1353,11 +1353,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             it.seekToFirst();
 
             if (it.isValid()) {
+                return bytesToLong(it.key());
+            } else {
                 it.status();
 
-                return bytesToLong(it.key());
+                return 0;
             }
-            return 0;
         }
     }
 
