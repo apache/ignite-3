@@ -385,13 +385,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetaStorageInfo metaStorageInfo,
             UUID currentClusterId
     ) {
-        CompletableFuture<Void> reentryFuture = nullCompletedFuture();
-
         if (thisNodeDidNotWitnessMetaStorageRepair(metaStorageInfo, currentClusterId)) {
-            reentryFuture = tryReenteringMetastorage(metaStorageInfo.metaStorageNodes(), currentClusterId);
+            return tryReenteringMetastorage(metaStorageInfo.metaStorageNodes(), currentClusterId)
+                    .thenCompose(unused -> initializeMetastorage(metaStorageInfo));
+        } else {
+            return initializeMetastorage(metaStorageInfo);
         }
-
-        return reentryFuture.thenCompose(unused -> initializeMetastorage(metaStorageInfo));
     }
 
     private boolean thisNodeDidNotWitnessMetaStorageRepair(MetaStorageInfo metaStorageInfo, UUID currentClusterId) {
