@@ -34,8 +34,8 @@ public interface ChangeMetaStorageInfoCommand extends WriteCommand {
     Set<String> metaStorageNodes();
 
     /**
-     * ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
-     * happened in the current cluster incarnation.
+     * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
+     * repair happened in the current cluster incarnation.
      */
     @Nullable Long metastorageRepairingConfigIndex();
 }
