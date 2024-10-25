@@ -194,7 +194,7 @@ public class SslTests : IgniteTestsBase
                 SslClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (_, _, _, _) => true,
-                    CipherSuitesPolicy = new CipherSuitesPolicy(new[] { cipherSuite })
+                    CipherSuitesPolicy = new CipherSuitesPolicy([cipherSuite])
                 }
             }
         };
