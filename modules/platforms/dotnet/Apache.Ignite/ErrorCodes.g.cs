@@ -232,6 +232,9 @@ namespace Apache.Ignite
 
             /// <summary> Compacted error. </summary>
             public const int Compacted = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> Diverged error. </summary>
+            public const int Diverged = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Index errors. </summary>

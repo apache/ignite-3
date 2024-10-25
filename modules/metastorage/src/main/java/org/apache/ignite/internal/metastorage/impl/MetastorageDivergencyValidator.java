@@ -45,7 +45,7 @@ public class MetastorageDivergencyValidator {
             }
         } else if (revision > leaderChecksumInfo.maxRevision()) {
             throw new MetastorageDivergedException(String.format(
-                    "Node is ahead of the leader, this should not happen [localRevision=%d, leaderRevision=%d]",
+                    "Node is ahead of the leader, this should not happen; probably means divergence [localRevision=%d, leaderRevision=%d]",
                     revision, leaderChecksumInfo.maxRevision()
             ));
         } else {

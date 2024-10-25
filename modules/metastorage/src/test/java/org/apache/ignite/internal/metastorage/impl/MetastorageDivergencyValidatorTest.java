@@ -64,7 +64,7 @@ class MetastorageDivergencyValidatorTest {
                 () -> validator.validate(11, 42, checksumInfo(0, 1, 10))
         );
 
-        assertThat(ex.getMessage(), is("Node is ahead of the leader, this should not happen [localRevision=11, leaderRevision=10]"));
+        assertThat(ex.getMessage(), is("Node is ahead of the leader, this should not happen; probably means divergence [localRevision=11, leaderRevision=10]"));
     }
 
     @Test

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.MetaStorage;
 
 /**
  * Thrown when Metastorage on a node doing Metastorage reentry has been found to be diverged with the leader.
@@ -26,6 +27,6 @@ import org.apache.ignite.lang.ErrorGroups;
 public class MetastorageDivergedException extends IgniteInternalException {
     /** Constructor. */
     public MetastorageDivergedException(String message) {
-        super(ErrorGroups.Common.INTERNAL_ERR, message);
+        super(MetaStorage.DIVERGED_ERR, message);
     }
 }
