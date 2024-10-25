@@ -197,7 +197,7 @@ public partial class LinqTests
     public void TestExecuteUpdateWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(
-            () => PocoView.AsQueryable().DefaultIfEmpty().ExecuteUpdateAsync(x => x.SetProperty(p => p.Key, 2)));
+            () => PocoView.AsQueryable().DefaultIfEmpty().ExecuteUpdateAsync(x => x.SetProperty(p => p!.Key, 2)));
 
         Assert.AreEqual("ExecuteUpdateAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }

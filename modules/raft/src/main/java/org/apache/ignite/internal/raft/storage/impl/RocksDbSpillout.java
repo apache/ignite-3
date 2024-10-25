@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -48,7 +48,7 @@ import org.rocksdb.WriteOptions;
 /**
  * {@link Logs} implementation that stores logs spilt out to disk in RocksDB. It shares rocksdb instance with other similar instances.
  *
- * <p>Stores key with groupId prefix to distinguish them from keys that belongs to other storages.
+ * <p>Stores key with raft node storage ID prefix to distinguish them from keys that belongs to other storages.
  *
  * <p>The data stored by this class is treated as volatile. No flush is done; when the Ignite instance is restarted,
  * the contents of the corresponding RocksDB database should be erased.
@@ -80,16 +80,16 @@ public class RocksDbSpillout implements Logs {
     private final WriteOptions writeOptions;
 
     /** Start prefix. */
-    private final byte[] groupStartPrefix;
+    private final byte[] startPrefix;
 
     /** End prefix. */
-    private final byte[] groupEndPrefix;
+    private final byte[] endPrefix;
 
-    /** Raft group start bound. */
-    private final Slice groupStartBound;
+    /** Raft node start bound. */
+    private final Slice startBound;
 
-    /** Raft group end bound. */
-    private final Slice groupEndBound;
+    /** Raft node end bound. */
+    private final Slice endBound;
 
     /** RW lock. */
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -121,7 +121,7 @@ public class RocksDbSpillout implements Logs {
     public RocksDbSpillout(
             RocksDB db,
             ColumnFamilyHandle columnFamily,
-            String groupId,
+            String raftNodeStorageId,
             Executor executor
     ) {
         Requires.requireNonNull(db);
@@ -129,21 +129,21 @@ public class RocksDbSpillout implements Logs {
         Requires.requireNonNull(executor);
 
         Requires.requireTrue(
-                groupId.indexOf(0) == -1,
-                "Raft group id " + groupId + " must not contain char(0)"
+                raftNodeStorageId.indexOf(0) == -1,
+                "Raft node storage id " + raftNodeStorageId + " must not contain char(0)"
         );
         Requires.requireTrue(
-                groupId.indexOf(1) == -1,
-                "Raft group id " + groupId + " must not contain char(1)"
+                raftNodeStorageId.indexOf(1) == -1,
+                "Raft node storage id " + raftNodeStorageId + " must not contain char(1)"
         );
 
         this.db = db;
         this.columnFamily = columnFamily;
         this.executor = executor;
-        this.groupStartPrefix = groupStartPrefix(groupId);
-        this.groupEndPrefix = groupEndPrefix(groupId);
-        this.groupStartBound = new Slice(groupStartPrefix);
-        this.groupEndBound = new Slice(groupEndPrefix);
+        this.startPrefix = raftNodeStorageStartPrefix(raftNodeStorageId);
+        this.endPrefix = raftNodeStorageEndPrefix(raftNodeStorageId);
+        this.startBound = new Slice(startPrefix);
+        this.endBound = new Slice(endPrefix);
 
         this.writeOptions = new WriteOptions();
         this.writeOptions.setDisableWAL(true);
@@ -191,11 +191,11 @@ public class RocksDbSpillout implements Logs {
 
             stopped = true;
 
-            deleteWholeGroupRange();
+            deleteWholeRaftNodeRange();
 
             closeResources();
         } catch (RocksDBException e) {
-            throw new LogStorageException("Cannot remove group keys", e);
+            throw new LogStorageException("Cannot remove raft node keys", e);
         } finally {
             this.manageLock.unlock();
         }
@@ -286,7 +286,7 @@ public class RocksDbSpillout implements Logs {
         this.manageLock.lock();
 
         try {
-            deleteWholeGroupRange();
+            deleteWholeRaftNodeRange();
         } catch (RocksDBException e) {
             LOG.error("Fail to reset next log index.", e);
             throw new LogStorageException("Fail to reset next log index.", e);
@@ -297,8 +297,8 @@ public class RocksDbSpillout implements Logs {
         doInit();
     }
 
-    private void deleteWholeGroupRange() throws RocksDBException {
-        deleteAllEntriesBetween(db, columnFamily, groupStartPrefix, groupEndPrefix);
+    private void deleteWholeRaftNodeRange() throws RocksDBException {
+        deleteAllEntriesBetween(db, columnFamily, startPrefix, endPrefix);
     }
 
     /**
@@ -386,14 +386,14 @@ public class RocksDbSpillout implements Logs {
      */
     private void closeResources() {
         writeOptions.close();
-        groupEndBound.close();
-        groupStartBound.close();
+        endBound.close();
+        startBound.close();
     }
 
     private byte[] createKey(long index) {
-        byte[] ks = new byte[groupStartPrefix.length + Long.BYTES];
-        System.arraycopy(groupStartPrefix, 0, ks, 0, groupStartPrefix.length);
-        LONG_ARRAY_HANDLE.set(ks, groupStartPrefix.length, index);
+        byte[] ks = new byte[startPrefix.length + Long.BYTES];
+        System.arraycopy(startPrefix, 0, ks, 0, startPrefix.length);
+        LONG_ARRAY_HANDLE.set(ks, startPrefix.length, index);
         return ks;
     }
 

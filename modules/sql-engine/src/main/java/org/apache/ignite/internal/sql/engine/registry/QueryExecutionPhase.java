@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+package org.apache.ignite.internal.sql.engine.registry;
 
 /**
- * NoneDeadlockPreventionUnboundedTest.
+ * Phases of query execution.
  */
-public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+public enum QueryExecutionPhase {
+    /**
+     * Query parsing, metadata synchronization.
+     */
+    INITIALIZATION,
+
+    /**
+     * Query validation and optimization.
+     */
+    OPTIMIZATION,
+
+    /**
+     * Query execution.
+     */
+    EXECUTION
 }

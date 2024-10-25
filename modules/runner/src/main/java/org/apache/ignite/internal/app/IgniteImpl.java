@@ -593,8 +593,6 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        LockManager lockMgr = new HeapLockManager();
-
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
                 clusterSvc.messagingService(),
                 name,
@@ -765,6 +763,8 @@ public class IgniteImpl implements Ignite {
                 replicationConfig
         );
 
+        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
+
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
@@ -895,8 +895,6 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService
         );
 
-        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
                 clusterSvc.messagingService(),
@@ -929,6 +927,8 @@ public class IgniteImpl implements Ignite {
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+
+        LockManager lockMgr = new HeapLockManager();
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1056,6 +1056,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
+
+        systemViewManager.register(qryEngine);
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 

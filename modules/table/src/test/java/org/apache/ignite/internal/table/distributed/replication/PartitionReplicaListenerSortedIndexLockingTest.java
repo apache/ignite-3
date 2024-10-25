@@ -111,6 +111,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -135,7 +136,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
-    private static final LockManager LOCK_MANAGER = new HeapLockManager();
+    private static final LockManager LOCK_MANAGER = lockManager();
     private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
@@ -284,6 +285,12 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         TEST_MV_PARTITION_STORAGE.clear();
 
         LOCK_MANAGER.releaseAll(TRANSACTION_ID);
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */

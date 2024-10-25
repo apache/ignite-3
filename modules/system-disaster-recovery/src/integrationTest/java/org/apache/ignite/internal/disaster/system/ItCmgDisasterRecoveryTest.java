@@ -80,8 +80,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(int condictorIndex, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateCmgRepair("localhost", cluster.httpPort(condictorIndex), nodeNames(newCmgIndexes));
+    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) throws InterruptedException {
+        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
     }
 
     @Test

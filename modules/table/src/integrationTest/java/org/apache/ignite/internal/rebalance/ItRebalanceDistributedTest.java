@@ -1045,7 +1045,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterService clusterService;
 
-        private final LockManager lockManager;
+        private final HeapLockManager lockManager;
 
         private final TxManager txManager;
 

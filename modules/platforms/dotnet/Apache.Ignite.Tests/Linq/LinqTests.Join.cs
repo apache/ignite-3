@@ -228,11 +228,11 @@ public partial class LinqTests
         var joinQuery = query1.Join(
                 inner: query2.DefaultIfEmpty(),
                 outerKeySelector: a => a.Key,
-                innerKeySelector: b => b.Key,
+                innerKeySelector: b => b!.Key,
                 resultSelector: (a, b) => new
                 {
                     Id = a.Key,
-                    Price = b.Val!.Value
+                    Price = b!.Val!.Value
                 })
             .OrderBy(x => x.Id);
 
@@ -266,11 +266,11 @@ public partial class LinqTests
         var joinQuery = query1.Join(
                 inner: query2.DefaultIfEmpty(),
                 outerKeySelector: a => a.Val,
-                innerKeySelector: b => b.Val,
+                innerKeySelector: b => b!.Val,
                 resultSelector: (a, b) => new
                 {
                     Id = a.Key,
-                    Id2 = b.Key,
+                    Id2 = b!.Key,
                     Name = b.Val
                 })
             .OrderBy(x => x.Id);
