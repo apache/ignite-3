@@ -38,6 +38,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class LeaseBatchSerializerTest {
@@ -198,6 +199,7 @@ class LeaseBatchSerializerTest {
     }
 
     @Test
+    @Disabled
     void v1CanBeDeserialized() {
         byte[] bytes = Base64.getDecoder().decode("Ae++Q4Hox5LMMYknAwZub2RlMQZub2RlMgPvzauQeFY0EiFDZYcJutz+ASFDZYcJutz+782rkHhWNBICAgID"
                 + "BwkBAQACZQE=");

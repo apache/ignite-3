@@ -21,13 +21,14 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
-import it.unimi.dsi.fastutil.longs.Long2IntMap;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -88,8 +89,8 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     /** Whether the lease has a non-null {@link Lease#proposedCandidate()}. */
     private static final int HAS_PROPOSED_CANDIDATE_MASK = 1 << 2;
 
-    /** Whether lease period (in absolute time) differs from the most common period in the batch. */
-    private static final int HAS_UNCOMMON_PERIOD_MASK = 1 << 3;
+    /** Whether expiration time differs from the most common expiration time in the batch. */
+    private static final int HAS_UNCOMMON_EXPIRATION_TIME_MASK = 1 << 3;
 
     /** Whether expiration timestamp logical part is not zero (this is uncommon). */
     private static final int HAS_EXPIRATION_LOGICAL_PART_MASK = 1 << 4;
@@ -111,11 +112,14 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
     @Override
     protected void writeExternalData(LeaseBatch batch, IgniteDataOutput out) throws IOException {
-        long minTimestampPhysical = minTimestampPhysicalPart(batch);
-        long commonLeasePeriod = mostFrequentLeasePeriod(batch);
+        long minExpirationTimePhysical = minExpirationTimePhysicalPart(batch);
+        HybridTimestamp commonExpirationTime = mostFrequentExpirationTime(batch);
+        long periodGcd = periodGcd(batch);
 
-        out.writeVarInt(minTimestampPhysical);
-        out.writeVarInt(commonLeasePeriod);
+        out.writeVarInt(minExpirationTimePhysical);
+        out.writeVarInt(commonExpirationTime.getPhysical());
+        out.writeVarInt(commonExpirationTime.getLogical());
+        out.writeVarInt(periodGcd);
 
         NodesDictionary nodesDictionary = buildNodesDictionary(batch);
         nodesDictionary.writeTo(out);
@@ -131,44 +135,61 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
                 + tableLeases.size() + " of them are table leases, " + zoneLeases.size() + " are zone leases, but "
                 + (batch.leases().size() - tableLeases.size() - zoneLeases.size()) + " are neither";
 
-        writePartitionedGroupLeases(tableLeases, minTimestampPhysical, commonLeasePeriod, nodesDictionary, out);
+        writePartitionedGroupLeases(tableLeases, minExpirationTimePhysical, commonExpirationTime, periodGcd, nodesDictionary, out);
 
         assert zoneLeases.isEmpty() : "There are zone leases which are not supported yet";
     }
 
-    private static long minTimestampPhysicalPart(LeaseBatch batch) {
+    private static long minExpirationTimePhysicalPart(LeaseBatch batch) {
         long min = HybridTimestamp.MAX_VALUE.getPhysical();
 
         for (Lease lease : batch.leases()) {
-            min = Math.min(min, lease.getStartTime().getPhysical());
             min = Math.min(min, lease.getExpirationTime().getPhysical());
         }
 
         return min;
     }
 
-    private static long mostFrequentLeasePeriod(LeaseBatch batch) {
+    private static HybridTimestamp mostFrequentExpirationTime(LeaseBatch batch) {
         if (batch.leases().isEmpty()) {
-            return 0;
+            return HybridTimestamp.MIN_VALUE;
         }
 
-        Long2IntMap counts = new Long2IntOpenHashMap();
+        Object2IntMap<HybridTimestamp> counts = new Object2IntOpenHashMap<>();
 
         for (Lease lease : batch.leases()) {
-            long period = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
-            counts.mergeInt(period, 1, Integer::sum);
+            counts.mergeInt(lease.getExpirationTime(), 1, Integer::sum);
         }
 
-        long commonPeriod = -1;
+        HybridTimestamp commonExpirationTime = HybridTimestamp.MIN_VALUE;
         int maxCount = -1;
-        for (Long2IntMap.Entry entry : counts.long2IntEntrySet()) {
+        for (Object2IntMap.Entry<HybridTimestamp> entry : counts.object2IntEntrySet()) {
             if (entry.getIntValue() > maxCount) {
-                commonPeriod = entry.getLongKey();
+                commonExpirationTime = entry.getKey();
                 maxCount = entry.getIntValue();
             }
         }
 
-        return commonPeriod;
+        return commonExpirationTime;
+    }
+
+    private static long periodGcd(LeaseBatch batch) {
+        if (batch.leases().isEmpty()) {
+            // Any value will do for an empty batch.
+            return 1;
+        }
+
+        long currentGcd = -1;
+        for (Lease lease : batch.leases()) {
+            long period = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+            assert period > 0 : lease;
+
+            currentGcd = currentGcd == -1 ? period : gcd(currentGcd, period);
+        }
+
+        assert currentGcd > 0 : batch;
+
+        return currentGcd;
     }
 
     private static NodesDictionary buildNodesDictionary(LeaseBatch batch) {
@@ -190,8 +211,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
     private static void writePartitionedGroupLeases(
             List<Lease> leases,
-            long minTsPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out
     ) throws IOException {
@@ -214,8 +236,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             objectIdBase = writeLeasesForObject(
                     objectId,
                     objectLeases,
-                    minTsPhysical,
-                    commonLeasePeriod,
+                    minExpirationTimePhysical,
+                    commonExpirationTime,
+                    periodGcd,
                     nodesDictionary,
                     out,
                     objectIdBase
@@ -230,8 +253,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static int writeLeasesForObject(
             int objectId,
             List<Lease> objectLeases,
-            long minTsPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out,
             int objectIdBase
@@ -245,7 +269,7 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
         int partitionId = 0;
         for (Lease lease : objectLeases) {
-            partitionId = writeLease(lease, partitionId, minTsPhysical, commonLeasePeriod, nodesDictionary, out);
+            partitionId = writeLease(lease, partitionId, minExpirationTimePhysical, commonExpirationTime, periodGcd, nodesDictionary, out);
         }
 
         return objectId;
@@ -254,8 +278,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static int writeLease(
             Lease lease,
             int partitionId,
-            long minTsPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataOutput out
     ) throws IOException {
@@ -277,11 +302,16 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         String proposedCandidate = lease.proposedCandidate();
         boolean hasProposedCandidate = proposedCandidate != null;
 
-        long periodAbsolutePart = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
-        boolean hasUncommonPeriod = periodAbsolutePart != commonLeasePeriod;
+        boolean hasUncommonExpirationTime = !Objects.equals(lease.getExpirationTime(), commonExpirationTime);
         boolean hasExpirationLogicalPart = lease.getExpirationTime().getLogical() != 0;
 
-        out.write(flags(lease.isAccepted(), lease.isProlongable(), hasProposedCandidate, hasUncommonPeriod, hasExpirationLogicalPart));
+        out.write(flags(
+                lease.isAccepted(),
+                lease.isProlongable(),
+                hasProposedCandidate,
+                hasUncommonExpirationTime,
+                hasExpirationLogicalPart
+        ));
 
         if (holderIdAndProposedCandidateFitIn1Byte(nodesDictionary)) {
             int nodesInfo = packNodesInfo(
@@ -296,15 +326,17 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             }
         }
 
-        out.writeVarInt(lease.getStartTime().getPhysical() - minTsPhysical);
-        out.writeVarInt(lease.getStartTime().getLogical());
+        if (hasUncommonExpirationTime) {
+            out.writeVarInt(lease.getExpirationTime().getPhysical() - minExpirationTimePhysical);
+            if (hasExpirationLogicalPart) {
+                out.writeVarInt(lease.getExpirationTime().getLogical());
+            }
+        }
 
-        if (hasUncommonPeriod) {
-            out.writeVarInt(lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical());
-        }
-        if (hasExpirationLogicalPart) {
-            out.writeVarInt(lease.getExpirationTime().getLogical());
-        }
+        long periodInMillis = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+        long periodInGcds =   periodInMillis / periodGcd;
+        out.writeVarInt(periodInGcds);
+        out.writeVarInt(lease.getStartTime().getLogical());
 
         return partitionId + 1;
     }
@@ -326,32 +358,42 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             boolean accepted,
             boolean prolongable,
             boolean hasProposedCandidate,
-            boolean hasUncommonPeriod,
+            boolean hasUncommonExpirationTime,
             boolean hasExpirationLogicalPart
     ) {
         return (accepted ? ACCEPTED_MASK : 0)
                 | (prolongable ? PROLONGABLE_MASK : 0)
                 | (hasProposedCandidate ? HAS_PROPOSED_CANDIDATE_MASK : 0)
-                | (hasUncommonPeriod ? HAS_UNCOMMON_PERIOD_MASK : 0)
+                | (hasUncommonExpirationTime ? HAS_UNCOMMON_EXPIRATION_TIME_MASK : 0)
                 | (hasExpirationLogicalPart ? HAS_EXPIRATION_LOGICAL_PART_MASK : 0);
     }
 
     @Override
     protected LeaseBatch readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-        long minTimestampPhysical = in.readVarInt();
-        long commonLeasePeriod = in.readVarInt();
+        long minExpirationTimePhysical = in.readVarInt();
+        HybridTimestamp commonExpirationTime = new HybridTimestamp(in.readVarInt(), in.readVarIntAsInt());
+        long periodGcd = in.readVarInt();
         NodesDictionary nodesDictionary = NodesDictionary.readFrom(in);
 
         List<Lease> leases = new ArrayList<>();
 
-        readPartitionedGroupLeases(minTimestampPhysical, commonLeasePeriod, nodesDictionary, leases, in, TablePartitionId::new);
+        readPartitionedGroupLeases(
+                minExpirationTimePhysical,
+                commonExpirationTime,
+                periodGcd,
+                nodesDictionary,
+                leases,
+                in,
+                TablePartitionId::new
+        );
 
         return new LeaseBatch(leases);
     }
 
     private static void readPartitionedGroupLeases(
-            long minTimestampPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             List<Lease> leases,
             IgniteDataInput in,
@@ -362,8 +404,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
         int objectIdBase = 0;
         for (int i = 0; i < objectCount; i++) {
             objectIdBase = readLeasesForObject(
-                    minTimestampPhysical,
-                    commonLeasePeriod,
+                    minExpirationTimePhysical,
+                    commonExpirationTime,
+                    periodGcd,
                     nodesDictionary,
                     leases,
                     in,
@@ -374,8 +417,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     }
 
     private static int readLeasesForObject(
-            long minTimestampPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             List<Lease> leases,
             IgniteDataInput in,
@@ -389,8 +433,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             Lease lease = readLeaseForPartition(
                     partitionId,
                     objectId,
-                    minTimestampPhysical,
-                    commonLeasePeriod,
+                    minExpirationTimePhysical,
+                    commonExpirationTime,
+                    periodGcd,
                     nodesDictionary,
                     in,
                     groupIdFactory
@@ -406,8 +451,9 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
     private static @Nullable Lease readLeaseForPartition(
             int partitionId,
             int objectId,
-            long minTimestampPhysical,
-            long commonLeasePeriod,
+            long minExpirationTimePhysical,
+            HybridTimestamp commonExpirationTime,
+            long periodGcd,
             NodesDictionary nodesDictionary,
             IgniteDataInput in,
             GroupIdFactory groupIdFactory
@@ -445,14 +491,20 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
             proposedCandidate = nodesDictionary.getName(proposedCandidateNodeIndex);
         }
 
-        HybridTimestamp startTime = new HybridTimestamp(minTimestampPhysical + in.readVarInt(), in.readVarIntAsInt());
+        HybridTimestamp expirationTime;
+        if (flagSet(flags, HAS_UNCOMMON_EXPIRATION_TIME_MASK)) {
+            long expirationPhysical = minExpirationTimePhysical + in.readVarInt();
+            int expirationLogical = flagSet(flags, HAS_EXPIRATION_LOGICAL_PART_MASK) ? in.readVarIntAsInt() : 0;
+            expirationTime = new HybridTimestamp(expirationPhysical, expirationLogical);
+        } else {
+            expirationTime = commonExpirationTime;
+        }
 
-        long period = flagSet(flags, HAS_UNCOMMON_PERIOD_MASK) ? startTime.getPhysical() + in.readVarInt()
-                : startTime.getPhysical() + commonLeasePeriod;
+        long periodInGcds = in.readVarInt();
+        long periodInMillis = periodInGcds * periodGcd;
+        int startLogical = in.readVarIntAsInt();
 
-        int expirationLogical = flagSet(flags, HAS_EXPIRATION_LOGICAL_PART_MASK) ? in.readVarIntAsInt() : 0;
-
-        HybridTimestamp expirationTime = new HybridTimestamp(period, expirationLogical);
+        HybridTimestamp startTime = new HybridTimestamp(expirationTime.getPhysical() - periodInMillis, startLogical);
 
         return new Lease(
                 leaseHolder,
@@ -476,6 +528,14 @@ public class LeaseBatchSerializer extends VersionedSerializer<LeaseBatch> {
 
     private static boolean flagSet(int flags, int mask) {
         return (flags & mask) != 0;
+    }
+
+    private static long gcd(long a, long b) {
+        if (b == 0) {
+            return a;
+        }
+
+        return gcd(b, a % b);
     }
 
     @FunctionalInterface
