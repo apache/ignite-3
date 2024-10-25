@@ -18,15 +18,19 @@
 package org.apache.ignite.internal.cli.call.recovery.cluster;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.jetbrains.annotations.Nullable;
 
 /** Input for the {@link ResetClusterCall} call. */
 public class ResetClusterCallInput implements CallInput {
     private final String clusterUrl;
 
+    @Nullable
     private final List<String> cmgNodeNames;
+
+    @Nullable
+    private final Integer metastorageReplicationFactor;
 
     /** Cluster url. */
     public String clusterUrl() {
@@ -34,21 +38,26 @@ public class ResetClusterCallInput implements CallInput {
     }
 
     /** Returns names of the proposed CMG nodes. */
-    public List<String> cmgNodeNames() {
+    public @Nullable List<String> cmgNodeNames() {
         return cmgNodeNames;
     }
 
-    private ResetClusterCallInput(String clusterUrl, List<String> cmgNodeNames) {
-        Objects.requireNonNull(cmgNodeNames);
+    /** Returns metastorage replication factor. */
+    public @Nullable Integer metastorageReplicationFactor() {
+        return metastorageReplicationFactor;
+    }
 
+    private ResetClusterCallInput(String clusterUrl, @Nullable List<String> cmgNodeNames, @Nullable Integer metastorageReplicationFactor) {
         this.clusterUrl = clusterUrl;
-        this.cmgNodeNames = List.copyOf(cmgNodeNames);
+        this.cmgNodeNames = cmgNodeNames == null ? null : List.copyOf(cmgNodeNames);
+        this.metastorageReplicationFactor = metastorageReplicationFactor;
     }
 
     /** Returns {@link ResetClusterCallInput} with specified arguments. */
     public static ResetClusterCallInput of(ResetClusterMixin statesArgs, String clusterUrl) {
         return builder()
                 .cmgNodeNames(statesArgs.cmgNodeNames())
+                .metastorageReplicationFactor(statesArgs.metastorageReplicationFactor())
                 .clusterUrl(clusterUrl)
                 .build();
     }
@@ -66,7 +75,11 @@ public class ResetClusterCallInput implements CallInput {
     private static class ResetClusterCallInputBuilder {
         private String clusterUrl;
 
+        @Nullable
         private List<String> cmgNodeNames;
+
+        @Nullable
+        private Integer metastorageReplicationFactor;
 
         /** Set cluster URL. */
         ResetClusterCallInputBuilder clusterUrl(String clusterUrl) {
@@ -75,14 +88,20 @@ public class ResetClusterCallInput implements CallInput {
         }
 
         /** Names of the proposed CMG nodes. */
-        ResetClusterCallInputBuilder cmgNodeNames(List<String> cmgNodeNames) {
+        ResetClusterCallInputBuilder cmgNodeNames(@Nullable List<String> cmgNodeNames) {
             this.cmgNodeNames = cmgNodeNames;
+            return this;
+        }
+
+        /** Metastorage replication factor. */
+        ResetClusterCallInputBuilder metastorageReplicationFactor(@Nullable Integer metastorageReplicationFactor) {
+            this.metastorageReplicationFactor = metastorageReplicationFactor;
             return this;
         }
 
         /** Build {@link ResetClusterCallInput}. */
         ResetClusterCallInput build() {
-            return new ResetClusterCallInput(clusterUrl, cmgNodeNames);
+            return new ResetClusterCallInput(clusterUrl, cmgNodeNames, metastorageReplicationFactor);
         }
     }
 }
