@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
 
 /**
- * Get command for MetaStorageCommandListener that retrieves information about a checksum.
+ * Get command for MetaStorageCommandListener that retrieves information ({@link ChecksumInfo}) about a checksum.
+ *
+ * @see ChecksumInfo
  */
 @Transferable(MetastorageCommandsMessageGroup.GET_CHECKSUM)
 public interface GetChecksumCommand extends ReadCommand {
