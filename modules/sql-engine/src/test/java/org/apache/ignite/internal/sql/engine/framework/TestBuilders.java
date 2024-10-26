@@ -1535,35 +1535,6 @@ public class TestBuilders {
     }
 
 
-    // todo !!!
-    public static ExecutionDistributionProvider createExecutionDistributionProvider(List<String> nodeNames) {
-        return new ExecutionDistributionProvider() {
-            @Override
-            public CompletableFuture<DistributionHolder> distribution(HybridTimestamp operationTime, boolean mapOnBackups,
-                    Collection<IgniteTable> tables, List<String> viewNodes, String initiatorNode) {
-                DistributionHolder holder = new DistributionHolder() {
-                    @Override
-                    public List<String> nodes() {
-                        return nodeNames;
-                    }
-
-                    @Override
-                    public void addNodes(List<String> elements) {
-                        // No op.
-                    }
-
-                    @Override
-                    public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
-                        return List.of(new TokenizedAssignmentsImpl(nodeNames.stream()
-                                .map(Assignment::forPeer).collect(Collectors.toSet()), 1L));
-                    }
-                };
-
-                return CompletableFuture.completedFuture(holder);
-            }
-        };
-    }
-
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
         return new ExecutionDistributionProviderBuilder();
