@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -31,19 +28,16 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -51,52 +45,46 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
-/**
- * Implementation of {@link ExecutionTargetProvider} which takes assignments from {@link PlacementDriver} and {@link SystemViewManager}.
- */
-public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
-    private static final IgniteLogger LOG = Loggers.forClass(ExecutionTargetProviderImpl.class);
-
+/** Provides execution nodes information. */
+public class ExecutionDistributionProviderImpl implements ExecutionDistributionProvider {
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
-    private final SystemViewManager systemViewManager;
 
-    ExecutionTargetProviderImpl(
-            PlacementDriver placementDriver, SystemViewManager systemViewManager
-    ) {
+    ExecutionDistributionProviderImpl(PlacementDriver placementDriver) {
         this.placementDriver = placementDriver;
-        this.systemViewManager = systemViewManager;
     }
 
     @Override
-    public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
-        return factory.partitioned(assignments);
-    }
-
-    @Override
-    public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-        List<String> nodes = systemViewManager.owningNodes(view.name());
-
-        if (nullOrEmpty(nodes)) {
-            throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                            + " any active nodes in the cluster", view.name()));
-        }
-
-        return view.distribution() == IgniteDistributions.single()
-                ? factory.oneOf(nodes)
-                : factory.allOf(nodes);
-    }
-
     public CompletableFuture<DistributionHolder> distribution(
+            HybridTimestamp operationTime,
+            boolean mapOnBackups,
+            Collection<IgniteTable> tables,
+            List<String> viewNodes,
+            String initiatorNode
+    ) {
+        if (!viewNodes.isEmpty()) {
+            if (!tables.isEmpty()) {
+                CompletableFuture<DistributionHolder> fut = distribution0(tables, operationTime, mapOnBackups, initiatorNode);
+
+                fut.thenApply(dist -> {
+                    dist.addNodes(viewNodes);
+                    return completedFuture(dist);
+                });
+            }
+
+            return completedFuture(new DistributionHolderImpl(viewNodes, Map.of()));
+        } else if (tables.isEmpty()) {
+            DistributionHolder holder = new DistributionHolderImpl(List.of(initiatorNode), Map.of());
+
+            return completedFuture(holder);
+        } else {
+            return distribution0(tables, operationTime, mapOnBackups, initiatorNode);
+        }
+    }
+
+    private CompletableFuture<DistributionHolder> distribution0(
             Collection<IgniteTable> tables,
             HybridTimestamp operationTime,
             boolean mapOnBackups,
@@ -129,7 +117,7 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
             // this is a safe join, because we have waited for all futures to be completed
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-            return new DistributionHolder(nodes, mapResultResolved);
+            return new DistributionHolderImpl(nodes, mapResultResolved);
         });
     }
 
@@ -241,21 +229,36 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
         });
     }
 
-    public static class DistributionHolder {
+    public static class DistributionHolderImpl implements DistributionHolder {
         private final List<String> nodes;
         private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
 
-        public DistributionHolder(List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+        public DistributionHolderImpl(List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
         }
 
+        @Override
+        public void addNodes(List<String> elements) {
+            nodes.addAll(elements);
+        }
+
+        @Override
         public List<String> nodes() {
             return nodes;
         }
 
-        public Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable() {
-            return assignmentsPerTable;
+        @Override
+        public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
+            return assignmentsPerTable.get(table);
         }
+    }
+
+    public interface DistributionHolder {
+        List<String> nodes();
+
+        void addNodes(List<String> elements);
+
+        List<TokenizedAssignments> assignmentsPerTable(IgniteTable table);
     }
 }

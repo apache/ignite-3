@@ -38,8 +38,10 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ExecutionDistributionProviderBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -414,13 +416,14 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         }
 
         IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 1, dataSources);
-        ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
+        ExecutionDistributionProvider executionDistributionProvider = TestBuilders.executionDistributionProviderBuilder()
                 .useTablePartitions(true)
                 .addTables(table2Assignments)
                 .build();
+
         LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
 
-        return new TestSetup(executionTargetProvider, schema, logicalTopologySnapshot);
+        return new TestSetup(executionDistributionProvider, schema, logicalTopologySnapshot);
     }
 
     private void validateAssignments(String tableName, List<List<String>> assignments) {

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -109,8 +108,8 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -1140,12 +1139,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory);
-        var tableFunctionRegistry = new TableFunctionRegistryImpl();
-
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
+
+        var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory, nodeNames);
+        var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         //mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
 
@@ -1175,26 +1174,14 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             String nodeName,
             ClockService clock,
             QueryTaskExecutor taskExecutor,
-            CacheFactory cacheFactory
+            CacheFactory cacheFactory,
+            List<String> logicalNodes
     ) {
-        var targetProvider = new ExecutionTargetProvider() {
-            @Override
-            public ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
-                if (mappingException != null) {
-                    throw new RuntimeException(mappingException);
-                }
-
-                return factory.allOf(nodeNames);
-            }
-
-            @Override
-            public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                throw new AssertionError("Not supported");
-            }
-        };
-
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
-        return new MappingServiceImpl(nodeName, clock, targetProvider, cacheFactory, 0, partitionPruner, taskExecutor);
+        Supplier<LogicalTopologySnapshot> topologySupplier = () -> new LogicalTopologySnapshot(Long.MAX_VALUE, List.of(), randomUUID());
+
+        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, taskExecutor, topologySupplier,
+                null, new TestExecutionDistributionProvider(logicalNodes));
     }
 
     private SqlOperationContext createContext() {

@@ -28,7 +28,6 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +35,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -47,8 +46,9 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.ExecutionTargetProviderImpl;
-import org.apache.ignite.internal.sql.engine.ExecutionTargetProviderImpl.DistributionHolder;
+import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
+import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
+import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolderImpl;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -75,67 +75,45 @@ import org.apache.ignite.sql.SqlException;
 public class MappingServiceImpl implements MappingService {
     private final String localNodeName;
     private final ClockService clock;
-    private final ExecutionTargetProvider targetProvider;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
     private final Executor taskExecutor;
     private final PartitionPruner partitionPruner;
-    private final LogicalTopologyService logicalTopologyService;
+    private final Supplier<LogicalTopologySnapshot> logicalTopologySupplier;
     private final SystemViewManager systemViewManager;
+    private final ExecutionDistributionProvider distributionProvider;
 
     /**
      * Constructor.
      *
      * @param localNodeName Name of the current Ignite node.
      * @param clock Clock service to get actual time.
-     * @param targetProvider Execution target provider.
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
      * @param taskExecutor Mapper service task executor.
-     * @param logicalTopologyService Logical topology.
+     * @param logicalTopologySupplier Logical topology supplier.
      */
     public MappingServiceImpl(
             String localNodeName,
             ClockService clock,
-            ExecutionTargetProvider targetProvider,
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
             Executor taskExecutor,
-            LogicalTopologyService logicalTopologyService,
-            SystemViewManager systemViewManager
+            Supplier<LogicalTopologySnapshot> logicalTopologySupplier,
+            SystemViewManager systemViewManager,
+            ExecutionDistributionProvider distributionProvider
     ) {
         this.localNodeName = localNodeName;
         this.clock = clock;
-        this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
         this.partitionPruner = partitionPruner;
-        this.logicalTopologyService = logicalTopologyService;
+        this.logicalTopologySupplier = logicalTopologySupplier;
         this.systemViewManager = systemViewManager;
-    }
-
-    // TODO REMOVE
-    public MappingServiceImpl(
-            String localNodeName,
-            ClockService clock,
-            ExecutionTargetProvider targetProvider,
-            CacheFactory cacheFactory,
-            int cacheSize,
-            PartitionPruner partitionPruner,
-            Executor taskExecutor
-    ) {
-        this.localNodeName = localNodeName;
-        this.clock = clock;
-        this.targetProvider = targetProvider;
-        this.templatesCache = cacheFactory.create(cacheSize);
-        this.mappingsCache = cacheFactory.create(cacheSize);
-        this.taskExecutor = taskExecutor;
-        this.partitionPruner = partitionPruner;
-        this.logicalTopologyService = null;
-        this.systemViewManager = null;
+        this.distributionProvider = distributionProvider;
     }
 
     @Override
@@ -175,15 +153,15 @@ public class MappingServiceImpl implements MappingService {
                                 }
                             }
 
-                            long topVer = topologyAware ? logicalTopologyService.localLogicalTopology().version() : Long.MAX_VALUE;
+                            long topVer = topologyAware ? logicalTopologySupplier.get().version() : Long.MAX_VALUE;
 
-                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, localNodeName));
-                        };
+                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups));
+                    };
 
-                    long topologyVer = logicalTopologyService.localLogicalTopology().version();
-                        
-                    if (val.topologyVersion != topologyVer) {
-                        return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups, localNodeName));
+                    long topologyVer = logicalTopologySupplier.get().version();
+
+                    if (val.topologyVersion < topologyVer) {
+                        return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups));
                     }
 
                     return val;
@@ -192,44 +170,21 @@ public class MappingServiceImpl implements MappingService {
         return cacheValue.mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
 
-    private CompletableFuture<DistributionHolder> distribution(
-            HybridTimestamp operationTime,
-            boolean mapOnBackups,
-            List<Fragment> fragments,
-            List<String> viewNodes
-    ) {
-        Set<IgniteTable> tables = fragments.stream().flatMap(fragment -> fragment.tables().values().stream())
-                .collect(Collectors.toSet());
 
-        if (!viewNodes.isEmpty()) {
-            DistributionHolder holder = new DistributionHolder(viewNodes, Map.of());
-
-            return CompletableFuture.completedFuture(holder);
-        } else if (tables.isEmpty()) {
-            LogicalTopologySnapshot topologySnapshot = logicalTopologyService.localLogicalTopology();
-
-            DistributionHolder holder = new DistributionHolder(
-                    topologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList()), Map.of());
-
-            return CompletableFuture.completedFuture(holder);
-        } else {
-            // TODO: change it !!!!
-            ExecutionTargetProviderImpl targetProvider0 = (ExecutionTargetProviderImpl) targetProvider;
-
-            return targetProvider0.distribution(tables, operationTime, mapOnBackups, localNodeName);
-        }
-    }
 
     private CompletableFuture<MappedFragments> mapFragments(
             FragmentsTemplate template,
-            boolean mapOnBackups,
-            String localNodeName
+            boolean mapOnBackups
     ) {
         List<String> viewNodes = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                         .map(view -> systemViewManager.owningNodes(view.name())).flatMap(List::stream)).distinct()
                 .collect(Collectors.toList());
 
-        CompletableFuture<DistributionHolder> distrFut = distribution(clock.now(), mapOnBackups, template.fragments, viewNodes);
+        Set<IgniteTable> tables = template.fragments.stream().flatMap(fragment -> fragment.tables().values().stream())
+                .collect(Collectors.toSet());
+
+        CompletableFuture<DistributionHolder> distrFut = distributionProvider.distribution(clock.now(), mapOnBackups, tables,
+                viewNodes, localNodeName);
 
         return distrFut.thenApply(distr -> {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
@@ -328,7 +283,7 @@ public class MappingServiceImpl implements MappingService {
 
         Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
                 fragment.tables().values().stream()
-                        .map(table -> IntObjectPair.of(table.id(), forTable(targetFactory, distr.assignmentsPerTable().get(table)))));
+                        .map(table -> IntObjectPair.of(table.id(), forTable(targetFactory, distr.assignmentsPerTable(table)))));
 
         Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                 .map(view -> IntObjectPair.of(view.id(), forSystemView(targetFactory, view, viewNodes))));
@@ -336,7 +291,7 @@ public class MappingServiceImpl implements MappingService {
         return Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
     }
 
-    private static ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
+    ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
         if (nullOrEmpty(nodes)) {
             throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
                     + " any active nodes in the cluster", view.name()));
@@ -347,7 +302,7 @@ public class MappingServiceImpl implements MappingService {
                 : factory.allOf(nodes);
     }
 
-    private static ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+    ExecutionTarget forTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
         return factory.partitioned(assignments);
     }
 

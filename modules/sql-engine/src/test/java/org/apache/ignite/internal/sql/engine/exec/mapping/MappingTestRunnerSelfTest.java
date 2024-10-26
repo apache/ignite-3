@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestCaseDef;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -138,7 +139,7 @@ public class MappingTestRunnerSelfTest extends BaseIgniteAbstractTest {
 
         IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> runner.runTest(() -> {
-                    ExecutionTargetProvider targetProvider = Mockito.mock(ExecutionTargetProvider.class);
+                    ExecutionDistributionProvider targetProvider = Mockito.mock(ExecutionDistributionProvider.class);
                     IgniteSchema schema = new IgniteSchema("T", 1, List.of());
                     LogicalNode node = new LogicalNode(randomUUID(), "N1", new NetworkAddress("addr", 1000));
                     LogicalTopologySnapshot topologySnapshot = new LogicalTopologySnapshot(1, List.of(node));

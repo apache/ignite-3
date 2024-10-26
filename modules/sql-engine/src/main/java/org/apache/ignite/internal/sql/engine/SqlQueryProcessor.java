@@ -331,20 +331,18 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 view -> () -> systemViewManager.scanView(view.name())
         );
 
-        var executionTargetProvider = new ExecutionTargetProviderImpl(placementDriver, systemViewManager);
-
         var partitionPruner = new PartitionPrunerImpl();
 
         var mappingService = new MappingServiceImpl(
                 nodeName,
                 clockService,
-                executionTargetProvider,
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
                 taskExecutor,
-                logicalTopologyService,
-                systemViewManager
+                logicalTopologyService::localLogicalTopology,
+                systemViewManager,
+                new ExecutionDistributionProviderImpl(placementDriver)
         );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
