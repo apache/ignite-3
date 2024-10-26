@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.MetaStorage;
 
 /**
