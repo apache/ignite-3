@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -240,7 +241,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
 
         @Override
         public void addNodes(List<String> elements) {
-            nodes.addAll(elements);
+            Stream.concat(nodes.stream(), elements.stream()).distinct().collect(Collectors.toList());
         }
 
         @Override

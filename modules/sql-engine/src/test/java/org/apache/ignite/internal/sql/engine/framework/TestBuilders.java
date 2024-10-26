@@ -1676,8 +1676,9 @@ public class TestBuilders {
                 }
             }
 
-            //DistributionHolderImpl holder = new DistributionHolderImpl(allNodes, assignmentsPerTable);
             DistributionHolderImpl holder = new DistributionHolderImpl(topologyNodes, assignmentsPerTable);
+
+            holder.addNodes(viewNodes);
 
             return CompletableFuture.completedFuture(holder);
         }
@@ -1688,19 +1689,5 @@ public class TestBuilders {
                     token
             );
         }
-
-/*        @Override
-        public ExecutionTarget forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-            List<String> nodes = owningNodesBySystemViewName.apply(view.name());
-
-            if (nullOrEmpty(nodes)) {
-                throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                + " any active nodes in the cluster", view.name()));
-            }
-
-            return view.distribution() == IgniteDistributions.single()
-                    ? factory.oneOf(nodes)
-                    : factory.allOf(nodes);
-        }*/
     }
 }
