@@ -84,7 +84,6 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -92,7 +91,6 @@ import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
@@ -106,8 +104,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestC
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -138,7 +134,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -1139,10 +1134,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        List<LogicalNode> logicalNodes = nodeNames.stream()
-                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
-                .collect(Collectors.toList());
-
         var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory, nodeNames);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
@@ -1170,7 +1161,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private MappingServiceImpl createMappingService(
+    private static MappingServiceImpl createMappingService(
             String nodeName,
             ClockService clock,
             QueryTaskExecutor taskExecutor,
@@ -1178,7 +1169,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             List<String> logicalNodes
     ) {
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
-        Supplier<LogicalTopologySnapshot> topologySupplier = () -> new LogicalTopologySnapshot(Long.MAX_VALUE, List.of(), randomUUID());
+
+        List<LogicalNode> logicalNodesCollection = logicalNodes.stream()
+                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
+                .collect(Collectors.toList());
+
+        Supplier<LogicalTopologySnapshot> topologySupplier = () -> new LogicalTopologySnapshot(Long.MAX_VALUE, logicalNodesCollection,
+                randomUUID());
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, taskExecutor, topologySupplier,
                 null, new TestExecutionDistributionProvider(logicalNodes));

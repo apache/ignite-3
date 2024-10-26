@@ -51,7 +51,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -104,8 +103,6 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -116,7 +113,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -127,7 +123,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -145,10 +140,8 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -715,7 +708,8 @@ public class TestBuilders {
                         var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                useTablePartitions
+                                useTablePartitions,
+                                nodeNames
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -1582,6 +1576,8 @@ public class TestBuilders {
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
+        private List<String> topologyNodes;
+
         private boolean useTablePartitions;
 
         private ExecutionDistributionProviderBuilder() {
@@ -1591,6 +1587,12 @@ public class TestBuilders {
         /** Adds tables to list of nodes mapping. */
         public ExecutionDistributionProviderBuilder addTables(Map<String, List<List<String>>> tables) {
             this.owningNodesByTableName.putAll(tables);
+            return this;
+        }
+
+        /** Supply topology information. */
+        public ExecutionDistributionProviderBuilder topologyNodes(List<String> topologyNodes) {
+            this.topologyNodes = topologyNodes;
             return this;
         }
 
@@ -1614,7 +1616,8 @@ public class TestBuilders {
             return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
                     Map.copyOf(owningNodesByTableName),
-                    useTablePartitions
+                    useTablePartitions,
+                    topologyNodes
             );
         }
     }
@@ -1626,14 +1629,18 @@ public class TestBuilders {
 
         final boolean useTablePartitions;
 
+        final List<String> topologyNodes;
+
         private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
                 Map<String, List<List<String>>> owningNodesByTableName,
-                boolean useTablePartitions
+                boolean useTablePartitions,
+                List<String> topologyNodes
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
             this.useTablePartitions = useTablePartitions;
+            this.topologyNodes = topologyNodes;
         }
 
         @Override
@@ -1644,9 +1651,6 @@ public class TestBuilders {
                 List<String> viewNodes,
                 String initiatorNode
         ) {
-            List<String> allNodes = owningNodesByTableName.values().stream().flatMap(List::stream)
-                    .flatMap(List::stream).collect(Collectors.toList());
-
             Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable = new HashMap<>();
 
             for (IgniteTable table : tables) {
@@ -1672,7 +1676,8 @@ public class TestBuilders {
                 }
             }
 
-            DistributionHolderImpl holder = new DistributionHolderImpl(allNodes, assignmentsPerTable);
+            //DistributionHolderImpl holder = new DistributionHolderImpl(allNodes, assignmentsPerTable);
+            DistributionHolderImpl holder = new DistributionHolderImpl(topologyNodes, assignmentsPerTable);
 
             return CompletableFuture.completedFuture(holder);
         }
