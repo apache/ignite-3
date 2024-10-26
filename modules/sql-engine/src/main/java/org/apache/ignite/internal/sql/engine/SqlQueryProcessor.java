@@ -346,7 +346,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
-        //placementDriver.listen(PrimaryReplicaEvent.ASSIGMENTS_CHANGED, mappingService::onPrimaryReplicaExpired);
+        // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
+        // placementDriver.listen(PrimaryReplicaEvent.ASSIGMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),

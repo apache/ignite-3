@@ -30,7 +30,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -41,14 +40,11 @@ import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolderImpl;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -93,6 +89,8 @@ public class MappingServiceImpl implements MappingService {
      * @param partitionPruner Partition pruner.
      * @param taskExecutor Mapper service task executor.
      * @param logicalTopologySupplier Logical topology supplier.
+     * @param systemViewManager System view manager.
+     * @param distributionProvider Execution distribution provider.
      */
     public MappingServiceImpl(
             String localNodeName,
@@ -116,11 +114,6 @@ public class MappingServiceImpl implements MappingService {
         this.distributionProvider = distributionProvider;
     }
 
-    @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        return map0(multiStepPlan, parameters);
-    }
-
     /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
@@ -134,7 +127,8 @@ public class MappingServiceImpl implements MappingService {
         return CompletableFutures.falseCompletedFuture();
     }
 
-    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+    @Override
+    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, MappingContext.CLUSTER);
 
         boolean mapOnBackups = parameters.mapOnBackups();
@@ -143,20 +137,20 @@ public class MappingServiceImpl implements MappingService {
                 new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
                 (key, val) -> {
                     if (val == null) {
-                            IntSet tableIds = new IntOpenHashSet();
-                            boolean topologyAware = false;
+                        IntSet tableIds = new IntOpenHashSet();
+                        boolean topologyAware = false;
 
-                            for (Fragment fragment : template.fragments) {
-                                topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                                for (IgniteDataSource source : fragment.tables().values()) {
-                                    tableIds.add(source.id());
-                                }
+                        for (Fragment fragment : template.fragments) {
+                            topologyAware = topologyAware || !fragment.systemViews().isEmpty();
+                            for (IgniteDataSource source : fragment.tables().values()) {
+                                tableIds.add(source.id());
                             }
+                        }
 
-                            long topVer = topologyAware ? logicalTopologySupplier.get().version() : Long.MAX_VALUE;
+                        long topVer = topologyAware ? logicalTopologySupplier.get().version() : Long.MAX_VALUE;
 
-                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups));
-                    };
+                        return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups));
+                    }
 
                     long topologyVer = logicalTopologySupplier.get().version();
 
@@ -169,8 +163,6 @@ public class MappingServiceImpl implements MappingService {
 
         return cacheValue.mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
-
-
 
     private CompletableFuture<MappedFragments> mapFragments(
             FragmentsTemplate template,

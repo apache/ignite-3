@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
