@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -279,9 +280,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
     public static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         private final List<String> nodeNames;
+        private Supplier<RuntimeException> exceptionSupplier = () -> null;
 
         public TestExecutionDistributionProvider(List<String> nodeNames) {
             this.nodeNames = nodeNames;
+        }
+
+        public TestExecutionDistributionProvider(List<String> nodeNames, Supplier<RuntimeException> exceptionSupplier) {
+            this.nodeNames = nodeNames;
+            this.exceptionSupplier = exceptionSupplier;
         }
 
         @Override
@@ -298,10 +305,18 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                     return nodeNames;
                 }
 
+                private TokenizedAssignments mapAssignment(String peer) {
+                    Set<Assignment> peers = Set.of(Assignment.forPeer(peer));
+                    return new TokenizedAssignmentsImpl(peers, 1L);
+                }
+
                 @Override
                 public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
-                    return List.of(new TokenizedAssignmentsImpl(nodeNames.stream()
-                            .map(Assignment::forPeer).collect(Collectors.toSet()), 1L));
+                    if (exceptionSupplier.get() != null) {
+                        throw exceptionSupplier.get();
+                    }
+
+                    return nodeNames.stream().map(this::mapAssignment).collect(Collectors.toList());
                 }
 
                 @Override

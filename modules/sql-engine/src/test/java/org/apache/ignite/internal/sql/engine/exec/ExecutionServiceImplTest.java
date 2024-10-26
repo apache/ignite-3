@@ -1137,8 +1137,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory, nodeNames);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
-        //mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
-
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
                 topologyService,
@@ -1161,7 +1159,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private static MappingServiceImpl createMappingService(
+    private MappingServiceImpl createMappingService(
             String nodeName,
             ClockService clock,
             QueryTaskExecutor taskExecutor,
@@ -1178,7 +1176,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 randomUUID());
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, taskExecutor, topologySupplier,
-                null, new TestExecutionDistributionProvider(logicalNodes));
+                null, new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
     }
 
     private SqlOperationContext createContext() {
