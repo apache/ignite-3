@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.metastorage.command;
 
-import java.util.Set;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.raft.ReadCommand;
 
 /**
- * Command for changing metastorage nodes.
+ * Get command for MetaStorageCommandListener that retrieves information ({@link ChecksumInfo}) about a checksum.
+ *
+ * @see ChecksumInfo
  */
-@Transferable(CmgMessageGroup.Commands.CHANGE_METASTORAGE_INFO)
-public interface ChangeMetaStorageInfoCommand extends WriteCommand {
+@Transferable(MetastorageCommandsMessageGroup.GET_CHECKSUM)
+public interface GetChecksumCommand extends ReadCommand {
     /**
-     * Names of the nodes that host Meta storage.
+     * Revision for which to obtain a checksum.
      */
-    Set<String> metaStorageNodes();
-
-    /**
-     * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
-     * repair happened in the current cluster incarnation.
-     */
-    @Nullable Long metastorageRepairingConfigIndex();
+    long revision();
 }
