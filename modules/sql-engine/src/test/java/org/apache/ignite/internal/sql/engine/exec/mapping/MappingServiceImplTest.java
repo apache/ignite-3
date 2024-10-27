@@ -318,11 +318,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
                     return nodeNames.stream().map(this::mapAssignment).collect(Collectors.toList());
                 }
-
-                @Override
-                public void addNodes(List<String> elements) {
-                    // No op.
-                }
             };
 
             return CompletableFuture.completedFuture(holder);

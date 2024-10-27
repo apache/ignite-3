@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,7 +47,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
-/** Provides execution nodes information. */
+/** Execution nodes information provider. */
 public class ExecutionDistributionProviderImpl implements ExecutionDistributionProvider {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
@@ -66,15 +65,6 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             String initiatorNode
     ) {
         if (!viewNodes.isEmpty()) {
-            if (!tables.isEmpty()) {
-                CompletableFuture<DistributionHolder> fut = distribution0(tables, operationTime, mapOnBackups, initiatorNode);
-
-                fut.thenApply(dist -> {
-                    dist.addNodes(viewNodes);
-                    return completedFuture(dist);
-                });
-            }
-
             return completedFuture(new DistributionHolderImpl(viewNodes, Map.of()));
         } else if (tables.isEmpty()) {
             DistributionHolder holder = new DistributionHolderImpl(List.of(initiatorNode), Map.of());
@@ -230,18 +220,13 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         });
     }
 
-    public static class DistributionHolderImpl implements DistributionHolder {
+    static class DistributionHolderImpl implements DistributionHolder {
         private final List<String> nodes;
         private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
 
-        public DistributionHolderImpl(List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
+        DistributionHolderImpl(List<String> nodes, Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
-        }
-
-        @Override
-        public void addNodes(List<String> elements) {
-            Stream.concat(nodes.stream(), elements.stream()).distinct().collect(Collectors.toList());
         }
 
         @Override
@@ -257,8 +242,6 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
 
     public interface DistributionHolder {
         List<String> nodes();
-
-        void addNodes(List<String> elements);
 
         List<TokenizedAssignments> assignmentsPerTable(IgniteTable table);
     }

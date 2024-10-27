@@ -51,6 +51,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolderImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -1647,9 +1647,17 @@ public class TestBuilders {
                 }
             }
 
-            DistributionHolderImpl holder = new DistributionHolderImpl(topologyNodes, assignmentsPerTable);
+            DistributionHolder holder = new DistributionHolder() {
+                @Override
+                public List<String> nodes() {
+                    return Stream.concat(topologyNodes.stream(), viewNodes.stream()).collect(Collectors.toList());
+                }
 
-            holder.addNodes(viewNodes);
+                @Override
+                public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
+                    return assignmentsPerTable.get(table);
+                }
+            };
 
             return CompletableFuture.completedFuture(holder);
         }
