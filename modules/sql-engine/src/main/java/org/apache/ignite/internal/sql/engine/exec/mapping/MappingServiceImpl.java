@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -73,7 +72,6 @@ public class MappingServiceImpl implements MappingService {
     private final ClockService clock;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
-    private final Executor taskExecutor;
     private final PartitionPruner partitionPruner;
     private final Supplier<LogicalTopologySnapshot> logicalTopologySupplier;
     private final SystemViewManager systemViewManager;
@@ -87,7 +85,6 @@ public class MappingServiceImpl implements MappingService {
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
-     * @param taskExecutor Mapper service task executor.
      * @param logicalTopologySupplier Logical topology supplier.
      * @param systemViewManager System view manager.
      * @param distributionProvider Execution distribution provider.
@@ -98,7 +95,6 @@ public class MappingServiceImpl implements MappingService {
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
-            Executor taskExecutor,
             Supplier<LogicalTopologySnapshot> logicalTopologySupplier,
             SystemViewManager systemViewManager,
             ExecutionDistributionProvider distributionProvider
@@ -107,7 +103,6 @@ public class MappingServiceImpl implements MappingService {
         this.clock = clock;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
-        this.taskExecutor = taskExecutor;
         this.partitionPruner = partitionPruner;
         this.logicalTopologySupplier = logicalTopologySupplier;
         this.systemViewManager = systemViewManager;
@@ -176,7 +171,7 @@ public class MappingServiceImpl implements MappingService {
                 .collect(Collectors.toSet());
 
         CompletableFuture<DistributionHolder> distrFut = distributionProvider.distribution(clock.now(), mapOnBackups, tables,
-                viewNodes, localNodeName);
+                localNodeName);
 
         return distrFut.thenApply(distr -> {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();

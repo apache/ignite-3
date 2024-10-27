@@ -208,8 +208,6 @@ final class MappingTestRunner {
                 EmptyCacheFactory.INSTANCE,
                 0,
                 partitionPruner,
-                Runnable::run,
-                // todo !!! not used
                 () -> snapshot,
                 null,
                 executionDistributionProvider

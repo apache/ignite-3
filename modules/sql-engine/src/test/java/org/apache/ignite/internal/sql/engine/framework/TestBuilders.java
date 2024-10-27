@@ -50,7 +50,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -717,7 +716,6 @@ public class TestBuilders {
                                 EmptyCacheFactory.INSTANCE,
                                 0,
                                 partitionPruner,
-                                Runnable::run,
                                 () -> new LogicalTopologySnapshot(1L, logicalNodes, randomUUID()),
                                 systemViewManager,
                                 executionProvider
@@ -1617,7 +1615,6 @@ public class TestBuilders {
                 HybridTimestamp operationTime,
                 boolean mapOnBackups,
                 Collection<IgniteTable> tables,
-                List<String> viewNodes,
                 String initiatorNode
         ) {
             Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable = new HashMap<>();
@@ -1648,7 +1645,7 @@ public class TestBuilders {
             DistributionHolder holder = new DistributionHolder() {
                 @Override
                 public List<String> nodes() {
-                    return Stream.concat(topologyNodes.stream(), viewNodes.stream()).collect(Collectors.toList());
+                    return topologyNodes;
                 }
 
                 @Override

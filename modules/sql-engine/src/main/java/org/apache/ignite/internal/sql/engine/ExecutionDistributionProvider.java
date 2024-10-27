@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
@@ -31,6 +30,5 @@ public interface ExecutionDistributionProvider {
             HybridTimestamp operationTime,
             boolean mapOnBackups,
             Collection<IgniteTable> tables,
-            List<String> viewNodes,
             String initiatorNode);
 }

@@ -1134,7 +1134,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory, nodeNames);
+        var mappingService = createMappingService(nodeName, clockService, mappingCacheFactory, nodeNames);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         var executionService = new ExecutionServiceImpl<>(
@@ -1162,7 +1162,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private MappingServiceImpl createMappingService(
             String nodeName,
             ClockService clock,
-            QueryTaskExecutor taskExecutor,
             CacheFactory cacheFactory,
             List<String> logicalNodes
     ) {
@@ -1175,7 +1174,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Supplier<LogicalTopologySnapshot> topologySupplier = () -> new LogicalTopologySnapshot(Long.MAX_VALUE, logicalNodesCollection,
                 randomUUID());
 
-        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, taskExecutor, topologySupplier,
+        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologySupplier,
                 null, new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
     }
 

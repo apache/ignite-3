@@ -61,12 +61,9 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             HybridTimestamp operationTime,
             boolean mapOnBackups,
             Collection<IgniteTable> tables,
-            List<String> viewNodes,
             String initiatorNode
     ) {
-        if (!viewNodes.isEmpty()) {
-            return completedFuture(new DistributionHolderImpl(viewNodes, Map.of()));
-        } else if (tables.isEmpty()) {
+        if (tables.isEmpty()) {
             DistributionHolder holder = new DistributionHolderImpl(List.of(initiatorNode), Map.of());
 
             return completedFuture(holder);

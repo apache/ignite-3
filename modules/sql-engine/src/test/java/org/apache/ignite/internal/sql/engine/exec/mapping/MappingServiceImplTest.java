@@ -83,8 +83,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final ClockService CLOCK_SERVICE = new TestClockService(new TestHybridClock(System::currentTimeMillis));
     private static final MappingParameters PARAMS = MappingParameters.EMPTY;
     private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
-    private static long topologyVer;
-    private static boolean topologyChange;
+    private long topologyVer;
+    private boolean topologyChange;
 
     static {
         // @formatter:off
@@ -168,7 +168,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 100,
                 PARTITION_PRUNER,
-                Runnable::run,
                 logicalTopologySupplier,
                 viewManager,
                 execProvider
@@ -181,7 +180,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(mappingService, times(1)).forSystemView(any(), any(), any());
 
         verify(execProvider, times(2)).distribution(any(HybridTimestamp.class), anyBoolean(),
-                anyCollection(), any(List.class), anyString());
+                anyCollection(), anyString());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
@@ -233,7 +232,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 100,
                 PARTITION_PRUNER,
-                Runnable::run,
                 logicalTopologySupplier,
                 viewManager,
                 execProvider
@@ -248,7 +246,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
         verify(execProvider, times(1)).distribution(any(HybridTimestamp.class), anyBoolean(),
-                anyCollection(), any(List.class), anyString());
+                anyCollection(), anyString());
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
@@ -257,11 +255,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(mappingService, times(2)).forSystemView(any(), any(), any());
     }
 
-    private static MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {
+    private MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {
         return createMappingService(localNodeName, nodeNames, 0);
     }
 
-    private static MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames, int cacheSize) {
+    private MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames, int cacheSize) {
         Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createChangingTopologySupplier();
         ExecutionDistributionProvider execProvider = new TestExecutionDistributionProvider(nodeNames);
 
@@ -271,7 +269,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 cacheSize,
                 PARTITION_PRUNER,
-                Runnable::run,
                 logicalTopologySupplier,
                 null,
                 execProvider
@@ -298,7 +295,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 HybridTimestamp operationTime,
                 boolean mapOnBackups,
                 Collection<IgniteTable> tables,
-                List<String> viewNodes,
                 String initiatorNode
         ) {
             DistributionHolder holder = new DistributionHolder() {
@@ -330,11 +326,11 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         return () -> new LogicalTopologySnapshot(1, List.of(), randomUUID());
     }
 
-    private static Supplier<LogicalTopologySnapshot> createTriggeredTopologySupplier() {
+    private Supplier<LogicalTopologySnapshot> createTriggeredTopologySupplier() {
         return () -> new LogicalTopologySnapshot(topologyChange ? ++topologyVer : topologyVer, List.of(), randomUUID());
     }
 
-    private static Supplier<LogicalTopologySnapshot> createChangingTopologySupplier() {
+    private Supplier<LogicalTopologySnapshot> createChangingTopologySupplier() {
         return () -> new LogicalTopologySnapshot(topologyVer++, List.of(), randomUUID());
     }
 }
