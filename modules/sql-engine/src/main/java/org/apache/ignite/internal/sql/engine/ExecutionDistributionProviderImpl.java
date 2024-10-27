@@ -240,6 +240,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         }
     }
 
+    /** Add java doc. */
     public interface DistributionHolder {
         List<String> nodes();
 
