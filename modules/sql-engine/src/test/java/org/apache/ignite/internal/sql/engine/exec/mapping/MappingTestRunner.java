@@ -209,7 +209,6 @@ final class MappingTestRunner {
                 0,
                 partitionPruner,
                 () -> snapshot,
-                null,
                 executionDistributionProvider
         );
 

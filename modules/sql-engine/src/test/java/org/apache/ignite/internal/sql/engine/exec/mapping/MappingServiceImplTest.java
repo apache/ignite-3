@@ -31,7 +31,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
-import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -159,8 +157,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createTriggeredTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
-        SystemViewManager viewManager = Mockito.mock(SystemViewManager.class);
-        when(viewManager.owningNodes(any())).thenReturn(nodeNames);
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
                 localNodeName,
@@ -169,7 +165,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologySupplier,
-                viewManager,
                 execProvider
         ));
 
@@ -180,7 +175,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(mappingService, times(1)).forSystemView(any(), any(), any());
 
         verify(execProvider, times(2)).distribution(any(HybridTimestamp.class), anyBoolean(),
-                anyCollection(), anyString());
+                anyCollection(), anyCollection(), anyString());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
@@ -223,9 +218,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createStableTopologySupplier();
         ExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
-        SystemViewManager viewManager = Mockito.mock(SystemViewManager.class);
-        when(viewManager.owningNodes(any())).thenReturn(nodeNames);
-
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
                 localNodeName,
                 CLOCK_SERVICE,
@@ -233,7 +225,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologySupplier,
-                viewManager,
                 execProvider
         ));
 
@@ -246,7 +237,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
         verify(execProvider, times(1)).distribution(any(HybridTimestamp.class), anyBoolean(),
-                anyCollection(), anyString());
+                anyCollection(), anyCollection(), anyString());
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
@@ -270,7 +261,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 cacheSize,
                 PARTITION_PRUNER,
                 logicalTopologySupplier,
-                null,
                 execProvider
         );
     }
@@ -295,6 +285,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 HybridTimestamp operationTime,
                 boolean mapOnBackups,
                 Collection<IgniteTable> tables,
+                Collection<String> views,
                 String initiatorNode
         ) {
             DistributionHolder holder = new DistributionHolder() {
@@ -309,12 +300,17 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 }
 
                 @Override
-                public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
+                public List<TokenizedAssignments> tableAssignments(IgniteTable table) {
                     if (exceptionSupplier.get() != null) {
                         throw exceptionSupplier.get();
                     }
 
                     return nodeNames.stream().map(this::mapAssignment).collect(Collectors.toList());
+                }
+
+                @Override
+                public List<String> viewNodes(String viewName) {
+                    return nodeNames;
                 }
             };
 

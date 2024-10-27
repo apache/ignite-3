@@ -126,6 +126,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -707,7 +708,8 @@ public class TestBuilders {
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
                                 useTablePartitions,
-                                nodeNames
+                                nodeNames,
+                                systemViewManager
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -717,7 +719,6 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 () -> new LogicalTopologySnapshot(1L, logicalNodes, randomUUID()),
-                                systemViewManager,
                                 executionProvider
                         );
 
@@ -1584,7 +1585,8 @@ public class TestBuilders {
                     owningNodesBySystemViewName,
                     Map.copyOf(owningNodesByTableName),
                     useTablePartitions,
-                    topologyNodes
+                    topologyNodes,
+                    null
             );
         }
     }
@@ -1598,16 +1600,20 @@ public class TestBuilders {
 
         final List<String> topologyNodes;
 
+        final SystemViewManager systemViewManager;
+
         private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
                 Map<String, List<List<String>>> owningNodesByTableName,
                 boolean useTablePartitions,
-                List<String> topologyNodes
+                List<String> topologyNodes,
+                SystemViewManager systemViewManager
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
             this.useTablePartitions = useTablePartitions;
             this.topologyNodes = topologyNodes;
+            this.systemViewManager = systemViewManager;
         }
 
         @Override
@@ -1615,6 +1621,7 @@ public class TestBuilders {
                 HybridTimestamp operationTime,
                 boolean mapOnBackups,
                 Collection<IgniteTable> tables,
+                Collection<String> views,
                 String initiatorNode
         ) {
             Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable = new HashMap<>();
@@ -1649,8 +1656,14 @@ public class TestBuilders {
                 }
 
                 @Override
-                public List<TokenizedAssignments> assignmentsPerTable(IgniteTable table) {
+                public List<TokenizedAssignments> tableAssignments(IgniteTable table) {
                     return assignmentsPerTable.get(table);
+                }
+
+                @Override
+                public List<String> viewNodes(String viewName) {
+                    return systemViewManager != null ? systemViewManager.owningNodes(viewName)
+                            : owningNodesBySystemViewName.apply(viewName);
                 }
             };
 

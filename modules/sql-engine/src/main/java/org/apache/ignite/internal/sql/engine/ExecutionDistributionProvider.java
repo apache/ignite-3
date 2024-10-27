@@ -30,5 +30,6 @@ public interface ExecutionDistributionProvider {
             HybridTimestamp operationTime,
             boolean mapOnBackups,
             Collection<IgniteTable> tables,
+            Collection<String> views,
             String initiatorNode);
 }

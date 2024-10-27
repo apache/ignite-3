@@ -1175,7 +1175,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 randomUUID());
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologySupplier,
-                null, new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
+                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
     }
 
     private SqlOperationContext createContext() {
