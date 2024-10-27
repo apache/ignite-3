@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
@@ -113,7 +112,8 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             // this is a safe join, because we have waited for all futures to be completed
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-            Map<String, List<String>> nodesPerView = views.stream().collect(toMap(Function.identity(), systemViewManager::owningNodes));
+            Map<String, List<String>> nodesPerView = views.stream()
+                    .collect(Collectors.toMap(Function.identity(), systemViewManager::owningNodes));
 
             List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
 
