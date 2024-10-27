@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -727,7 +726,6 @@ public class TestBuilders {
                         systemViewManager.register(() -> systemViews);
 
                         LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
-                        //mappingService.onTopologyLeap(newTopology);
                         systemViewManager.onTopologyLeap(newTopology);
 
                         return new TestNode(

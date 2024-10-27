@@ -96,7 +96,10 @@ final class MappingTestRunner {
 
         private final LogicalTopologySnapshot topologySnapshot;
 
-        TestSetup(ExecutionDistributionProvider executionDistributionProvider, IgniteSchema schema, LogicalTopologySnapshot topologySnapshot) {
+        TestSetup(
+                ExecutionDistributionProvider executionDistributionProvider,
+                IgniteSchema schema, LogicalTopologySnapshot topologySnapshot
+        ) {
             this.executionDistributionProvider = executionDistributionProvider;
             this.schema = schema;
             this.topologySnapshot = topologySnapshot;
@@ -211,7 +214,6 @@ final class MappingTestRunner {
                 null,
                 executionDistributionProvider
         );
-        //mappingService.onTopologyLeap(snapshot);
 
         List<MappedFragment> mappedFragments;
 

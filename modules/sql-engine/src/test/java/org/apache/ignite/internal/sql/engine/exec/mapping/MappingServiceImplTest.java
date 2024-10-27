@@ -278,14 +278,16 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         );
     }
 
+    /** Test distribution provider. */
     public static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         private final List<String> nodeNames;
         private Supplier<RuntimeException> exceptionSupplier = () -> null;
 
-        public TestExecutionDistributionProvider(List<String> nodeNames) {
+        TestExecutionDistributionProvider(List<String> nodeNames) {
             this.nodeNames = nodeNames;
         }
 
+        /** Constructor. */
         public TestExecutionDistributionProvider(List<String> nodeNames, Supplier<RuntimeException> exceptionSupplier) {
             this.nodeNames = nodeNames;
             this.exceptionSupplier = exceptionSupplier;
