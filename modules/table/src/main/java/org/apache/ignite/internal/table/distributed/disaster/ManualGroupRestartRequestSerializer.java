@@ -21,10 +21,8 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntSet;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -42,12 +40,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         out.writeVarInt(request.zoneId());
         out.writeVarInt(request.tableId());
         writeVarIntSet(request.partitionIds(), out);
-
-        out.writeVarInt(request.nodeNames().size());
-        for (String nodeName : request.nodeNames()) {
-            out.writeUTF(nodeName);
-        }
-
+        writeStringSet(request.nodeNames(), out);
         // Writing long and not a varlong as the latter requires 9 bytes for hybrid timestamps.
         out.writeLong(request.assignmentsTimestamp());
     }
@@ -62,16 +55,5 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         long assignmentsTimestamp = in.readLong();
 
         return new ManualGroupRestartRequest(operationId, zoneId, tableId, partitionIds, nodeNames, assignmentsTimestamp);
-    }
-
-    private static Set<String> readStringSet(IgniteDataInput in) throws IOException {
-        int size = in.readVarIntAsInt();
-
-        Set<String> result = new HashSet<>(IgniteUtils.capacity(size));
-        for (int i = 0; i < size; i++) {
-            result.add(in.readUTF());
-        }
-
-        return result;
     }
 }

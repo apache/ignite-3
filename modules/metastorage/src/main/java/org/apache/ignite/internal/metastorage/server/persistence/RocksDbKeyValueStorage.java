@@ -42,7 +42,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_CHECKSUM;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.toIdempotentCommandKey;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -70,8 +70,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -83,15 +81,16 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
-import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
+import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
@@ -266,12 +265,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         super(
                 nodeName,
                 failureManager,
-                readOperationForCompactionTracker,
-                Executors.newSingleThreadExecutor(NamedThreadFactory.create(
-                        nodeName,
-                        "metastorage-compaction-executor",
-                        Loggers.forClass(RocksDbKeyValueStorage.class)
-                ))
+                readOperationForCompactionTracker
         );
 
         this.dbPath = dbPath;
@@ -402,6 +396,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return bytesToLong(bytes);
     }
 
+    private long checksumByRevisionOrZero(long revision) throws RocksDBException {
+        byte[] bytes = revisionToChecksum.get(longToBytes(revision));
+
+        if (bytes == null) {
+            return 0;
+        }
+
+        return bytesToLong(bytes);
+    }
+
     /**
      * Clear the RocksDB instance.
      *
@@ -421,7 +425,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         watchProcessor.close();
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {
@@ -731,10 +734,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             List<Operation> ops = new ArrayList<>(branch ? success : failure);
 
-            ops.add(Operations.put(
-                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                    updateResult
-            ));
+            ops.add(Operations.put(toIdempotentCommandKey(commandId), updateResult));
 
             applyOperations(ops, context, false, updateResult);
 
@@ -772,10 +772,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                     List<Operation> ops = new ArrayList<>(update.operations());
 
-                    ops.add(Operations.put(
-                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                            updateResult
-                    ));
+                    ops.add(Operations.put(toIdempotentCommandKey(commandId), updateResult));
 
                     applyOperations(ops, context, true, updateResult);
 
@@ -867,7 +864,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
         assert startRevision > 0 : startRevision;
 
         long currentRevision;
@@ -875,7 +872,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            watchProcessor.setRevisionCallback(revisionCallback);
+            watchProcessor.setWatchEventHandlingCallback(createWrapper(callback));
 
             currentRevision = rev;
 
@@ -1278,27 +1275,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
-        assert revision >= 0 : revision;
-
-        rwLock.writeLock().lock();
-
+    protected void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         try (WriteBatch batch = new WriteBatch()) {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
 
             addIndexAndTermToWriteBatch(batch, context);
 
             db.write(defaultWriteOptions, batch);
 
-            if (!isInRecoveryState()) {
+            if (advanceSafeTime && !isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
@@ -1314,6 +1303,40 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public ChecksumAndRevisions checksumAndRevisions(long revision) {
+        rwLock.readLock().lock();
+
+        try {
+            return new ChecksumAndRevisions(
+                    checksumByRevisionOrZero(revision),
+                    minChecksummedRevisionOrZero(),
+                    rev
+            );
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private long minChecksummedRevisionOrZero() throws RocksDBException {
+        try (
+                var options = new ReadOptions().setTailing(true);
+                RocksIterator it = revisionToChecksum.newIterator(options)
+        ) {
+            it.seekToFirst();
+
+            if (it.isValid()) {
+                return bytesToLong(it.key());
+            } else {
+                it.status();
+
+                return 0;
+            }
         }
     }
 

@@ -44,6 +44,7 @@ import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
@@ -71,8 +72,8 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
@@ -192,6 +193,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /** Tracks only reads from the leader, local reads are tracked by the storage itself. */
     private final ReadOperationForCompactionTracker readOperationFromLeaderForCompactionTracker;
 
+    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
+
+    private final MetastorageDivergencyValidator divergencyValidator = new MetastorageDivergencyValidator();
+
     /**
      * The constructor.
      *
@@ -234,6 +239,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.readOperationFromLeaderForCompactionTracker = readOperationForCompactionTracker;
 
         learnerManager = new MetaStorageLearnerManager(busyLock, logicalTopologyService, metaStorageSvcFut);
+
+        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
+                clusterService.nodeName(),
+                storage,
+                metaStorageSvcFut,
+                clusterTime,
+                readOperationForCompactionTracker
+        );
+
+        electionListeners.add(metaStorageCompactionTrigger::onLeaderElected);
     }
 
     /**
@@ -378,15 +393,91 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(MetaStorageInfo metaStorageInfo) {
-        try {
-            if (thisNodeDidNotWitnessMetaStorageRepair(metaStorageInfo)) {
-                prepareMetaStorageReentry(metaStorageInfo);
-            }
-        } catch (NodeStoppingException e) {
-            return failedFuture(e);
+    private CompletableFuture<MetaStorageServiceImpl> reenterIfNeededAndInitializeMetaStorage(
+            MetaStorageInfo metaStorageInfo,
+            UUID currentClusterId
+    ) {
+        if (thisNodeDidNotWitnessMetaStorageRepair(metaStorageInfo, currentClusterId)) {
+            return tryReenteringMetastorage(metaStorageInfo.metaStorageNodes(), currentClusterId)
+                    .thenCompose(unused -> initializeMetastorage(metaStorageInfo));
+        } else {
+            return initializeMetastorage(metaStorageInfo);
+        }
+    }
+
+    /**
+     * Returns whether this node did not witness a Metastorage Repair in the current cluster incarnation. 'Did not witness' here means
+     * that the node neither participated in the repair (that is, provided information about its Metastorage group index+term to the repair
+     * conductor) nor it was migrated to the repaired cluster after the repair and passed through Metastorage vaidation (for divergence)
+     * and re-entry procedure.
+     *
+     * @param metaStorageInfo Information about Metastorage.
+     * @param currentClusterId Current cluster ID.
+     */
+    private boolean thisNodeDidNotWitnessMetaStorageRepair(MetaStorageInfo metaStorageInfo, UUID currentClusterId) {
+        UUID locallyWitnessedRepairClusterId = metastorageRepairStorage.readWitnessedMetastorageRepairClusterId();
+
+        return metaStorageInfo.metastorageRepairedInThisClusterIncarnation()
+                && !Objects.equals(locallyWitnessedRepairClusterId, currentClusterId);
+    }
+
+    private CompletableFuture<Void> tryReenteringMetastorage(Set<String> metastorageNodes, UUID currentClusterId) {
+        LOG.info("Trying to reenter Metastorage group");
+
+        return validateMetastorageForDivergence(metastorageNodes)
+                .thenRun(() -> prepareMetaStorageReentry(currentClusterId));
+    }
+
+    private CompletableFuture<Void> validateMetastorageForDivergence(Set<String> metastorageNodes) {
+        long localRevision = storage.revision();
+
+        if (localRevision == 0) {
+            // No revisions, so local Metastorage could not diverge.
+            return nullCompletedFuture();
         }
 
+        return doWithOneOffRaftGroupService(PeersAndLearners.fromConsistentIds(metastorageNodes), raftClient -> {
+            return createMetaStorageService(raftClient).checksum(localRevision)
+                    .thenAccept(leaderChecksumInfo -> {
+                        long localChecksum = storage.checksum(localRevision);
+
+                        LOG.info(
+                                "Validating Metastorage for divergence [localRevision={}, localChecksum={}, leaderChecksumInfo={}",
+                                localRevision, localChecksum, leaderChecksumInfo
+                        );
+
+                        divergencyValidator.validate(localRevision, localChecksum, leaderChecksumInfo);
+
+                        LOG.info("Metastorage did not diverge, proceeding");
+                    });
+        });
+    }
+
+    private void prepareMetaStorageReentry(UUID currentClusterId) {
+        LOG.info("Preparing storages for reentry [clusterId={}]", currentClusterId);
+
+        try {
+            destroyRaftAndStateMachineStorages();
+        } catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
+
+        saveWitnessedMetastorageRepairClusterIdLocally(currentClusterId);
+    }
+
+    private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
+        raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
+
+        storage.clear();
+    }
+
+    private void saveWitnessedMetastorageRepairClusterIdLocally(UUID currentClusterId) {
+        assert currentClusterId != null;
+
+        metastorageRepairStorage.saveWitnessedMetastorageRepairClusterId(currentClusterId);
+    }
+
+    private CompletableFuture<MetaStorageServiceImpl> initializeMetastorage(MetaStorageInfo metaStorageInfo) {
         String thisNodeName = clusterService.nodeName();
         var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
@@ -405,44 +496,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 .thenApply(raftService -> {
                     raftServiceFuture.complete(raftService);
 
-                    return new MetaStorageServiceImpl(
-                            thisNodeName,
-                            raftService,
-                            busyLock,
-                            clusterTime,
-                            () -> clusterService.topologyService().localMember().id());
+                    return createMetaStorageService(raftService);
                 });
     }
 
-    private boolean thisNodeDidNotWitnessMetaStorageRepair(MetaStorageInfo metaStorageInfo) {
-        UUID repairClusterIdInCmg = metaStorageInfo.metastorageRepairClusterId();
-        UUID locallyWitnessedRepairClusterId = metastorageRepairStorage.readWitnessedMetastorageRepairClusterId();
-
-        return repairClusterIdInCmg != null && !Objects.equals(locallyWitnessedRepairClusterId, repairClusterIdInCmg);
-    }
-
-    private void prepareMetaStorageReentry(MetaStorageInfo metaStorageInfo) throws NodeStoppingException {
-        destroyRaftAndStateMachineStorages();
-        saveWitnessedMetastorageRepairClusterIdLocally(metaStorageInfo);
-    }
-
-    private void destroyRaftAndStateMachineStorages() throws NodeStoppingException {
-        raftMgr.destroyRaftNodeStorages(raftNodeId(), raftGroupOptionsConfigurer);
-
-        storage.clear();
-
-        // Here, we must destroy the storage, but it's already destroyed in the beginning of the startAsync() method (in its own #start()).
-        // Just to make sure this is maintained, we add an assertion.
-        assert storage.revision() == 0 : "It's expected that the storage is destroyed at startup, but now it's not (revision is "
-                + storage.revision() + "; if the flow has changed, this assertion has to be changed to actual storage destruction.";
-    }
-
-    private void saveWitnessedMetastorageRepairClusterIdLocally(MetaStorageInfo metaStorageInfo) {
-        UUID repairClusterId = metaStorageInfo.metastorageRepairClusterId();
-
-        assert repairClusterId != null;
-
-        metastorageRepairStorage.saveWitnessedMetastorageRepairClusterId(repairClusterId);
+    private MetaStorageServiceImpl createMetaStorageService(RaftGroupService raftService) {
+        return new MetaStorageServiceImpl(
+                clusterService.nodeName(),
+                raftService,
+                busyLock,
+                clusterTime,
+                () -> clusterService.topologyService().localMember().id()
+        );
     }
 
     private CompletableFuture<? extends RaftGroupService> startVotingNode(
@@ -641,15 +706,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         storage.start();
 
         cmgMgr.metaStorageInfo()
-                .thenCompose(metaStorageInfo -> {
-                    LOG.info("Metastorage info on start is {}", metaStorageInfo);
+                .thenCombine(cmgMgr.clusterState(), MetaStorageInfoAndClusterState::new)
+                .thenCompose(infoAndState -> {
+                    LOG.info("Metastorage info on start is {}", infoAndState.metaStorageInfo);
 
                     if (!busyLock.enterBusy()) {
                         return failedFuture(new NodeStoppingException());
                     }
 
                     try {
-                        return initializeMetaStorage(metaStorageInfo);
+                        return reenterIfNeededAndInitializeMetaStorage(
+                                infoAndState.metaStorageInfo,
+                                infoAndState.clusterState.clusterTag().clusterId()
+                        );
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -707,6 +776,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             IgniteUtils.closeAllManually(
+                    metaStorageCompactionTrigger,
                     () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
                     () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
@@ -754,7 +824,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         try {
             return recoveryFinishedFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
-                        storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
+                        storage.startWatches(revision + 1, new WatchEventHandlingCallback() {
                             @Override
                             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                                 MetaStorageManagerImpl.this.onSafeTimeAdvanced(newSafeTime);
@@ -763,6 +833,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                             @Override
                             public void onRevisionApplied(long revision) {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
+                            }
+
+                            @Override
+                            public void onCompactionRevisionUpdated(long compactionRevision) {
+                                metaStorageCompactionTrigger.onCompactionRevisionUpdate(compactionRevision);
                             }
                         });
                     }))
@@ -960,7 +1035,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public Publisher<Entry> prefix(ByteArray keyPrefix) {
-        return prefix(keyPrefix, MetaStorageManager.LATEST_REVISION);
+        return prefix(keyPrefix, LATEST_REVISION);
     }
 
     @Override
@@ -1162,6 +1237,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return inBusyLock(busyLock, storage::getCompactionRevision);
     }
 
+    @TestOnly
+    public KeyValueStorage storage() {
+        return storage;
+    }
+
     private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
         long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
         long compactionRevision = storage.getCompactionRevision();
@@ -1229,6 +1309,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
 
             throw t;
+        }
+    }
+
+    private static class MetaStorageInfoAndClusterState {
+        private final MetaStorageInfo metaStorageInfo;
+        private final ClusterState clusterState;
+
+        private MetaStorageInfoAndClusterState(MetaStorageInfo metaStorageInfo, ClusterState clusterState) {
+            this.metaStorageInfo = metaStorageInfo;
+            this.clusterState = clusterState;
         }
     }
 }

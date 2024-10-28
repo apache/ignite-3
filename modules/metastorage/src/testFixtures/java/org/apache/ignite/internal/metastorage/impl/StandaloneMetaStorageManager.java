@@ -30,6 +30,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -187,13 +189,28 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static ClusterManagementGroupManager mockClusterGroupManager() {
-
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(TEST_NODE_NAME)).build()
         ));
 
+        configureCmgManagerToStartMetastorage(cmgManager);
+
         return cmgManager;
+    }
+
+    /**
+     * Configures {@link ClusterManagementGroupManager} mock to return cluster state needed for {@link MetaStorageManagerImpl} start.
+     *
+     * @param cmgManagerMock Mock to configure.
+     */
+    public static void configureCmgManagerToStartMetastorage(ClusterManagementGroupManager cmgManagerMock) {
+        ClusterState clusterState = mock(ClusterState.class);
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(new CmgMessagesFactory(), "cluster");
+
+        when(clusterState.clusterTag()).thenReturn(clusterTag);
+        when(cmgManagerMock.clusterState()).thenReturn(completedFuture(clusterState));
     }
 
     private static RaftManager mockRaftManager() {

@@ -58,11 +58,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
             WatchProcessorTest::oldEntry,
             mock(FailureManager.class));
 
-    private final OnRevisionAppliedCallback revisionCallback = mock(OnRevisionAppliedCallback.class);
+    private final WatchEventHandlingCallback watchEventHandlingCallback = mock(WatchEventHandlingCallback.class);
 
     @BeforeEach
     void setUp() {
-        watchProcessor.setRevisionCallback(revisionCallback);
+        watchProcessor.setWatchEventHandlingCallback(watchEventHandlingCallback);
     }
 
     @AfterEach
@@ -94,7 +94,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener1).onUpdate(new WatchEvent(entryEvent1));
         verify(listener2).onUpdate(new WatchEvent(entryEvent2));
 
-        verify(revisionCallback).onRevisionApplied(1L);
+        verify(watchEventHandlingCallback).onRevisionApplied(1L);
     }
 
     /**
@@ -121,7 +121,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener1).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(1L);
+        verify(watchEventHandlingCallback).onRevisionApplied(1L);
 
         ts = new HybridTimestamp(2, 3);
 
@@ -133,7 +133,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener2).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(2L);
+        verify(watchEventHandlingCallback).onRevisionApplied(2L);
     }
 
     /**
@@ -161,7 +161,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
         verify(listener2).onError(any(IllegalStateException.class));
 
-        verify(revisionCallback, never()).onRevisionApplied(anyLong());
+        verify(watchEventHandlingCallback, never()).onRevisionApplied(anyLong());
     }
 
     /**

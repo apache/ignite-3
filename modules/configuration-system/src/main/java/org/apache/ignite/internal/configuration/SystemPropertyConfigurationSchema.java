@@ -17,11 +17,25 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.CamelCaseKeys;
+import org.apache.ignite.internal.configuration.validation.LongNumberSystemPropertyValueValidator;
 
-/** System property configuration schema. */
+/**
+ * System property configuration schema.
+ *
+ * <p>For the property name format, see {@link CamelCaseKeys}.</p>
+ *
+ * <p>To add validators for system property values:</p>
+ * <ul>
+ *     <li>Create a validator, for {@link LongNumberSystemPropertyValueValidator}.</li>
+ *     <li>Add it to {@link ConfigurationModule#validators}, to the module where it is needed, for example, the metastorage module. Also
+ *     note that validators for local and distributed properties must be in different {@link ConfigurationModule} of the module.</li>
+ * </ul>
+ */
 @Config
 public class SystemPropertyConfigurationSchema {
     @InjectedName

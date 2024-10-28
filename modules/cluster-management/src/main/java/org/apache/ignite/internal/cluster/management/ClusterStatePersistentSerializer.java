@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -58,20 +54,6 @@ public class ClusterStatePersistentSerializer extends VersionedSerializer<Cluste
         }
     }
 
-    private static void writeStringSet(Set<String> strings, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(strings.size());
-        for (String str : strings) {
-            out.writeUTF(str);
-        }
-    }
-
-    private static void writeNullableString(@Nullable String str, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(str == null ? -1 : str.length());
-        if (str != null) {
-            out.writeByteArray(str.getBytes(UTF_8));
-        }
-    }
-
     @Override
     protected ClusterState readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         return CMG_MSGS_FACTORY.clusterState()
@@ -82,26 +64,6 @@ public class ClusterStatePersistentSerializer extends VersionedSerializer<Cluste
                 .initialClusterConfiguration(readNullableString(in))
                 .formerClusterIds(readFormerClusterIds(in))
                 .build();
-    }
-
-    private static Set<String> readStringSet(IgniteDataInput in) throws IOException {
-        int size = in.readVarIntAsInt();
-
-        Set<String> result = new HashSet<>(size);
-        for (int i = 0; i < size; i++) {
-            result.add(in.readUTF());
-        }
-
-        return result;
-    }
-
-    private static @Nullable String readNullableString(IgniteDataInput in) throws IOException {
-        int lengthOrMinusOne = in.readVarIntAsInt();
-        if (lengthOrMinusOne == -1) {
-            return null;
-        }
-
-        return new String(in.readByteArray(lengthOrMinusOne), UTF_8);
     }
 
     private static @Nullable List<UUID> readFormerClusterIds(IgniteDataInput in) throws IOException {

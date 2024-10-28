@@ -305,6 +305,9 @@ public class ErrorGroups {
 
         /** Failed to perform a read operation on the underlying key value storage because the revision has already been compacted. */
         public static final int COMPACTED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Failed to start a node because Metastorage has diverged. The node has to be cleared and entered the cluster as a blank node. */
+        public static final int DIVERGED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Index error group. */

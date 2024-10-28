@@ -461,8 +461,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 createListener(service, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
-                        .setLogStorageFactory(logStorageFactories.get(idx))
-                        .serverDataPath(workingDirs.get(idx).metaPath())
+                        .setLogStorageFactory(partitionsLogStorageFactory)
+                        .serverDataPath(componentWorkDir.metaPath())
         );
 
         return server;

@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+package org.apache.ignite.internal.replicator;
 
 /**
- * NoneDeadlockPreventionUnboundedTest.
+ * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
  */
-public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+public interface PartitionGroupId extends ReplicationGroupId {
+    /** Returns ID of the partitioned object. */
+    int objectId();
+
+    /** Returns partition ID. */
+    int partitionId();
 }
