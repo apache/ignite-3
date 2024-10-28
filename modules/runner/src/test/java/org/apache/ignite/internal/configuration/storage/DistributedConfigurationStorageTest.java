@@ -50,7 +50,9 @@ import org.junit.jupiter.api.BeforeEach;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
-    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
+    private static final String NODE_NAME = "test";
+
+    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
 
@@ -75,7 +77,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage("test", metaStorageManager);
+        return new DistributedConfigurationStorage(NODE_NAME, metaStorageManager);
     }
 
     /**

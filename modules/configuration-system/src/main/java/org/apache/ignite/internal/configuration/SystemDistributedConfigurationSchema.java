@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.validation.CamelCaseKeys;
 
-/**
- * NoWaitDeadlockPreventionUnboundedTest.
- */
-public class NoWaitDeadlockPreventionUnboundedTest extends NoWaitDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+/** Distributed system configuration schema. */
+@Config
+public class SystemDistributedConfigurationSchema {
+    /** System properties. */
+    @CamelCaseKeys
+    @NamedConfigValue
+    public SystemPropertyConfigurationSchema properties;
 }

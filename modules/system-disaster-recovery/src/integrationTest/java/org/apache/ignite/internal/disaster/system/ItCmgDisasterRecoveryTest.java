@@ -80,8 +80,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(int condictorIndex, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateCmgRepair("localhost", cluster.httpPort(condictorIndex), nodeNames(newCmgIndexes));
+    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) throws InterruptedException {
+        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -175,10 +175,6 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         LogicalTopologySnapshot topologySnapshot = igniteImpl(1).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(0, topologySnapshot);
-    }
-
-    private void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
-        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
     }
 
     @Test

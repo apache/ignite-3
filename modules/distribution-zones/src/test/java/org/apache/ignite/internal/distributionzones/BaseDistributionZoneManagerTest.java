@@ -37,7 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -91,9 +91,11 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     void setUp() throws Exception {
         String nodeName = "test";
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage));
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker));
+
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
 
         components.add(metaStorageManager);
 
@@ -137,10 +139,13 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         reverse(components);
 
-        closeAll(Stream.concat(
-                components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
-        ));
+        var toCloseList = new ArrayList<AutoCloseable>();
+
+        components.forEach(component -> toCloseList.add(component::beforeNodeStop));
+        toCloseList.add(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()));
+        toCloseList.add(keyValueStorage::close);
+
+        closeAll(toCloseList);
     }
 
     void startDistributionZoneManager() {

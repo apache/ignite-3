@@ -94,8 +94,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private final EntryReader entryReader;
 
-    /** Callback that gets notified after a {@link WatchEvent} has been processed by a registered watch. */
-    private volatile OnRevisionAppliedCallback revisionCallback;
+    private volatile WatchEventHandlingCallback watchEventHandlingCallback;
 
     /** Executor for processing watch events. */
     private final ExecutorService watchExecutor;
@@ -128,7 +127,7 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Removes a watch (identified by its listener). */
-    public void removeWatch(WatchListener listener) {
+    void removeWatch(WatchListener listener) {
         watches.removeIf(watch -> watch.listener() == listener);
     }
 
@@ -141,13 +140,11 @@ public class WatchProcessor implements ManuallyCloseable {
                 .min();
     }
 
-    /**
-     * Sets the callback that will be executed every time after watches have been notified of a particular revision.
-     */
-    public void setRevisionCallback(OnRevisionAppliedCallback revisionCallback) {
-        assert this.revisionCallback == null;
+    /** Sets the watch event handling callback. */
+    public void setWatchEventHandlingCallback(WatchEventHandlingCallback callback) {
+        assert this.watchEventHandlingCallback == null;
 
-        this.revisionCallback = revisionCallback;
+        this.watchEventHandlingCallback = callback;
     }
 
     /**
@@ -327,9 +324,9 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private void invokeOnRevisionCallback(long revision, HybridTimestamp time) {
-        revisionCallback.onSafeTimeAdvanced(time);
+        watchEventHandlingCallback.onSafeTimeAdvanced(time);
 
-        revisionCallback.onRevisionApplied(revision);
+        watchEventHandlingCallback.onRevisionApplied(revision);
     }
 
     /**
@@ -341,7 +338,7 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         notificationFuture = notificationFuture
-                .thenRunAsync(() -> revisionCallback.onSafeTimeAdvanced(time), watchExecutor)
+                .thenRunAsync(() -> watchEventHandlingCallback.onSafeTimeAdvanced(time), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
                         failureManager.process(new FailureContext(CRITICAL_ERROR, e));
@@ -362,12 +359,12 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Unregisters a Meta Storage revision update listener. */
-    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.remove(listener);
     }
 
     /** Explicitly notifies revision update listeners. */
-    public CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
+    CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
         // Lazy set.
         List<CompletableFuture<?>> futures = List.of();
 
@@ -380,5 +377,27 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Updates the metastorage compaction revision in the WatchEvent queue.
+     *
+     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.</p>
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     * @param time Metastorage compaction revision update timestamp.
+     */
+    public void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
+        notificationFuture = notificationFuture
+                .thenRunAsync(() -> {
+                    watchEventHandlingCallback.onCompactionRevisionUpdated(compactionRevision);
+
+                    watchEventHandlingCallback.onSafeTimeAdvanced(time);
+                }, watchExecutor)
+                .whenComplete((ignored, e) -> {
+                    if (e != null) {
+                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                    }
+                });
     }
 }

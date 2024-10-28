@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.tx.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * {@link ConfigurationModule} for node-local system configuration.
+ * Configuration schema for deadlock prevention policy.
  */
-@AutoService(ConfigurationModule.class)
-public class SystemLocalConfigurationModule implements ConfigurationModule {
+@Config
+public class DeadlockPreventionPolicyConfigurationSchema {
+    @OneOf({"NATURAL", "REVERSED", "NONE"})
+    @Value(hasDefault = true)
+    public String txIdComparator = "NATURAL";
 
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
-
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(SystemLocalExtensionConfigurationSchema.class);
-    }
+    @Value(hasDefault = true)
+    public long waitTimeout = 0;
 }

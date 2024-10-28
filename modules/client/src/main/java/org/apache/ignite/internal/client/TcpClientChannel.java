@@ -137,6 +137,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Last send operation timestamp. */
     private volatile long lastSendMillis;
 
+    /** Last receive operation timestamp. */
+    private volatile long lastReceiveMillis;
+
     /**
      * Constructor.
      *
@@ -275,6 +278,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
+        lastReceiveMillis = System.currentTimeMillis();
+
         try (var unpacker = new ClientMessageUnpacker(buf)) {
             processNextMessage(unpacker);
         } catch (Throwable t) {
@@ -719,6 +724,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Write bytes to the output stream. */
     private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
+        // Ignore race condition here.
         lastSendMillis = System.currentTimeMillis();
 
         var buf = packer.getBuffer();
@@ -878,6 +884,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
                                     if (e instanceof TimeoutException) {
+                                        long lastResponseAge = System.currentTimeMillis() - lastReceiveMillis;
+
+                                        if (lastResponseAge < heartbeatTimeout) {
+                                            // The last response was received within the timeout, so the connection is still alive.
+                                            // Ignore the timeout from heartbeat message.
+                                            return null;
+                                        }
+
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
                                         close(new IgniteClientConnectionException(

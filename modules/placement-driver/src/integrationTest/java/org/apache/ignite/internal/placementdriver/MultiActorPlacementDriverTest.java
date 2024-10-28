@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -246,6 +248,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                     new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metaStorageNodes).build()
             ));
+            configureCmgManagerToStartMetastorage(cmgManager);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -276,7 +279,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     eventsClientListener
             );
 
-            var storage = new SimpleInMemoryKeyValueStorage(nodeName);
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            var storage = new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
 
             ClockService clockService = new TestClockService(nodeClock);
 
@@ -298,7 +303,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             if (this.metaStorageManager == null) {

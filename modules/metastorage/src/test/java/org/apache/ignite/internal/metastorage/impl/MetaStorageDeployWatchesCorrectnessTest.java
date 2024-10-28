@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -76,10 +78,13 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
+        configureCmgManagerToStartMetastorage(cmgManager);
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
+
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         return Stream.of(
                 new MetaStorageManagerImpl(
@@ -87,12 +92,13 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         cmgManager,
                         mock(LogicalTopologyService.class),
                         raftManager,
-                        new SimpleInMemoryKeyValueStorage(mcNodeName),
+                        new SimpleInMemoryKeyValueStorage(mcNodeName, readOperationForCompactionTracker),
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
-                        RaftGroupOptionsConfigurer.EMPTY
+                        RaftGroupOptionsConfigurer.EMPTY,
+                        readOperationForCompactionTracker
                 ),
                 StandaloneMetaStorageManager.create()
         );

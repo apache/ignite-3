@@ -317,14 +317,17 @@ public class TestNode implements LifecycleAware {
     }
 
     private SqlOperationContext.Builder createContext(QueryTransactionContext txContext, Object... params) {
+        UUID queryId = UUID.randomUUID();
+
         return SqlOperationContext.builder()
-                .queryId(UUID.randomUUID())
+                .queryId(queryId)
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .txContext(txContext)
                 .parameters(params)
+                .queryInfo(new NoopRunningQueryInfo(queryId))
                 .prefetchCallback(new PrefetchCallback());
     }
 

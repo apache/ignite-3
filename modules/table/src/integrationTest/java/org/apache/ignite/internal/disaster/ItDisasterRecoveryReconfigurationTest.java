@@ -89,7 +89,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -455,7 +454,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
-                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
+                            return blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
                         }
                     }
                 }

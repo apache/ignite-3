@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.MetaStorage;
 
 /**
- * ReversedDeadlockPreventionUnboundedTest.
+ * Thrown when Metastorage on a node doing Metastorage reentry has been found to be diverged with the leader.
  */
-public class ReversedDeadlockPreventionUnboundedTest extends ReversedDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
+public class MetastorageDivergedException extends IgniteInternalException {
+    /** Constructor. */
+    public MetastorageDivergedException(String message) {
+        super(MetaStorage.DIVERGED_ERR, message);
     }
 }

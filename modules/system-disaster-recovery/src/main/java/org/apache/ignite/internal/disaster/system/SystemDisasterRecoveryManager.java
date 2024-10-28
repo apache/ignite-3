@@ -53,7 +53,7 @@ public interface SystemDisasterRecoveryManager {
     /**
      * Initiates cluster reset. CMG will be reset and Metastorage will be repaired.
      *
-     * @param proposedCmgNodeNames Names of the nodes that will be the new CMG nodes. If not specified, current CMG nodes will be used.
+     * @param proposedCmgNodeNames Names of the new CMG nodes. If not specified, the current CMG nodes are used.
      * @param metastorageReplicationFactor Number of nodes in the Raft voting member set for Metastorage.
      * @return Future completing with the result of the operation ({@link ClusterResetException} in case of error related to reset logic).
      */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -81,8 +83,10 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
         RaftManager raftManager = raftManager(remoteRevision);
 
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
         clock = new HybridClockImpl();
-        kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker));
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -94,7 +98,8 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                RaftGroupOptionsConfigurer.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY,
+                readOperationForCompactionTracker
         );
     }
 
@@ -156,6 +161,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         when(mock.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(LEADER_NAME)).build()
         ));
+        configureCmgManagerToStartMetastorage(mock);
 
         return mock;
     }

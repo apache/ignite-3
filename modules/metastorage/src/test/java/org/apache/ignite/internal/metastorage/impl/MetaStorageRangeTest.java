@@ -46,6 +46,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -69,11 +70,13 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
 
     private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
 
+    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
         storage = spy(getStorage(workDir));
 
-        metaStorageManager = StandaloneMetaStorageManager.create(storage);
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
 
         assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }

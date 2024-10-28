@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
-
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+package org.apache.ignite.internal.replicator;
 
 /**
- * Extension for system configuration schema.
+ * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
  */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+public interface PartitionGroupId extends ReplicationGroupId {
+    /** Returns ID of the partitioned object. */
+    int objectId();
+
+    /** Returns partition ID. */
+    int partitionId();
 }

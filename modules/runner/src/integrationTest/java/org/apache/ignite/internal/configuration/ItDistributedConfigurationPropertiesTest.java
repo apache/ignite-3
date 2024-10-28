@@ -63,6 +63,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -233,24 +234,26 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name()),
+                    new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage("test", metaStorageManager) {
-                /** {@inheritDoc} */
+            var distributedCfgStorage = new DistributedConfigurationStorage(name(), metaStorageManager) {
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
                     super.registerConfigurationListener(changedEntries -> {
@@ -275,7 +278,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /**
          * Starts the created components.
          */
-        CompletableFuture<Void> start() {
+        void startUpToCmgManager() {
             assertThat(
                     startAsync(new ComponentContext(),
                             vaultManager,
@@ -285,9 +288,15 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                             msLogStorageFactory,
                             raftManager,
                             failureManager,
-                            cmgManager,
-                            metaStorageManager
+                            cmgManager
                     ),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        CompletableFuture<Void> startComponentsAfterCmgManager() {
+            assertThat(
+                    startAsync(new ComponentContext(), metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -372,10 +381,15 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 raftConfiguration
         );
 
-        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
-                .toArray(CompletableFuture[]::new);
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::startUpToCmgManager);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+        assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::startComponentsAfterCmgManager)
+                .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(startFutures), willCompleteSuccessfully());
 

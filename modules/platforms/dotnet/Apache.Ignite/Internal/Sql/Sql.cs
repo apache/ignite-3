@@ -134,7 +134,7 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.ByteArray => reader.GetBytes(idx),
                 ColumnType.Period => reader.GetPeriod(idx),
                 ColumnType.Duration => reader.GetDuration(idx),
-                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+                _ => throw new InvalidOperationException("Unknown SQL column type: " + col.Type)
             };
         }
 
@@ -202,7 +202,7 @@ namespace Apache.Ignite.Internal.Sql
             w.Write(propTuple.Build().Span);
         }
 
-        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
+        private static IgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
         {
             var row = new IgniteTuple(cols.Count);
 

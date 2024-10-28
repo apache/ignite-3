@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.ReadCommand;
 
 /**
- * NoneDeadlockPreventionUnboundedTest.
+ * Get command for MetaStorageCommandListener that retrieves information ({@link ChecksumInfo}) about a checksum.
+ *
+ * @see ChecksumInfo
  */
-public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
-    @Override
-    protected LockManager lockManager() {
-        return new HeapUnboundedLockManager(deadlockPreventionPolicy());
-    }
+@Transferable(MetastorageCommandsMessageGroup.GET_CHECKSUM)
+public interface GetChecksumCommand extends ReadCommand {
+    /**
+     * Revision for which to obtain a checksum.
+     */
+    long revision();
 }
