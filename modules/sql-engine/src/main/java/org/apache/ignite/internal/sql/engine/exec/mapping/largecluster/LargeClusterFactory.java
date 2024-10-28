@@ -85,6 +85,8 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
+                assert node >= 0 : "invalid node";
+
                 nodes.set(node);
             }
 
@@ -124,6 +126,8 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
 
+            assert id >= 0 : "invalid node";
+            
             nodesSet.set(id);
         }
 
