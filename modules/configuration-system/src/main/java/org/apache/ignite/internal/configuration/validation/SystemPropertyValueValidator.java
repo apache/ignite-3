@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.internal.configuration.validation;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.configuration.SystemPropertyConfigurationSchema;
 
 /**
- * Signifies that a {@link NamedConfigValue} only has elements with keys in lower camel case, for example 'v', 'value', 'valueOne' and
- * 'valueOneAndTwo'.
+ * Annotation for a {@link NamedConfigValue} to allow writing validators for {@link SystemPropertyConfigurationSchema#propertyValue system
+ * property values}. To add a validator to local or distributed system property values, it is necessary to add them in
+ * {@link ConfigurationModule#validators}, If the module is {@link ConfigurationModule}, then it needs to be added.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-public @interface CamelCaseKeys {
+public @interface SystemPropertyValueValidator {
 }

@@ -20,8 +20,16 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.validation.CamelCaseKeys;
+import org.apache.ignite.internal.configuration.validation.SystemPropertyValueValidator;
 
-/** System property configuration schema. */
+/**
+ * System property configuration schema.
+ *
+ * <p>For the property name format, see {@link CamelCaseKeys}.</p>
+ *
+ * <p>How to add validators for property value, see {@link SystemPropertyValueValidator}.</p>
+ */
 @Config
 public class SystemPropertyConfigurationSchema {
     @InjectedName

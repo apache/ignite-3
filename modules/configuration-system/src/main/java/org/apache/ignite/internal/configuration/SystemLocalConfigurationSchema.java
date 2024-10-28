@@ -20,7 +20,8 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.CamelCaseKeys;
+import org.apache.ignite.internal.configuration.validation.CamelCaseKeys;
+import org.apache.ignite.internal.configuration.validation.SystemPropertyValueValidator;
 
 /** Local system configuration schema. */
 @Config
@@ -70,6 +71,7 @@ public class SystemLocalConfigurationSchema {
 
     /** System properties. */
     @CamelCaseKeys
+    @SystemPropertyValueValidator
     @NamedConfigValue
     public SystemPropertyConfigurationSchema properties;
 }

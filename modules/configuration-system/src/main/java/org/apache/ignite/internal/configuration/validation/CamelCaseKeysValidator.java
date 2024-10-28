@@ -19,17 +19,17 @@ package org.apache.ignite.internal.configuration.validation;
 
 import java.util.regex.Pattern;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.validation.CamelCaseKeys;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 
 /** {@link Validator} implementation for the {@link CamelCaseKeys} annotation. */
-public class CamelCaseKeysValidator implements Validator<CamelCaseKeys, NamedListView<?>> {
+public class CamelCaseKeysValidator implements Validator<CamelCaseKeys, NamedListView<? extends SystemPropertyView>> {
     private static final Pattern CAMEL_CASE_PATTERN = Pattern.compile("^[a-z]+([A-Z][a-z]+)*$");
 
     @Override
-    public void validate(CamelCaseKeys annotation, ValidationContext<NamedListView<?>> ctx) {
+    public void validate(CamelCaseKeys annotation, ValidationContext<NamedListView<? extends SystemPropertyView>> ctx) {
         for (String namedListKey : ctx.getNewValue().namedListKeys()) {
             if (!CAMEL_CASE_PATTERN.matcher(namedListKey).matches()) {
                 String message = String.format(

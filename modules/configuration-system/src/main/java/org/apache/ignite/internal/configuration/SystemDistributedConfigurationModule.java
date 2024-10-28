@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.validation.CamelCaseKeysValidator;
 
 /** {@link ConfigurationModule} for cluster-wide system configuration. */
+@AutoService(ConfigurationModule.class)
 public class SystemDistributedConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
@@ -32,5 +37,10 @@ public class SystemDistributedConfigurationModule implements ConfigurationModule
     @Override
     public Collection<Class<?>> schemaExtensions() {
         return List.of(SystemDistributedExtensionConfigurationSchema.class);
+    }
+
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(new CamelCaseKeysValidator());
     }
 }

@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.configuration.validation;
 
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor libs.auto.service
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-    implementation project(':ignite-configuration-api')
-    implementation project(':ignite-configuration-root')
-    implementation libs.auto.service.annotations
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+/**
+ * Signifies that a {@link NamedConfigValue} only has elements with keys in lower camel case, for example 'v', 'value', 'valueOne' and
+ * 'valueOneAndTwo'.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface CamelCaseKeys {
 }
-
-description = 'ignite-configuration-system'
