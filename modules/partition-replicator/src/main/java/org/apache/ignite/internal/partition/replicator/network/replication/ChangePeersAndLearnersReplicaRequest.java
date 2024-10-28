@@ -20,12 +20,13 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
  * Request for performing {@link org.apache.ignite.internal.raft.service.RaftGroupService#changePeersAndLearnersAsync} on a primary replica.
  */
 @Transferable(PartitionReplicationMessageGroup.CHANGE_PEERS_AND_LEARNERS_REPLICA_REQUEST)
-public interface ChangePeersAndLearnersReplicaRequest extends PrimaryReplicaRequest {
+public interface ChangePeersAndLearnersReplicaRequest extends ReplicaRequest {
     /** New peers configuration to rebalance. */
     BinaryTupleMessage pendingAssignments();
 }

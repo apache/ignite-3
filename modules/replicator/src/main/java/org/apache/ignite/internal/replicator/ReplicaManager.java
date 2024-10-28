@@ -1229,6 +1229,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicaStateContext context = getContext(replicationGroupId);
 
             synchronized (context) {
+                LOG.info("!!! onPrimaryElected grpId={}", replicationGroupId);
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED
                             : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
@@ -1237,7 +1238,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                     CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
 
-                    assert replicaFuture != null;
+                    assert replicaFuture != null : "There no replica grpId=" + replicationGroupId;
 
                     Replica replica = replicaFuture.join();
                     onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
@@ -1246,8 +1247,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             term
                     );
 
-                    replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
+                    replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
 
+                    LOG.info("!!! subscribed grpId={}", replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1274,7 +1276,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     synchronized (context) {
                         CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
 
-                        assert replicaFuture != null;
+                        assert replicaFuture != null : "There no replica grpId=" + parameters.groupId();
 
                         Replica expiredPrimaryReplica = replicaFuture.join();
                         expiredPrimaryReplica.raftClient()
@@ -1303,6 +1305,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
+            LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
+
             byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
             if (pendings == null) {

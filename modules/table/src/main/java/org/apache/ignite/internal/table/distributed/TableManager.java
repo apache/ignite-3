@@ -74,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2141,6 +2142,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 isRecovery,
                                 assignmentsTimestamp
                         ).thenAccept(v -> executeIfLocalNodeIsPrimaryForGroup(
+                                stableAssignments,
+                                pendingAssignments,
+                                isRecovery,
                                 replicaGrpId,
                                 replicaMeta -> sendChangePeersAndLearnersRequest(
                                         replicaMeta,
@@ -2274,11 +2278,28 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }), ioExecutor);
     }
 
-    private void executeIfLocalNodeIsPrimaryForGroup(ReplicationGroupId groupId, Consumer<ReplicaMeta> toExecute) {
+    private void executeIfLocalNodeIsPrimaryForGroup(
+            Assignments stableAssignments,
+            Assignments pendingAssignments,
+            boolean isRecovery,
+            ReplicationGroupId groupId,
+            Consumer<ReplicaMeta> toExecute
+    ) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = getPrimaryReplica(groupId);
+
+        boolean primaryReplicaCantBeElected = stableAssignments
+                .nodes()
+                .stream()
+                .allMatch(assignment -> topologyService.getByConsistentId(assignment.consistentId()) == null);
+
+        LOG.info("!!! primaryReplicaCantBeElected={}", primaryReplicaCantBeElected);
 
         isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
             if (!isPrimary) {
+                if (primaryReplicaCantBeElected) {
+                    toExecute.accept(null);
+                }
+
                 LOG.info("!!! not a primary grpId={}", groupId);
                 return;
             }
@@ -2316,7 +2337,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersReplicaRequest()
                     .groupId(partitionIdMessage)
                     .pendingAssignments(pendingAssignmentsMessage) // TODO: remove?
-                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    //.enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 
             replicaSvc.invoke(localNode(), request);
