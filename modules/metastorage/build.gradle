@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
     annotationProcessor project(":ignite-network-annotation-processor")
 

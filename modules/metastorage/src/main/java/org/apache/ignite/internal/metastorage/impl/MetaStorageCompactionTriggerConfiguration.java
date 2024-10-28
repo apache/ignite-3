@@ -24,23 +24,19 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /** Configuration for metastorage compaction triggering based on distributed system properties. */
 public class MetaStorageCompactionTriggerConfiguration {
-    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTriggerConfiguration.class);
-
     /**
-     * System property that defines compaction start interval (in milliseconds).
+     * Internal property that determines the interval between compaction initiations. (in milliseconds).
      *
      * <p>Default value is {@link #INTERVAL_DEFAULT_VALUE}.</p>
      */
     public static final String INTERVAL_SYSTEM_PROPERTY_NAME = "metastorageCompactionInterval";
 
     /**
-     * System property that defines compaction data availability time (in milliseconds).
+     * Internal property that defines compaction data availability time (in milliseconds).
      *
      * <p>Default value is {@link #DATA_AVAILABILITY_TIME_DEFAULT_VALUE}.</p>
      */
@@ -66,6 +62,8 @@ public class MetaStorageCompactionTriggerConfiguration {
     public MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfiguration) {
         updateSystemProperties(systemDistributedConfiguration.value());
 
+        // Constructor is expected to be invoked when initializing node components, before deploying metastorage watches, so there should
+        // be no race.
         systemDistributedConfiguration.listen(ctx -> {
             updateSystemProperties(ctx.newValue());
 
@@ -107,24 +105,15 @@ public class MetaStorageCompactionTriggerConfiguration {
     }
 
     private static long longValue(SystemDistributedView systemDistributedView, String systemPropertyName, long defaultValue) {
-        return longValue(systemDistributedView.properties().get(systemPropertyName), systemPropertyName, defaultValue);
+        return longValue(systemDistributedView.properties().get(systemPropertyName), defaultValue);
     }
 
-    private static long longValue(@Nullable SystemPropertyView systemPropertyView, String systemPropertyName, long defaultValue) {
+    private static long longValue(@Nullable SystemPropertyView systemPropertyView, long defaultValue) {
         if (systemPropertyView == null) {
             return defaultValue;
         }
 
-        try {
-            return Long.parseLong(systemPropertyView.propertyValue());
-        } catch (NumberFormatException e) {
-            LOG.warn(
-                    "Invalid number format of system property value, default value will be used: "
-                            + "[systemPropertyName={}, invalidValue={}, defaultValue={}]",
-                    systemPropertyName, systemPropertyView.propertyValue(), defaultValue
-            );
-
-            return defaultValue;
-        }
+        // There should be no errors, the validator should work.
+        return Long.parseLong(systemPropertyView.propertyValue());
     }
 }
