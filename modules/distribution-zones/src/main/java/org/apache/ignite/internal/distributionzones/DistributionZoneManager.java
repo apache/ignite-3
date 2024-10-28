@@ -681,7 +681,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             logicalTopology = deserializeLogicalTopologySet(lastHandledTopologyEntry.value());
 
-            nodesAttributes = deserializeNodesAttributes(nodeAttributesEntry.value());
+            nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
         assert lastHandledTopologyEntry.value() == null
@@ -689,12 +689,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry.value() == null
-                || nodesAttributes.equals(deserializeNodesAttributes(nodeAttributesEntry.value()))
+                || nodesAttributes.equals(DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value()))
                 : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
-    }
-
-    private static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
-        return NodesAttributesSerializer.deserialize(bytes);
     }
 
     /**

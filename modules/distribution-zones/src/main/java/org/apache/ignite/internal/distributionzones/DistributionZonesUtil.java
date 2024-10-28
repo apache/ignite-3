@@ -478,6 +478,10 @@ public class DistributionZonesUtil {
         return LogicalTopologySetSerializer.deserialize(bytes);
     }
 
+    public static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
+        return NodesAttributesSerializer.deserialize(bytes);
+    }
+
     /**
      * Returns data nodes from the meta storage entry or empty map if the value is null.
      *
