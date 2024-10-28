@@ -33,6 +33,16 @@ configurations {
     cppClientHeaders
     dotNet
     odbc
+    platformsHeaders
+}
+
+dependencies {
+    platformsHeaders project(path: ':ignite-api', configuration: 'platformsHeaders')
+}
+
+def copyPlatformsHeaders = tasks.register('copyPlatformsHeaders', Copy) {
+    from configurations.platformsHeaders
+    into "$projectDir"
 }
 
 cmakeConfigure.enabled = false
@@ -54,8 +64,8 @@ def docfx = tasks.register('docfx', Exec) {
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
     dependsOn docfx
 
-    from("$projectDir/dotnet/docs/_site")
-    into("$rootDir/build/docs/dotnet")
+    from "$projectDir/dotnet/docs/_site"
+    into "$rootDir/build/docs/dotnet"
 }
 
 def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
@@ -66,8 +76,8 @@ def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
 
 def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
     include "**/*.so"
-    from("$projectDir/cpp")
-    into("$buildDir/classes/")
+    from "$projectDir/cpp"
+    into "$buildDir/classes/"
 }
 
 cmake {
@@ -87,7 +97,7 @@ def cmakeConfigureClient = tasks.register('cmakeConfigureClient', CMakeConfigure
 }
 
 def cmakeBuildClient = tasks.register('cmakeBuildClient', CMakeBuildTask) {
-    dependsOn cmakeConfigureClient
+    dependsOn cmakeConfigureClient, copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
@@ -98,11 +108,12 @@ def cmakeConfigureOdbc = tasks.register('cmakeConfigureOdbc', CMakeConfigureTask
 }
 
 def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
-    dependsOn cmakeConfigureOdbc
+    dependsOn cmakeConfigureOdbc, copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
 def buildNuGet = tasks.register('buildNuGet', Exec) {
+    dependsOn copyPlatformsHeaders
     workingDir "$projectDir/dotnet"
 
     commandLine "dotnet", "pack", "Apache.Ignite",
@@ -113,6 +124,7 @@ def buildNuGet = tasks.register('buildNuGet', Exec) {
 }
 
 def buildDotNet = tasks.register('buildDotNet', Exec) {
+    dependsOn copyPlatformsHeaders
     workingDir "$projectDir/dotnet"
 
     commandLine "dotnet", "build", "Apache.Ignite",
@@ -133,6 +145,7 @@ task zipNuGet(type: Zip) {
 }
 
 task zipCppClient(type: Zip) {
+    dependsOn copyPlatformsHeaders
     archiveFileName = "apache-ignite-${project.version}-cpp.zip"
 
     from("$projectDir/cpp") {
