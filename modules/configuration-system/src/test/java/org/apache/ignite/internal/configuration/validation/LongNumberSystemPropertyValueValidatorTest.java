@@ -32,10 +32,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link LongNumberSystemPropertyValueValidator} testing. */
-public class LongNumberSystemPropertyValueValidatorTest {
+public class LongNumberSystemPropertyValueValidatorTest extends BaseIgniteAbstractTest {
     private static final String FOO_KEY = "foo";
 
     private static final String BAR_KEY = "bar";
