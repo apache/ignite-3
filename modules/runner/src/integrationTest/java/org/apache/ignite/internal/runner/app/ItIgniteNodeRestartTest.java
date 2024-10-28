@@ -113,6 +113,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -285,6 +286,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
@@ -508,7 +512,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metricManager,
                 metaStorageConfiguration,
                 msRaftConfigurer,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                systemDistributedConfiguration
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure) {

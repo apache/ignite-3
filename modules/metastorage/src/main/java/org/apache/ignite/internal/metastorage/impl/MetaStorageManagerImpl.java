@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
@@ -265,7 +266,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
             MetaStorageConfiguration configuration,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         this(
                 clusterService,
@@ -278,7 +280,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 metricManager,
                 configuration,
                 raftGroupOptionsConfigurer,
-                new ReadOperationForCompactionTracker()
+                new ReadOperationForCompactionTracker(),
+                systemDistributedConfiguration
         );
     }
 
@@ -297,7 +300,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetricManager metricManager,
             MetaStorageConfiguration configuration,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
-            ReadOperationForCompactionTracker tracker
+            ReadOperationForCompactionTracker tracker,
+            SystemDistributedConfiguration systemDistributedConfig
     ) {
         this(
                 clusterService,
@@ -314,7 +318,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 tracker
         );
 
-        configure(configuration);
+        configure(configuration, systemDistributedConfig);
     }
 
     /** Adds new listener to notify with election events. */
@@ -690,15 +694,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     /**
-     * Sets the Meta Storage configuration.
+     * Sets configurations for the Meta Storage.
      *
      * <p>This method is needed to avoid the cyclic dependency between the Meta Storage and distributed configuration (built on top of the
      * Meta Storage).
      *
      * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
      */
-    public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
+    public final void configure(
+            MetaStorageConfiguration metaStorageConfiguration,
+            SystemDistributedConfiguration systemDistributedConfig
+    ) {
         this.metaStorageConfiguration = metaStorageConfiguration;
+
+        metaStorageCompactionTrigger.configure(systemDistributedConfig);
     }
 
     @Override
@@ -738,6 +747,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         metricManager.registerSource(metaStorageMetricSource);
         metricManager.enable(metaStorageMetricSource);
+
+        metaStorageCompactionTrigger.start();
 
         return nullCompletedFuture();
     }

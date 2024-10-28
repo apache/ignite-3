@@ -110,6 +110,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -714,7 +715,10 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
+        metaStorageMgr.configure(
+                clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage(),
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+        );
 
         systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
                 name,

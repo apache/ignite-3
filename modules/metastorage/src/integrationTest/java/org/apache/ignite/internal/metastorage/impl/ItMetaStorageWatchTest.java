@@ -58,6 +58,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -118,6 +119,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
@@ -243,7 +247,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    systemDistributedConfiguration
             );
         }
 

@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -100,6 +101,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
      */
     @InjectConfiguration("mock.idleSyncTimeInterval=1000000")
     private MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     private TestInfo testInfo;
 
@@ -226,7 +230,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurator,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    systemDistributedConfiguration
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

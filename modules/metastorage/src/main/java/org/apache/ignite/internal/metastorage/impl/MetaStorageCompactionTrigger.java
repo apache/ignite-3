@@ -33,11 +33,12 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -68,12 +69,6 @@ import org.jetbrains.annotations.Nullable;
 class MetaStorageCompactionTrigger implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
-    /** System property that defines compaction start interval (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
-    public static final String COMPACTION_INTERVAL_PROPERTY = "IGNITE_COMPACTION_INTERVAL";
-
-    /** System property that defines data availability time (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
-    public static final String COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY = "IGNITE_COMPACTION_DATA_AVAILABILITY_TIME";
-
     private final String localNodeName;
 
     private final KeyValueStorage storage;
@@ -84,6 +79,8 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
 
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
+    private volatile MetaStorageCompactionTriggerConfiguration config;
+
     private final ScheduledExecutorService compactionExecutor;
 
     /** Guarded by {@link #lock}. */
@@ -93,14 +90,6 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
     private boolean isLocalNodeLeader;
 
     private final Lock lock = new ReentrantLock();
-
-    /** Compaction start interval (in milliseconds). */
-    // TODO: IGNITE-23279 Change configuration
-    private final long startInterval = IgniteSystemProperties.getLong(COMPACTION_INTERVAL_PROPERTY, Long.MAX_VALUE);
-
-    /** Data availability time (in milliseconds). */
-    // TODO: IGNITE-23279 Change configuration
-    private final long dataAvailabilityTime = IgniteSystemProperties.getLong(COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY, Long.MAX_VALUE);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -131,6 +120,23 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
+    }
+
+    /**
+     * Sets configuration for the metastorage compaction trigger.
+     *
+     * <p>This method is needed to avoid the cyclic dependency between the metastorage and distributed configuration (built on top of the
+     * metastorage).
+     *
+     * <p>This method <b>must</b> always be called <b>before</b> calling {@link MetaStorageManager#startAsync}.
+     */
+    void configure(SystemDistributedConfiguration systemDistributedConfig) {
+        config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
+    }
+
+    /** Start component. */
+    void start() {
+        config.start();
     }
 
     @Override
@@ -191,6 +197,8 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
     private HybridTimestamp createCandidateCompactionRevisionTimestampBusy() {
         HybridTimestamp safeTime = clusterTime.currentSafeTime();
 
+        long dataAvailabilityTime = config.dataAvailabilityTime();
+
         return safeTime.getPhysical() <= dataAvailabilityTime
                 ? HybridTimestamp.MIN_VALUE
                 : safeTime.subtractPhysicalTime(dataAvailabilityTime);
@@ -220,7 +228,7 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
             if (isLocalNodeLeader) {
                 lastScheduledFuture = compactionExecutor.schedule(
                         () -> inBusyLock(busyLock, this::doCompactionBusy),
-                        startInterval,
+                        config.interval(),
                         MILLISECONDS
                 );
             }

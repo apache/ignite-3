@@ -58,6 +58,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
@@ -137,7 +138,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
+            @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration,
+            @InjectConfiguration SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
 
@@ -198,7 +200,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
                 msRaftConfigurer,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                systemDistributedConfiguration
         );
 
         assertThat(

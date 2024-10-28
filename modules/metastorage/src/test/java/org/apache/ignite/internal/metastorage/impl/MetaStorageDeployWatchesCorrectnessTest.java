@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -59,6 +60,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * Returns a stream with test arguments.
@@ -98,7 +102,8 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
                         RaftGroupOptionsConfigurer.EMPTY,
-                        readOperationForCompactionTracker
+                        readOperationForCompactionTracker,
+                        systemDistributedConfiguration
                 ),
                 StandaloneMetaStorageManager.create()
         );

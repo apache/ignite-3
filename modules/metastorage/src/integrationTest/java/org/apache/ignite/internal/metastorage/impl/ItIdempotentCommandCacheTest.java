@@ -55,6 +55,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -135,6 +136,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.idleSyncTimeInterval = 100")
     private MetaStorageConfiguration metaStorageConfiguration;
 
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     private List<Node> nodes;
 
     private static class Node implements AutoCloseable {
@@ -160,6 +164,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
                 MetaStorageConfiguration metaStorageConfiguration,
+                SystemDistributedConfiguration systemDistributedConfiguration,
                 Path workDir,
                 int index
         ) {
@@ -228,7 +233,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    systemDistributedConfiguration
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
@@ -543,7 +549,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i);
+            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, systemDistributedConfiguration, workDir, i);
             nodes.add(node);
         }
 

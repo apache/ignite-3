@@ -19,8 +19,8 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger.COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger.COMPACTION_INTERVAL_PROPERTY;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -44,14 +45,11 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test for {@link MetaStorageCompactionTrigger}. */
-@WithSystemProperty(key = COMPACTION_INTERVAL_PROPERTY, value = "10")
-@WithSystemProperty(key = COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY, value = "10")
 public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrationTest {
     private static final ByteArray FOO_KEY = ByteArray.fromString("foo_key");
 
@@ -67,6 +65,16 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
         assertEquals(2, initialNodes());
 
         return new int[] {0, 1};
+    }
+
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        String clusterConfig = "ignite.system.properties: {"
+                + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue= \"10\", "
+                + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue= \"10\""
+                + "}";
+
+        builder.clusterConfiguration(clusterConfig);
     }
 
     @ParameterizedTest

@@ -18,22 +18,23 @@
 package org.apache.ignite.internal.metastorage.configuration;
 
 import com.google.auto.service.AutoService;
-import java.util.Set;
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
 
-/** {@link ConfigurationModule} for metastorage module. */
+/**
+ * {@link ConfigurationModule} for Meta Storage configuration.
+ */
 @AutoService(ConfigurationModule.class)
-public class MetastorageConfigurationModule implements ConfigurationModule {
+public class MetaStorageApiConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
     @Override
-    public Set<Validator<?, ?>> validators() {
-        // TODO: IGNITE-23279 Добавить нужный
-        return ConfigurationModule.super.validators();
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(MetaStorageExtensionConfigurationSchema.class);
     }
 }

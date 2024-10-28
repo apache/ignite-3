@@ -104,6 +104,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -265,6 +266,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     private StaticNodeFinder finder;
 
@@ -1116,7 +1120,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    systemDistributedConfiguration
             ) {
                 @Override
                 public CompletableFuture<Boolean> invoke(

@@ -29,11 +29,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedView;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -144,7 +148,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockConfiguration(),
                 clock,
                 RaftGroupOptionsConfigurer.EMPTY,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                mockSystemDistributedConfiguration()
         );
     }
 
@@ -158,7 +163,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             MetaStorageConfiguration configuration,
             HybridClock clock,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         super(
                 clusterService,
@@ -171,7 +177,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 new NoOpMetricManager(),
                 configuration,
                 raftGroupOptionsConfigurer,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                systemDistributedConfiguration
         );
     }
 
@@ -261,6 +268,17 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
         when(configuration.idleSyncTimeInterval()).thenReturn(value);
         when(value.value()).thenReturn(1000L);
+
+        return configuration;
+    }
+
+    private static SystemDistributedConfiguration mockSystemDistributedConfiguration() {
+        SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
+        SystemDistributedView configurationView = mock(SystemDistributedView.class, LENIENT_SETTINGS);
+        NamedListView<SystemPropertyView> properties = mock(NamedListView.class, LENIENT_SETTINGS);
+
+        when(configurationView.properties()).then(invocation -> properties);
+        when(configuration.value()).thenReturn(configurationView);
 
         return configuration;
     }

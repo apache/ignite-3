@@ -25,6 +25,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Configuration for metastorage compaction triggering based on distributed system properties. */
 public class MetaStorageCompactionTriggerConfiguration {
@@ -50,6 +51,8 @@ public class MetaStorageCompactionTriggerConfiguration {
     // TODO: IGNITE-23280 Make default 1 hour
     public static final long DATA_AVAILABILITY_TIME_DEFAULT_VALUE = Long.MAX_VALUE;
 
+    private final SystemDistributedConfiguration systemDistributedConfig;
+
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     /** Guarded by {@link #rwLock}. */
@@ -59,16 +62,25 @@ public class MetaStorageCompactionTriggerConfiguration {
     private long dataAvailabilityTime;
 
     /** Constructor. */
-    public MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfiguration) {
-        updateSystemProperties(systemDistributedConfiguration.value());
+    MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
+        this.systemDistributedConfig = systemDistributedConfig;
+    }
 
-        // Constructor is expected to be invoked when initializing node components, before deploying metastorage watches, so there should
-        // be no race.
-        systemDistributedConfiguration.listen(ctx -> {
+    /** Starts component. */
+    void start() {
+        systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue());
 
             return nullCompletedFuture();
         });
+    }
+
+    /** Starts the component and initializes the configuration immediately. */
+    @TestOnly
+    void startAndInit() {
+        start();
+
+        updateSystemProperties(systemDistributedConfig.value());
     }
 
     /** Returns compaction start interval (in milliseconds). */

@@ -43,6 +43,7 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
         var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+        config.startAndInit();
 
         assertEquals(INTERVAL_DEFAULT_VALUE, config.interval());
         assertEquals(DATA_AVAILABILITY_TIME_DEFAULT_VALUE, config.dataAvailabilityTime());
@@ -57,6 +58,7 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
             SystemDistributedConfiguration systemConfig
     ) {
         var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+        config.startAndInit();
 
         assertEquals(100, config.interval());
         assertEquals(500, config.dataAvailabilityTime());
@@ -65,6 +67,7 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     @Test
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
         var config = new MetaStorageCompactionTriggerConfiguration(systemConfig);
+        config.startAndInit();
 
         changeSystemConfig(systemConfig, "100", "500");
 
