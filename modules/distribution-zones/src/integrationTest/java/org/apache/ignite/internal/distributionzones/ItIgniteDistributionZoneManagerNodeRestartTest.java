@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKeyPrefix;
@@ -653,12 +654,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
     }
 
-    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
-    }
-
     private Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
+        return DistributionZonesUtil.deserializeLogicalTopologySet(bytes);
     }
 
     @ParameterizedTest(name = "defaultZone={0}")

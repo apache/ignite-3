@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -32,7 +33,6 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -50,7 +50,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -474,9 +473,5 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     private static int getZoneId(Ignite node) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         return DistributionZonesTestUtil.getZoneIdStrict(igniteImpl.catalogManager(), ZONE_NAME, igniteImpl.clock().nowLong());
-    }
-
-    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
     }
 }

@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -702,10 +703,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
         return VersionedSerialization.fromBytes(bytes, NodesAttributesSerializer.INSTANCE);
-    }
-
-    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**

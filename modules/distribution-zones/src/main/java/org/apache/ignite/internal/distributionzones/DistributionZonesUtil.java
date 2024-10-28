@@ -471,8 +471,12 @@ public class DistributionZonesUtil {
         return dataNodesBytes == null ? null : dataNodes(deserializeDataNodesMap(dataNodesBytes));
     }
 
-    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
+    public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
         return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
+    }
+
+    public static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**

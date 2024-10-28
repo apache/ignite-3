@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -32,7 +33,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -55,7 +55,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -222,10 +221,6 @@ public class DistributionZonesTestUtil {
         );
     }
 
-    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
-    }
-
     /**
      * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
      *
@@ -310,14 +305,10 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyKey().bytes(),
-                DistributionZonesTestUtil::deserializeLogicalTopologySet,
+                DistributionZonesUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );
-    }
-
-    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**
@@ -340,7 +331,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 metaStorageManager,
                 zonesLogicalTopologyKey(),
-                DistributionZonesTestUtil::deserializeLogicalTopologySet,
+                DistributionZonesUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );

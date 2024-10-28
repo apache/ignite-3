@@ -31,6 +31,8 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -70,10 +72,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
-import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.LogicalTopologySetSerializer;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -1502,14 +1502,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             public void onError(Throwable e) {
             }
         };
-    }
-
-    private static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
-    }
-
-    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     private void addCatalogZoneEventListeners() {

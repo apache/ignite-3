@@ -21,6 +21,7 @@ import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.distributionzones.LogicalTopologySetSerializer;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -460,10 +460,6 @@ public class CausalityDataNodesEngine {
         }
 
         return 0;
-    }
-
-    private static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
     }
 
     /**
