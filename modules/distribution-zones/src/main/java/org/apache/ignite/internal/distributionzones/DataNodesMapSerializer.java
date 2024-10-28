@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
@@ -56,5 +57,23 @@ public class DataNodesMapSerializer extends VersionedSerializer<Map<Node, Intege
         }
 
         return map;
+    }
+
+    /**
+     * Serializes a map to bytes.
+     *
+     * @param map Map to serialize.
+     */
+    public static byte[] serialize(Map<Node, Integer> map) {
+        return VersionedSerialization.toBytes(map, INSTANCE);
+    }
+
+    /**
+     * Deserializes a map from bytes.
+     *
+     * @param bytes Bytes.
+     */
+    public static Map<Node, Integer> deserialize(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, INSTANCE);
     }
 }

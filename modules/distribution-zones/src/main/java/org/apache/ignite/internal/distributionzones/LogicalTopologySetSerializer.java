@@ -23,6 +23,7 @@ import java.util.Set;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
@@ -52,5 +53,23 @@ public class LogicalTopologySetSerializer extends VersionedSerializer<Set<NodeWi
         }
 
         return topology;
+    }
+
+    /**
+     * Serializes a set to bytes.
+     *
+     * @param set Set to serialize.
+     */
+    public static byte[] serialize(Set<NodeWithAttributes> set) {
+        return VersionedSerialization.toBytes(set, INSTANCE);
+    }
+
+    /**
+     * Deserializes a set from bytes.
+     *
+     * @param bytes Bytes.
+     */
+    public static Set<NodeWithAttributes> deserialize(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, INSTANCE);
     }
 }

@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
@@ -53,5 +54,23 @@ public class TopologyAugmentationMapSerializer extends VersionedSerializer<Concu
         }
 
         return map;
+    }
+
+    /**
+     * Serializes a map to bytes.
+     *
+     * @param map Map to serialize.
+     */
+    public static byte[] serialize(ConcurrentSkipListMap<Long, Augmentation> map) {
+        return VersionedSerialization.toBytes(map, INSTANCE);
+    }
+
+    /**
+     * Deserializes a map from bytes.
+     *
+     * @param bytes Bytes.
+     */
+    public static ConcurrentSkipListMap<Long, Augmentation> deserialize(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, INSTANCE);
     }
 }

@@ -105,7 +105,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -537,9 +536,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = VersionedSerialization.toBytes(toDataNodesMap(nodes.stream()
+            newLogicalTopology = DataNodesMapSerializer.serialize(toDataNodesMap(nodes.stream()
                     .map(n -> new Node(n, findNodeIdByConsistentId(n)))
-                    .collect(toSet())), DataNodesMapSerializer.INSTANCE);
+                    .collect(toSet())));
         } else {
             newLogicalTopology = null;
         }

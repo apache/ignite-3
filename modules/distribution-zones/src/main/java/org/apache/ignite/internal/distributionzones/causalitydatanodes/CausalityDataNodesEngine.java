@@ -58,7 +58,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /**
  * Causality data nodes engine. Contains logic for obtaining zone's data nodes with causality token.
@@ -230,7 +229,7 @@ public class CausalityDataNodesEngine {
             }
 
             Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(
-                    VersionedSerialization.fromBytes(dataNodesEntry.value(), DataNodesMapSerializer.INSTANCE)
+                    DataNodesMapSerializer.deserialize(dataNodesEntry.value())
             );
             long scaleUpTriggerRevision = bytesToLongKeepingOrder(scaleUpChangeTriggerKey.value());
             long scaleDownTriggerRevision = bytesToLongKeepingOrder(scaleDownChangeTriggerKey.value());

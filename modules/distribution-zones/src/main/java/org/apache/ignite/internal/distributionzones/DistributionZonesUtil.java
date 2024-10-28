@@ -62,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -429,7 +428,7 @@ public class DistributionZonesUtil {
         operations.add(put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(logicalTopology.version())));
         operations.add(put(
                 zonesLogicalTopologyKey(),
-                VersionedSerialization.toBytes(topologyFromCmg, LogicalTopologySetSerializer.INSTANCE)
+                LogicalTopologySetSerializer.serialize(topologyFromCmg)
         ));
         if (updateClusterId) {
             operations.add(put(zonesLogicalTopologyClusterIdKey(), uuidToBytes(logicalTopology.clusterId())));
@@ -472,11 +471,11 @@ public class DistributionZonesUtil {
     }
 
     public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, DataNodesMapSerializer.INSTANCE);
+        return DataNodesMapSerializer.deserialize(bytes);
     }
 
     public static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LogicalTopologySetSerializer.INSTANCE);
+        return LogicalTopologySetSerializer.deserialize(bytes);
     }
 
     /**

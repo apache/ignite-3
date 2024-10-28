@@ -126,7 +126,6 @@ import org.apache.ignite.internal.security.authentication.validator.Authenticati
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -628,8 +627,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             ByteArray dataNodeKeyForZone = new ByteArray(dataNodeKey[0]);
 
             // Here we remove data nodes value for newly created zone, so it is tombstone
-            metastore.put(dataNodeKeyForZone, VersionedSerialization.toBytes(toDataNodesMap(emptySet()), DataNodesMapSerializer.INSTANCE))
-                    .get();
+            metastore.put(dataNodeKeyForZone, DataNodesMapSerializer.serialize(toDataNodesMap(emptySet()))).get();
 
             metastore.remove(dataNodeKeyForZone).get();
 

@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
@@ -65,5 +66,23 @@ public class NodesAttributesSerializer extends VersionedSerializer<Map<UUID, Nod
         return nodes.stream().collect(
                 toMap(NodeWithAttributes::nodeId, identity(), (x, y) -> y, ConcurrentHashMap::new)
         );
+    }
+
+    /**
+     * Serializes a map to bytes.
+     *
+     * @param map Map to serialize.
+     */
+    public static byte[] serialize(Map<UUID, NodeWithAttributes> map) {
+        return VersionedSerialization.toBytes(map, INSTANCE);
+    }
+
+    /**
+     * Deserializes a map from bytes.
+     *
+     * @param bytes Bytes.
+     */
+    public static Map<UUID, NodeWithAttributes> deserialize(byte[] bytes) {
+        return VersionedSerialization.fromBytes(bytes, INSTANCE);
     }
 }

@@ -124,7 +124,6 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -433,10 +432,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 // This case means that there won't any logical topology updates before restart.
                 topologyAugmentationMap = new ConcurrentSkipListMap<>();
             } else {
-                topologyAugmentationMap = VersionedSerialization.fromBytes(
-                        topologyAugmentationMapLocalMetaStorage.value(),
-                        TopologyAugmentationMapSerializer.INSTANCE
-                );
+                topologyAugmentationMap = TopologyAugmentationMapSerializer.deserialize(topologyAugmentationMapLocalMetaStorage.value());
             }
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
@@ -533,7 +529,7 @@ public class DistributionZoneManager implements IgniteComponent {
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(
                     zoneId,
                     revision,
-                    serializeDataNodesMap(toDataNodesMap(dataNodes))
+                    DataNodesMapSerializer.serialize(toDataNodesMap(dataNodes))
             );
 
             Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
@@ -567,10 +563,6 @@ public class DistributionZoneManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private static byte[] serializeDataNodesMap(Map<Node, Integer> dataNodesMap) {
-        return VersionedSerialization.toBytes(dataNodesMap, DataNodesMapSerializer.INSTANCE);
     }
 
     /**
@@ -702,7 +694,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     private static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, NodesAttributesSerializer.INSTANCE);
+        return NodesAttributesSerializer.deserialize(bytes);
     }
 
     /**
@@ -846,13 +838,13 @@ public class DistributionZoneManager implements IgniteComponent {
     ) {
         Operation[] puts = new Operation[3 + zoneIds.size()];
 
-        puts[0] = put(zonesNodesAttributes(), VersionedSerialization.toBytes(nodesAttributes(), NodesAttributesSerializer.INSTANCE));
+        puts[0] = put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes()));
 
         puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
 
         puts[2] = put(
                 zonesLastHandledTopology(),
-                VersionedSerialization.toBytes(newLogicalTopology, LogicalTopologySetSerializer.INSTANCE)
+                LogicalTopologySetSerializer.serialize(newLogicalTopology)
         );
 
         int i = 3;
@@ -862,10 +854,7 @@ public class DistributionZoneManager implements IgniteComponent {
         for (Integer zoneId : zoneIds) {
             puts[i++] = put(
                     zoneTopologyAugmentation(zoneId),
-                    VersionedSerialization.toBytes(
-                            zonesState.get(zoneId).topologyAugmentationMap(),
-                            TopologyAugmentationMapSerializer.INSTANCE
-                    )
+                    TopologyAugmentationMapSerializer.serialize(zonesState.get(zoneId).topologyAugmentationMap())
             );
         }
 
@@ -1009,7 +998,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(
                         zoneId,
                         revision,
-                        serializeDataNodesMap(newDataNodes)
+                        DataNodesMapSerializer.serialize(newDataNodes)
                 );
 
                 Iif iif = iif(
@@ -1119,7 +1108,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(
                         zoneId,
                         revision,
-                        serializeDataNodesMap(newDataNodes)
+                        DataNodesMapSerializer.serialize(newDataNodes)
                 );
 
                 Iif iif = iif(
