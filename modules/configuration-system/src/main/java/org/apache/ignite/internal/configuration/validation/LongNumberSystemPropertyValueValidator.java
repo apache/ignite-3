@@ -19,14 +19,14 @@ package org.apache.ignite.internal.configuration.validation;
 
 import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 
 /** Validator for system property values that are expected to be {@code long} number. */
-public class LongNumberSystemPropertyValueValidator implements
-        Validator<SystemPropertyValueValidator, NamedListView<? extends SystemPropertyView>> {
+public class LongNumberSystemPropertyValueValidator implements Validator<NamedConfigValue, NamedListView<SystemPropertyView>> {
     /** Returns the names of the properties that need to be checked. */
     private final Set<String> propertyNames;
 
@@ -40,7 +40,7 @@ public class LongNumberSystemPropertyValueValidator implements
     }
 
     @Override
-    public void validate(SystemPropertyValueValidator annotation, ValidationContext<NamedListView<? extends SystemPropertyView>> ctx) {
+    public void validate(NamedConfigValue annotation, ValidationContext<NamedListView<SystemPropertyView>> ctx) {
         for (String propertyName : propertyNames) {
             SystemPropertyView systemPropertyView = ctx.getNewValue().get(propertyName);
 

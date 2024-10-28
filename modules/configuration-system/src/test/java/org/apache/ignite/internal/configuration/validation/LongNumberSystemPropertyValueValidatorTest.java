@@ -30,6 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,7 @@ public class LongNumberSystemPropertyValueValidatorTest {
     void testWrongValue() {
         validate(
                 validator,
-                mock(SystemPropertyValueValidator.class),
+                mock(NamedConfigValue.class),
                 mockValidationContext(null, mockNamedListView(List.of(FOO_KEY, BAR_KEY), List.of("not long value", "not long value"))),
                 String.format(
                         "'%s' system property value must be a long number '%s'",
@@ -62,7 +63,7 @@ public class LongNumberSystemPropertyValueValidatorTest {
     void testCorrectValue() {
         validate(
                 validator,
-                mock(SystemPropertyValueValidator.class),
+                mock(NamedConfigValue.class),
                 mockValidationContext(null, mockNamedListView(List.of(FOO_KEY, BAR_KEY), List.of("10", "-20")))
         );
     }
@@ -71,12 +72,12 @@ public class LongNumberSystemPropertyValueValidatorTest {
     void testUnknownKeys() {
         validate(
                 validator,
-                mock(SystemPropertyValueValidator.class),
+                mock(NamedConfigValue.class),
                 mockValidationContext(null, mockNamedListView(List.of("fakeOne", "fakeTwo"), List.of("10", "not long value")))
         );
     }
 
-    private static NamedListView<? extends SystemPropertyView> mockNamedListView(List<String> names, List<String> values) {
+    private static NamedListView<SystemPropertyView> mockNamedListView(List<String> names, List<String> values) {
         assertEquals(names.size(), values.size());
 
         Map<String, SystemPropertyView> systemPropertyViewByName = IntStream.range(0, names.size())
@@ -93,7 +94,7 @@ public class LongNumberSystemPropertyValueValidatorTest {
                 })
                 .collect(Collectors.toMap(SystemPropertyView::name, Function.identity()));
 
-        NamedListView<? extends SystemPropertyView> namedListView = mock(NamedListView.class);
+        NamedListView<SystemPropertyView> namedListView = mock(NamedListView.class);
 
         when(namedListView.namedListKeys()).thenReturn(names);
 

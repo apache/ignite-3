@@ -19,15 +19,13 @@ package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.internal.configuration.validation.CamelCaseKeys;
-import org.apache.ignite.internal.configuration.validation.SystemPropertyValueValidator;
+import org.apache.ignite.configuration.validation.CamelCaseKeys;
 
 /** Distributed system configuration schema. */
 @Config
 public class SystemDistributedConfigurationSchema {
     /** System properties. */
     @CamelCaseKeys
-    @SystemPropertyValueValidator
     @NamedConfigValue
     public SystemPropertyConfigurationSchema properties;
 }

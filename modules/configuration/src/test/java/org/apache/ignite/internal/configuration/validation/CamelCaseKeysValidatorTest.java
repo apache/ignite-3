@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import org.apache.ignite.configuration.validation.CamelCaseKeys;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

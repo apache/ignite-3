@@ -82,10 +82,10 @@ public class TestValidationUtil {
      * @param annotation Mocked annotation.
      * @param ctx Mocked validation context.
      */
-    public static <A extends Annotation> void validate(
-            Validator<A, ?> validator,
+    public static <A extends Annotation, VIEWT> void validate(
+            Validator<A, VIEWT> validator,
             A annotation,
-            ValidationContext<?> ctx
+            ValidationContext<VIEWT> ctx
     ) {
         validate(validator, annotation, ctx, (String[]) null);
     }
@@ -98,15 +98,15 @@ public class TestValidationUtil {
      * @param ctx Mocked validation context.
      * @param errorMessagePrefixes Error prefixes, if {@code null} it is expected that there will be no errors.
      */
-    public static <A extends Annotation> void validate(
-            Validator<A, ?> validator,
+    public static <A extends Annotation, VIEWT> void validate(
+            Validator<A, VIEWT> validator,
             A annotation,
-            ValidationContext<?> ctx,
+            ValidationContext<VIEWT> ctx,
             String @Nullable ... errorMessagePrefixes
     ) {
         ArgumentCaptor<ValidationIssue> argumentCaptor = addIssuesCaptor(ctx);
 
-        validator.validate(annotation, (ValidationContext) ctx);
+        validator.validate(annotation, ctx);
 
         if (errorMessagePrefixes == null) {
             assertThat(argumentCaptor.getAllValues(), empty());
