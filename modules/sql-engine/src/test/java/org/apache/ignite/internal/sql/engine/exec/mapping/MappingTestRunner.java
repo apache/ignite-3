@@ -208,7 +208,7 @@ final class MappingTestRunner {
                 EmptyCacheFactory.INSTANCE,
                 0,
                 partitionPruner,
-                () -> snapshot,
+                snapshot::version,
                 executionDistributionProvider
         );
 

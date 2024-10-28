@@ -718,7 +718,7 @@ public class TestBuilders {
                                 EmptyCacheFactory.INSTANCE,
                                 0,
                                 partitionPruner,
-                                () -> new LogicalTopologySnapshot(1L, logicalNodes, randomUUID()),
+                                () -> 1L,
                                 executionProvider
                         );
 

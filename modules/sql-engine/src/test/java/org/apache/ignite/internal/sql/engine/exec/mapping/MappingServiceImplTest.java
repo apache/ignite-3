@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -155,7 +153,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
-        Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createTriggeredTopologySupplier();
+        Supplier<Long> logicalTopologyVerSupplier = createTriggeredTopologySupplier();
         TestExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -164,7 +162,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 100,
                 PARTITION_PRUNER,
-                logicalTopologySupplier,
+                logicalTopologyVerSupplier,
                 execProvider
         ));
 
@@ -215,7 +213,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         // Initialize mapping service.
-        Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createStableTopologySupplier();
+        Supplier<Long> logicalTopologyVerSupplier = createStableTopologySupplier();
         ExecutionDistributionProvider execProvider = Mockito.spy(new TestExecutionDistributionProvider(nodeNames));
 
         MappingServiceImpl mappingService = Mockito.spy(new MappingServiceImpl(
@@ -224,7 +222,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 100,
                 PARTITION_PRUNER,
-                logicalTopologySupplier,
+                logicalTopologyVerSupplier,
                 execProvider
         ));
 
@@ -251,7 +249,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames, int cacheSize) {
-        Supplier<LogicalTopologySnapshot> logicalTopologySupplier = createChangingTopologySupplier();
+        Supplier<Long> logicalTopologyVerSupplier = createChangingTopologySupplier();
         ExecutionDistributionProvider execProvider = new TestExecutionDistributionProvider(nodeNames);
 
         return new MappingServiceImpl(
@@ -260,7 +258,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 CaffeineCacheFactory.INSTANCE,
                 cacheSize,
                 PARTITION_PRUNER,
-                logicalTopologySupplier,
+                logicalTopologyVerSupplier,
                 execProvider
         );
     }
@@ -318,15 +316,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Supplier<LogicalTopologySnapshot> createStableTopologySupplier() {
-        return () -> new LogicalTopologySnapshot(1, List.of(), randomUUID());
+    private static Supplier<Long> createStableTopologySupplier() {
+        return () -> 1L;
     }
 
-    private Supplier<LogicalTopologySnapshot> createTriggeredTopologySupplier() {
-        return () -> new LogicalTopologySnapshot(topologyChange ? ++topologyVer : topologyVer, List.of(), randomUUID());
+    private Supplier<Long> createTriggeredTopologySupplier() {
+        return () -> topologyChange ? ++topologyVer : topologyVer;
     }
 
-    private Supplier<LogicalTopologySnapshot> createChangingTopologySupplier() {
-        return () -> new LogicalTopologySnapshot(topologyVer++, List.of(), randomUUID());
+    private Supplier<Long> createChangingTopologySupplier() {
+        return () -> topologyVer++;
     }
 }

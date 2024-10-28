@@ -37,7 +37,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -72,7 +71,7 @@ public class MappingServiceImpl implements MappingService {
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
     private final PartitionPruner partitionPruner;
-    private final Supplier<LogicalTopologySnapshot> logicalTopologySupplier;
+    private final Supplier<Long> logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
 
     /**
@@ -83,7 +82,7 @@ public class MappingServiceImpl implements MappingService {
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
-     * @param logicalTopologySupplier Logical topology supplier.
+     * @param logicalTopologyVerSupplier Logical topology version supplier.
      * @param distributionProvider Execution distribution provider.
      */
     public MappingServiceImpl(
@@ -92,7 +91,7 @@ public class MappingServiceImpl implements MappingService {
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
-            Supplier<LogicalTopologySnapshot> logicalTopologySupplier,
+            Supplier<Long> logicalTopologyVerSupplier,
             ExecutionDistributionProvider distributionProvider
     ) {
         this.localNodeName = localNodeName;
@@ -100,7 +99,7 @@ public class MappingServiceImpl implements MappingService {
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
         this.partitionPruner = partitionPruner;
-        this.logicalTopologySupplier = logicalTopologySupplier;
+        this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
         this.distributionProvider = distributionProvider;
     }
 
@@ -137,12 +136,12 @@ public class MappingServiceImpl implements MappingService {
                             }
                         }
 
-                        long topVer = topologyAware ? logicalTopologySupplier.get().version() : Long.MAX_VALUE;
+                        long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
 
                         return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups));
                     }
 
-                    long topologyVer = logicalTopologySupplier.get().version();
+                    long topologyVer = logicalTopologyVerSupplier.get();
 
                     if (val.topologyVersion < topologyVer) {
                         return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups));

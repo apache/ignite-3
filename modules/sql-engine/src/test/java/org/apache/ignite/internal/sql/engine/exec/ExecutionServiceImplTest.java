@@ -77,8 +77,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -1167,14 +1165,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     ) {
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
 
-        List<LogicalNode> logicalNodesCollection = logicalNodes.stream()
-                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
-                .collect(Collectors.toList());
+        Supplier<Long> topologyVerSupplier = () -> Long.MAX_VALUE;
 
-        Supplier<LogicalTopologySnapshot> topologySupplier = () -> new LogicalTopologySnapshot(Long.MAX_VALUE, logicalNodesCollection,
-                randomUUID());
-
-        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologySupplier,
+        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
                 new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
     }
 
