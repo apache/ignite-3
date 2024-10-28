@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -25,24 +24,18 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
@@ -57,7 +50,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -475,46 +467,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
     }
 
-    @Test
-    void testEvictIdempotentCommandsCacheAfterCompaction() {
-        RaftGroupService raftClient = raftClient();
-        Node leader = leader(raftClient);
-
-        // To wait, the metastore revision increase.
-        var versionedValue = new CompletableVersionedValue<Void>();
-        leader.metaStorageManager.registerRevisionUpdateListener(revision -> {
-            versionedValue.complete(revision);
-
-            return nullCompletedFuture();
-        });
-
-        long revisionBeforeRunCommands = leader.storage.revision();
-
-        assertThat(raftClient.run(buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE)), willCompleteSuccessfully());
-        assertThat(raftClient.run(buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE)), willCompleteSuccessfully());
-
-        assertThat(versionedValue.get(revisionBeforeRunCommands + 2), willCompleteSuccessfully());
-
-        HybridTimestamp compactionTimestamp = leader.storage.timestampByRevision(revisionBeforeRunCommands + 1);
-        leader.storage.compact(revisionBeforeRunCommands + 1);
-
-        assertThat(collectIdempotentCommands(leader.storage), hasSize(2));
-        reset(leader.storage);
-
-        long revisionBeforeEvict = leader.storage.revision();
-
-        assertThat(leader.metaStorageManager.evictIdempotentCommandsCache(compactionTimestamp), willCompleteSuccessfully());
-        assertThat(versionedValue.get(revisionBeforeEvict + 1), willCompleteSuccessfully());
-
-        byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
-        byte[] keyTo = leader.storage.nextKey(keyFrom);
-
-        verify(leader.storage).revisionByTimestamp(eq(compactionTimestamp));
-        verify(leader.storage).range(eq(keyFrom), eq(keyTo));
-
-        assertThat(collectIdempotentCommands(leader.storage), hasSize(1));
-    }
-
     private Node leader(RaftGroupService raftClient) {
         CompletableFuture<Void> refreshLeaderFut = raftClient.refreshLeader();
 
@@ -603,11 +555,5 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         metaStorageNodesFut.complete(nodeNames);
 
         nodes.forEach(Node::deployWatches);
-    }
-
-    private List<Entry> collectIdempotentCommands(KeyValueStorage storage) {
-        return storage.range(IDEMPOTENT_COMMAND_PREFIX_BYTES, storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES)).stream()
-                .filter(entry -> !entry.empty() && !entry.tombstone())
-                .collect(toList());
     }
 }

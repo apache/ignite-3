@@ -64,7 +64,6 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     private final MetaStorageWriteHandler writeHandler;
 
-    /** Storage. */
     private final KeyValueStorage storage;
 
     private final Consumer<CommittedConfiguration> onConfigurationCommitted;

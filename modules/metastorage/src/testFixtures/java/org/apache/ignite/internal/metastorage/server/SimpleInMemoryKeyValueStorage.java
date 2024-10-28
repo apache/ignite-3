@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.toIdempotentCommandKey;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -52,7 +52,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -308,7 +307,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
             // were added in order to have matching revisions count through all storages.
             ops.add(Operations.put(
-                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
+                    toIdempotentCommandKey(commandId),
                     branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
             );
 
@@ -362,10 +361,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
                     // operations were added in order to have matching revisions count through all storages.
-                    ops.add(Operations.put(
-                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                            branch.update().result().result())
-                    );
+                    ops.add(Operations.put(toIdempotentCommandKey(commandId), branch.update().result().result()));
 
                     for (Operation op : ops) {
                         switch (op.type()) {
