@@ -127,7 +127,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             int id = nodeNameToId.getOrDefault(name, -1);
 
             assert id >= 0 : "invalid node";
-            
+
             nodesSet.set(id);
         }
 

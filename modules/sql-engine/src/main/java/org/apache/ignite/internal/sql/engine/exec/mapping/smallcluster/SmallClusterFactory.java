@@ -132,6 +132,8 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             long node = nodeNameToId.getOrDefault(name, -1);
 
             assert node >= 0 : "invalid node";
+
+            nodesMap |= node;
         }
 
         return nodesMap;

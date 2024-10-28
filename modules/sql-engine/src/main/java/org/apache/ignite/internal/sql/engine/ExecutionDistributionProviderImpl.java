@@ -69,7 +69,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             Collection<String> views,
             String initiatorNode
     ) {
-        if (tables.isEmpty()) {
+        if (tables.isEmpty() && views.isEmpty()) {
             DistributionHolder holder = new DistributionHolderImpl(List.of(initiatorNode), Map.of(), Map.of());
 
             return completedFuture(holder);
@@ -112,7 +112,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             // this is a safe join, because we have waited for all futures to be completed
             mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
 
-            Map<String, List<String>> nodesPerView = views.stream()
+            Map<String, List<String>> nodesPerView = views.stream().distinct()
                     .collect(Collectors.toMap(Function.identity(), systemViewManager::owningNodes));
 
             List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
@@ -261,12 +261,15 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         }
     }
 
-    /** Add java doc. */
+    /** Nodes distribution information holder. */
     public interface DistributionHolder {
+        /** Whole collection of participating nodes. */
         List<String> nodes();
 
+        /** Nodes table assigned to. */
         List<TokenizedAssignments> tableAssignments(IgniteTable table);
 
+        /** Nodes view assigned to. */
         List<String> viewNodes(String viewName);
     }
 }
