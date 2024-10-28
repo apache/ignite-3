@@ -25,6 +25,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Configuration for zones high availability configurations. */
 public class DistributionZonesHighAvailabilityConfiguration {
@@ -57,6 +58,14 @@ public class DistributionZonesHighAvailabilityConfiguration {
 
             return nullCompletedFuture();
         });
+    }
+
+    /** Starts the component and initializes the configuration immediately. */
+    @TestOnly
+    void startAndInit() {
+        start();
+
+        updateSystemProperties(systemDistributedConfig.value());
     }
 
     /** Returns compaction start interval (in milliseconds). */
