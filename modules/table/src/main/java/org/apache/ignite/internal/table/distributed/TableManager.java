@@ -170,6 +170,7 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.NullStorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -1737,7 +1738,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
+        if (engine == null) {
+            // Create a placeholder to allow Table object being created.
+            engine = new NullStorageEngine();
+        }
 
         return engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
