@@ -280,8 +280,9 @@ class CreateFromAnnotationsTest {
         Integer id;
     }
 
+    @Table
     private static class AllColumnsPojo {
-        int id;
+        @Id
         String str;
         Byte byte_col;
         Short short_col;
