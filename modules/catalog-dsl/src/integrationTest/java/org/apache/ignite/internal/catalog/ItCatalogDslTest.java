@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.UUID;
@@ -349,11 +350,20 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Test
     public void createAllColumnTypesFromPojo() {
         Table table = catalog().createTable(AllColumnTypesPojo.class);
+        assertEquals("ALLCOLUMNTYPESPOJO", table.name());
 
-        assertEquals("AllColumnTypesPojo", table.name());
+        TableDefinition tableDef = catalog().tableDefinition(table.name());
+        assertEquals(tableDef.tableName(), tableDef.tableName());
+
+        List<ColumnDefinition> columns = tableDef.columns();
+        assertEquals(15, columns.size());
+
+        assertEquals("STR", columns.get(0).name());
+        assertEquals("varchar", columns.get(0).type().typeName());
     }
 
     private static IgniteCatalog catalog() {
