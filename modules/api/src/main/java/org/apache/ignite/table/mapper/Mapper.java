@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -153,19 +154,26 @@ public interface Mapper<T> {
      * @return {@code True} if the given type is supported natively and can be mapped to a single column.
      */
     static boolean nativelySupported(Class<?> type) {
-        return !Objects.requireNonNull(type).isPrimitive()
-                       && (String.class == type
-                                   || Boolean.class == type
-                                   || UUID.class == type
-                                   || BitSet.class == type
-                                   || byte[].class == type
-                                   || LocalDate.class == type
-                                   || LocalTime.class == type
-                                   || LocalDateTime.class == type
-                                   || Instant.class == type
-                                   || Void.class == type
-                                   || Number.class
-                                              .isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
+        //noinspection SimplifiableIfStatement
+        if (Objects.requireNonNull(type).isPrimitive()) {
+            return false;
+        }
+
+        return String.class == type
+                || Boolean.class == type
+                || UUID.class == type
+                || byte[].class == type
+                || LocalDate.class == type
+                || LocalTime.class == type
+                || LocalDateTime.class == type
+                || Instant.class == type
+                || Void.class == type
+                || BigDecimal.class == type
+                || Short.class == type
+                || Integer.class == type
+                || Long.class == type
+                || Float.class == type
+                || Double.class == type;
     }
 
     /**
