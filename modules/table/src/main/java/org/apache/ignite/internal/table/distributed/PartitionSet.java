@@ -65,6 +65,11 @@ public interface PartitionSet {
         public boolean equals(Object obj) {
             return isEqual(obj);
         }
+
+        @Override
+        public String toString() {
+            return "PartitionSet(empty)";
+        }
     };
 
     /**
