@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.UUID;
@@ -346,6 +347,13 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withIndexes(definition.indexes())
                         .withColocationColumns(definition.colocationColumns())
         );
+    }
+
+    @Test
+    public void createAllColumnTypesFromPojo() {
+        Table table = catalog().createTable(AllColumnTypesPojo.class);
+
+        assertEquals("AllColumnTypesPojo", table.name());
     }
 
     private static IgniteCatalog catalog() {
