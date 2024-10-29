@@ -364,6 +364,48 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
         assertEquals("STR", columns.get(0).name());
         assertEquals("varchar", columns.get(0).type().typeName());
+
+        assertEquals("BYTE_COL", columns.get(1).name());
+        assertEquals("tinyint", columns.get(1).type().typeName());
+
+        assertEquals("SHORT_COL", columns.get(2).name());
+        assertEquals("smallint", columns.get(2).type().typeName());
+
+        assertEquals("INT_COL", columns.get(3).name());
+        assertEquals("int", columns.get(3).type().typeName());
+
+        assertEquals("LONG_COL", columns.get(4).name());
+        assertEquals("bigint", columns.get(4).type().typeName());
+
+        assertEquals("FLOAT_COL", columns.get(5).name());
+        assertEquals("real", columns.get(5).type().typeName());
+
+        assertEquals("DOUBLE_COL", columns.get(6).name());
+        assertEquals("double", columns.get(6).type().typeName());
+
+        assertEquals("DECIMAL_COL", columns.get(7).name());
+        assertEquals("decimal", columns.get(7).type().typeName());
+
+        assertEquals("BOOL_COL", columns.get(8).name());
+        assertEquals("boolean", columns.get(8).type().typeName());
+
+        assertEquals("BYTES_COL", columns.get(9).name());
+        assertEquals("varbinary", columns.get(9).type().typeName());
+
+        assertEquals("UUID_COL", columns.get(10).name());
+        assertEquals("uuid", columns.get(10).type().typeName());
+
+        assertEquals("DATE_COL", columns.get(11).name());
+        assertEquals("date", columns.get(11).type().typeName());
+
+        assertEquals("TIME_COL", columns.get(12).name());
+        assertEquals("time", columns.get(12).type().typeName());
+
+        assertEquals("DATETIME_COL", columns.get(13).name());
+        assertEquals("timestamp", columns.get(13).type().typeName());
+
+        assertEquals("INSTANT_COL", columns.get(14).name());
+        assertEquals("timestamp with local time zone", columns.get(14).type().typeName());
     }
 
     private static IgniteCatalog catalog() {
