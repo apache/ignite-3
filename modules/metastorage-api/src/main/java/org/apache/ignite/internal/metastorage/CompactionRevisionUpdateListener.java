@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.metastorage;
 
 /**
- * Listener which receives and handles the metastorage compaction revision update after start watches.
+ * Listener which receives and handles the metastorage compaction revision update after watches have been started.
  *
- * <p>It is guaranteed that it will <b>not</b> invoked in parallel with the handling of watch events or metastore revision update
+ * <p>It is guaranteed that it will <b>not</b> be invoked in parallel with the handling of watch events or metastore revision update
  * events.</p>
  */
 @FunctionalInterface
 public interface CompactionRevisionUpdateListener {
     /**
-     * Invokes when the metastorage compaction revision has been updated in the WatchEvent queue.
+     * Invoked when the metastorage compaction revision has been updated in the WatchEvent queue.
      *
      * @param compactionRevision New metastorage compaction revision.
      */

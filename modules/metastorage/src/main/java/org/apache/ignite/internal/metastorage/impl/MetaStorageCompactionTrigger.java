@@ -89,7 +89,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     private boolean isLocalNodeLeader;
 
     /**
-     * Flag that the component has started. It is expected that the component will be started after the distributed configuration has
+     * Whether that the component has started. It is expected that the component will be started after the distributed configuration has
      * started, so that we can get the configuration value correctly and make a compaction with predictable behavior.
      *
      * <p>Guarded by {@link #lock}.</p>
@@ -253,7 +253,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         }
     }
 
-    /** Invokes when the metastorage compaction revision is updated. */
+    /** Invoked when the metastorage compaction revision is updated. */
     private void onCompactionRevisionUpdate(long compactionRevision) {
         inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
     }
@@ -281,7 +281,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 });
     }
 
-    /** Invokes when a new leader is elected. */
+    /** Invoked when a new leader is elected. */
     private void onLeaderElected(ClusterNode newLeader) {
         inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
