@@ -257,8 +257,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(120)
-// TODO: IGNITE-23538 - enable after fixing the test
-@Disabled("IGNITE-23538")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -1509,7 +1507,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         void start() {
             ComponentContext componentContext = new ComponentContext();
 
-            deployWatchesFut = startComponentsAsync(componentContext, List.of(
+            deployWatchesFut = startComponentsAsync(
+                    componentContext,
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1519,9 +1518,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgLogStorageFactory,
                     msLogStorageFactory,
                     raftManager,
-                    cmgManager
-            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
-                    lowWatermark,
+                    cmgManager,
+                    lowWatermark
+            ).thenComposeAsync(
+                    v -> cmgManager.joinFuture()
+            ).thenApplyAsync(v -> startComponentsAsync(
+                    componentContext,
                     metaStorageManager,
                     clusterCfgMgr,
                     clockWaiter,
@@ -1534,7 +1536,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     tableManager,
                     indexManager
-            ))).thenComposeAsync(componentFuts -> {
+            )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
                                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -1551,12 +1553,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             });
         }
 
-        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
-            nodeComponents.addAll(components);
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components) {
+            var componentStartFutures = new CompletableFuture[components.length];
 
-            return allOf(components.stream()
-                    .map(component -> component.startAsync(componentContext))
-                    .toArray(CompletableFuture[]::new));
+            for (int compIdx = 0; compIdx < components.length; compIdx++) {
+                IgniteComponent component = components[compIdx];
+                componentStartFutures[compIdx] = component.startAsync(componentContext);
+                nodeComponents.add(component);
+            }
+
+            return allOf(componentStartFutures);
         }
 
         /**
