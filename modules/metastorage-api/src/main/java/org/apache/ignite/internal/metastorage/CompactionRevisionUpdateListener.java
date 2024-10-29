@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-
-/** Watch event handling callback. */
-public interface WatchEventHandlingCallback {
+/**
+ * Listener which receives and handles the metastorage compaction revision update after watches have been started.
+ *
+ * <p>It is guaranteed that it will <b>not</b> be invoked in parallel with the handling of watch events or metastore revision update
+ * events.</p>
+ */
+@FunctionalInterface
+public interface CompactionRevisionUpdateListener {
     /**
-     * Invoked whenever MetaStorage Safe Time gets advanced (either because a write command is applied,
-     * together with all watches that process it, or because idle safe time mechanism advanced Safe Time).
+     * Invoked when the metastorage compaction revision has been updated in the WatchEvent queue.
      *
-     * @param newSafeTime New safe time value.
+     * @param compactionRevision New metastorage compaction revision.
      */
-    default void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
-        // No-op.
-    }
-
-    /**
-     * Notifies of completion of processing of Meta Storage watches for a particular revision.
-     *
-     * @param revision Latest applied meta-storage revision.
-     */
-    default void onRevisionApplied(long revision) {
-        // No-op.
-    }
+    void onUpdate(long compactionRevision);
 }

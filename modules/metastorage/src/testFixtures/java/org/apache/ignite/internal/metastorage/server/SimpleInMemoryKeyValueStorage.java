@@ -464,7 +464,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         try {
             areWatchesEnabled = true;
 
-            watchProcessor.setWatchEventHandlingCallback(createWrapper(callback));
+            watchProcessor.setWatchEventHandlingCallback(callback);
 
             replayUpdates(startRevision);
         } finally {

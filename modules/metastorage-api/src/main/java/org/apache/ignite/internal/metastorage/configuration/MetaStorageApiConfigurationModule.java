@@ -15,28 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.configuration;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/** Watch event handling callback. */
-public interface WatchEventHandlingCallback {
-    /**
-     * Invoked whenever MetaStorage Safe Time gets advanced (either because a write command is applied,
-     * together with all watches that process it, or because idle safe time mechanism advanced Safe Time).
-     *
-     * @param newSafeTime New safe time value.
-     */
-    default void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
-        // No-op.
+/**
+ * {@link ConfigurationModule} for Meta Storage configuration.
+ */
+@AutoService(ConfigurationModule.class)
+public class MetaStorageApiConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
     }
 
-    /**
-     * Notifies of completion of processing of Meta Storage watches for a particular revision.
-     *
-     * @param revision Latest applied meta-storage revision.
-     */
-    default void onRevisionApplied(long revision) {
-        // No-op.
+    @Override
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(MetaStorageExtensionConfigurationSchema.class);
     }
 }
