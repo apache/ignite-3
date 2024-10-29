@@ -43,12 +43,12 @@ public class DistributionZonesHighAvailabilityConfiguration {
     private volatile long partitionDistributionResetTimeout;
 
     /** Constructor. */
-    DistributionZonesHighAvailabilityConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
+    public DistributionZonesHighAvailabilityConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
         this.systemDistributedConfig = systemDistributedConfig;
     }
 
     /** Starts component. */
-    void start() {
+    public void start() {
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue());
 
