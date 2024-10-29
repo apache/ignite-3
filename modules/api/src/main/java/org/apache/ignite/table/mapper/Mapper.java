@@ -168,6 +168,7 @@ public interface Mapper<T> {
                 || Instant.class == type
                 || Void.class == type
                 || BigDecimal.class == type
+                || Byte.class == type
                 || Short.class == type
                 || Integer.class == type
                 || Long.class == type
