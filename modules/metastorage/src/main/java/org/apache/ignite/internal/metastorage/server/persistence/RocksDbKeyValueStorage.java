@@ -872,7 +872,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            watchProcessor.setWatchEventHandlingCallback(createWrapper(callback));
+            watchProcessor.setWatchEventHandlingCallback(callback);
 
             currentRevision = rev;
 

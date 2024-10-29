@@ -45,6 +45,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -101,6 +102,9 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /** Meta Storage revision update listeners. */
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
+
+    /** Metastorage compaction revision update listeners. */
+    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /** Failure processor that is used to handle critical errors. */
     private final FailureManager failureManager;
@@ -354,13 +358,23 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Registers a Meta Storage revision update listener. */
-    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+    void registerRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.add(listener);
     }
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.remove(listener);
+    }
+
+    /** Registers a metastorage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        compactionRevisionUpdateListeners.add(listener);
+    }
+
+    /** Unregisters a metastorage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        compactionRevisionUpdateListeners.remove(listener);
     }
 
     /** Explicitly notifies revision update listeners. */
@@ -387,10 +401,10 @@ public class WatchProcessor implements ManuallyCloseable {
      * @param compactionRevision New metastorage compaction revision.
      * @param time Metastorage compaction revision update timestamp.
      */
-    public void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
+    void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
         notificationFuture = notificationFuture
                 .thenRunAsync(() -> {
-                    watchEventHandlingCallback.onCompactionRevisionUpdated(compactionRevision);
+                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)

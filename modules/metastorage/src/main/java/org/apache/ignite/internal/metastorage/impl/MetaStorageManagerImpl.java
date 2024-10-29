@@ -822,12 +822,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                             public void onRevisionApplied(long revision) {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
-
-                            @Override
-                            public void onCompactionRevisionUpdated(long compactionRevision) {
-                                // TODO: IGNITE-23279 починить
-                                //metaStorageCompactionTrigger.onCompactionRevisionUpdate(compactionRevision);
-                            }
                         });
                     }))
                     .whenComplete((v, e) -> {

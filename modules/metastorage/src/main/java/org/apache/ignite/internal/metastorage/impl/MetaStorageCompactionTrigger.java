@@ -129,6 +129,8 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
 
+        storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);
+
         metaStorageManager.addElectionListener(this::onLeaderElected);
     }
 
