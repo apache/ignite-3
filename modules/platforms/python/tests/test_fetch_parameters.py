@@ -72,7 +72,7 @@ test_data = [
     pyignite3.Timestamp(3000, 1, 1, 0, 0, 0),
     pyignite3.Timestamp(2007, 1, 1, 0, 0, 0),
     pyignite3.TimestampFromTicks(4239085792.333),
-    # TODO: IGNITE-23214 Fix DURATION type parameters in select statements
+    # TODO: IGNITE-17373 Fix DURATION type parameters in select statements
     # pyignite3.DURATION(days=0),
     # pyignite3.DURATION(days=1),
     # pyignite3.DURATION(days=145),

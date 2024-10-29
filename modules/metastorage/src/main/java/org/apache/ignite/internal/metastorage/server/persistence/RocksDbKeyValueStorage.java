@@ -42,7 +42,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_CHECKSUM;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.toIdempotentCommandKey;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -70,9 +70,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -84,14 +81,16 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
-import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
+import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
@@ -133,8 +132,6 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
-
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -257,13 +254,23 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureManager failureManager) {
-        super(nodeName, failureManager);
+    public RocksDbKeyValueStorage(
+            String nodeName,
+            Path dbPath,
+            FailureManager failureManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
+        super(
+                nodeName,
+                failureManager,
+                readOperationForCompactionTracker
+        );
 
         this.dbPath = dbPath;
 
-        this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", log));
     }
 
     @Override
@@ -384,6 +391,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         if (bytes == null) {
             throw new CompactedException(revision, compactionRevision);
+        }
+
+        return bytesToLong(bytes);
+    }
+
+    private long checksumByRevisionOrZero(long revision) throws RocksDBException {
+        byte[] bytes = revisionToChecksum.get(longToBytes(revision));
+
+        if (bytes == null) {
+            return 0;
         }
 
         return bytesToLong(bytes);
@@ -717,10 +734,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             List<Operation> ops = new ArrayList<>(branch ? success : failure);
 
-            ops.add(Operations.put(
-                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                    updateResult
-            ));
+            ops.add(Operations.put(toIdempotentCommandKey(commandId), updateResult));
 
             applyOperations(ops, context, false, updateResult);
 
@@ -758,10 +772,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                     List<Operation> ops = new ArrayList<>(update.operations());
 
-                    ops.add(Operations.put(
-                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                            updateResult
-                    ));
+                    ops.add(Operations.put(toIdempotentCommandKey(commandId), updateResult));
 
                     applyOperations(ops, context, true, updateResult);
 
@@ -853,7 +864,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
         assert startRevision > 0 : startRevision;
 
         long currentRevision;
@@ -861,7 +872,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            watchProcessor.setRevisionCallback(revisionCallback);
+            watchProcessor.setWatchEventHandlingCallback(createWrapper(callback));
 
             currentRevision = rev;
 
@@ -1255,7 +1266,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (!isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -1264,27 +1275,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
-        assert revision >= 0 : revision;
-
-        rwLock.writeLock().lock();
-
+    protected void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         try (WriteBatch batch = new WriteBatch()) {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
 
             addIndexAndTermToWriteBatch(batch, context);
 
             db.write(defaultWriteOptions, batch);
 
-            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+            if (advanceSafeTime && !isInRecoveryState()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
@@ -1300,6 +1303,40 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public ChecksumAndRevisions checksumAndRevisions(long revision) {
+        rwLock.readLock().lock();
+
+        try {
+            return new ChecksumAndRevisions(
+                    checksumByRevisionOrZero(revision),
+                    minChecksummedRevisionOrZero(),
+                    rev
+            );
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private long minChecksummedRevisionOrZero() throws RocksDBException {
+        try (
+                var options = new ReadOptions().setTailing(true);
+                RocksIterator it = revisionToChecksum.newIterator(options)
+        ) {
+            it.seekToFirst();
+
+            if (it.isValid()) {
+                return bytesToLong(it.key());
+            } else {
+                it.status();
+
+                return 0;
+            }
         }
     }
 
@@ -1433,6 +1470,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return value;
     }
 
+    @Override
+    protected boolean isInRecoveryState() {
+        return recoveryStatus.get() != RecoveryStatus.DONE;
+    }
+
     private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
@@ -1464,7 +1506,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         iterator.seek(keyFrom);
 
-        long readOperationId = readOperationIdGeneratorForTracker++;
+        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
         long compactionRevisionBeforeCreateCursor = compactionRevision;
 
         readOperationForCompactionTracker.track(readOperationId, compactionRevision);

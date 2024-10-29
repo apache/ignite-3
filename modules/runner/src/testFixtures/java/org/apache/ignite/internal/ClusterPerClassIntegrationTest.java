@@ -60,6 +60,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -101,7 +102,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param testInfo Test information object.
      */
     @BeforeAll
-    protected void beforeAll(TestInfo testInfo) {
+    protected void startCluster(TestInfo testInfo) {
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0 && needInitializeCluster()) {
@@ -145,7 +146,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * After all.
      */
     @AfterAll
-    void afterAll() {
+    @Timeout(60)
+    void stopCluster() {
         CLUSTER.shutdown();
     }
 
@@ -363,18 +365,24 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      *
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
+     * @param schema Default schema.
      * @param zoneId Client time zone.
      * @param query Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String query, Object... args) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable String schema, @Nullable ZoneId zoneId,
+            String query, Object... args) {
         IgniteSql sql = node.sql();
         StatementBuilder builder = sql.statementBuilder()
                 .query(query);
 
         if (zoneId != null) {
             builder.timeZoneId(zoneId);
+        }
+
+        if (schema != null) {
+            builder.defaultSchema(schema);
         }
 
         Statement statement = builder.build();
@@ -392,7 +400,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
-        return sql(CLUSTER.node(nodeIndex), tx, zoneId, sql, args);
+        return sql(CLUSTER.node(nodeIndex), tx, null, zoneId, sql, args);
     }
 
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {

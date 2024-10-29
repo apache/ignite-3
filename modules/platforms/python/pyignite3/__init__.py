@@ -16,12 +16,13 @@
 import datetime
 import decimal
 import uuid
+import pkgutil
 from typing import Optional, List, Any, Sequence, Tuple, Union
 
 from pyignite3 import _pyignite3_extension
 from pyignite3 import native_type_code
 
-__version__ = '3.0.0-beta2'
+__version__ = pkgutil.get_data(__name__, "_version.txt").decode
 
 apilevel = '2.0'
 """PEP 249 is supported."""

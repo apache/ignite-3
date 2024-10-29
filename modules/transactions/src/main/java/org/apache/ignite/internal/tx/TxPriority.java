@@ -26,4 +26,17 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 public enum TxPriority {
     LOW,
     NORMAL;
+
+    /** Enum values. */
+    private static final TxPriority[] VALS = values();
+
+    /**
+     * Efficiently gets enumerated value from its ordinal.
+     *
+     * @param ord Ordinal value.
+     * @return Enumerated value.
+     */
+    public static TxPriority fromOrdinal(int ord) {
+        return VALS[ord];
+    }
 }

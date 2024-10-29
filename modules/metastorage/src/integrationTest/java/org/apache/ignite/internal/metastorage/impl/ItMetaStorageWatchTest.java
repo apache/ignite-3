@@ -78,6 +78,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -222,20 +223,28 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            var storage = new RocksDbKeyValueStorage(
+                    name(),
+                    metastorageWorkDir.dbPath(),
+                    new NoOpFailureManager(),
+                    readOperationForCompactionTracker
+            );
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), metastorageWorkDir.dbPath(), new NoOpFailureManager()),
+                    storage,
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
-
-            components.add(metaStorageManager);
         }
 
         void start() {
@@ -247,12 +256,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void stop() throws Exception {
-            Collections.reverse(components);
+            List<IgniteComponent> componentsToStop = new ArrayList<>(components);
+            componentsToStop.add(metaStorageManager);
 
-            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
+            Collections.reverse(componentsToStop);
+
+            Stream<AutoCloseable> beforeNodeStop = componentsToStop.stream().map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(() ->
-                    assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
+                    assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
@@ -290,6 +302,11 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         String name = nodes.get(0).name();
 
         nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
+
+        for (Node node : nodes) {
+            assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
+            assertThat(node.metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
 
         for (Node node : nodes) {
             assertThat(node.metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());

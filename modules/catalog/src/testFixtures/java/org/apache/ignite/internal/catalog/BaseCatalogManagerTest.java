@@ -61,7 +61,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -102,7 +101,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
         partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
-        metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        metastore = StandaloneMetaStorageManager.create(NODE_NAME);
 
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -205,28 +206,31 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name()),
+                    new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurer
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
+            cfgStorage = new DistributedConfigurationStorage(name(), metaStorageManager);
         }
 
         /**
          * Starts the created components.
          */
-        void start() {
+        void startUpToCmgManager() {
             assertThat(
                     startAsync(new ComponentContext(),
                             vaultManager,
@@ -236,9 +240,18 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                             msLogStorageFactory,
                             raftManager,
                             failureManager,
-                            cmgManager,
-                            metaStorageManager
+                            cmgManager
                     ),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        /**
+         * Starts the created components.
+         */
+        void startComponentsAfterCmgManager() {
+            assertThat(
+                    startAsync(new ComponentContext(), metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -295,9 +308,11 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         Map<String, Serializable> data = Map.of("foo", "bar");
 
         try {
-            node.start();
+            node.startUpToCmgManager();
 
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
+
+            node.startComponentsAfterCmgManager();
 
             node.waitWatches();
 
@@ -314,7 +329,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         var node2 = new Node(testInfo, workDir);
 
         try {
-            node2.start();
+            node2.startUpToCmgManager();
+            node2.startComponentsAfterCmgManager();
 
             node2.waitWatches();
 

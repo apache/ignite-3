@@ -378,10 +378,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Before calling this method, watches will not receive any updates.</p>
      *
      * @param startRevision Revision to start processing updates from.
-     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
-     *         revision and modified entries (processed by at least one watch) as its argument.
+     * @param callback Watch event handling callback.
      */
-    void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback);
+    void startWatches(long startRevision, WatchEventHandlingCallback callback);
 
     /**
      * Unregisters a watch listener.
@@ -425,7 +424,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void compact(long revision);
 
     /**
-     * Signals the need to stop metastorage compaction as soon as possible. For example, due to a node stopping.
+     * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
      *
      * <p>Since compaction of metastorage can take a long time, in order not to be blocked when using it by an external component, it is
      * recommended to invoke this method before stopping the external component.</p>
@@ -531,7 +530,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void setCompactionRevision(long revision);
 
     /**
-     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if not changed.
+     * Returns the compaction revision that was set or restored from a snapshot, {@code -1} if it has never been updated.
      *
      * @see #setCompactionRevision(long)
      * @see #saveCompactionRevision(long, KeyValueUpdateContext)
@@ -539,15 +538,25 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long getCompactionRevision();
 
     /**
-     * Returns a future that will complete when all read operations that were started before {@code compactionRevisionExcluded}.
+     * Updates the metastorage compaction revision.
      *
-     * <p>Current method is expected to be invoked after {@link #setCompactionRevision} on the same revision.</p>
+     * <p>Algorithm:</p>
+     * <ul>
+     *     <li>Invokes {@link #saveCompactionRevision}.</li>
+     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes
+     *     {@link WatchEventHandlingCallback#onCompactionRevisionUpdated}.</li>
+     * </ul>
      *
-     * <p>Future completes without exception.</p>
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
-     * @param compactionRevisionExcluded Compaction revision of interest.
+     * @param revision Compaction revision to update.
+     * @param context Operation's context.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
      */
-    CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
+    void updateCompactionRevision(long revision, KeyValueUpdateContext context);
 
     /**
      * Returns checksum corresponding to the revision.
@@ -556,6 +565,15 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @throws CompactedException If the requested revision has been compacted.
      */
     long checksum(long revision);
+
+    /**
+     * Returns information about a checksum and checksummed revisions. Never throws a {@link CompactedException}; if the requested revision
+     * is compacted, just returns 0 as checksum (and the requested revision will not fall in
+     * {@link ChecksumAndRevisions#minChecksummedRevision()} - {@link ChecksumAndRevisions#maxChecksummedRevision()} interval).
+     *
+     * @param revision Revision for which to obtain a checksum.
+     */
+    ChecksumAndRevisions checksumAndRevisions(long revision);
 
     /**
      * Clears the content of the storage. Should only be called when no one else uses this storage.

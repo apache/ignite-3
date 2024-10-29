@@ -19,7 +19,7 @@
     <PropertyGroup>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <WarningsAsErrors>CS8785</WarningsAsErrors>
-        <LangVersion>10</LangVersion>
+        <LangVersion>12</LangVersion>
         <Nullable>enable</Nullable>
         <AnalysisMode>All</AnalysisMode>
 
@@ -41,7 +41,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0"/>
         <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all"/>
     </ItemGroup>
 
@@ -56,7 +56,7 @@
     <ItemGroup>
         <PackageReference Include="Nerdbank.GitVersioning">
             <PrivateAssets>all</PrivateAssets>
-            <Version>3.6.143</Version>
+            <Version>3.6.146</Version>
         </PackageReference>
     </ItemGroup>
 

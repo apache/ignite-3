@@ -85,7 +85,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -269,7 +269,10 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 0
         );
 
-        KeyValueStorage keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager());
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
         clock = new HybridClockImpl();
 
         ClusterService clusterService = mock(ClusterService.class);
@@ -309,7 +312,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     .thenReturn(assignment);
         }
 
-        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = c -> metaStorageManager.registerRevisionUpdateListener(c::apply);
@@ -348,7 +351,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 mock(ScheduledExecutorService.class),
-                clock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,

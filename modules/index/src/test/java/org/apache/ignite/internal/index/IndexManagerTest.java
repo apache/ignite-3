@@ -62,6 +62,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -77,7 +78,9 @@ import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersion
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,12 +204,18 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         return spy(new TableImpl(
                 internalTable,
-                new HeapLockManager(),
+                lockManager(),
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
                 table.primaryKeyIndexId()
         ));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     private int tableId() {
@@ -218,7 +227,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void createAndStartComponents() {
-        metaStorageManager = StandaloneMetaStorageManager.create(new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager()));
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 

@@ -37,6 +37,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -49,7 +52,11 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected static final Comparator<byte[]> KEY_COMPARATOR = Arrays::compareUnsigned;
 
+    protected final IgniteLogger log = Loggers.forClass(getClass());
+
     protected final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    protected final FailureManager failureManager;
 
     protected final WatchProcessor watchProcessor;
 
@@ -79,23 +86,24 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
-    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
-
-    /**
-     * Used to generate read operation ID for {@link #readOperationForCompactionTracker}.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
-     */
-    protected long readOperationIdGeneratorForTracker;
+    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
-    protected AbstractKeyValueStorage(String nodeName, FailureManager failureManager) {
-        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
+    protected AbstractKeyValueStorage(
+            String nodeName,
+            FailureManager failureManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
+        this.failureManager = failureManager;
+        this.readOperationForCompactionTracker = readOperationForCompactionTracker;
+
+        watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
     }
 
     /** Returns the key revisions for operation, an empty array if not found. */
@@ -103,6 +111,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /** Returns key values by revision for operation. */
     protected abstract Value valueForOperation(byte[] key, long revision);
+
+    /**
+     * Returns {@code true} if the storage is in the recovery state.
+     *
+     * <p>Method is expected to be invoked under {@link #rwLock}.</p>
+     */
+    protected abstract boolean isInRecoveryState();
 
     @Override
     public Entry get(byte[] key) {
@@ -171,6 +186,23 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
+        assert revision >= 0 : revision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(revision, rev);
+
+            saveCompactionRevision(revision, context, true);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    protected abstract void saveCompactionRevision(long compactionRevision, KeyValueUpdateContext context, boolean advanceSafeTime);
+
+    @Override
     public void setCompactionRevision(long revision) {
         assert revision >= 0 : revision;
 
@@ -193,6 +225,27 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             return compactionRevision;
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public void updateCompactionRevision(long compactionRevision, KeyValueUpdateContext context) {
+        assert compactionRevision >= 0 : compactionRevision;
+
+        rwLock.writeLock().lock();
+
+        try {
+            assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
+
+            saveCompactionRevision(compactionRevision, context, false);
+
+            if (isInRecoveryState()) {
+                setCompactionRevision(compactionRevision);
+            } else {
+                watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
+            }
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -269,11 +322,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         Predicate<byte[]> exactPredicate = k -> KEY_COMPARATOR.compare(k, key) == 0;
 
         watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
-    }
-
-    @Override
-    public CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded) {
-        return readOperationForCompactionTracker.collect(compactionRevisionExcluded);
     }
 
     /** Notifies of revision update. Must be called under the {@link #rwLock}. */
@@ -367,5 +415,26 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
 
         return res;
+    }
+
+    protected WatchEventHandlingCallback createWrapper(WatchEventHandlingCallback callback) {
+        return new WatchEventHandlingCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                callback.onSafeTimeAdvanced(newSafeTime);
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+                callback.onRevisionApplied(revision);
+            }
+
+            @Override
+            public void onCompactionRevisionUpdated(long compactionRevision) {
+                setCompactionRevision(compactionRevision);
+
+                callback.onCompactionRevisionUpdated(compactionRevision);
+            }
+        };
     }
 }

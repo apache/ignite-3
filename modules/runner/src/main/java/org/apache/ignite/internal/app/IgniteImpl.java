@@ -157,6 +157,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -364,6 +365,8 @@ public class IgniteImpl implements Ignite {
     private final ClusterManagementGroupManager cmgMgr;
 
     private final LogicalTopologyService logicalTopologyService;
+
+    private final ComponentWorkingDir metastorageWorkDir;
 
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
@@ -592,8 +595,6 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        LockManager lockMgr = new HeapLockManager();
-
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
                 clusterSvc.messagingService(),
                 name,
@@ -668,7 +669,7 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
+        metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "meta-storage log",
@@ -680,21 +681,31 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(
+                name,
+                metastorageWorkDir.dbPath(),
+                failureManager,
+                readOperationForCompactionTracker
+        );
+
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, metastorageWorkDir.dbPath(), failureManager),
+                storage,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 systemDisasterRecoveryStorage,
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
-                msRaftConfigurer
+                msRaftConfigurer,
+                readOperationForCompactionTracker
         );
 
-        this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
+        cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -753,6 +764,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 replicationConfig
         );
+
+        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
@@ -886,8 +899,6 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService
         );
 
-        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
                 clusterSvc.messagingService(),
@@ -920,6 +931,8 @@ public class IgniteImpl implements Ignite {
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+
+        LockManager lockMgr = new HeapLockManager();
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -972,7 +985,6 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
-                clock,
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,
@@ -1048,6 +1060,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
+
+        systemViewManager.register(qryEngine);
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
@@ -1707,6 +1721,7 @@ public class IgniteImpl implements Ignite {
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(t -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
+                    // TODO: IGNITE-23292 Run local metastore compaction after start watches for the latest compacted revision
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
     }
@@ -1780,6 +1795,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClockService clockService() {
         return clockService;
+    }
+
+    @TestOnly
+    public ComponentWorkingDir metastorageWorkDir() {
+        return metastorageWorkDir;
     }
 
     /** Returns the node's transaction manager. */

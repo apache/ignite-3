@@ -125,10 +125,9 @@ public class SqlTestUtils {
      * @param expectedCode Expected error code of {@link SqlException}.
      * @param expectedMessage Expected error message of {@link SqlException}.
      * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SqlException}.
      */
-    public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
-        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    public static void assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
+        assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
     }
 
     /**

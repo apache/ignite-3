@@ -42,9 +42,9 @@ namespace Apache.Ignite.Internal.Proto
             var b = MemoryMarshal.Read<short>(span[4..]);
             var c = MemoryMarshal.Read<short>(span[6..]);
 
-            MemoryMarshal.Write(span[4..8], ref a);
-            MemoryMarshal.Write(span[2..4], ref b);
-            MemoryMarshal.Write(span[..2], ref c);
+            MemoryMarshal.Write(span[4..8], in a);
+            MemoryMarshal.Write(span[2..4], in b);
+            MemoryMarshal.Write(span[..2], in c);
 
             // Reverse second part order: defghijk -> kjihgfed.
             span[8..16].Reverse();

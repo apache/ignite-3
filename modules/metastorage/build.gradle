@@ -65,6 +65,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
@@ -74,6 +75,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-runner:'))
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')

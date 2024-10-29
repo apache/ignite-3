@@ -63,7 +63,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -177,10 +176,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         components.add(clockWaiter);
 
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(
-                new SimpleInMemoryKeyValueStorage(nodeName),
-                clock
-        );
+        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(nodeName, clock);
 
         components.add(metaStorageManager);
 
@@ -201,7 +197,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 tableStorage,
                 txStateTableStorage,
                 new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
-                clock,
+                clockService,
                 new HybridTimestampTracker(),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),

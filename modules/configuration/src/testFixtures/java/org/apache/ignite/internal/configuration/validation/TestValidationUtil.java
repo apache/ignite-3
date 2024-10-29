@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.configuration.validation;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,6 +29,7 @@ import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -113,10 +114,20 @@ public class TestValidationUtil {
             List<String> messages = argumentCaptor.getAllValues().stream()
                     .map(ValidationIssue::message).collect(Collectors.toList());
 
-            List<Matcher<? super String>> matchers = Arrays.stream(errorMessagePrefixes)
-                    .map(Matchers::startsWith).collect(Collectors.toList());
+            Matcher<String>[] matchers = Arrays.stream(errorMessagePrefixes)
+                    .map(Matchers::startsWith)
+                    .toArray(Matcher[]::new);
 
-            assertThat(messages, contains(matchers));
+            assertThat(messages, hasItems(matchers));
         }
+    }
+
+    /** Creates mock {@link NamedListView}. */
+    public static NamedListView<?> mockNamedListView(List<String> keys) {
+        NamedListView<?> namedListView = mock(NamedListView.class);
+
+        when(namedListView.namedListKeys()).thenReturn(keys);
+
+        return namedListView;
     }
 }

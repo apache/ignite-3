@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Peer;
@@ -68,7 +69,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @ExtendWith(ConfigurationExtension.class)
 abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMultipleNodesAbstractTest {
     @Override
-    abstract KeyValueStorage createStorage(String nodeName, Path path);
+    abstract KeyValueStorage createStorage(String nodeName, Path path, ReadOperationForCompactionTracker readOperationForCompactionTracker);
 
     /**
      * Tests that an incoming node gets registered as a Learner and receives Meta Storage updates.
@@ -78,6 +79,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         Node firstNode = startNode();
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
+
+        startMetastorageOn(List.of(firstNode));
 
         firstNode.waitWatches();
 
@@ -89,6 +92,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         assertThat(invokeFuture, willBe(true));
 
         Node secondNode = startNode();
+
+        startMetastorageOn(List.of(secondNode));
 
         secondNode.waitWatches();
 
@@ -141,6 +146,10 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -169,6 +178,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();
@@ -215,6 +226,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();
@@ -298,6 +311,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -344,6 +359,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
 
+        startMetastorageOn(List.of(firstNode, secondNode));
+
         firstNode.waitWatches();
         secondNode.waitWatches();
 
@@ -370,6 +387,8 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        startMetastorageOn(List.of(firstNode, secondNode));
 
         firstNode.waitWatches();
         secondNode.waitWatches();

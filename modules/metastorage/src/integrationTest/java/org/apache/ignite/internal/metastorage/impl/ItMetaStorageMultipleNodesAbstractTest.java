@@ -54,6 +54,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -102,8 +103,16 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
     private TestInfo testInfo;
 
-    KeyValueStorage createStorage(String nodeName, Path path) {
-        return new SimpleInMemoryKeyValueStorage(nodeName);
+    KeyValueStorage createStorage(String nodeName, Path path, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
+        return new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
+    }
+
+    void startMetastorageOn(List<Node> nodes) {
+        ComponentContext componentContext = new ComponentContext();
+
+        for (Node node : nodes) {
+            assertThat(node.metaStorageManager.startAsync(componentContext), willCompleteSuccessfully());
+        }
     }
 
     class Node {
@@ -204,17 +213,20 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             RaftGroupOptionsConfigurer msRaftConfigurator =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    createStorage(name(), metastorageWorkDir.dbPath()),
+                    createStorage(name(), metastorageWorkDir.dbPath(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurator,
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
@@ -230,8 +242,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     raftManager,
                     clusterStateStorage,
                     failureManager,
-                    cmgManager,
-                    metaStorageManager
+                    cmgManager
             );
 
             assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());

@@ -18,7 +18,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <IsPackable>false</IsPackable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <SignAssembly>true</SignAssembly>
@@ -34,7 +34,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
 
         <!-- Test-only dependency to use as a reference implementation. -->
-        <PackageReference Include="MessagePack" Version="2.5.172" />
+        <PackageReference Include="MessagePack" Version="2.5.187" />
     </ItemGroup>
 
     <ItemGroup>

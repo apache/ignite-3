@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -37,12 +36,6 @@ public interface ChangeMetaStorageInfoCommand extends WriteCommand {
     /**
      * Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
      * repair happened in the current cluster incarnation.
-     */
-    @Nullable UUID metastorageRepairClusterId();
-
-    /**
-     * ID that the cluster had when MG was repaired (if it was repaired for this cluster ID), or {@code null} if no MG repair
-     * happened in the current cluster incarnation.
      */
     @Nullable Long metastorageRepairingConfigIndex();
 }

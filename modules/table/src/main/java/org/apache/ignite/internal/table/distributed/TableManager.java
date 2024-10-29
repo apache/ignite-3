@@ -114,7 +114,6 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -346,8 +345,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final ExecutorService ioExecutor;
 
-    private final HybridClock clock;
-
     private final ClockService clockService;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
@@ -458,6 +455,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
+     * @param clockService hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param lowWatermark Low watermark.
@@ -485,7 +483,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             ScheduledExecutorService rebalanceScheduler,
-            HybridClock clock,
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             DistributionZoneManager distributionZoneManager,
@@ -513,7 +510,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
-        this.clock = clock;
         this.clockService = clockService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.distributionZoneManager = distributionZoneManager;
@@ -1560,7 +1556,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableStorage,
                 txStateStorage,
                 replicaSvc,
-                clock,
+                clockService,
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,

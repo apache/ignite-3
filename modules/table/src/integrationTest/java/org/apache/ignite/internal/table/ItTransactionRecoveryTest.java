@@ -98,7 +98,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -117,10 +116,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final int PART_ID = 0;
 
     @BeforeEach
-    @Override
-    public void setup(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
-
+    public void setup() throws Exception {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
@@ -239,6 +235,41 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(1, msgCount.get());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
+    }
+
+    @Test
+    public void testAbandonedTxWithCoarseLockIsAborted() throws Exception {
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+        view.upsert(null, Tuple.create().set("key", 42).set("val", "val1"));
+
+        // Start scan transaction.
+        InternalTransaction rwTx = (InternalTransaction) txCrdNode.transactions().begin();
+        scanSingleEntryAndLeaveCursorOpen(commitPartNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), rwTx);
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
+                10_000));
+
+        InternalTransaction conflictTx = (InternalTransaction) node(0).transactions().begin();
+        runConflictingTransaction(node(0), conflictTx);
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx.id()) == TxState.ABORTED, 10_000));
     }
 
     @Test
