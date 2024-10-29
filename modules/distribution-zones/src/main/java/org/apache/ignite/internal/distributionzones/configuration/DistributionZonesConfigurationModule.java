@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
-import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_SCALE_DOWN;
+import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 
 import com.google.auto.service.AutoService;
 import java.util.Set;
@@ -37,7 +37,7 @@ public class DistributionZonesConfigurationModule implements ConfigurationModule
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
-                new NonNegativeLongNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_SCALE_DOWN)
+                new NonNegativeLongNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_TIMEOUT)
         );
     }
 }

@@ -19,8 +19,6 @@ package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
@@ -30,21 +28,19 @@ import org.jetbrains.annotations.TestOnly;
 /** Configuration for zones high availability configurations. */
 public class DistributionZonesHighAvailabilityConfiguration {
     /**
-     * Internal property that determines scale down timeout after partition group majority loss.
+     * Internal property that determines partition group members reset timeout after the partition group majority loss.
      *
-     * <p>Default value is {@link #RESET_SCALE_DOWN_DEFAULT_VALUE}.</p>
+     * <p>Default value is {@link #RESET_TIMEOUT_DEFAULT_VALUE}.</p>
      */
-    public static final String PARTITION_DISTRIBUTION_RESET_SCALE_DOWN = "partitionDistributionResetScaleDown";
+    public static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
 
-    /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_SCALE_DOWN}. */
-    public static final long RESET_SCALE_DOWN_DEFAULT_VALUE = 0;
+    /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT}. */
+    public static final long RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
     private final SystemDistributedConfiguration systemDistributedConfig;
 
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
-    /** Guarded by {@link #rwLock}. */
-    private long partitionDistributionResetScaleDown;
+    /** Determines partition group reset timeout after a partition group majority loss. */
+    private volatile long partitionDistributionResetTimeout;
 
     /** Constructor. */
     DistributionZonesHighAvailabilityConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
@@ -68,25 +64,13 @@ public class DistributionZonesHighAvailabilityConfiguration {
         updateSystemProperties(systemDistributedConfig.value());
     }
 
-    /** Returns compaction start interval (in milliseconds). */
-    long partitionDistributionResetScaleDown() {
-        rwLock.readLock().lock();
-
-        try {
-            return partitionDistributionResetScaleDown;
-        } finally {
-            rwLock.readLock().unlock();
-        }
+    /** Returns partition group reset timeout after a partition group majority loss. */
+    long partitionDistributionResetTimeout() {
+        return partitionDistributionResetTimeout;
     }
 
     private void updateSystemProperties(SystemDistributedView view) {
-        rwLock.writeLock().lock();
-
-        try {
-            partitionDistributionResetScaleDown = longValue(view, PARTITION_DISTRIBUTION_RESET_SCALE_DOWN, RESET_SCALE_DOWN_DEFAULT_VALUE);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
+        partitionDistributionResetTimeout = longValue(view, PARTITION_DISTRIBUTION_RESET_TIMEOUT, RESET_TIMEOUT_DEFAULT_VALUE);
     }
 
     private static long longValue(SystemDistributedView systemDistributedView, String systemPropertyName, long defaultValue) {
