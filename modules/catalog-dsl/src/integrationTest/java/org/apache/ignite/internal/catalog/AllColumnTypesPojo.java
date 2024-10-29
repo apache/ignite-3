@@ -33,18 +33,18 @@ import org.apache.ignite.catalog.annotations.Table;
 public final class AllColumnTypesPojo {
     @Id
     String str;
-    Byte byte_col;
-    Short short_col;
-    Integer int_col;
-    Long long_col;
-    Float float_col;
-    Double double_col;
-    BigDecimal decimal_col;
-    Boolean bool_col;
-    byte[] bytes_col;
-    UUID uuid_col;
-    LocalDate date_col;
-    LocalTime time_col;
-    LocalDateTime datetime_col;
-    Instant instant_col;
+    Byte byteCol;
+    Short shortCol;
+    Integer intCol;
+    Long longCol;
+    Float floatCol;
+    Double doubleCol;
+    BigDecimal decimalCol;
+    Boolean boolCol;
+    byte[] bytesCol;
+    UUID uuidCol;
+    LocalDate dateCol;
+    LocalTime timeCol;
+    LocalDateTime datetimeCol;
+    Instant instantCol;
 }

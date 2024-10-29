@@ -187,9 +187,9 @@ class CreateFromAnnotationsTest {
         assertThat(
                 query.toString(),
                 is("CREATE TABLE IF NOT EXISTS PUBLIC.AllColumnsPojo ("
-                        + "str varchar, byte_col tinyint, short_col smallint, int_col int, long_col bigint, float_col real, "
-                        + "double_col double, decimal_col decimal, bool_col boolean, bytes_col varbinary, uuid_col uuid, "
-                        + "date_col date, time_col time, datetime_col timestamp, instant_col timestamp with local time zone, "
+                        + "str varchar, byteCol tinyint, shortCol smallint, intCol int, longCol bigint, floatCol real, "
+                        + "doubleCol double, decimalCol decimal, boolCol boolean, bytesCol varbinary, uuidCol uuid, "
+                        + "dateCol date, timeCol time, datetimeCol timestamp, instantCol timestamp with local time zone, "
                         + "PRIMARY KEY (str));")
         );
     }
@@ -288,20 +288,20 @@ class CreateFromAnnotationsTest {
     private static class AllColumnsPojo {
         @Id
         String str;
-        Byte byte_col;
-        Short short_col;
-        Integer int_col;
-        Long long_col;
-        Float float_col;
-        Double double_col;
-        BigDecimal decimal_col;
-        Boolean bool_col;
-        byte[] bytes_col;
-        UUID uuid_col;
-        LocalDate date_col;
-        LocalTime time_col;
-        LocalDateTime datetime_col;
-        Instant instant_col;
+        Byte byteCol;
+        Short shortCol;
+        Integer intCol;
+        Long longCol;
+        Float floatCol;
+        Double doubleCol;
+        BigDecimal decimalCol;
+        Boolean boolCol;
+        byte[] bytesCol;
+        UUID uuidCol;
+        LocalDate dateCol;
+        LocalTime timeCol;
+        LocalDateTime datetimeCol;
+        Instant instantCol;
     }
 
     private static class NoAnnotations {
