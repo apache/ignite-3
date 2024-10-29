@@ -18,9 +18,9 @@
 package org.apache.ignite.catalog;
 
 import java.math.BigDecimal;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -83,23 +83,23 @@ public class ColumnType<T> {
     }
 
     /** {@code TIME} SQL column type. */
-    public static final ColumnType<Time> TIME = new ColumnType<>(Time.class, "time");
+    public static final ColumnType<LocalTime> TIME = new ColumnType<>(LocalTime.class, "time");
 
     /** {@code TIME} with specified precision. */
-    public static ColumnType<Time> time(int precision) {
+    public static ColumnType<LocalTime> time(int precision) {
         return TIME.copy().precision(precision);
     }
 
     /** {@code TIMESTAMP} SQL column type. */
-    public static final ColumnType<Timestamp> TIMESTAMP = new ColumnType<>(Timestamp.class, "timestamp");
+    public static final ColumnType<LocalDateTime> TIMESTAMP = new ColumnType<>(LocalDateTime.class, "timestamp");
 
     /** {@code TIMESTAMP} with specified precision. */
-    public static ColumnType<Timestamp> timestamp(int precision) {
+    public static ColumnType<LocalDateTime> timestamp(int precision) {
         return TIMESTAMP.copy().precision(precision);
     }
 
     /** {@code DATE} SQL column type. */
-    public static final ColumnType<Date> DATE = new ColumnType<>(Date.class, "date");
+    public static final ColumnType<LocalDate> DATE = new ColumnType<>(LocalDate.class, "date");
 
     /** {@code DECIMAL} SQL column type. */
     public static final ColumnType<BigDecimal> DECIMAL = new ColumnType<>(BigDecimal.class, "decimal");
@@ -131,6 +131,8 @@ public class ColumnType<T> {
     private ColumnType(Class<T> type, String typeName) {
         this.type = type;
         this.typeName = typeName;
+
+        //noinspection ThisEscapedInObjectConstruction
         TYPES.putIfAbsent(type, this);
     }
 
