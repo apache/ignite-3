@@ -96,7 +96,7 @@ public final class MapperBuilder<T> {
      * @return {@code type} if it is a valid POJO.
      * @throws IllegalArgumentException If {@code type} cannot be used as POJO for mapping and/or is of invalid kind.
      */
-    public <O> Class<O> ensureValidPojo(Class<O> type) {
+    private static <O> Class<O> ensureValidPojo(Class<O> type) {
         if (Mapper.nativelySupported(type)) {
             throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
         } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
