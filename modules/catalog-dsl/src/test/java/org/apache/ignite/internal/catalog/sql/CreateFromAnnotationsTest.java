@@ -24,6 +24,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.UUID;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
@@ -175,6 +181,15 @@ class CreateFromAnnotationsTest {
         assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
+    @Test
+    void allColumnTypes() {
+        CreateFromAnnotationsImpl query = createTable().processRecordClass(AllColumnsPojo.class);
+        assertThat(
+                query.toString(),
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
+        );
+    }
+
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -263,6 +278,25 @@ class CreateFromAnnotationsTest {
     private static class PkSort {
         @Id(SortOrder.DESC)
         Integer id;
+    }
+
+    private static class AllColumnsPojo {
+        int id;
+        String str;
+        Byte byte_col;
+        Short short_col;
+        Integer int_col;
+        Long long_col;
+        Float float_col;
+        Double double_col;
+        BigDecimal decimal_col;
+        Boolean bool_col;
+        byte[] bytes_col;
+        UUID uuid_col;
+        LocalDate date_col;
+        LocalTime time_col;
+        LocalDateTime datetime_col;
+        Instant instant_col;
     }
 
     private static class NoAnnotations {
