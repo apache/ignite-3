@@ -118,7 +118,6 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -300,9 +299,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -1254,8 +1250,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metricManager,
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker,
-                    systemDistributedConfiguration
+                    readOperationForCompactionTracker
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
@@ -1403,6 +1398,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
+
+            HybridClockImpl clock = new HybridClockImpl();
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 

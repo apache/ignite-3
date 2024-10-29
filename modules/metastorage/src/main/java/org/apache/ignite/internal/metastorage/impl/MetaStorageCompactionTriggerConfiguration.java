@@ -25,7 +25,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /** Configuration for metastorage compaction triggering based on distributed system properties. */
 public class MetaStorageCompactionTriggerConfiguration {
@@ -61,13 +60,13 @@ public class MetaStorageCompactionTriggerConfiguration {
     /** Guarded by {@link #rwLock}. */
     private long dataAvailabilityTime;
 
+    /** Guarded by {@link #rwLock}. */
+    private boolean inited;
+
     /** Constructor. */
     MetaStorageCompactionTriggerConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
         this.systemDistributedConfig = systemDistributedConfig;
-    }
 
-    /** Starts component. */
-    void start() {
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue());
 
@@ -75,11 +74,8 @@ public class MetaStorageCompactionTriggerConfiguration {
         });
     }
 
-    /** Starts the component and initializes the configuration immediately. */
-    @TestOnly
-    void startAndInit() {
-        start();
-
+    /** Initializes the configuration from the distributed system configuration at component startup. */
+    void init() {
         updateSystemProperties(systemDistributedConfig.value());
     }
 
@@ -88,6 +84,8 @@ public class MetaStorageCompactionTriggerConfiguration {
         rwLock.readLock().lock();
 
         try {
+            assert inited : "Configuration has not yet been initialized from the distributed system configuration";
+
             return interval;
         } finally {
             rwLock.readLock().unlock();
@@ -99,6 +97,8 @@ public class MetaStorageCompactionTriggerConfiguration {
         rwLock.readLock().lock();
 
         try {
+            assert inited : "Configuration has not yet been initialized from the distributed system configuration";
+
             return dataAvailabilityTime;
         } finally {
             rwLock.readLock().unlock();
@@ -109,6 +109,8 @@ public class MetaStorageCompactionTriggerConfiguration {
         rwLock.writeLock().lock();
 
         try {
+            inited = true;
+
             interval = longValue(view, INTERVAL_SYSTEM_PROPERTY_NAME, INTERVAL_DEFAULT_VALUE);
             dataAvailabilityTime = longValue(view, DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME, DATA_AVAILABILITY_TIME_DEFAULT_VALUE);
         } finally {

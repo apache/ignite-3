@@ -116,9 +116,6 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
 
-    @InjectConfiguration
-    private static SystemDistributedConfiguration systemDistributedConfiguration;
-
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -250,8 +247,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker,
-                    systemDistributedConfiguration
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

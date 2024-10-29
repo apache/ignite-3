@@ -65,7 +65,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -145,9 +144,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -249,8 +245,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
                 msRaftConfigurer,
-                readOperationForCompactionTracker,
-                systemDistributedConfiguration
+                readOperationForCompactionTracker
         );
 
         placementDriverManager = new PlacementDriverManager(

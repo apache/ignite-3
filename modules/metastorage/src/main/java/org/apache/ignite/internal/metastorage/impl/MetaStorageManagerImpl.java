@@ -47,7 +47,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
@@ -65,6 +64,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -194,8 +194,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /** Tracks only reads from the leader, local reads are tracked by the storage itself. */
     private final ReadOperationForCompactionTracker readOperationFromLeaderForCompactionTracker;
 
-    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
-
     private final MetastorageDivergencyValidator divergencyValidator = new MetastorageDivergencyValidator();
 
     /**
@@ -240,16 +238,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.readOperationFromLeaderForCompactionTracker = readOperationForCompactionTracker;
 
         learnerManager = new MetaStorageLearnerManager(busyLock, logicalTopologyService, metaStorageSvcFut);
-
-        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
-                clusterService.nodeName(),
-                storage,
-                metaStorageSvcFut,
-                clusterTime,
-                readOperationForCompactionTracker
-        );
-
-        electionListeners.add(metaStorageCompactionTrigger::onLeaderElected);
     }
 
     /**
@@ -266,8 +254,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
             MetaStorageConfiguration configuration,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
                 clusterService,
@@ -280,8 +267,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 metricManager,
                 configuration,
                 raftGroupOptionsConfigurer,
-                new ReadOperationForCompactionTracker(),
-                systemDistributedConfiguration
+                new ReadOperationForCompactionTracker()
         );
     }
 
@@ -300,8 +286,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetricManager metricManager,
             MetaStorageConfiguration configuration,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
-            ReadOperationForCompactionTracker tracker,
-            SystemDistributedConfiguration systemDistributedConfig
+            ReadOperationForCompactionTracker tracker
     ) {
         this(
                 clusterService,
@@ -318,7 +303,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 tracker
         );
 
-        configure(configuration, systemDistributedConfig);
+        configure(configuration);
     }
 
     /** Adds new listener to notify with election events. */
@@ -694,20 +679,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     /**
-     * Sets configurations for the Meta Storage.
+     * Sets the Meta Storage configuration.
      *
      * <p>This method is needed to avoid the cyclic dependency between the Meta Storage and distributed configuration (built on top of the
      * Meta Storage).
      *
      * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
      */
-    public final void configure(
-            MetaStorageConfiguration metaStorageConfiguration,
-            SystemDistributedConfiguration systemDistributedConfig
-    ) {
+    public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
         this.metaStorageConfiguration = metaStorageConfiguration;
-
-        metaStorageCompactionTrigger.configure(systemDistributedConfig);
     }
 
     @Override
@@ -748,8 +728,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         metricManager.registerSource(metaStorageMetricSource);
         metricManager.enable(metaStorageMetricSource);
 
-        metaStorageCompactionTrigger.start();
-
         return nullCompletedFuture();
     }
 
@@ -787,7 +765,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             IgniteUtils.closeAllManually(
-                    metaStorageCompactionTrigger,
                     () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
                     () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
@@ -848,7 +825,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                             @Override
                             public void onCompactionRevisionUpdated(long compactionRevision) {
-                                metaStorageCompactionTrigger.onCompactionRevisionUpdate(compactionRevision);
+                                // TODO: IGNITE-23279 починить
+                                //metaStorageCompactionTrigger.onCompactionRevisionUpdate(compactionRevision);
                             }
                         });
                     }))
@@ -1331,5 +1309,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             this.metaStorageInfo = metaStorageInfo;
             this.clusterState = clusterState;
         }
+    }
+
+    /**
+     * Sends command {@link CompactionCommand} to the leader.
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     * @return Pending operation future.
+     */
+    CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
+        return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
     }
 }

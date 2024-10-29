@@ -42,7 +42,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -98,9 +97,6 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -223,8 +219,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
                     msRaftConfigurer,
-                    readOperationForCompactionTracker,
-                    systemDistributedConfiguration
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
