@@ -186,7 +186,11 @@ class CreateFromAnnotationsTest {
         CreateFromAnnotationsImpl query = createTable().processRecordClass(AllColumnsPojo.class);
         assertThat(
                 query.toString(),
-                is("CREATE TABLE IF NOT EXISTS PUBLIC.PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.AllColumnsPojo ("
+                        + "str varchar, byte_col tinyint, short_col smallint, int_col int, long_col bigint, float_col real, "
+                        + "double_col double, decimal_col decimal, bool_col boolean, bytes_col varbinary, uuid_col uuid, "
+                        + "date_col date, time_col time, datetime_col timestamp, instant_col timestamp with local time zone, "
+                        + "PRIMARY KEY (str));")
         );
     }
 

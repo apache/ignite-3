@@ -18,6 +18,7 @@
 package org.apache.ignite.catalog;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -111,6 +112,10 @@ public class ColumnType<T> {
 
     /** {@code UUID} SQL column type. */
     public static final ColumnType<UUID> UUID = new ColumnType<>(UUID.class, "uuid");
+
+    /** {@code TIMESTAMP WITH LOCAL TIME ZONE} SQL column type. */
+    public static final ColumnType<Instant> TIMESTAMP_WITH_LOCAL_TIME_ZONE = new ColumnType<>(
+            Instant.class, "timestamp with local time zone");
 
     private final Class<T> type;
 
