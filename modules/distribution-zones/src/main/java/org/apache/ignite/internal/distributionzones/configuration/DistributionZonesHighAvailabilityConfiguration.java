@@ -30,12 +30,12 @@ public class DistributionZonesHighAvailabilityConfiguration {
     /**
      * Internal property that determines partition group members reset timeout after the partition group majority loss.
      *
-     * <p>Default value is {@link #RESET_TIMEOUT_DEFAULT_VALUE}.</p>
+     * <p>Default value is {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE}.</p>
      */
-    public static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
+    static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
 
     /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT}. */
-    public static final long RESET_TIMEOUT_DEFAULT_VALUE = 0;
+    private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
     private final SystemDistributedConfiguration systemDistributedConfig;
 
@@ -70,7 +70,11 @@ public class DistributionZonesHighAvailabilityConfiguration {
     }
 
     private void updateSystemProperties(SystemDistributedView view) {
-        partitionDistributionResetTimeout = longValue(view, PARTITION_DISTRIBUTION_RESET_TIMEOUT, RESET_TIMEOUT_DEFAULT_VALUE);
+        partitionDistributionResetTimeout = longValue(
+                view,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE
+        );
     }
 
     private static long longValue(SystemDistributedView systemDistributedView, String systemPropertyName, long defaultValue) {
