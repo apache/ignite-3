@@ -162,6 +162,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
+import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -386,6 +387,9 @@ public class IgniteImpl implements Ignite {
 
     /** Metric manager. */
     private final MetricManager metricManager;
+
+    /** Metric messaging. */
+    private final MetricMessaging metricMessaging;
 
     private final IgniteDeployment deploymentManager;
 
@@ -1118,6 +1122,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor()
         );
 
+        metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
+
         restComponent = createRestComponent(name);
 
         publicTables = new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
@@ -1181,7 +1187,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
-        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
@@ -1195,7 +1201,7 @@ public class IgniteImpl implements Ignite {
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
-                        nodeMetricRestFactory,
+                        metricRestFactory,
                         deploymentCodeRestFactory,
                         authProviderFactory,
                         restManagerFactory,
@@ -1346,6 +1352,7 @@ public class IgniteImpl implements Ignite {
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,
+                                metricMessaging,
                                 distributionZoneManager,
                                 computeComponent,
                                 volatileLogStorageFactoryCreator,
