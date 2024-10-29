@@ -443,10 +443,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_TIME TIME, "
                 + "VAL_TIMESTAMP TIMESTAMP, "
                 + "VAL_UUID UUID, "
-                + "VAL_BYTES BINARY, "
-                + "VAL_PERIOD PERIOD, "
-                + "VAL_DURATION DURATION"
-                + ")";
+                + "VAL_BYTES BINARY)";
 
         sql.execute(null, createTable);
 
