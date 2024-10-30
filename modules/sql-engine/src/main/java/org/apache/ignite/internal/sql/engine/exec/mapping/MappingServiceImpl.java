@@ -39,6 +39,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
@@ -62,8 +63,8 @@ import org.apache.ignite.sql.SqlException;
 /**
  * An implementation of {@link MappingService}.
  *
- * <p>This particular implementation keeps track of changes in logical cluster topology.
- * Always uses latest topology snapshot to map query.
+ * <p>This particular implementation keeps track of changes according to {@link PlacementDriver} assignments.
+ * Use distribution information to map a query.
  */
 public class MappingServiceImpl implements MappingService {
     private final String localNodeName;
