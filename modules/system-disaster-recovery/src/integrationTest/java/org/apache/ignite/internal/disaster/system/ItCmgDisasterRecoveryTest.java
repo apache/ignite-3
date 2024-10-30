@@ -145,7 +145,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    void nodesThatSawNoReparationHaveSeparatePhysicalTopologies() throws Exception {
+    void nodesThatSawNoRepairHaveSeparatePhysicalTopologies() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
@@ -167,7 +167,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    void migratesNodesThatSawNoReparationToNewCluster() throws Exception {
+    void migratesNodesThatSawNoRepairToNewCluster() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
@@ -178,7 +178,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
+    void migratesManyNodesThatSawNoRepairToNewCluster() throws Exception {
         startAndInitCluster(5, new int[]{0, 1, 2}, new int[]{2, 3, 4});
         waitTillClusterStateIsSavedToVaultOnConductor(2);
 
