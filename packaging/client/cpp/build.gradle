@@ -116,9 +116,7 @@ def createChecksums = tasks.register('createChecksums', Checksum) {
         project.hasProperty('platforms.enable')
     }
 
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

@@ -157,9 +157,7 @@ task zipCppClient(type: Zip) {
 }
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
-    dependsOn zipCppClient, zipNuGet
-
-    inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
+    inputFiles.from zipCppClient, zipNuGet
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
