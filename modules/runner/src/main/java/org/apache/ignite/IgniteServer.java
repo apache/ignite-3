@@ -17,6 +17,8 @@
 
 package org.apache.ignite;
 
+import static org.apache.ignite.internal.util.ViewUtils.sync;
+
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.app.IgniteServerImpl;
@@ -68,7 +70,10 @@ public interface IgniteServer {
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
         IgniteServerImpl embeddedNode = new IgniteServerImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
-        return embeddedNode.startAsync().thenApply(unused -> embeddedNode);
+        return embeddedNode.startAsync().thenApply(unused -> {
+            embeddedNode.waitForInitAsync();
+            return embeddedNode;
+        });
     }
 
     /**
@@ -105,9 +110,7 @@ public interface IgniteServer {
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
-        IgniteServerImpl embeddedNode = new IgniteServerImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
-        embeddedNode.start();
-        return embeddedNode;
+        return sync(startAsync(nodeName, configPath, workDir, serviceLoaderClassLoader));
     }
 
     /**
