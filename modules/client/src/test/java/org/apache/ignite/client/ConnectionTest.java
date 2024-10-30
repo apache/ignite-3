@@ -96,6 +96,7 @@ public class ConnectionTest extends AbstractClientTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() {
+        // Delay should be more than TimeoutWorker#sleepInterval.
         Function<Integer, Integer> responseDelay = x -> 1000;
 
         try (var srv = new TestServer(3000, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
