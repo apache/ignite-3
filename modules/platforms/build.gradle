@@ -91,24 +91,26 @@ cmake {
 }
 
 def cmakeConfigureClient = tasks.register('cmakeConfigureClient', CMakeConfigureTask) {
+    dependsOn copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().ENABLE_CLIENT = 'ON'
     getDef().ENABLE_ODBC = 'OFF'
 }
 
 def cmakeBuildClient = tasks.register('cmakeBuildClient', CMakeBuildTask) {
-    dependsOn cmakeConfigureClient, copyPlatformsHeaders
+    dependsOn cmakeConfigureClient
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
 def cmakeConfigureOdbc = tasks.register('cmakeConfigureOdbc', CMakeConfigureTask) {
+    dependsOn copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().ENABLE_CLIENT = 'OFF'
     getDef().ENABLE_ODBC = 'ON'
 }
 
 def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
-    dependsOn cmakeConfigureOdbc, copyPlatformsHeaders
+    dependsOn cmakeConfigureOdbc
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
