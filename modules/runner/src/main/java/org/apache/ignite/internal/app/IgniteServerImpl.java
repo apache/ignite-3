@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.lang.System.lineSeparator;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
@@ -302,14 +303,19 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public CompletableFuture<Void> shutdownAsync() {
-        shutDown = true;
-
         // We don't use attachmentLock here so that users see NodeStoppingException immediately (instead of pausing their operations
         // forever which would happen if the lock was used).
 
         CompletableFuture<Void> result;
 
         synchronized (restartOrShutdownMutex) {
+            if (shutDown) {
+                // Someone has already invoked shutdown, so #restartOrShutdownFuture is about shutdown, let's simply return it.
+                return requireNonNull(restartOrShutdownFuture);
+            }
+
+            shutDown = true;
+
             result = chainRestartOrShutdownAction(this::doShutdownAsync);
         }
 
