@@ -120,6 +120,14 @@ public class IgniteServerImpl implements IgniteServer {
     private CompletableFuture<Void> restartOrShutdownFuture;
 
     /**
+     * Future of the last internal restart future ({@code null} if no internal restarts where made).
+     *
+     * <p>Guarded by {@link #restartOrShutdownMutex}.
+     */
+    @Nullable
+    private CompletableFuture<Void> restartFuture;
+
+    /**
      * Gets set to {@code true} when the node shutdown is initiated. This disallows restarts.
      */
     private volatile boolean shutDown;
@@ -256,6 +264,8 @@ public class IgniteServerImpl implements IgniteServer {
             }
 
             result = chainRestartOrShutdownAction(() -> doRestartAsync(instance));
+
+            restartFuture = result;
         }
 
         return result;
@@ -266,10 +276,11 @@ public class IgniteServerImpl implements IgniteServer {
      */
     private CompletableFuture<Void> chainRestartOrShutdownAction(Supplier<CompletableFuture<Void>> action) {
         CompletableFuture<Void> result = (restartOrShutdownFuture == null ? nullCompletedFuture() : restartOrShutdownFuture)
+                // Suppress exceptions to make sure previous errors will not affect this step.
+                .handle((res, ex) -> null)
                 .thenCompose(unused -> action.get());
 
-        // Suppress exceptions to make sure following futures can be executed.
-        restartOrShutdownFuture = result.handle((res, ex) -> null);
+        restartOrShutdownFuture = result;
 
         return result;
     }
@@ -278,6 +289,7 @@ public class IgniteServerImpl implements IgniteServer {
         // TODO: IGNITE-23006 - limit the wait to acquire the write lock with a timeout.
         return attachmentLock.detachedAsync(() -> {
             synchronized (igniteChangeMutex) {
+                LOG.info("Setting Ignite ref to null as restart is initiated [name={}]", nodeName);
                 this.ignite = null;
             }
             this.joinFuture = null;
@@ -324,6 +336,7 @@ public class IgniteServerImpl implements IgniteServer {
             try {
                 return instance.stopAsync().thenRun(() -> {
                     synchronized (igniteChangeMutex) {
+                        LOG.info("Setting Ignite ref to null as shutdown is initiated [name={}]", nodeName);
                         ignite = null;
                     }
                     joinFuture = null;
@@ -378,9 +391,13 @@ public class IgniteServerImpl implements IgniteServer {
 
             synchronized (igniteChangeMutex) {
                 if (shutDown) {
+                    LOG.info("A new Ignite instance has started, but a shutdown is requested, so not setting it, stopping it instead "
+                            + "[name={}]", nodeName);
+
                     return instance.stopAsync();
                 }
 
+                LOG.info("Setting Ignite ref to new instance as it has started [name={}]", nodeName);
                 ignite = instance;
             }
 
@@ -465,12 +482,12 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     /**
-     * Returns future that gets completed when restart or shutdown is complete.
+     * Returns future that gets completed when restart is complete ({@code null} if no restart was attempted.
      */
     @TestOnly
-    public @Nullable CompletableFuture<Void> restartOrShutdownFuture() {
+    public @Nullable CompletableFuture<Void> restartFuture() {
         synchronized (restartOrShutdownMutex) {
-            return restartOrShutdownFuture;
+            return restartFuture;
         }
     }
 }

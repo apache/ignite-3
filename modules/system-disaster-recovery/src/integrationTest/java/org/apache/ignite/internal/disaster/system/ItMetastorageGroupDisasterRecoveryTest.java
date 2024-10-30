@@ -224,7 +224,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         ((MetaStorageManagerImpl) restartedIgniteImpl0.metaStorageManager()).disableLearnersAddition();
 
         initiateMigration(1, 0);
-        CompletableFuture<Void> ignite1RestartFuture = waitForRestartOrShutdownFuture(1);
+        CompletableFuture<Void> ignite1RestartFuture = waitForRestartFuture(1);
 
         // It should not be able to start: it should abstain from becoming a leader and node 1 (the new leader) does not add it as
         // a learner.
@@ -333,7 +333,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // Starting the node that did not see the repair.
         initiateMigration(1, 0);
 
-        assertThat(waitForRestartOrShutdownFuture(1), willCompleteSuccessfully());
+        assertThat(waitForRestartFuture(1), willCompleteSuccessfully());
 
         // Attempt to migrate should fail.
         assertThrowsWithCause(() -> cluster.server(1).api(), MetastorageDivergedException.class, "Metastorage has diverged");
