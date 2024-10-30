@@ -308,7 +308,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .loggerFactory(logger)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1));
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0));
 
         client2 = builder.build();
         RecordView<Tuple> view = defaultTableView(ignite2, client2);

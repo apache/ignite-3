@@ -101,7 +101,7 @@ public class ConnectionTest extends AbstractClientTest {
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(50);
 
             assertThrowsWithCause(builder::build, TimeoutException.class);
@@ -117,7 +117,7 @@ public class ConnectionTest extends AbstractClientTest {
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .operationTimeout(30);
 
             try (IgniteClient client = builder.build()) {
@@ -141,7 +141,7 @@ public class ConnectionTest extends AbstractClientTest {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(500);
 
             assertThrowsWithCause(
@@ -169,7 +169,7 @@ public class ConnectionTest extends AbstractClientTest {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(30_000);
 
             CountDownLatch syncLatch = new CountDownLatch(1);
