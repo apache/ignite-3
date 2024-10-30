@@ -16,7 +16,7 @@
  */
 
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.lang;
 
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -29,12 +29,13 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.lang.CancelHandle;
-import org.apache.ignite.lang.CancelHandleImpl;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;

@@ -17,70 +17,57 @@
 
 package org.apache.ignite.lang;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Implementation of {@link CancelHandle}. */
-public final class CancelHandleImpl implements CancelHandle {
+final class CancelHandleImpl implements CancelHandle {
 
-    private final ConcurrentLinkedQueue<CancellationTokenImpl> tokens = new ConcurrentLinkedQueue<>();
+    private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
 
-    private final AtomicBoolean cancelled = new AtomicBoolean();
+    private final CancellationTokenImpl token;
+
+    CancelHandleImpl() {
+        this.token = new CancellationTokenImpl(this);
+    }
 
     /** {@inheritDoc} */
     @Override
     public void cancel() {
-        if (!cancelled.compareAndSet(false, true)) {
-            return;
-        }
-        doCancelSync();
+        doCancelAsync();
+
+        cancelFut.join();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> cancelAsync() {
-        if (!cancelled.compareAndSet(false, true)) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return doCancelAsync();
+        doCancelAsync();
+
+        return cancelFut;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isCancelled() {
-        return cancelled.get();
+        return cancelFut.isDone();
     }
 
     /** {@inheritDoc} */
     @Override
     public CancellationToken token() {
-        CancellationTokenImpl token = new CancellationTokenImpl(this);
-        tokens.add(token);
         return token;
     }
 
-    private void doCancelSync() {
-        for (CancellationTokenImpl token : tokens) {
-            try {
-                token.cancel().join();
-            } catch (Throwable ignore) {
-                // ignore
+    private void doCancelAsync() {
+        token.cancel().whenComplete((r, t) -> {
+            if (t != null) {
+                cancelFut.completeExceptionally(t);
+            } else {
+                cancelFut.complete(null);
             }
-        }
-    }
-
-    @SuppressWarnings("rawtypes")
-    private CompletableFuture<Void> doCancelAsync() {
-        List<CompletableFuture<Void>> tasks = new ArrayList<>();
-        for (CancellationTokenImpl token : tokens) {
-            tasks.add(token.cancel());
-        }
-        CompletableFuture[] futures = tasks.toArray(new CompletableFuture[]{});
-        return CompletableFuture.allOf(futures);
+        });
     }
 
     static final class CancellationTokenImpl implements CancellationToken {
