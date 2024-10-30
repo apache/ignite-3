@@ -26,11 +26,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -325,19 +322,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             assert params == null || params.length == 0 : "params are not supported";
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
-            QueryPlan plan = node.prepare(qry);
-            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
-
-            SqlQueryType type = plan.type();
-
-            assert type != null;
-
-            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
-                    type,
-                    plan.metadata(),
-                    dataCursor,
-                    null
-            );
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = node.executeQuery(qry);
 
             return CompletableFuture.completedFuture(sqlCursor);
         }

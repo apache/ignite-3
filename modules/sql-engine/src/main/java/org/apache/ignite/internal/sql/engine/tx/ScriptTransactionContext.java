@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * Starts an implicit or script-driven transaction if there is no external transaction.
  */
 public class ScriptTransactionContext implements QueryTransactionContext {
-    private final QueryTransactionContextImpl txContext;
+    private final QueryTransactionContext txContext;
 
     private final TransactionTracker txTracker;
 
@@ -47,9 +47,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Constructor. */
     public ScriptTransactionContext(QueryTransactionContext txContext, TransactionTracker txTracker) {
-        assert txContext instanceof QueryTransactionContextImpl : txContext;
-
-        this.txContext = (QueryTransactionContextImpl) txContext;
+        this.txContext = txContext;
         this.txTracker = txTracker;
     }
 

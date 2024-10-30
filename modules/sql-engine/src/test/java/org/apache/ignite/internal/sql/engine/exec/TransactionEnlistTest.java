@@ -25,10 +25,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -141,19 +139,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             assert params == null || params.length == 0 : "params are not supported";
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
-            QueryPlan plan = node.prepare(qry);
-            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan, transaction);
-
-            SqlQueryType type = plan.type();
-
-            assert type != null;
-
-            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
-                    type,
-                    plan.metadata(),
-                    dataCursor,
-                    null
-            );
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = node.executeQuery(transaction, qry);
 
             return CompletableFuture.completedFuture(sqlCursor);
         }

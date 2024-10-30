@@ -25,7 +25,6 @@ import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -75,14 +74,10 @@ public class SqlBenchmark {
 
     private final TestNode gatewayNode = cluster.node("N1");
 
-    private QueryPlan plan;
-
     /** Starts the cluster and prepares the plan of the query. */
     @Setup
     public void setUp() {
         cluster.start();
-
-        plan = gatewayNode.prepare("SELECT * FROM t1");
     }
 
     /** Stops the cluster. */
@@ -94,7 +89,7 @@ public class SqlBenchmark {
     /** Very simple test to measure performance of minimal possible distributed query. */
     @Benchmark
     public void selectAllSimple(Blackhole bh) {
-        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery("SELECT * FROM t1").requestNextAsync(10_000)).items()) {
             bh.consume(row);
         }
     }

@@ -733,6 +733,7 @@ public class TestBuilders {
 
                         return new TestNode(
                                 name,
+                                catalogManager,
                                 clusterService.forNode(name),
                                 parserService,
                                 prepareService,
