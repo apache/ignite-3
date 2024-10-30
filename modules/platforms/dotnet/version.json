@@ -6,6 +6,7 @@
         "^refs/heads/\\d+.*$"
     ],
     "cloudBuild": {
+        "setVersionVariables": false,
         "buildNumber": {
             "enabled": false
         }
