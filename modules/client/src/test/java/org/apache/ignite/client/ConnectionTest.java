@@ -96,9 +96,9 @@ public class ConnectionTest extends AbstractClientTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() {
-        Function<Integer, Integer> responseDelay = x -> 500;
+        Function<Integer, Integer> responseDelay = x -> 1000;
 
-        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
+        try (var srv = new TestServer(3000, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(0))
