@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -333,7 +334,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // Starting the node that did not see the repair.
         initiateMigration(1, 0);
 
-        assertThat(waitForRestartFuture(1), willCompleteSuccessfully());
+        assertThat(waitForRestartFuture(1), willThrowWithCauseOrSuppressed(MetastorageDivergedException.class, "Metastorage has diverged"));
 
         // Attempt to migrate should fail.
         assertThrowsWithCause(() -> cluster.server(1).api(), MetastorageDivergedException.class, "Metastorage has diverged");
