@@ -286,7 +286,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, HybridTimestamp)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -2190,10 +2190,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             localServicesStartFuture = localPartitionsVv.get(revision)
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
                     .thenComposeAsync(
-                            partitionSet -> inBusyLock(
+                            unused -> inBusyLock(
                                     busyLock,
                                     () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                            .thenRun(() -> localPartsByTableId.put(replicaGrpId.tableId(), singlePartitionIdSet))
+                                            .thenRun(() -> localPartsByTableId.compute(
+                                                    replicaGrpId.tableId(),
+                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
+                                            ))
                             ),
                             ioExecutor
                     )
@@ -2255,6 +2258,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
+        PartitionSet newPartitionSet = Objects.requireNonNullElseGet(oldPartitionSet, BitSetPartitionSet::new);
+        newPartitionSet.set(partitionId);
+        return newPartitionSet;
     }
 
     private boolean isNodeInReducedStableOrPendingAssignments(

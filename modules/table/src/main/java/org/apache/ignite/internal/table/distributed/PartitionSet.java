@@ -48,7 +48,7 @@ public interface PartitionSet {
 
         @Override
         public PartitionSet copy() {
-            return this;
+            return new BitSetPartitionSet();
         }
 
         @Override
