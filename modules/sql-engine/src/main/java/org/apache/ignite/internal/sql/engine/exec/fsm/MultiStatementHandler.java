@@ -109,8 +109,6 @@ class MultiStatementHandler {
 
         assert scriptStatement != null;
 
-        System.out.println("DEBUG>>>> stated " + scriptStatement.parsedResult.originalQuery());
-
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = scriptStatement.cursorFuture;
 
         try {
