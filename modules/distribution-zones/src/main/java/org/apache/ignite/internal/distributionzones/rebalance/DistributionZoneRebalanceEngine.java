@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Zone rebalance manager.
@@ -88,6 +89,11 @@ public class DistributionZoneRebalanceEngine {
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
     public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+
+    /** Special flag to skip rebalance on node recovery for tests. */
+    // TODO: IGNITE-23466 Remove it
+    @TestOnly
+    public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
     /**
      * Constructor.
@@ -138,6 +144,10 @@ public class DistributionZoneRebalanceEngine {
             assert recoveryFinishFuture.isDone();
 
             long recoveryRevision = recoveryFinishFuture.join();
+
+            if (getBoolean(SKIP_REBALANCE_TRIGGERS_RECOVERY, false)) {
+                return nullCompletedFuture();
+            }
 
             if (ENABLED) {
                 return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)

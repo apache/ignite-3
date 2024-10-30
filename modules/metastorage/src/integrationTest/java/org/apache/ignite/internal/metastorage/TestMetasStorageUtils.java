@@ -17,18 +17,39 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.jetbrains.annotations.Nullable;
 
 /** Helper class for use in integration tests that may contain useful methods and constants. */
 public class TestMetasStorageUtils {
     /** Special value representing any random timestamp. */
     public static final HybridTimestamp ANY_TIMESTAMP = new HybridTimestamp(1L, 0);
+
+    /** Foo key. */
+    public static final ByteArray FOO_KEY = ByteArray.fromString("foo_key");
+
+    /** Bar key. */
+    public static final ByteArray BAR_KEY = ByteArray.fromString("bar_key");
+
+    /** Random value. */
+    public static final byte[] VALUE = ByteArray.fromString("value").bytes();
 
     /** Checks the metastore entry. */
     public static void checkEntry(Entry actEntry, byte[] expKey, byte @Nullable [] expValue, long expRevision) {
@@ -54,5 +75,51 @@ public class TestMetasStorageUtils {
         }
 
         return Arrays.equals(act.value(), exp.value());
+    }
+
+    /** Creates a cluster configuration with metastorage compaction properties. */
+    public static String createClusterConfigWithCompactionProperties(String interval, String dataAvailabilityTime) {
+        return String.format(
+                "ignite.system.properties: {"
+                        + "%s.propertyValue= \"%s\", "
+                        + "%s.propertyValue= \"%s\""
+                        + "}",
+                INTERVAL_SYSTEM_PROPERTY_NAME, interval, DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME, dataAvailabilityTime
+        );
+    }
+
+    /** Returns the latest revision for the key from the leader. */
+    public static long latestKeyRevision(MetaStorageManager metaStorageManager, ByteArray key) {
+        CompletableFuture<Entry> latestEntryFuture = metaStorageManager.get(key);
+        assertThat(latestEntryFuture.thenApply(Entry::empty), willBe(false));
+
+        return latestEntryFuture.join().revision();
+    }
+
+    /** Returns {@code true} if the metastorage key has only one revision in the cluster. */
+    public static boolean allNodesContainsSingleRevisionForKeyLocally(Cluster cluster, ByteArray key, long revision) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .map(IgniteImpl::metaStorageManager)
+                .map(metaStorageManager -> collectRevisionsLocally(metaStorageManager, key))
+                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
+    }
+
+    private static Set<Long> collectRevisionsLocally(MetaStorageManager metaStorageManager, ByteArray key) {
+        var res = new HashSet<Long>();
+
+        for (int i = 0; i <= metaStorageManager.appliedRevision(); i++) {
+            try {
+                Entry entry = metaStorageManager.getLocally(key, i);
+
+                if (!entry.empty()) {
+                    res.add(entry.revision());
+                }
+            } catch (CompactedException ignore) {
+                // Do nothing.
+            }
+        }
+
+        return res;
     }
 }
