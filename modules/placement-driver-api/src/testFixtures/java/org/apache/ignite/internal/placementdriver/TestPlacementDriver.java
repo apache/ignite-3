@@ -114,5 +114,19 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
+
+        TestReplicaMetaImpl replicaMeta = (TestReplicaMetaImpl) primaryReplicaSupplier.get();
+
+        fireEvent(
+                PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
+                new PrimaryReplicaEventParameters(
+                        0,
+                        replicaMeta.getReplicationGroupId(),
+                        replicaMeta.getLeaseholderId(),
+                        replicaMeta.getLeaseholder(),
+                        replicaMeta.getStartTime()
+                )
+        );
+
     }
 }

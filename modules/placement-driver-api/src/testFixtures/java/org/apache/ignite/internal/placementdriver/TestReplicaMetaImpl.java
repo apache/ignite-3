@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -44,6 +45,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     /** Timestamp to expiration the lease. */
     private final HybridTimestamp expirationTime;
 
+    /** Group ID of a primary replica. */
+    private final ReplicationGroupId replicationGroupId;
+
     /**
      * Creates a new primary meta with unbounded period.
      *
@@ -63,7 +67,17 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
      */
     public TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable UUID leaseholderId) {
-        this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE);
+        this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE, null /** TODO */);
+    }
+
+    /**
+     * Creates a new primary meta with unbounded period.
+     *
+     * @param leaseholder Lease holder consistent ID, {@code null} if nothing holds the lease.
+     * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
+     */
+    public TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable UUID leaseholderId, ReplicationGroupId replicationGroupId) {
+        this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE, replicationGroupId);
     }
 
     /**
@@ -81,7 +95,8 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
                 leaseholder == null ? null : leaseholder.name(),
                 leaseholder == null ? null : leaseholder.id(),
                 startTime,
-                expirationTime
+                expirationTime,
+                null // TODO
         );
     }
 
@@ -97,7 +112,8 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
             @Nullable String leaseholder,
             @Nullable UUID leaseholderId,
             HybridTimestamp startTime,
-            HybridTimestamp expirationTime
+            HybridTimestamp expirationTime,
+            ReplicationGroupId replicationGroupId
     ) {
         assertEquals(
                 leaseholder == null,
@@ -109,6 +125,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
         this.leaseholderId = leaseholderId;
         this.startTime = startTime;
         this.expirationTime = expirationTime;
+        this.replicationGroupId = replicationGroupId;
     }
 
     @Override
@@ -129,5 +146,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     @Override
     public HybridTimestamp getExpirationTime() {
         return expirationTime;
+    }
+
+    public ReplicationGroupId getReplicationGroupId() {
+        return replicationGroupId;
     }
 }
