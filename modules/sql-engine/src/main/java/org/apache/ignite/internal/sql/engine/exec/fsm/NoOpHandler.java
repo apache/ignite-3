@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 /** No-op handler that causes fsm to stop after current phase. */
-class StopHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new StopHandler();
+class NoOpHandler implements ExecutionPhaseHandler {
+    static final ExecutionPhaseHandler INSTANCE = new NoOpHandler();
 
-    private StopHandler() { }
+    private NoOpHandler() { }
 
     @Override
     public Result handle(Query query) {
-        return Result.stop();
+        return Result.completed();
     }
 }

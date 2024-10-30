@@ -166,13 +166,12 @@ public class QueryExecutor implements LifecycleAware {
             query.cancel.setTimeout(scheduler, queryTimeout);
         }
 
-        // next state after CURSOR_INITIALIZATION. Cursor must be ready at this point.
-        CompletableFuture<Void> trigger = query.onPhaseStarted(ExecutionPhase.EXECUTING);
-
-        query.run();
-
-        return trigger
-                .thenApply(ignored -> query.cursor);
+        return Programs.QUERY_EXECUTION.run(query)
+                .whenComplete((cursor, ex) -> {
+                    if (cursor != null && query.parsedScript == null) {
+                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                    }
+                });
     }
 
     CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeChildQuery(
@@ -210,16 +209,12 @@ public class QueryExecutor implements LifecycleAware {
             return CompletableFuture.failedFuture(ex);
         }
 
-        // next state after CURSOR_INITIALIZATION. Cursor must be ready at this point.
-        CompletableFuture<Void> trigger = query.onPhaseStarted(ExecutionPhase.EXECUTING);
-
-        // Child query already has parsed AST, therefore it's safe to transfer it directly to OPTIMIZATION phase.
-        query.moveTo(ExecutionPhase.OPTIMIZING);
-
-        query.run();
-
-        return trigger
-                .thenApply(ignored -> query.cursor);
+        return Programs.SCRIPT_ITEM_EXECUTION.run(query)
+                .whenComplete((cursor, ex) -> {
+                    if (cursor != null) {
+                        cursor.onClose().thenRun(() -> query.moveTo(ExecutionPhase.TERMINATED));
+                    }
+                });
     }
 
     /** Looks up parsed result in cache by given query string. */

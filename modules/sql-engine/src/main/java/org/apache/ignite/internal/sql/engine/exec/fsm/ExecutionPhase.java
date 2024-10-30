@@ -51,9 +51,9 @@ public enum ExecutionPhase {
      * All preparations have been done, distributed cursor is ready. Fetching data for cursor is not managed by fsm, therefore processing is
      * temporary stopped.
      */
-    EXECUTING(StopHandler.INSTANCE),
+    EXECUTING(NoOpHandler.INSTANCE),
     /** Query is terminated (either successfully or due to error), and being deregister soon. This is terminal phase. */
-    TERMINATED(StopHandler.INSTANCE);
+    TERMINATED(NoOpHandler.INSTANCE);
 
     private final ExecutionPhaseHandler handler;
 
@@ -64,10 +64,5 @@ public enum ExecutionPhase {
     /** Evaluates current phase of query execution. */
     Result evaluate(Query query) {
         return handler.handle(query);
-    }
-
-    /** Returns {@code true} if transition is allowed from current phase to given one, return {@code false} otherwise. */
-    boolean transitionAllowed(ExecutionPhase newPhase) {
-        return ordinal() < newPhase.ordinal();
     }
 }

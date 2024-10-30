@@ -84,8 +84,6 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                             }
 
                             query.plan = plan;
-
-                            query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
                         }));
 
         return Result.proceedAfter(awaitFuture);
