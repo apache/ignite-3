@@ -28,6 +28,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -561,5 +563,16 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
         return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
+    }
+
+    @Test
+    public void creatingTableOnZoneReferencingNonExistingProfile() {
+        String tableName = "test_table";
+
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='no-such-profile'");
+        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
+
+        Table table = CLUSTER.aliveNode().tables().table(tableName);
+        assertThat(table, is(notNullValue()));
     }
 }
