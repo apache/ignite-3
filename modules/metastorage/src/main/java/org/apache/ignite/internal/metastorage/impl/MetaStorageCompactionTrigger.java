@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -140,6 +141,8 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             lock.lock();
 
             try {
+                startCompactionOnRecoveryAsync();
+
                 started = true;
 
                 config.init();
@@ -317,6 +320,35 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             this.lastScheduledFuture = null;
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void startCompactionOnRecoveryAsync() {
+        assert metaStorageManager.recoveryFinishedFuture().isDone();
+
+        long latestCompactionRevisionLocally = metaStorageManager.getCompactionRevisionLocally();
+
+        if (latestCompactionRevisionLocally != -1) {
+            runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(latestCompactionRevisionLocally)), compactionExecutor)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            if (!(cause instanceof NodeStoppingException)) {
+                                LOG.error(
+                                        "Unknown error during metastore compaction launched on node recovery: [compactionRevision={}]",
+                                        cause,
+                                        latestCompactionRevisionLocally
+                                );
+                            }
+                        } else {
+                            LOG.info(
+                                    "Metastorage compaction launched during node recovery has been successfully completed: "
+                                            + "[compactionRevision={}]",
+                                    latestCompactionRevisionLocally
+                            );
+                        }
+                    });
         }
     }
 }

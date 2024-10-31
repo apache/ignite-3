@@ -45,7 +45,7 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link MetaStorageCompactionTrigger} testing for single node case. */
-@WithSystemProperty(key = DistributionZoneRebalanceEngine.SKIP_REBALANCE_TRIGGERS_RECOVERY, value="true")
+@WithSystemProperty(key = DistributionZoneRebalanceEngine.SKIP_REBALANCE_TRIGGERS_RECOVERY, value = "true")
 public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -69,12 +69,16 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
         assertThat(metaStorageManager.put(BAR_KEY, VALUE), willCompleteSuccessfully());
 
         // Let's wait until the compaction on revision of FOO_KEY creation happens.
-        long latestFooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
-        assertTrue(waitForCondition(() -> metaStorageManager.getCompactionRevisionLocally() >= latestFooRevision, 10, 1_000));
+        long fooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
+        assertTrue(waitForCondition(() -> metaStorageManager.getCompactionRevisionLocally() >= fooRevision, 10, 1_000));
+
+        log.info("Latest revision for key: [key={}, revision={}]", FOO_KEY, fooRevision);
 
         // Let's cancel new compactions to create a new version for the key and not compact it until we restart the node.
         startDropCompactionCommand(node);
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
+
+        long latestFooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
         long latestCompactionRevision = metaStorageManager.getCompactionRevisionLocally();
         // Let's change the properties before restarting so that a new scheduled compaction does not start after the node starts.
