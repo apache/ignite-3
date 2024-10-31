@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
+import static org.apache.ignite.internal.sql.engine.util.Commons.isMultiStatementQueryAllowed;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 
 /** Parses the query string and populate {@link Query query state} with results. */
@@ -48,7 +46,7 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
         query.executor.execute(() -> {
             try {
                 ParsedResult result;
-                if (multiStatementQueryAllowed(query.properties)) {
+                if (isMultiStatementQueryAllowed(query.properties)) {
                     List<ParsedResult> results = query.executor.parseScript(query.sql);
 
                     if (results.size() != 1 || results.get(0).queryType() == SqlQueryType.TX_CONTROL) {
@@ -84,12 +82,5 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
 
     private static boolean shouldBeCached(SqlQueryType queryType) {
         return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
-
-    /** Returns {@code true} if the specified properties allow multi-statement query execution. */
-    private static boolean multiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
-
-        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
     }
 }

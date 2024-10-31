@@ -19,19 +19,18 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateDynamicParameters;
+import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateParsedStatement;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -87,7 +86,6 @@ import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -512,47 +510,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @TestOnly
     public SqlStatisticManager sqlStatisticManager() {
         return sqlStatisticManager;
-    }
-
-    /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(
-            SqlProperties properties,
-            ParsedResult parsedResult
-    ) {
-        Set<SqlQueryType> allowedTypes = properties.get(QueryProperty.ALLOWED_QUERY_TYPES);
-        SqlQueryType queryType = parsedResult.queryType();
-
-        if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-            String message = "Transaction control statement can not be executed as an independent statement";
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
-
-        if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
-    }
-
-    private static void validateDynamicParameters(int expectedParamsCount, Object[] params, boolean exactMatch) throws SqlException {
-        if (exactMatch && expectedParamsCount != params.length || params.length > expectedParamsCount) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, expectedParamsCount
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
-
-        for (Object param : params) {
-            if (!TypeUtils.supportParamInstance(param)) {
-                String message = format(
-                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
-
-                throw new SqlException(STMT_VALIDATION_ERR, message);
-            }
-        }
     }
 
     private static boolean shouldBeCached(SqlQueryType queryType) {

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateDynamicParameters;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -278,26 +276,6 @@ class MultiStatementHandler {
 
         boolean isLastStatement() {
             return nextStatementFuture == null;
-        }
-    }
-
-    private static void validateDynamicParameters(int expectedParamsCount, Object[] params, boolean exactMatch) throws SqlException {
-        if (exactMatch && expectedParamsCount != params.length || params.length > expectedParamsCount) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, expectedParamsCount
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
-
-        for (Object param : params) {
-            if (!TypeUtils.supportParamInstance(param)) {
-                String message = format(
-                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
-
-                throw new SqlException(STMT_VALIDATION_ERR, message);
-            }
         }
     }
 }

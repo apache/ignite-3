@@ -151,25 +151,19 @@ class Query implements Runnable {
 
                 // reschedule only if required computation has not been done yet or it was completed exceptionally
                 if (!awaitFuture.isDone() || awaitFuture.isCompletedExceptionally()) {
-                    break;
+                    awaitFuture
+                            .whenComplete((ignored, ex) -> {
+                                if (ex != null) {
+                                    // handles exception from asynchronous part of phase evaluation
+                                    onError(ex);
+                                }
+                            })
+                            .thenRunAsync(this, executor::execute);
+
+                    return;
                 }
             }
         } while (true);
-
-        if (result.status() == Result.Status.SCHEDULE) {
-            CompletableFuture<Void> awaitFuture = result.await();
-
-            assert awaitFuture != null;
-
-            awaitFuture
-                    .whenComplete((ignored, ex) -> {
-                        if (ex != null) {
-                            // handles exception from asynchronous part of phase evaluation
-                            onError(ex);
-                        }
-                    })
-                    .thenRun(this);
-        }
     }
 
     CompletableFuture<Void> onPhaseStarted(ExecutionPhase phase) {
