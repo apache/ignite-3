@@ -46,7 +46,9 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -87,6 +89,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     @BeforeEach
     void setUp() throws Exception {
         String nodeName = "test";
@@ -124,7 +129,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
-                rebalanceScheduler
+                rebalanceScheduler,
+                systemDistributedConfiguration
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

@@ -66,7 +66,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
                     .addresses("localhost")
                     .heartbeatInterval(1000)
                     .heartbeatTimeout(2000)
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .build();
         }
     }

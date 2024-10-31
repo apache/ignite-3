@@ -25,6 +25,7 @@ dependencies {
     api project(':ignite-metastorage-api')
 
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
@@ -39,6 +40,7 @@ dependencies {
     implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
     annotationProcessor project(":ignite-network-annotation-processor")
 
@@ -75,6 +77,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-runner:'))
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
@@ -84,6 +87,7 @@ dependencies {
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation project(':ignite-system-disaster-recovery-api')
+    testFixturesImplementation project(':ignite-configuration-system')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))

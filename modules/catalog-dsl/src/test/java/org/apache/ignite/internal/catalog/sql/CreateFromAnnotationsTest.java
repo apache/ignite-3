@@ -24,6 +24,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.UUID;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
@@ -175,6 +181,19 @@ class CreateFromAnnotationsTest {
         assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
+    @Test
+    void allColumnTypes() {
+        CreateFromAnnotationsImpl query = createTable().processRecordClass(AllColumnsPojo.class);
+        assertThat(
+                query.toString(),
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.AllColumnsPojo ("
+                        + "str varchar, byteCol tinyint, shortCol smallint, intCol int, longCol bigint, floatCol real, "
+                        + "doubleCol double, decimalCol decimal, boolCol boolean, bytesCol varbinary, uuidCol uuid, "
+                        + "dateCol date, timeCol time, datetimeCol timestamp, instantCol timestamp with local time zone, "
+                        + "PRIMARY KEY (str));")
+        );
+    }
+
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -263,6 +282,26 @@ class CreateFromAnnotationsTest {
     private static class PkSort {
         @Id(SortOrder.DESC)
         Integer id;
+    }
+
+    @Table
+    private static class AllColumnsPojo {
+        @Id
+        String str;
+        Byte byteCol;
+        Short shortCol;
+        Integer intCol;
+        Long longCol;
+        Float floatCol;
+        Double doubleCol;
+        BigDecimal decimalCol;
+        Boolean boolCol;
+        byte[] bytesCol;
+        UUID uuidCol;
+        LocalDate dateCol;
+        LocalTime timeCol;
+        LocalDateTime datetimeCol;
+        Instant instantCol;
     }
 
     private static class NoAnnotations {

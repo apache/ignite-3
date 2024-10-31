@@ -252,7 +252,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        waitForTxStateReplication(nodes, txId, partId, 10_000);
+        waitForTxStateReplication(nodes, txId, TABLE_NAME, partId, 10_000);
 
         // Check that both volatile and persistent state is vacuumized..
         waitForTxStateVacuum(txId, partId, true, 10_000);
@@ -412,7 +412,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
-        waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
+        waitForTxStateReplication(commitPartNodes, txId, TABLE_NAME, commitPartId, 10_000);
 
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
@@ -605,7 +605,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
-        waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
+        waitForTxStateReplication(commitPartNodes, txId, TABLE_NAME, commitPartId, 10_000);
 
         log.info("Test: state replicated.");
 
@@ -834,11 +834,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .allMatch(n -> volatileTxState(n, txId) != null);
     }
 
-    private boolean checkPersistentTxStateOnNodes(Set<String> nodeConsistentIds, UUID txId, int partId) {
+    private boolean checkPersistentTxStateOnNodes(Set<String> nodeConsistentIds, UUID txId, String tableName, int partId) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> nodeConsistentIds.contains(n.name()))
-                .allMatch(n -> persistentTxState(n, txId, partId) != null);
+                .allMatch(n -> persistentTxState(n, txId, tableName, partId) != null);
     }
 
     /**
@@ -849,9 +849,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * @param partId Commit partition id.
      * @param timeMs Time to wait.
      */
-    private void waitForTxStateReplication(Set<String> nodeConsistentIds, UUID txId, int partId, long timeMs)
+    private void waitForTxStateReplication(Set<String> nodeConsistentIds, UUID txId, String tableName, int partId, long timeMs)
             throws InterruptedException {
-        assertTrue(waitForCondition(() -> checkPersistentTxStateOnNodes(nodeConsistentIds, txId, partId), timeMs));
+        assertTrue(waitForCondition(() -> checkPersistentTxStateOnNodes(nodeConsistentIds, txId, tableName, partId), timeMs));
     }
 
     /**
@@ -1023,7 +1023,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
             result = result
                     && volatileTxState(node, txId) == null
-                    && (!checkPersistent || !node.id().equals(cpPrimaryId) || persistentTxState(node, txId, partId) == null);
+                    && (!checkPersistent || !node.id().equals(cpPrimaryId) || persistentTxState(node, txId, tableName, partId) == null);
         }
 
         return result;
@@ -1050,11 +1050,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private static TransactionMeta volatileTxState(IgniteImpl node, UUID txId) {
         TxManagerImpl txManager = (TxManagerImpl) node.txManager();
         return txManager.stateMeta(txId);
-    }
-
-    @Nullable
-    private TransactionMeta persistentTxState(IgniteImpl node, UUID txId, int partId) {
-        return persistentTxState(node, txId, TABLE_NAME, partId);
     }
 
     @Nullable

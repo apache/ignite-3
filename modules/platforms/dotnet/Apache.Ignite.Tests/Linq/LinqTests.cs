@@ -691,6 +691,8 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    [SuppressMessage("Globalization", "CA1311:Specify a culture or use an invariant version", Justification = "SQL")]
+    [SuppressMessage("Performance", "CA1862:Use the \'StringComparison\' method overloads to perform case-insensitive string comparisons", Justification = "SQL")]
     public async Task TestGeneratedSqlIsLoggedWithDebugLevel()
     {
         var config = GetConfig();

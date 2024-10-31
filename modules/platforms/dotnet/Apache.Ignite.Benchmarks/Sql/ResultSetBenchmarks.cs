@@ -163,6 +163,6 @@ namespace Apache.Ignite.Benchmarks.Sql
             }
         }
 
-        private record Rec(int Id);
+        private sealed record Rec(int Id);
     }
 }

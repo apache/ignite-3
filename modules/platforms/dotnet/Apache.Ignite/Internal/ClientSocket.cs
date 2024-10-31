@@ -225,7 +225,7 @@ namespace Apache.Ignite.Internal
             {
                 try
                 {
-                    cts.Cancel();
+                    await cts.CancelAsync().ConfigureAwait(false);
                     socket?.Dispose();
 
                     if (stream != null)
@@ -606,7 +606,7 @@ namespace Apache.Ignite.Internal
             return recommendedHeartbeatInterval;
         }
 
-        private static ISslInfo? GetSslInfo(Stream stream) =>
+        private static SslInfo? GetSslInfo(Stream stream) =>
             stream is SslStream sslStream
                 ? new SslInfo(
                     sslStream.TargetHostName,

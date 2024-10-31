@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
@@ -63,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -428,7 +426,10 @@ public class DistributionZonesUtil {
         List<Operation> operations = new ArrayList<>();
 
         operations.add(put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(logicalTopology.version())));
-        operations.add(put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg)));
+        operations.add(put(
+                zonesLogicalTopologyKey(),
+                LogicalTopologySetSerializer.serialize(topologyFromCmg)
+        ));
         if (updateClusterId) {
             operations.add(put(zonesLogicalTopologyClusterIdKey(), uuidToBytes(logicalTopology.clusterId())));
         }
@@ -466,7 +467,19 @@ public class DistributionZonesUtil {
 
     @Nullable
     public static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
-        return dataNodesBytes == null ? null : dataNodes(fromBytes(dataNodesBytes));
+        return dataNodesBytes == null ? null : dataNodes(deserializeDataNodesMap(dataNodesBytes));
+    }
+
+    public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
+        return DataNodesMapSerializer.deserialize(bytes);
+    }
+
+    public static Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
+        return LogicalTopologySetSerializer.deserialize(bytes);
+    }
+
+    public static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
+        return NodesAttributesSerializer.deserialize(bytes);
     }
 
     /**
@@ -477,7 +490,7 @@ public class DistributionZonesUtil {
      */
     static Map<Node, Integer> extractDataNodes(Entry dataNodesEntry) {
         if (!dataNodesEntry.empty()) {
-            return fromBytes(dataNodesEntry.value());
+            return deserializeDataNodesMap(dataNodesEntry.value());
         } else {
             return emptyMap();
         }

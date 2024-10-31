@@ -93,7 +93,11 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         kvView.put(null, key, val);
         Tuple resVal = kvView.get(null, key);
 
+        assertNotNull(resVal);
         assertTupleEquals(val, resVal);
+
+        // Key columns should not be available in the value.
+        assertThrows(IllegalArgumentException.class, () -> resVal.longValue("id"));
     }
 
     @Test

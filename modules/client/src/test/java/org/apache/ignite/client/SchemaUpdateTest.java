@@ -100,7 +100,7 @@ public class SchemaUpdateTest extends BaseIgniteAbstractTest {
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
                 .loggerFactory(new TestLoggerFactory("client"))
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                .retryPolicy(new RetryLimitPolicy().retryLimit(-1))
                 .build();
     }
 

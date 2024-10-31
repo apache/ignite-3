@@ -292,6 +292,11 @@ public enum Options {
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
                 + "Case-sensitive, without quotes, all nodes if not set";
 
+        public static final String RECOVERY_METASTORAGE_REPLICATION_OPTION = "--metastorage-replication-factor";
+
+        public static final String RECOVERY_METASTORAGE_REPLICATION_DESC = "Number of nodes in the voting member set of the Metastorage "
+                + "RAFT group.";
+
         public static final String RECOVERY_CMG_NODES_OPTION = "--cluster-management-group";
 
         public static final String RECOVERY_CMG_NODES_OPTION_DESC = "Names of nodes (use comma-separated list of node names "

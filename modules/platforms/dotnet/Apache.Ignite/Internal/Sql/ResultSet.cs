@@ -386,10 +386,7 @@ namespace Apache.Ignite.Internal.Sql
 
             Debug.Assert(resourceId != null, "resourceId != null");
 
-            if (_resourceClosed)
-            {
-                throw new ObjectDisposedException(nameof(ResultSet<T>));
-            }
+            ObjectDisposedException.ThrowIf(_resourceClosed, this);
 
             writer.Write(_resourceId!.Value);
         }

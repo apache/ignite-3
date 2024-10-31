@@ -15,26 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.configuration;
+package org.apache.ignite.internal.metrics.message;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import java.io.Serializable;
 
-/**
- * {@link ConfigurationModule} for Meta Storage configuration.
- */
-@AutoService(ConfigurationModule.class)
-public class MetaStorageConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+/** Metric source representation. */
+public class MetricSourceDto implements Serializable {
+    private static final long serialVersionUID = -5026503625378246896L;
+
+    private final String name;
+
+    private final boolean enabled;
+
+    public MetricSourceDto(String name, boolean enabled) {
+        this.name = name;
+        this.enabled = enabled;
     }
 
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(MetaStorageExtensionConfigurationSchema.class);
+    public String name() {
+        return name;
+    }
+
+    public boolean enabled() {
+        return enabled;
     }
 }
