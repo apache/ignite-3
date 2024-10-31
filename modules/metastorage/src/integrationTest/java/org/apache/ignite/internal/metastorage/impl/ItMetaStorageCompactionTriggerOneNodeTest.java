@@ -88,7 +88,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
 
         MetaStorageManager restartedMetaStorageManager = restartedNode.metaStorageManager();
 
-        // Let's make sure that after the restart the correct revision of the compaction is restored and the compression itself will be at
+        // Let's make sure that after the restart the correct revision of the compaction is restored and the compaction itself will be at
         // the latest compaction revision.
         assertEquals(latestCompactionRevision, restartedMetaStorageManager.getCompactionRevisionLocally());
         assertTrue(waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision), 10, 1_000));
