@@ -53,6 +53,7 @@ public final class ValidationHelper {
         }
     }
 
+    /** Performs validation of dynamic params provided. **/
     public static void validateDynamicParameters(int expectedParamsCount, Object[] params, boolean exactMatch) throws SqlException {
         if (exactMatch && expectedParamsCount != params.length || params.length > expectedParamsCount) {
             String message = format(
