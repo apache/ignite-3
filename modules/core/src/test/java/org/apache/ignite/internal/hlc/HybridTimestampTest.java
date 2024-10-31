@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
@@ -190,6 +191,19 @@ class HybridTimestampTest {
         IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
 
         assertThat(HybridTimestamp.readNullableFrom(in), is(nullValue()));
+
+        assertThat(in.available(), is(0));
+    }
+
+    @Test
+    void readFromFailsWhenDeserializingNull() throws Exception {
+        IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+        HybridTimestamp.write(null, out);
+
+        IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        IOException ex = assertThrows(IOException.class, () -> HybridTimestamp.readFrom(in));
+        assertThat(ex.getMessage(), is("A non-null timestamp is expected"));
 
         assertThat(in.available(), is(0));
     }
