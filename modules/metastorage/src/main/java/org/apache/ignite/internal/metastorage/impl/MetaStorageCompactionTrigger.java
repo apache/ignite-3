@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -141,13 +142,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             lock.lock();
 
             try {
-                startCompactionOnRecoveryInBackground();
-
-                started = true;
-
                 config.init();
-
-                scheduleNextCompactionBusy();
 
                 return nullCompletedFuture();
             } finally {
@@ -169,6 +164,28 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Starts metastorage compaction in the background.
+     *
+     * <p>Expected to be invoked after all components have completed their start, to avoid the {@link CompactedException} on recovery and
+     * before the {@link MetaStorageManager#deployWatches}.</p>
+     */
+    public void startCompactionInBackground() {
+        inBusyLock(busyLock, () -> {
+            lock.lock();
+
+            try {
+                startCompactionOnRecoveryInBackground();
+
+                started = true;
+
+                scheduleNextCompactionBusy();
+            } finally {
+                lock.unlock();
+            }
+        });
     }
 
     private void doCompactionBusy() {
