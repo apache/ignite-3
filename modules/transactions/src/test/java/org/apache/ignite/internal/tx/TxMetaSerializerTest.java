@@ -30,6 +30,8 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 
 class TxMetaSerializerTest {
+    private static final String V1_SERIALIZED_BASE64 = "Ae++QwUD6QcQ0Q8a////f///gIAE";
+
     private final TxMetaSerializer serializer = new TxMetaSerializer();
 
     @Test
@@ -62,11 +64,22 @@ class TxMetaSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwUD6QcQ0Q8a/////////38=");
+        byte[] bytes = Base64.getDecoder().decode(V1_SERIALIZED_BASE64);
         TxMeta restoredMeta = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredMeta.txState(), is(TxState.ABANDONED));
         assertThat(restoredMeta.enlistedPartitions(), contains(new TablePartitionId(1000, 15), new TablePartitionId(2000, 25)));
         assertThat(restoredMeta.commitTimestamp(), is(HybridTimestamp.MAX_VALUE));
+    }
+
+    @SuppressWarnings("unused")
+    private String v1SerializedBase64() {
+        TxMeta originalMeta = new TxMeta(
+                TxState.ABANDONED,
+                List.of(new TablePartitionId(1000, 15), new TablePartitionId(2000, 25)),
+                HybridTimestamp.MAX_VALUE
+        );
+        byte[] v1Bytes = VersionedSerialization.toBytes(originalMeta, serializer);
+        return Base64.getEncoder().encodeToString(v1Bytes);
     }
 }

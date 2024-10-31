@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -46,8 +47,7 @@ class IndexMetaSerializer extends VersionedSerializer<IndexMeta> {
 
             MetaIndexStatusChange change = entry.getValue();
             out.writeVarInt(change.catalogVersion());
-            // Writing long and not varlong as the latter requires 9 bytes.
-            out.writeLong(change.activationTimestamp());
+            HybridTimestamp.hybridTimestamp(change.activationTimestamp()).writeTo(out);
         }
     }
 
@@ -80,8 +80,8 @@ class IndexMetaSerializer extends VersionedSerializer<IndexMeta> {
             MetaIndexStatus status = MetaIndexStatus.findByCode(in.readVarIntAsInt());
 
             int catalogVersion = in.readVarIntAsInt();
-            long activationTimestamp = in.readLong();
-            MetaIndexStatusChange change = new MetaIndexStatusChange(catalogVersion, activationTimestamp);
+            HybridTimestamp activationTimestamp = HybridTimestamp.readFrom(in);
+            MetaIndexStatusChange change = new MetaIndexStatusChange(catalogVersion, activationTimestamp.longValue());
 
             map.put(status, change);
         }

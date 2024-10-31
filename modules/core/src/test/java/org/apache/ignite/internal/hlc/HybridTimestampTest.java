@@ -23,10 +23,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -157,5 +162,35 @@ class HybridTimestampTest {
         var ts = new HybridTimestamp(1, 1);
 
         assertThat(ts.roundUpToPhysicalTick(), is(new HybridTimestamp(2, 0)));
+    }
+
+    @Test
+    void serializationAndDeserializationForNonNull() throws Exception {
+        HybridTimestamp originalTs = new HybridTimestamp(System.currentTimeMillis(), 2);
+
+        IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+
+        originalTs.writeTo(out);
+
+        IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        HybridTimestamp restoredTs = HybridTimestamp.readFrom(in);
+
+        assertThat(restoredTs, is(originalTs));
+
+        assertThat(in.available(), is(0));
+    }
+
+    @Test
+    void serializationAndDeserializationForNull() throws Exception {
+        IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+
+        HybridTimestamp.write(null, out);
+
+        IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        assertThat(HybridTimestamp.readNullableFrom(in), is(nullValue()));
+
+        assertThat(in.available(), is(0));
     }
 }
