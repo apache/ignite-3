@@ -117,7 +117,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
 
             List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
 
-            List<String> nodes0 = Stream.concat(viewNodes.stream(), nodes.stream()).distinct().collect(Collectors.toList());
+            List<String> nodes0 = Stream.concat(viewNodes.stream(), nodes.stream()).distinct().collect(Collectors.toUnmodifiableList());
 
             return new DistributionHolderImpl(nodes0, mapResultResolved, nodesPerView);
         });

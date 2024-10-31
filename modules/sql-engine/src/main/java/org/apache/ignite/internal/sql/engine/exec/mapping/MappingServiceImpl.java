@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -119,7 +120,9 @@ public class MappingServiceImpl implements MappingService {
 
     @Override
     public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, MappingContext.CLUSTER);
+        RelOptCluster cluster = Commons.cluster();
+
+        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, cluster);
 
         boolean mapOnBackups = parameters.mapOnBackups();
 
@@ -170,7 +173,7 @@ public class MappingServiceImpl implements MappingService {
         return distrFut.thenApply(distr -> {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
-            MappingContext context = new MappingContext(localNodeName, distr.nodes());
+            MappingContext context = new MappingContext(localNodeName, distr.nodes(), template.cluster);
 
             ExecutionTargetFactory targetFactory = context.targetFactory();
 
@@ -180,7 +183,7 @@ public class MappingServiceImpl implements MappingService {
                 targetsById.put(pair.firstInt(), pair.second());
             }
 
-            FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
+            FragmentMapper mapper = new FragmentMapper(context.cluster().getMetadataQuery(), context, targetsById);
 
             IdGenerator idGenerator = new IdGenerator(template.nextId);
 
