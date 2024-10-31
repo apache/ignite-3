@@ -31,7 +31,11 @@ dependencies {
     implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
-    implementation libs.opentelemetry.exporter.otlp
+    implementation(libs.opentelemetry.exporter.otlp) {
+        // Exclude transitive dependency for exporting logs and traces.
+        exclude group: 'io.opentelemetry', module: 'opentelemetry-sdk-logs'
+        exclude group: 'io.opentelemetry', module: 'opentelemetry-sdk-trace'
+    }
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
 

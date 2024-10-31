@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metrics.exporters.otlp;
 import static io.opentelemetry.sdk.metrics.data.AggregationTemporality.CUMULATIVE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singleton;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.Objects.requireNonNullElse;
 
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.common.Clock;
@@ -43,6 +43,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
@@ -56,6 +58,8 @@ import org.jetbrains.annotations.Nullable;
  * Metrics producer which collect metrics in OpenTelemetry format.
  */
 class MetricProducer implements CollectionRegistration {
+    private static final IgniteLogger LOG = Loggers.forClass(MetricProducer.class);
+
     private final MetricProvider metricsProvider;
 
     private final Supplier<UUID> clusterIdSupplier;
@@ -86,7 +90,7 @@ class MetricProducer implements CollectionRegistration {
 
         Collection<MetricData> result = new ArrayList<>(Math.toIntExact(metricCount));
 
-        for (MetricSet metricSet : snapshot.getKey().values())  {
+        for (MetricSet metricSet : snapshot.getKey().values()) {
             InstrumentationScopeInfo scope = InstrumentationScopeInfo.builder(metricSet.name())
                     .build();
 
@@ -98,7 +102,7 @@ class MetricProducer implements CollectionRegistration {
                             resource,
                             scope,
                             metric.name(),
-                            metric.description(),
+                            requireNonNullElse(metric.description(), ""),
                             "",
                             ImmutableGaugeData.create(
                                     singleton(ImmutableLongPointData.create(epochNanos, epochNanos, Attributes.empty(), intMetric.value()))
@@ -111,7 +115,7 @@ class MetricProducer implements CollectionRegistration {
                             resource,
                             scope,
                             metric.name(),
-                            metric.description(),
+                            requireNonNullElse(metric.description(), ""),
                             "",
                             ImmutableGaugeData.create(
                                     singleton(ImmutableLongPointData.create(epochNanos, epochNanos, Attributes.empty(), longMetric.value()))
@@ -124,7 +128,7 @@ class MetricProducer implements CollectionRegistration {
                             resource,
                             scope,
                             metric.name(),
-                            metric.description(),
+                            requireNonNullElse(metric.description(), ""),
                             "",
                             ImmutableGaugeData.create(
                                     singleton(ImmutableDoublePointData.create(epochNanos, epochNanos, Attributes.empty(), metric0.value()))
@@ -137,19 +141,42 @@ class MetricProducer implements CollectionRegistration {
                             resource,
                             scope,
                             metric.name(),
-                            metric.description(),
+                            requireNonNullElse(metric.description(), ""),
                             "",
                             ImmutableHistogramData.create(
                                     CUMULATIVE,
                                     List.of(ImmutableHistogramPointData.create(
                                             epochNanos, epochNanos, Attributes.empty(), Double.NaN, false, Double.NaN, false, Double.NaN,
-                                            Arrays.stream(metric0.bounds()).asDoubleStream().boxed().collect(toUnmodifiableList()),
-                                            Arrays.stream(metric0.value()).boxed().collect(toUnmodifiableList())
+                                            asDoubleList(boxed(metric0.bounds())),
+                                            Arrays.asList(boxed(metric0.value()))
                                     ))
                             )
                     ));
                 }
+
+                LOG.debug("Unknown metric class for export " + metric.getClass());
             }
+        }
+
+        return result;
+    }
+
+    private static List<Double> asDoubleList(Long[] array) {
+        ArrayList<Double> result = new ArrayList<>(array.length);
+
+        for (Long el : array) {
+            result.add(Double.valueOf(el));
+        }
+
+        return result;
+    }
+
+    private static Long[] boxed(long[] array) {
+        Long[] result = new Long[array.length];
+        int i = 0;
+
+        for (long temp : array) {
+            result[i++] = temp;
         }
 
         return result;
