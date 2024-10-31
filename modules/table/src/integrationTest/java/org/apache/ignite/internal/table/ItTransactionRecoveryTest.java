@@ -238,6 +238,41 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    public void testAbandonedTxWithCoarseLockIsAborted() throws Exception {
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+        view.upsert(null, Tuple.create().set("key", 42).set("val", "val1"));
+
+        // Start scan transaction.
+        InternalTransaction rwTx = (InternalTransaction) txCrdNode.transactions().begin();
+        scanSingleEntryAndLeaveCursorOpen(commitPartNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), rwTx);
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
+                10_000));
+
+        InternalTransaction conflictTx = (InternalTransaction) node(0).transactions().begin();
+        runConflictingTransaction(node(0), conflictTx);
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx.id()) == TxState.ABORTED, 10_000));
+    }
+
+    @Test
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 

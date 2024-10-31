@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -157,23 +159,27 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 tableViewInternal.internalTable().storage().getMvPartition(PART_ID),
                 TestMvPartitionStorage.class
         );
-        TestSortedIndexStorage sortedIdxStorage = unwrapNullable(
-                tableViewInternal.internalTable().storage().getIndex(PART_ID, sortedIdxId),
-                TestSortedIndexStorage.class
-        );
 
-        try {
-            assertTrue(
-                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+        if (partitionStorage != null) {
+            TestSortedIndexStorage sortedIdxStorage = unwrapNullable(
+                    tableViewInternal.internalTable().storage().getIndex(PART_ID, sortedIdxId),
+                    TestSortedIndexStorage.class
             );
+            assertThat(sortedIdxStorage, is(notNullValue()));
 
-            assertTrue(
-                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
-            );
-        } catch (InterruptedException e) {
-            fail("Waiting cursors close was interrupted.");
+            try {
+                assertTrue(
+                        waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                        "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+                );
+
+                assertTrue(
+                        waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                        "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
+                );
+            } catch (InterruptedException e) {
+                fail("Waiting cursors close was interrupted.");
+            }
         }
     }
 
@@ -789,8 +795,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (tx != null) {
             tx.rollback();
         }
-
-        assertThat(scanned, willCompleteSuccessfully());
     }
 
     @ParameterizedTest

@@ -110,6 +110,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -155,6 +156,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -162,6 +164,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
+import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -330,6 +333,9 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
 
+    /** Metastorage compaction trigger. */
+    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
+
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
@@ -365,6 +371,8 @@ public class IgniteImpl implements Ignite {
 
     private final LogicalTopologyService logicalTopologyService;
 
+    private final ComponentWorkingDir metastorageWorkDir;
+
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
 
@@ -385,6 +393,9 @@ public class IgniteImpl implements Ignite {
 
     /** Metric manager. */
     private final MetricManager metricManager;
+
+    /** Metric messaging. */
+    private final MetricMessaging metricMessaging;
 
     private final IgniteDeployment deploymentManager;
 
@@ -592,8 +603,6 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        LockManager lockMgr = new HeapLockManager();
-
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
                 clusterSvc.messagingService(),
                 name,
@@ -668,7 +677,7 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
+        metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "meta-storage log",
@@ -704,7 +713,7 @@ public class IgniteImpl implements Ignite {
                 readOperationForCompactionTracker
         );
 
-        this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
+        cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -726,6 +735,14 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 cmgMgr,
                 clusterIdService
+        );
+
+        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
+                name,
+                storage,
+                metaStorageMgr,
+                readOperationForCompactionTracker,
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
         );
 
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
@@ -763,6 +780,8 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 replicationConfig
         );
+
+        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
@@ -880,7 +899,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler
+                rebalanceScheduler,
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -897,8 +917,6 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 schemaSyncService
         );
-
-        TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
@@ -932,6 +950,8 @@ public class IgniteImpl implements Ignite {
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+
+        LockManager lockMgr = new HeapLockManager();
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1060,6 +1080,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler()
         );
 
+        systemViewManager.register(qryEngine);
+
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
@@ -1118,6 +1140,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.partitionOperationsExecutor()
         );
+
+        metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
 
         restComponent = createRestComponent(name);
 
@@ -1182,7 +1206,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
-        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
@@ -1196,7 +1220,7 @@ public class IgniteImpl implements Ignite {
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
-                        nodeMetricRestFactory,
+                        metricRestFactory,
                         deploymentCodeRestFactory,
                         authProviderFactory,
                         restManagerFactory,
@@ -1347,6 +1371,7 @@ public class IgniteImpl implements Ignite {
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,
+                                metricMessaging,
                                 distributionZoneManager,
                                 computeComponent,
                                 volatileLogStorageFactoryCreator,
@@ -1365,7 +1390,8 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
-                                resourceVacuumManager
+                                resourceVacuumManager,
+                                metaStorageCompactionTrigger
                         );
 
                         // The system view manager comes last because other components
@@ -1718,6 +1744,7 @@ public class IgniteImpl implements Ignite {
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(t -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
+                    // TODO: IGNITE-23292 Run local metastore compaction after start watches for the latest compacted revision
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
     }
@@ -1791,6 +1818,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClockService clockService() {
         return clockService;
+    }
+
+    @TestOnly
+    public ComponentWorkingDir metastorageWorkDir() {
+        return metastorageWorkDir;
     }
 
     /** Returns the node's transaction manager. */

@@ -84,6 +84,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -158,7 +159,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 txConfiguration,
                 clusterService,
                 replicaService,
-                new HeapLockManager(),
+                lockManager(),
                 clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -170,6 +171,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     @AfterEach

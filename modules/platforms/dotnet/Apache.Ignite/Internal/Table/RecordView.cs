@@ -607,6 +607,7 @@ namespace Apache.Ignite.Internal.Table
             }
         }
 
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async Task<PooledBuffer?> DoMultiRecordOutOpAsync(
             ClientOp op,
             ITransaction? transaction,

@@ -25,6 +25,7 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -252,4 +253,11 @@ public interface MetaStorageService extends ManuallyCloseable {
      * Returns a future which will hold current revision of the metastorage leader.
      */
     CompletableFuture<Long> currentRevision();
+
+    /**
+     * Returns information about a revision checksum on the leader.
+     *
+     * @param revision Revision of interest.
+     */
+    CompletableFuture<ChecksumInfo> checksum(long revision);
 }

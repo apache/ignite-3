@@ -24,16 +24,15 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -156,7 +155,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                (v) -> deserializeDataNodesMap(v).size(),
                 4,
                 TIMEOUT_MILLIS
         );
@@ -414,7 +413,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                (v) -> deserializeDataNodesMap(v).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
         );
@@ -431,7 +430,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                (v) -> deserializeDataNodesMap(v).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
         );

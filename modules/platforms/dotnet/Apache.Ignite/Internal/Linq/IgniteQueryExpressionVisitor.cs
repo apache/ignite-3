@@ -297,7 +297,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     {
         var first = true;
 
-        if (expression.NewExpression.Arguments.Any())
+        if (expression.NewExpression.Arguments.Count != 0)
         {
             VisitNew(expression.NewExpression);
             first = false;
@@ -547,7 +547,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <param name="first">Whether this is the first column and does not need a comma before.</param>
     /// <param name="toSkip">Names to skip.</param>
     /// <param name="populateToSkip">Whether to populate provided toSkip set.</param>
-    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null, bool populateToSkip = false)
+    private void AppendColumnNames(Type type, string tableName, bool first = true, HashSet<string>? toSkip = null, bool populateToSkip = false)
     {
         if (type.IsPrimitive)
         {

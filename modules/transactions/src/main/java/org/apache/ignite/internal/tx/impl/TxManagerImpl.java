@@ -737,6 +737,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
+                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
+                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
+            );
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23539
+            lockManager.start(deadlockPreventionPolicy);
+
             localNodeId = topologyService.localMember().id();
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);

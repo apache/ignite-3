@@ -20,10 +20,8 @@ package org.apache.ignite.internal.metrics;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -44,9 +42,6 @@ public interface MetricManager extends IgniteComponent {
     // TODO: this method should be revisited, but now it is supposed to use only to set distributed configuration for exporters.
     void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName);
 
-    @Override
-    CompletableFuture<Void> startAsync(ComponentContext componentContext);
-
     /**
      * Start component.
      *
@@ -61,9 +56,6 @@ public interface MetricManager extends IgniteComponent {
      * @param exporters Exporters.
      */
     void start(Iterable<MetricExporter<?>> exporters);
-
-    @Override
-    CompletableFuture<Void> stopAsync(ComponentContext componentContext);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.

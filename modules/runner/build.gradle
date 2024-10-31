@@ -49,6 +49,7 @@ dependencies {
 
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-root')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
@@ -73,6 +74,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-metrics')
     implementation project(':ignite-metrics-exporter-otlp')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
@@ -169,6 +171,7 @@ dependencies {
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))

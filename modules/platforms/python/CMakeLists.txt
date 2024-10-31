@@ -16,7 +16,7 @@
 #
 
 cmake_minimum_required(VERSION 3.18)
-project(pyignite3 VERSION 3 LANGUAGES CXX)
+project(pyignite3 VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

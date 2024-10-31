@@ -53,8 +53,10 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
@@ -140,12 +142,18 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class), -1);
+        table = new TableImpl(intTable, schemaRegistry, lockManager(), schemaVersions, mock(IgniteSql.class), -1);
 
         kvBinView = table.keyValueView();
         kvView =  table.keyValueView(Mapper.of(Long.class, "id"), Mapper.of(Value.class));
         rBinView = table.recordView();
         rView = table.recordView(Mapper.of(Row.class));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /**
