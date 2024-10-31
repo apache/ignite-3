@@ -30,17 +30,17 @@ import org.jetbrains.annotations.Nullable;
 
 abstract class ItSystemDisasterRecoveryCliTest extends CliIntegrationTest {
     static void waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
-        // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
+        // restartFuture() becomes non-null when restart is initiated.
 
         assertTrue(
-                waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
-                "Node did not attempt to be restarted (or shut down) in time"
+                waitForCondition(() -> restartFuture(nodeIndex) != null, SECONDS.toMillis(20)),
+                "Node did not attempt to be restarted in time"
         );
-        assertThat(restartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
+        assertThat(restartFuture(nodeIndex), willCompleteSuccessfully());
     }
 
     @Nullable
-    private static CompletableFuture<Void> restartOrShutdownFuture(int nodeIndex) {
-        return ((IgniteServerImpl) CLUSTER.server(nodeIndex)).restartOrShutdownFuture();
+    private static CompletableFuture<Void> restartFuture(int nodeIndex) {
+        return ((IgniteServerImpl) CLUSTER.server(nodeIndex)).restartFuture();
     }
 }
