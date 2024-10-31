@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
@@ -47,7 +49,7 @@ class IndexMetaSerializer extends VersionedSerializer<IndexMeta> {
 
             MetaIndexStatusChange change = entry.getValue();
             out.writeVarInt(change.catalogVersion());
-            HybridTimestamp.hybridTimestamp(change.activationTimestamp()).writeTo(out);
+            hybridTimestamp(change.activationTimestamp()).writeTo(out);
         }
     }
 

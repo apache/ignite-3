@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.readVarIntSet;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntSet;
 
@@ -42,7 +43,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         out.writeVarInt(request.tableId());
         writeVarIntSet(request.partitionIds(), out);
         writeStringSet(request.nodeNames(), out);
-        HybridTimestamp.hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
+        hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
     }
 
     @Override

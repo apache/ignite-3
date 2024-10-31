@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,7 +42,7 @@ public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
         }
 
         out.writeBoolean(assignments.force());
-        HybridTimestamp.hybridTimestamp(assignments.timestamp()).writeTo(out);
+        hybridTimestamp(assignments.timestamp()).writeTo(out);
     }
 
     private static void writeAssignment(Assignment assignment, IgniteDataOutput out) throws IOException {
