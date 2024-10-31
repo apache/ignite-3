@@ -54,9 +54,7 @@ def tokens = [
 ]
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

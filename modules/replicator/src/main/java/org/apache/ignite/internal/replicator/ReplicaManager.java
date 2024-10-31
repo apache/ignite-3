@@ -1380,7 +1380,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return stopReplica(groupId, context, stopOperation);
                     } else if (state == ReplicaState.STOPPED) {
                         // We need to stop replica and destroy storages anyway, because they can be already created.
-                        // See TODO-s for IGNITE-19713
                         return stopReplica(groupId, context, stopOperation);
                     } // else: no-op.
                 } else if (reason == WeakReplicaStopReason.RESTART) {
@@ -1577,7 +1576,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *         <li>if {@link #PRIMARY_ONLY} or {@link #STOPPING}: no-op.</li>
      *         <li>if {@link #RESTART_PLANNED} no-op, because replica will be stopped within deferred operation;</li>
      *         <li>if {@link #STARTING}: replica is stopped, the next state is {@link #STOPPING};</li>
-     *         <li>if {@link #STOPPED}: replica is stopped, see TODO-s for IGNITE-19713.</li>
+     *         <li>if {@link #STOPPED}: replica is stopped.</li>
      *     </ul>
      *     <li>if {@link WeakReplicaStopReason#PRIMARY_EXPIRED}:</li>
      *     <ul>
