@@ -141,7 +141,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             lock.lock();
 
             try {
-                startCompactionOnRecoveryAsync();
+                startCompactionOnRecoveryInBackground();
 
                 started = true;
 
@@ -323,7 +323,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         }
     }
 
-    private void startCompactionOnRecoveryAsync() {
+    private void startCompactionOnRecoveryInBackground() {
         assert metaStorageManager.recoveryFinishedFuture().isDone();
 
         long latestCompactionRevisionLocally = metaStorageManager.getCompactionRevisionLocally();

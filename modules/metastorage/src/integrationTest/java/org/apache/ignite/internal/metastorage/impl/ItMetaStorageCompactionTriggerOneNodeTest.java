@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.BAR_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.VALUE;
-import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainsSingleRevisionForKeyLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainSingleRevisionForKeyLocally;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.createClusterConfigWithCompactionProperties;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
@@ -56,7 +56,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration(createClusterConfigWithCompactionProperties("10", "10"));
+        builder.clusterConfiguration(createClusterConfigWithCompactionProperties(10, 10));
     }
 
     @Test
@@ -75,23 +75,23 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
         log.info("Latest revision for key: [key={}, revision={}]", FOO_KEY, fooRevision);
 
         // Let's cancel new compactions to create a new version for the key and not compact it until we restart the node.
-        startDropCompactionCommand(node);
+        startDroppingCompactionCommand(node);
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
         long latestFooRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
         long latestCompactionRevision = metaStorageManager.getCompactionRevisionLocally();
         // Let's change the properties before restarting so that a new scheduled compaction does not start after the node starts.
-        changeCompactionProperties(node, Long.toString(Long.MAX_VALUE), Long.toString(Long.MAX_VALUE));
+        changeCompactionProperties(node, Long.MAX_VALUE, Long.MAX_VALUE);
 
         IgniteImpl restartedNode = restartNode();
 
         MetaStorageManager restartedMetaStorageManager = restartedNode.metaStorageManager();
 
-        // Let's make sure that after the restart the correct revision of the compression is restored and the compression itself will be at
+        // Let's make sure that after the restart the correct revision of the compaction is restored and the compression itself will be at
         // the latest compaction revision.
         assertEquals(latestCompactionRevision, restartedMetaStorageManager.getCompactionRevisionLocally());
-        assertTrue(waitForCondition(() -> allNodesContainsSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision), 10, 1_000));
+        assertTrue(waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(cluster, FOO_KEY, latestFooRevision), 10, 1_000));
     }
 
     private IgniteImpl aliveNode() {
@@ -102,12 +102,12 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
         return unwrapIgniteImpl(restartNode(0));
     }
 
-    private static void startDropCompactionCommand(IgniteImpl node) {
+    private static void startDroppingCompactionCommand(IgniteImpl node) {
         node.dropMessages((s, message) -> message instanceof WriteActionRequest
                 && ((WriteActionRequest) message).deserializedCommand() instanceof CompactionCommand);
     }
 
-    private static void changeCompactionProperties(IgniteImpl node, String interval, String dataAvailabilityTime) {
+    private static void changeCompactionProperties(IgniteImpl node, long interval, long dataAvailabilityTime) {
         CompletableFuture<Void> changeFuture = node
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
@@ -116,10 +116,10 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
                 .change(systemPropertyViews -> systemPropertyViews
                         .update(
                                 INTERVAL_SYSTEM_PROPERTY_NAME,
-                                systemPropertyChange -> systemPropertyChange.changePropertyValue(interval)
+                                systemPropertyChange -> systemPropertyChange.changePropertyValue(Long.toString(interval))
                         ).update(
                                 DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME,
-                                systemPropertyChange -> systemPropertyChange.changePropertyValue(dataAvailabilityTime)
+                                systemPropertyChange -> systemPropertyChange.changePropertyValue(Long.toString(dataAvailabilityTime))
                         )
                 );
 

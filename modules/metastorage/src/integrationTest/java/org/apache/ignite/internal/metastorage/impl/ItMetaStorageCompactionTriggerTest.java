@@ -21,7 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.VALUE;
-import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainsSingleRevisionForKeyLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainSingleRevisionForKeyLocally;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.createClusterConfigWithCompactionProperties;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -62,7 +62,7 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration(createClusterConfigWithCompactionProperties("10", "10"));
+        builder.clusterConfiguration(createClusterConfigWithCompactionProperties(10, 10));
     }
 
     @ParameterizedTest
@@ -86,7 +86,7 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
         long latestFooEntryRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
         assertTrue(
-                waitForCondition(() -> allNodesContainsSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000)
+                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000)
         );
     }
 

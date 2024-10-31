@@ -78,7 +78,7 @@ public class TestMetasStorageUtils {
     }
 
     /** Creates a cluster configuration with metastorage compaction properties. */
-    public static String createClusterConfigWithCompactionProperties(String interval, String dataAvailabilityTime) {
+    public static String createClusterConfigWithCompactionProperties(long interval, long dataAvailabilityTime) {
         return String.format(
                 "ignite.system.properties: {"
                         + "%s.propertyValue= \"%s\", "
@@ -97,7 +97,7 @@ public class TestMetasStorageUtils {
     }
 
     /** Returns {@code true} if the metastorage key has only one revision in the cluster. */
-    public static boolean allNodesContainsSingleRevisionForKeyLocally(Cluster cluster, ByteArray key, long revision) {
+    public static boolean allNodesContainSingleRevisionForKeyLocally(Cluster cluster, ByteArray key, long revision) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::metaStorageManager)
