@@ -20,9 +20,9 @@ package org.apache.ignite.internal.metastorage.impl;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RecoveryRevisionsListener;
-import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Implementation for {@link MetaStorageManagerImpl}. */

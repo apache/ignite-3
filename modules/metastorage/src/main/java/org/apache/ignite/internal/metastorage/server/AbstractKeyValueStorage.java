@@ -224,6 +224,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             assertCompactionRevisionLessThanCurrent(revision, rev);
 
             compactionRevision = revision;
+
+            notifyRevisionsUpdate();
         } finally {
             rwLock.writeLock().unlock();
         }

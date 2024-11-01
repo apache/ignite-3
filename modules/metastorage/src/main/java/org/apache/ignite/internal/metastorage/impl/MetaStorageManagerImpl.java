@@ -243,6 +243,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         recoveryRevisionsListener = new RecoveryRevisionsListenerImpl(busyLock, recoveryFinishedFuture, storage);
         storage.setRecoveryRevisionsListener(recoveryRevisionsListener);
+        // Safe because we haven't started raft nodes yet and so no one has to update storage locally.
+        recoveryRevisionsListener.onUpdate(storage.revisions());
     }
 
     /**
