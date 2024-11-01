@@ -26,7 +26,7 @@ set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="@CONF_DIR@\ignite.java.ut
 
 set CLASSPATH=-classpath "@INSTALL_DIR@\lib\*" @MAIN_CLASS@
 
-set JAVA_MEMORY_OPTIONS="-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%"
+set JAVA_MEMORY_OPTIONS=-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%
 
 set JAVA_GC_OPTIONS="-XX:+Use%JVM_GC% -XX:G1HeapRegionSize=%JVM_G1HeapRegionSize%"
 
