@@ -370,9 +370,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
-    /** Versioned value used only at manager startup to correctly fire table creation events. */
-    private final IncrementalVersionedValue<Void> startVv;
-
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
@@ -576,8 +573,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId -> tablesById().get(tableId)
         );
 
-        startVv = new IncrementalVersionedValue<>(registry);
-
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 storagePath.resolve(TX_STATE_DIR),
                 txStateStorageScheduledPool,
@@ -623,9 +618,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // All needed storages, like the TxStateRocksDbSharedStorage must be started already.
             readyToProcessTableStarts.complete(null);
 
-            startTables(recoveryRevision, lowWatermark.getLowWatermark());
+            CompletableFuture<Void> startTablesFuture = startTables(recoveryRevision, lowWatermark.getLowWatermark());
 
-            processAssignmentsOnRecovery(recoveryRevision);
+            CompletableFuture<Void> processAssignmentsOnRecoveryFuture = processAssignmentsOnRecovery(recoveryRevision);
 
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -655,7 +650,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
 
-            return nullCompletedFuture();
+            return allOf(startTablesFuture, processAssignmentsOnRecoveryFuture);
         });
     }
 
@@ -886,22 +881,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return falseCompletedFuture();
     }
 
-    private void processAssignmentsOnRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
         var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
 
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
+        CompletableFuture<Void> handleStableAssignmentsOnRecoveryFuture = handleAssignmentsOnRecovery(
                 stableAssignmentsPrefix,
                 recoveryRevision,
-                (entry, rev) ->  handleChangeStableAssignmentEvent(entry, rev, true),
+                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
-        ));
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
+        );
+
+        CompletableFuture<Void> handlePendingAssignmentsOnRecovery = handleAssignmentsOnRecovery(
                 pendingAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev, true),
                 "pending"
-        ));
+        );
+
+        return allOf(handleStableAssignmentsOnRecoveryFuture, handlePendingAssignmentsOnRecovery);
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
@@ -2795,7 +2793,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }
 
-    private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+    private CompletableFuture<Void> startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
@@ -2826,8 +2824,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     });
         }
 
-        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
-        startVv.update(recoveryRevision, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
+        return allOf(startTableFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
                         LOG.error("Error starting tables", throwable);
