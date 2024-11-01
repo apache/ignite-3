@@ -28,7 +28,7 @@ set CLASSPATH=-classpath "@INSTALL_DIR@\lib\*" @MAIN_CLASS@
 
 set JAVA_MEMORY_OPTIONS=-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%
 
-set JAVA_GC_OPTIONS="-XX:+Use%JVM_GC% -XX:G1HeapRegionSize=%JVM_G1HeapRegionSize%"
+set JAVA_GC_OPTIONS=-XX:+Use%JVM_GC% -XX:G1HeapRegionSize=%JVM_G1HeapRegionSize%
 
 set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" ^
 %COMMON_JAVA_OPTS% ^
