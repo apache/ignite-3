@@ -19,9 +19,12 @@ package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -41,6 +44,8 @@ public class DistributionZonesHighAvailabilityConfiguration {
 
     /** Determines partition group reset timeout after a partition group majority loss. */
     private volatile long partitionDistributionResetTimeout;
+
+    private volatile AtomicReference<Consumer<Integer>> partitionDistributionResetListener;
 
     /** Constructor. */
     public DistributionZonesHighAvailabilityConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
@@ -64,8 +69,14 @@ public class DistributionZonesHighAvailabilityConfiguration {
         updateSystemProperties(systemDistributedConfig.value());
     }
 
+    public void listenChanges(Consumer<Integer> partitionDistributionResetListener) {
+        if (!this.partitionDistributionResetListener.compareAndSet(null, partitionDistributionResetListener)) {
+            throw new IgniteException("Only one active listener of partitionDistributionReset is supported");
+        }
+    }
+
     /** Returns partition group reset timeout after a partition group majority loss. */
-    long partitionDistributionResetTimeout() {
+    public long partitionDistributionResetTimeout() {
         return partitionDistributionResetTimeout;
     }
 
