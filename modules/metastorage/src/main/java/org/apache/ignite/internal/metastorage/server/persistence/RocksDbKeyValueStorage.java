@@ -491,7 +491,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 compactionRevision = bytesToLong(compactionRevisionBytes);
             }
 
-            notifyRevisionUpdate();
+            notifyRevisionsUpdate();
         } catch (MetaStorageException e) {
             throw e;
         } catch (Exception e) {
@@ -652,7 +652,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         queueWatchEvent();
 
-        notifyRevisionUpdate();
+        notifyRevisionsUpdate();
     }
 
     private boolean validateNoChecksumConflict(long newRev, long newChecksum) throws RocksDBException {
@@ -1297,21 +1297,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(KeyValueUpdateContext context) {
-        rwLock.writeLock().lock();
-
-        try {
-            setIndexAndTerm(context.index, context.term);
-
-            if (!isInRecoveryState()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
-            }
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     protected void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         try (WriteBatch batch = new WriteBatch()) {
             data.put(batch, COMPACTION_REVISION_KEY, longToBytes(revision));
@@ -1320,7 +1305,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             db.write(defaultWriteOptions, batch);
 
-            if (advanceSafeTime && !isInRecoveryState()) {
+            if (advanceSafeTime && isWatchesStarted()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
@@ -1512,8 +1497,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isInRecoveryState() {
-        return recoveryStatus.get() != RecoveryStatus.DONE;
+    protected boolean isWatchesStarted() {
+        return recoveryStatus.get() == RecoveryStatus.DONE;
     }
 
     private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {

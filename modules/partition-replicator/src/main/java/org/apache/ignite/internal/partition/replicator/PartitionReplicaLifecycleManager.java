@@ -103,6 +103,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -256,11 +257,11 @@ public class PartitionReplicaLifecycleManager  extends
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+        CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
         assert recoveryFinishFuture.isDone();
 
-        long recoveryRevision = recoveryFinishFuture.join();
+        long recoveryRevision = recoveryFinishFuture.join().revision();
 
         cleanUpResourcesForDroppedZonesOnRecovery();
 

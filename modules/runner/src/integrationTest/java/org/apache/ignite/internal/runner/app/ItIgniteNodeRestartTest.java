@@ -1553,7 +1553,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
-        long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join();
+        long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join().revision();
 
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodes.stream().map(IgniteImpl::name)
                 .collect(toSet()), Set.of());

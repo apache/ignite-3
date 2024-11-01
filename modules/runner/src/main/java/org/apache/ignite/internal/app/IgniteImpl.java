@@ -1738,8 +1738,6 @@ public class IgniteImpl implements Ignite {
 
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(unused -> {
-                    metaStorageCompactionTrigger.startCompactionInBackground();
-
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);

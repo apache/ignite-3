@@ -226,7 +226,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         notifyWatches();
 
-        notifyRevisionUpdate();
+        notifyRevisionsUpdate();
     }
 
     @Override
@@ -492,7 +492,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void notifyWatches() {
-        if (isInRecoveryState() || updatedEntries.isEmpty()) {
+        if (!isWatchesStarted() || updatedEntries.isEmpty()) {
             updatedEntries.clear();
 
             return;
@@ -632,6 +632,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             savedCompactionRevision = snapshot.savedCompactionRevision;
             term = snapshot.term;
             index = snapshot.index;
+
+            notifyRevisionsUpdate();
         } catch (Throwable t) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, t);
         } finally {
@@ -746,27 +748,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(KeyValueUpdateContext context) {
-        rwLock.writeLock().lock();
-
-        try {
-            setIndexAndTerm(context.index, context.term);
-
-            if (!isInRecoveryState()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
-            }
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         savedCompactionRevision = revision;
 
         setIndexAndTerm(context.index, context.term);
 
-        if (advanceSafeTime && !isInRecoveryState()) {
+        if (advanceSafeTime && isWatchesStarted()) {
             watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
@@ -845,8 +832,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isInRecoveryState() {
-        return !areWatchesEnabled;
+    protected boolean isWatchesStarted() {
+        return areWatchesEnabled;
     }
 
     private @Nullable Value getValueNullable(byte[] key, long revision) {

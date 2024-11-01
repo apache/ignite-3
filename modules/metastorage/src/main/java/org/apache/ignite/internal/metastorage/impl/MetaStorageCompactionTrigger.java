@@ -42,7 +42,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -144,6 +144,12 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             try {
                 config.init();
 
+                startCompactionOnRecoveryInBackground();
+
+                started = true;
+
+                scheduleNextCompactionBusy();
+
                 return nullCompletedFuture();
             } finally {
                 lock.unlock();
@@ -164,28 +170,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
-    }
-
-    /**
-     * Starts metastorage compaction in the background.
-     *
-     * <p>Expected to be invoked after all components have completed their start, to avoid the {@link CompactedException} on recovery and
-     * before the {@link MetaStorageManager#deployWatches}.</p>
-     */
-    public void startCompactionInBackground() {
-        inBusyLock(busyLock, () -> {
-            lock.lock();
-
-            try {
-                startCompactionOnRecoveryInBackground();
-
-                started = true;
-
-                scheduleNextCompactionBusy();
-            } finally {
-                lock.unlock();
-            }
-        });
     }
 
     private void doCompactionBusy() {
@@ -341,12 +325,14 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     }
 
     private void startCompactionOnRecoveryInBackground() {
-        assert metaStorageManager.recoveryFinishedFuture().isDone();
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
 
-        long latestCompactionRevisionLocally = metaStorageManager.getCompactionRevisionLocally();
+        assert recoveryFuture.isDone();
 
-        if (latestCompactionRevisionLocally != -1) {
-            runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(latestCompactionRevisionLocally)), compactionExecutor)
+        long recoveredCompactionRevision = recoveryFuture.join().compactionRevision();
+
+        if (recoveredCompactionRevision != -1) {
+            runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(recoveredCompactionRevision)), compactionExecutor)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
@@ -355,14 +341,14 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                                 LOG.error(
                                         "Unknown error during metastore compaction launched on node recovery: [compactionRevision={}]",
                                         cause,
-                                        latestCompactionRevisionLocally
+                                        recoveredCompactionRevision
                                 );
                             }
                         } else {
                             LOG.info(
                                     "Metastorage compaction launched during node recovery has been successfully completed: "
                                             + "[compactionRevision={}]",
-                                    latestCompactionRevisionLocally
+                                    recoveredCompactionRevision
                             );
                         }
                     });

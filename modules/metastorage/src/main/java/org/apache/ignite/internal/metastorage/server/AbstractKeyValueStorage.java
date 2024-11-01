@@ -34,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
@@ -61,11 +61,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected final WatchProcessor watchProcessor;
 
     /**
-     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of current revisions update, {@code null} if recovery
+     * is complete.
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    private @Nullable LongConsumer recoveryRevisionListener;
+    private @Nullable RecoveryRevisionsListener recoveryRevisionListener;
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
@@ -115,11 +116,20 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected abstract Value valueForOperation(byte[] key, long revision);
 
     /**
-     * Returns {@code true} if the storage is in the recovery state.
+     * Returns {@code true} if the metastorage is in the recovery state.
      *
      * <p>Method is expected to be invoked under {@link #rwLock}.</p>
      */
-    protected abstract boolean isInRecoveryState();
+    protected boolean isInRecoveryState() {
+        return recoveryRevisionListener != null;
+    }
+
+    /**
+     * Returns {@code true} if the watches have {@link #startWatches started}.
+     *
+     * <p>Method is expected to be invoked under {@link #rwLock}.</p>
+     */
+    protected abstract boolean isWatchesStarted();
 
     @Override
     public Entry get(byte[] key) {
@@ -244,6 +254,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
             } else {
+
+            }
+
+            if (!isWatchesStarted()) {
+                setCompactionRevision(compactionRevision);
+            } else {
                 watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
             }
         } finally {
@@ -289,7 +305,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
+    public void setRecoveryRevisionsListener(@Nullable RecoveryRevisionsListener listener) {
         rwLock.writeLock().lock();
 
         try {
@@ -339,10 +355,10 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     }
 
     /** Notifies of revision update. Must be called under the {@link #rwLock}. */
-    protected void notifyRevisionUpdate() {
+    protected void notifyRevisionsUpdate() {
         if (recoveryRevisionListener != null) {
             // Listener must be invoked only on recovery, after recovery listener must be null.
-            recoveryRevisionListener.accept(rev);
+            recoveryRevisionListener.onUpdate(createCurrentRevisions());
         }
     }
 
@@ -429,5 +445,35 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
 
         return res;
+    }
+
+    @Override
+    public void advanceSafeTime(KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try {
+            setIndexAndTerm(context.index, context.term);
+
+            if (isWatchesStarted()) {
+                watchProcessor.advanceSafeTime(context.timestamp);
+            }
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public Revisions revisions() {
+        rwLock.readLock().lock();
+
+        try {
+            return createCurrentRevisions();
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private Revisions createCurrentRevisions() {
+        return new Revisions(rev, compactionRevision);
     }
 }

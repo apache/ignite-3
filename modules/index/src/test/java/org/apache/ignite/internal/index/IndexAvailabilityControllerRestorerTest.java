@@ -54,6 +54,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -232,11 +233,11 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         controller = new IndexAvailabilityController(catalogManager, metaStorageManager, mock(IndexBuilder.class));
 
-        CompletableFuture<Long> metastoreRecoveryFuture = metaStorageManager.recoveryFinishedFuture();
+        CompletableFuture<Revisions> metastoreRecoveryFuture = metaStorageManager.recoveryFinishedFuture();
 
-        assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
+        assertThat(metastoreRecoveryFuture.thenApply(Revisions::revision), willBe(greaterThan(0L)));
 
-        controller.start(metastoreRecoveryFuture.join());
+        controller.start(metastoreRecoveryFuture.join().revision());
     }
 
     private void setLocalNodeToClusterService(ClusterNode clusterNode) {

@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
 
-/** Get command for MetaStorageCommandListener that retrieves current revision. */
-@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)
-public interface GetCurrentRevisionCommand extends ReadCommand {
+/**
+ * Get command for {@link MetaStorageListener} that retrieves the {@link RevisionsInfo current metastorage revisions} from the
+ * leader.
+ */
+@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISIONS)
+public interface GetCurrentRevisionsCommand extends ReadCommand {
 }
