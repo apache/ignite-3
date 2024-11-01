@@ -126,12 +126,12 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
 
     private ClusterStatus mapClusterStatus(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         Set<String> metaStorageNodes = clusterState.metaStorageNodes();
-        long presentedMetaStorageNodes = topologyService.allMembers().stream()
+        long presentMetaStorageNodes = topologyService.allMembers().stream()
                 .map(ClusterNode::name)
                 .filter(metaStorageNodes::contains)
                 .count();
 
-        if (presentedMetaStorageNodes <= metaStorageNodes.size() / 2) {
+        if (presentMetaStorageNodes <= metaStorageNodes.size() / 2) {
             return ClusterStatus.MS_MAJORITY_LOST;
         } else {
             return ClusterStatus.HEALTHY;

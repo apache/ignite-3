@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.ClusterStateClusterTag;
+import org.apache.ignite.rest.client.model.ClusterStatus;
 import org.apache.ignite.rest.client.model.MigrateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,7 @@ class MigrateToClusterCommandTest extends IgniteCliInterfaceTestBase {
                 .cmgNodes(List.of("node"))
                 .msNodes(List.of("node"))
                 .igniteVersion("version")
+                .clusterStatus(ClusterStatus.HEALTHY)
                 .clusterTag(
                         new ClusterStateClusterTag()
                                 .clusterName("clusterName")

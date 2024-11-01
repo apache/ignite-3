@@ -73,7 +73,7 @@ public class ClusterState {
     @JsonCreator
     public ClusterState(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
-            @JsonProperty("msNodes")  Collection<String> msNodes,
+            @JsonProperty("msNodes") Collection<String> msNodes,
             @JsonProperty("igniteVersion") String igniteVersion,
             @JsonProperty("clusterTag") ClusterTag clusterTag,
             @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds,

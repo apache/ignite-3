@@ -66,7 +66,6 @@ class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
         assertOutput("cluster", 2, "Metastore majority lost", cmgNodes(), metastoreNodes());
 
         CLUSTER.startNode(0);
-        Thread.sleep(10000);
         execute("cluster", "status", "--url", node1Url);
         assertOutput("cluster", 3, "active", cmgNodes(), metastoreNodes());
 

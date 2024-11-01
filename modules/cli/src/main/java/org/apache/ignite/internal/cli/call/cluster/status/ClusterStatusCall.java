@@ -36,7 +36,14 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 @Singleton
 public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
-    private static final int READ_TIMEOUT = 50_000;
+    /**
+     * We need to overlap timeout from raft client.
+     * We can't determine timeout value because it's configurable for each node
+     * And moreover retry counter can be increased.
+     * See {@link org.apache.ignite.internal.rest.cluster.ClusterManagementController}
+     * {@link org.apache.ignite.internal.raft.configuration.RaftConfigurationSchema}.
+     */
+    private static final int READ_TIMEOUT = 20_000;
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
@@ -82,6 +89,8 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
     }
 
     private org.apache.ignite.rest.client.model.ClusterState fetchClusterState(String url) throws ApiException {
-        return new ClusterManagementApi(clientFactory.getClient(url).setReadTimeout(READ_TIMEOUT)).clusterState();
+        return new ClusterManagementApi(clientFactory.getClient(url)
+                .setReadTimeout(READ_TIMEOUT))
+                .clusterState();
     }
 }
