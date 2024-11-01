@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 
@@ -135,6 +136,19 @@ class DeploymentUnitAcquiredWaiterTest extends BaseIgniteAbstractTest {
                 .until(() -> removingUnits.contains(unit2), isEqual(false));
 
         deploymentUnit2.release();
+    }
+
+    @Test
+    void notInfinityLoop() {
+        DeploymentUnit unit1 = new DeploymentUnit("unit1", "1.0.0");
+
+        deploymentUnitAccessor.acquire(unit1);
+
+        undeployer.submitToAcquireRelease(unit1);
+
+        // check delay between attempts to undeploy the unit.
+        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(7))
+                .computeIfNotAcquired(eq(unit1), any());
     }
 
     @AfterEach
