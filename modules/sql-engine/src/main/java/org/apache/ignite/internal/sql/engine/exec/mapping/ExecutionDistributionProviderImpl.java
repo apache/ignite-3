@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -47,6 +41,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 
@@ -56,73 +51,30 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     private final PlacementDriver placementDriver;
     private final SystemViewManager systemViewManager;
 
-    ExecutionDistributionProviderImpl(PlacementDriver placementDriver, SystemViewManager systemViewManager) {
+    /**
+     * Constructor.
+     *
+     * @param placementDriver Placement driver.
+     * @param systemViewManager Manager for system views.
+     */
+    public ExecutionDistributionProviderImpl(PlacementDriver placementDriver, SystemViewManager systemViewManager) {
         this.placementDriver = placementDriver;
         this.systemViewManager = systemViewManager;
     }
 
     @Override
-    public CompletableFuture<DistributionHolder> distribution(
-            HybridTimestamp operationTime,
-            boolean mapOnBackups,
-            Collection<IgniteTable> tables,
-            Collection<String> views,
-            String initiatorNode
-    ) {
-        if (tables.isEmpty() && views.isEmpty()) {
-            DistributionHolder holder = new DistributionHolderImpl(List.of(initiatorNode), Map.of(), Map.of());
-
-            return completedFuture(holder);
-        } else {
-            return distribution0(tables, views, operationTime, mapOnBackups, initiatorNode);
-        }
+    public List<String> forSystemView(IgniteSystemView view) {
+        return systemViewManager.owningNodes(view.name());
     }
 
-    private CompletableFuture<DistributionHolder> distribution0(
-            Collection<IgniteTable> tables,
-            Collection<String> views,
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> forTable(
             HybridTimestamp operationTime,
-            boolean mapOnBackups,
-            String initiatorNode
+            IgniteTable table,
+            boolean includeBackups
     ) {
-        Map<IgniteTable, CompletableFuture<List<TokenizedAssignments>>> mapResult = newHashMap(tables.size());
-        Map<IgniteTable, List<TokenizedAssignments>> mapResultResolved = newHashMap(tables.size());
-
-        for (IgniteTable tbl : tables) {
-            CompletableFuture<List<TokenizedAssignments>> assignments = collectAssignments(tbl, operationTime, mapOnBackups);
-
-            mapResult.put(tbl, assignments);
-        }
-
-        CompletableFuture<Void> all = CompletableFuture.allOf(mapResult.values().toArray(new CompletableFuture[0]));
-
-        CompletableFuture<Map<IgniteTable, List<TokenizedAssignments>>> fut = all.thenApply(v -> mapResult.entrySet().stream()
-                .map(e -> Map.entry(e.getKey(), e.getValue().join()))
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
-        );
-
-        CompletableFuture<List<String>> participantNodes = fut.thenApply(
-                v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
-                        .distinct()
-                        .collect(Collectors.toList()));
-
-        return participantNodes.thenApply(nodes -> {
-            nodes.add(initiatorNode);
-
-            // this is a safe join, because we have waited for all futures to be completed
-            mapResult.forEach((k, v) -> mapResultResolved.put(k, v.join()));
-
-            Map<String, List<String>> nodesPerView = views.stream().distinct()
-                    .collect(Collectors.toMap(Function.identity(), systemViewManager::owningNodes));
-
-            List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
-
-            List<String> nodes0 = Stream.concat(viewNodes.stream(), nodes.stream()).distinct().collect(Collectors.toUnmodifiableList());
-
-            return new DistributionHolderImpl(nodes0, mapResultResolved, nodesPerView);
-        });
+        return collectAssignments(table, operationTime, includeBackups);
     }
-
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
@@ -229,47 +181,5 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
                 return finalAssignments;
             });
         });
-    }
-
-    static class DistributionHolderImpl implements DistributionHolder {
-        private final List<String> nodes;
-        private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
-        private final Map<String, List<String>> nodesPerView;
-
-        DistributionHolderImpl(
-                List<String> nodes,
-                Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable,
-                Map<String, List<String>> nodesPerView) {
-            this.nodes = nodes;
-            this.assignmentsPerTable = assignmentsPerTable;
-            this.nodesPerView = nodesPerView;
-        }
-
-        @Override
-        public List<String> nodes() {
-            return nodes;
-        }
-
-        @Override
-        public List<TokenizedAssignments> tableAssignments(IgniteTable table) {
-            return assignmentsPerTable.get(table);
-        }
-
-        @Override
-        public List<String> viewNodes(String viewName) {
-            return nodesPerView.get(viewName);
-        }
-    }
-
-    /** Nodes distribution information holder. */
-    public interface DistributionHolder {
-        /** Whole collection of participating nodes. */
-        List<String> nodes();
-
-        /** Nodes table assigned to. */
-        List<TokenizedAssignments> tableAssignments(IgniteTable table);
-
-        /** Nodes view assigned to. */
-        List<String> viewNodes(String viewName);
     }
 }

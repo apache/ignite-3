@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestCaseDef;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;

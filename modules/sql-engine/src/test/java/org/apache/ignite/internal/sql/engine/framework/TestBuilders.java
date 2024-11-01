@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -87,8 +88,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -101,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -111,6 +111,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -121,12 +122,12 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -139,8 +140,10 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -707,9 +710,7 @@ public class TestBuilders {
                         var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                useTablePartitions,
-                                nodeNames,
-                                systemViewManager
+                                useTablePartitions
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -1544,8 +1545,6 @@ public class TestBuilders {
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
-        private List<String> topologyNodes;
-
         private boolean useTablePartitions;
 
         private ExecutionDistributionProviderBuilder() {
@@ -1555,12 +1554,6 @@ public class TestBuilders {
         /** Adds tables to list of nodes mapping. */
         public ExecutionDistributionProviderBuilder addTables(Map<String, List<List<String>>> tables) {
             this.owningNodesByTableName.putAll(tables);
-            return this;
-        }
-
-        /** Supply topology information. */
-        public ExecutionDistributionProviderBuilder topologyNodes(List<String> topologyNodes) {
-            this.topologyNodes = topologyNodes;
             return this;
         }
 
@@ -1584,9 +1577,7 @@ public class TestBuilders {
             return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
                     Map.copyOf(owningNodesByTableName),
-                    useTablePartitions,
-                    topologyNodes,
-                    null
+                    useTablePartitions
             );
         }
     }
@@ -1598,76 +1589,14 @@ public class TestBuilders {
 
         final boolean useTablePartitions;
 
-        final List<String> topologyNodes;
-
-        final SystemViewManager systemViewManager;
-
         private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
                 Map<String, List<List<String>>> owningNodesByTableName,
-                boolean useTablePartitions,
-                List<String> topologyNodes,
-                SystemViewManager systemViewManager
+                boolean useTablePartitions
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
             this.useTablePartitions = useTablePartitions;
-            this.topologyNodes = topologyNodes;
-            this.systemViewManager = systemViewManager;
-        }
-
-        @Override
-        public CompletableFuture<DistributionHolder> distribution(
-                HybridTimestamp operationTime,
-                boolean mapOnBackups,
-                Collection<IgniteTable> tables,
-                Collection<String> views,
-                String initiatorNode
-        ) {
-            Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable = new HashMap<>();
-
-            for (IgniteTable table : tables) {
-                List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
-
-                List<TokenizedAssignments> assignments;
-
-                if (useTablePartitions) {
-                    int p = table.partitions();
-
-                    assignments = IntStream.range(0, p).mapToObj(n -> {
-                        List<String> nodes = owningNodes.get(n % owningNodes.size());
-                        return partitionNodesToAssignment(nodes, p);
-                    }).collect(Collectors.toList());
-
-                    assignmentsPerTable.put(table, assignments);
-                } else {
-                    assignments = owningNodes.stream()
-                            .map(nodes -> partitionNodesToAssignment(nodes, 1))
-                            .collect(Collectors.toList());
-
-                    assignmentsPerTable.put(table, assignments);
-                }
-            }
-
-            DistributionHolder holder = new DistributionHolder() {
-                @Override
-                public List<String> nodes() {
-                    return topologyNodes;
-                }
-
-                @Override
-                public List<TokenizedAssignments> tableAssignments(IgniteTable table) {
-                    return assignmentsPerTable.get(table);
-                }
-
-                @Override
-                public List<String> viewNodes(String viewName) {
-                    return systemViewManager != null ? systemViewManager.owningNodes(viewName)
-                            : owningNodesBySystemViewName.apply(viewName);
-                }
-            };
-
-            return CompletableFuture.completedFuture(holder);
         }
 
         private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
@@ -1675,6 +1604,41 @@ public class TestBuilders {
                     nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet()),
                     token
             );
+        }
+
+        @Override
+        public CompletableFuture<List<TokenizedAssignments>> forTable(HybridTimestamp operationTime, IgniteTable table,
+                boolean includeBackups) {
+            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
+
+            List<TokenizedAssignments> assignments;
+
+            if (useTablePartitions) {
+                int p = table.partitions();
+
+                assignments = IntStream.range(0, p).mapToObj(n -> {
+                    List<String> nodes = owningNodes.get(n % owningNodes.size());
+                    return partitionNodesToAssignment(nodes, p);
+                }).collect(Collectors.toList());
+            } else {
+                assignments = owningNodes.stream()
+                        .map(nodes -> partitionNodesToAssignment(nodes, 1))
+                        .collect(Collectors.toList());
+            }
+
+            return CompletableFuture.completedFuture(assignments);
+        }
+
+        @Override
+        public List<String> forSystemView(IgniteSystemView view) {
+            List<String> nodes = owningNodesBySystemViewName.apply(view.name());
+
+            if (nullOrEmpty(nodes)) {
+                throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                + " any active nodes in the cluster", view));
+            }
+
+            return view.distribution() == IgniteDistributions.single() ? List.of(nodes.get(0)) : nodes;
         }
     }
 }

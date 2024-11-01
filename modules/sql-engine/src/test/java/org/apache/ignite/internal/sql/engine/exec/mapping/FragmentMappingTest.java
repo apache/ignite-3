@@ -37,9 +37,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
@@ -421,7 +419,6 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         ExecutionDistributionProvider executionDistributionProvider = TestBuilders.executionDistributionProviderBuilder()
                 .useTablePartitions(true)
                 .addTables(table2Assignments)
-                .topologyNodes(logicalTopologySnapshot.nodes().stream().map(ClusterNodeImpl::name).collect(Collectors.toList()))
                 .build();
 
         return new TestSetup(executionDistributionProvider, schema, logicalTopologySnapshot);

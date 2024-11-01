@@ -15,21 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.engine.ExecutionDistributionProviderImpl.DistributionHolder;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
 /** Execution nodes information provider. */
-@FunctionalInterface
 public interface ExecutionDistributionProvider {
-    CompletableFuture<DistributionHolder> distribution(
+    /**
+     * Returns an execution target for a given table.
+     *
+     * @param operationTime Time of the operation to get consistent results among different calls.
+     * @param table A table to create execution target for.
+     * @param includeBackups Flags denotes whether to include non-primary replicas into target.
+     * @return A future representing the result.
+     */
+    CompletableFuture<List<TokenizedAssignments>> forTable(
             HybridTimestamp operationTime,
-            boolean mapOnBackups,
-            Collection<IgniteTable> tables,
-            Collection<String> views,
-            String initiatorNode);
+            IgniteTable table,
+            boolean includeBackups
+    );
+
+    /**
+     * Returns a distribution for a given view.
+     *
+     * @param view A view to create execution target for.
+     * @return Distribution for a given view.
+     */
+    List<String> forSystemView(IgniteSystemView view);
 }
