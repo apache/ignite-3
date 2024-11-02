@@ -243,8 +243,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         recoveryRevisionsListener = new RecoveryRevisionsListenerImpl(busyLock, recoveryFinishedFuture, storage);
         storage.setRecoveryRevisionsListener(recoveryRevisionsListener);
-        // Safe because we haven't started raft nodes yet and so no one has to update storage locally.
-        recoveryRevisionsListener.onUpdate(storage.revisions());
     }
 
     /**
@@ -662,6 +660,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         storage.start();
+
+        // Safe because we haven't started raft nodes yet and so no one has to update storage locally.
+        recoveryRevisionsListener.onUpdate(storage.revisions());
 
         cmgMgr.metaStorageInfo()
                 .thenCombine(cmgMgr.clusterState(), MetaStorageInfoAndClusterState::new)
