@@ -67,6 +67,16 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
         versionedValue.removeWhenComplete(action);
     }
 
+    @Override
+    public void whenDelete(DeletionListener<T> action) {
+        versionedValue.whenDelete(action);
+    }
+
+    @Override
+    public void removeWhenDelete(DeletionListener<T> action) {
+        versionedValue.removeWhenDelete(action);
+    }
+
     /**
      * Completes the Versioned Value for the given token. This method will look for the previous complete token and complete all registered
      * futures in the {@code (prevToken, causalityToken]} range. If no {@code complete} methods have been called before, all these futures

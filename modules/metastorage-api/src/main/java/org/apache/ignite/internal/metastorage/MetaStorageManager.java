@@ -424,6 +424,12 @@ public interface MetaStorageManager extends IgniteComponent {
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 
+    /** Registers a Meta Storage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
     /**
      * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if it has never been updated.
      *

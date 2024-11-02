@@ -38,9 +38,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -48,6 +45,7 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.causality.TestRevisionListenerRegistry;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -76,10 +74,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     private static final int CATALOG_VERSION_1 = 10;
     private static final int CATALOG_VERSION_2 = 11;
 
-    private final AtomicReference<LongFunction<CompletableFuture<?>>> onMetastoreRevisionCompleteHolder = new AtomicReference<>();
-
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry = onMetastoreRevisionCompleteHolder::set;
-
+    private final TestRevisionListenerRegistry registry = new TestRevisionListenerRegistry();
     @Mock
     private CatalogService catalogService;
 
@@ -172,7 +167,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void completeCausalityToken(long causalityToken) {
-        assertThat(onMetastoreRevisionCompleteHolder.get().apply(causalityToken), willCompleteSuccessfully());
+        assertThat(registry.updateRevision(causalityToken), willCompleteSuccessfully());
     }
 
     @Test

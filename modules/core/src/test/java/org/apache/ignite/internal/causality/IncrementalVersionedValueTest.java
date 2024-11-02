@@ -42,17 +42,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -67,7 +63,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
     private static final int TEST_VALUE = 1;
 
     /** The test revision register is used to move the revision forward. */
-    private final TestRevisionRegister register = new TestRevisionRegister();
+    private final TestRevisionListenerRegistry register = new TestRevisionListenerRegistry();
 
     /** Test exception is used for exceptionally completion Versioned value object. */
     private static final Exception TEST_EXCEPTION = new Exception("Test exception");
@@ -83,7 +79,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         versionedValue.update(0, (integer, throwable) -> completedFuture(TEST_VALUE));
 
-        register.moveRevision(0L).join();
+        register.updateRevision(0L).join();
 
         CompletableFuture<Integer> fut = versionedValue.get(1);
 
@@ -97,7 +93,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
             assertFalse(fut.isDone());
         }
 
-        register.moveRevision(1L).join();
+        register.updateRevision(1L).join();
 
         assertTrue(fut.isDone());
 
@@ -127,7 +123,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         assertFalse(fut.isDone());
 
-        register.moveRevision(0L).join();
+        register.updateRevision(0L).join();
 
         assertTrue(fut.isDone());
 
@@ -147,7 +143,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Integer> vvFut = vv.get(0L);
 
-        CompletableFuture<?> revFut = register.moveRevision(0L);
+        CompletableFuture<?> revFut = register.updateRevision(0L);
 
         assertFalse(fut.isDone());
         assertFalse(vvFut.isDone());
@@ -252,7 +248,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         assertFalse(tableFut.isDone());
         assertFalse(userFut.isDone());
 
-        register.moveRevision(token).join();
+        register.updateRevision(token).join();
 
         tableFut.join();
 
@@ -363,7 +359,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         vv1.update(token, (i, e) -> supplyAsync(() -> i + 1));
 
-        register.moveRevision(token);
+        register.updateRevision(token);
 
         assertThat(vv1.get(token), willCompleteSuccessfully());
 
@@ -452,13 +448,13 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         assertNull(vv.latest());
         assertEquals(-1, vv.latestCausalityToken());
 
-        register.moveRevision(1);
+        register.updateRevision(1);
 
         // Revision is updated.
         assertEquals(10, vv.latest());
         assertEquals(1, vv.latestCausalityToken());
 
-        register.moveRevision(2);
+        register.updateRevision(2);
 
         // Revision is updated second time. Token must be new, value must be the same.
         assertEquals(10, vv.latest());
@@ -467,7 +463,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         CompletableFuture<Integer> fut = new CompletableFuture<>();
         vv.update(5, (val, e) -> fut);
 
-        register.moveRevision(5);
+        register.updateRevision(5);
 
         // Future is not yet completed, token and value are still the same.
         assertEquals(10, vv.latest());
@@ -488,14 +484,14 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         CompletableFuture<Integer> fut = new CompletableFuture<>();
 
         vv.update(1, (val, e) -> fut);
-        register.moveRevision(1);
+        register.updateRevision(1);
 
         // Value and token are not updated until the future is completed.
         assertNull(vv.latest());
         assertEquals(-1, vv.latestCausalityToken());
 
         vv.update(5, (val, e) -> completedFuture(50));
-        register.moveRevision(5);
+        register.updateRevision(5);
 
         // Value and token are not updated until the future is completed.
         assertNull(vv.latest());
@@ -529,37 +525,10 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         vv.update(0, (a, e) -> completedFuture(a == null ? null : a + 1));
 
-        register.moveRevision(0L).join();
+        register.updateRevision(0L).join();
 
         assertTrue(f.isDone());
 
         assertEquals(expectedDefault == null ? null : expectedDefault + 2, f.join());
-    }
-
-    /**
-     * Test revision register.
-     */
-    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
-        /** Revision consumer. */
-        private final List<LongFunction<CompletableFuture<?>>> moveRevisionList = new ArrayList<>();
-
-        @Override
-        public void accept(LongFunction<CompletableFuture<?>> function) {
-            moveRevisionList.add(function);
-        }
-
-        /**
-         * Move revision.
-         *
-         * @param revision Revision.
-         * @return Future for all listeners.
-         */
-        CompletableFuture<?> moveRevision(long revision) {
-            CompletableFuture<?>[] futures = moveRevisionList.stream()
-                    .map(m -> m.apply(revision))
-                    .toArray(CompletableFuture[]::new);
-
-            return CompletableFuture.allOf(futures);
-        }
     }
 }

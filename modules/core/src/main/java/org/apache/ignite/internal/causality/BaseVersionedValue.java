@@ -44,19 +44,22 @@ import org.jetbrains.annotations.Nullable;
  * Base implementation of a {@code VersionedValue} intended to be used by other implementations.
  */
 class BaseVersionedValue<T> implements VersionedValue<T> {
-    private final IgniteLogger log = Loggers.forClass(BaseVersionedValue.class);
+    private static final IgniteLogger LOG = Loggers.forClass(BaseVersionedValue.class);
 
     /** Token until the value is initialized. */
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    private static final int DEFAULT_MAX_HISTORY_SIZE = 10;
+    static final int DEFAULT_MAX_HISTORY_SIZE = 10;
 
     /** Size of the history of changes to store, including last applied token. */
     private final int maxHistorySize;
 
     /** List of completion listeners, see {@link #whenComplete}. */
     private final List<CompletionListener<T>> completionListeners = new CopyOnWriteArrayList<>();
+
+    /** List of deletion listeners, see {@link #whenDelete}. */
+    private final List<DeletionListener<T>> deletionListeners = new CopyOnWriteArrayList<>();
 
     /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
@@ -325,6 +328,16 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
         completionListeners.remove(action);
     }
 
+    @Override
+    public void whenDelete(DeletionListener<T> action) {
+        deletionListeners.add(action);
+    }
+
+    @Override
+    public void removeWhenDelete(DeletionListener<T> action) {
+        deletionListeners.remove(action);
+    }
+
     /**
      * Notifies completion listeners.
      */
@@ -336,7 +349,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
                 try {
                     listener.whenComplete(causalityToken, v, unpackedThrowable);
                 } catch (Exception e) {
-                    log.error("Exception when notifying a completion listener", e);
+                    LOG.error("Exception when notifying a completion listener", e);
                 }
             }
         });
