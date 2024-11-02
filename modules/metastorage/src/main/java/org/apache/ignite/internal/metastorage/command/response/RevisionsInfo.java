@@ -35,7 +35,7 @@ public class RevisionsInfo implements Serializable {
      * @param revision Metastorage revision.
      * @param compactionRevision Metastorage compaction revision.
      */
-    private RevisionsInfo(long revision, long compactionRevision) {
+    public RevisionsInfo(long revision, long compactionRevision) {
         this.revision = revision;
         this.compactionRevision = compactionRevision;
     }

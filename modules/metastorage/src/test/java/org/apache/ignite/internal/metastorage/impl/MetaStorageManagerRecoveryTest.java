@@ -41,8 +41,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -110,7 +110,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionsCommand.class)))
-                .thenAnswer(invocation -> completedFuture(new Revisions(remoteRevision, -1)));
+                .thenAnswer(invocation -> completedFuture(new RevisionsInfo(remoteRevision, -1)));
 
         when(raft.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> service);
