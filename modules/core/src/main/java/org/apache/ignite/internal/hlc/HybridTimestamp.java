@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.VarIntUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -131,7 +132,18 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @param bytes Byte array representing a timestamp.
      */
     public static HybridTimestamp fromBytes(byte[] bytes) {
-        return hybridTimestamp(ByteUtils.bytesToLong(bytes));
+        // Reversing bytes as ByteUtils works in BE, but we store in LE (as IgniteDataOutput uses LE and we want to be consistent between
+        // serialization methods).
+        long physicalHigh = Integer.reverseBytes(ByteUtils.bytesToInt(bytes, 0));
+        int physicalLow = Short.reverseBytes(ByteUtils.bytesToShort(bytes, Integer.BYTES)) & 0xFFFF;
+
+        long physical = (physicalHigh << Short.SIZE) | physicalLow;
+        //noinspection NumericCastThatLosesPrecision
+        int logical = (int) VarIntUtils.readVarInt(bytes, Integer.BYTES + Short.BYTES);
+
+        assert physical != 0 || logical != 0;
+
+        return new HybridTimestamp(physical, logical);
     }
 
     /**
@@ -256,8 +268,21 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Returns a byte array representing this timestamp.
      */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     public byte[] toBytes() {
-        return ByteUtils.longToBytes(longValue());
+        long physical = getPhysical();
+        int logical = getLogical();
+
+        byte[] bytes = new byte[Integer.BYTES + Short.BYTES + VarIntUtils.varIntLength(logical)];
+
+        // Reversing bytes as ByteUtils works in BE, but we store in LE (as IgniteDataOutput uses LE and we want to be consistent between
+        // serialization methods).
+        ByteUtils.putIntToBytes(Integer.reverseBytes((int) (physical >> Short.SIZE)), bytes, 0);
+        ByteUtils.putShortToBytes(Short.reverseBytes((short) (physical & 0xFFFF)), bytes, Integer.BYTES);
+
+        VarIntUtils.putVarIntToBytes(logical, bytes, Integer.BYTES + Short.BYTES);
+
+        return bytes;
     }
 
     /**

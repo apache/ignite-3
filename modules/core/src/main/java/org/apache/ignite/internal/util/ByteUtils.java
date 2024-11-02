@@ -163,6 +163,26 @@ public class ByteUtils {
         return bytesToInt(bytes) ^ 0x00808080;
     }
 
+    /**
+     * Constructs {@code short} from byte array in Big Endian order.
+     *
+     * @param bytes Array of bytes.
+     * @param off Offset in {@code bytes} array.
+     * @return Short value.
+     */
+    public static short bytesToShort(byte[] bytes, int off) {
+        assert bytes != null;
+
+        int bytesCnt = Math.min(Short.BYTES, bytes.length - off);
+
+        int res = 0;
+
+        for (int i = 0; i < bytesCnt; i++) {
+            res = (res << 8) | (0xff & bytes[off + i]);
+        }
+
+        return (short) res;
+    }
 
     /**
      * Converts a primitive {@code int} value to a byte array in Big Endian order.
@@ -195,11 +215,32 @@ public class ByteUtils {
      */
     public static byte[] putIntToBytes(int i, byte[] bytes, int off) {
         assert bytes != null;
-        assert bytes.length >= off + Integer.BYTES;
+        assert off + Integer.BYTES <= bytes.length;
 
         for (int k = Integer.BYTES - 1; k >= 0; k--) {
             bytes[off + k] = (byte) i;
-            i >>>= 8;
+            i >>>= Byte.SIZE;
+        }
+
+        return bytes;
+    }
+
+    /**
+     * Converts a primitive {@code short} value to a byte array in Big Endian order and stores it in the specified byte array.
+     *
+     * @param s Unsigned int value.
+     * @param bytes Bytes array to write result to.
+     * @param off Offset in the target array to write result to.
+     * @return The array.
+     */
+    public static byte[] putShortToBytes(short s, byte[] bytes, int off) {
+        assert bytes != null;
+        assert off + Short.BYTES <= bytes.length;
+
+        int value = s;
+        for (int k = Short.BYTES - 1; k >= 0; k--) {
+            bytes[off + k] = (byte) value;
+            value >>>= Byte.SIZE;
         }
 
         return bytes;
