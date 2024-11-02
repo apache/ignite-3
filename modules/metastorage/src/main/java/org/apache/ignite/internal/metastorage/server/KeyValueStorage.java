@@ -542,13 +542,15 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Updates the metastorage compaction revision.
      *
      * <p>Algorithm:</p>
-     * <ul>
+     * <ol>
      *     <li>Invokes {@link #saveCompactionRevision}.</li>
-     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
+     *     <li>If the metastorage is in a recovery state (listener set via {@link #setRecoveryRevisionsListener}), then
      *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>If the watches have <b>not</b> {@link #startWatches started}, then it will postpone the execution of step 4 until the
+     *     watches and the current method is completed.</li>
      *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
      *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes {@link CompactionRevisionUpdateListener#onUpdate}.</li>
-     * </ul>
+     * </ol>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *

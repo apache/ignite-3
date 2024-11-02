@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
@@ -67,6 +68,14 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Metastorage leader locally gets notification of the completion of the local compaction for the new revision.</li>
  *     <li>Metastorage leader locally schedules a new start of compaction.</li>
  * </ol>
+ *
+ * <p>About recovery:</p>
+ * <ul>
+ *     <li>At the start of the component, we will start a local compaction for the compaction revision from
+ *     {@link MetaStorageManager#recoveryFinishedFuture}.</li>
+ *     <li>{@link CompactionCommand}s that were received before the {@link MetaStorageManager#deployWatches} will start a local compaction
+ *     in the {@link MetaStorageManager#deployWatches}.</li>
+ * </ul>
  */
 // TODO: IGNITE-23280 Turn on compaction
 public class MetaStorageCompactionTrigger implements IgniteComponent {

@@ -462,22 +462,20 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            areWatchesEnabled = true;
-
             watchProcessor.setWatchEventHandlingCallback(callback);
 
-            replayUpdates(startRevision);
+            fillNotifyWatchProcessorEventsFromStorage(startRevision);
+
+            drainNotifyWatchProcessorEventsBeforeStartWatches();
+
+            areWatchesEnabled = true;
         } finally {
             rwLock.readLock().unlock();
         }
     }
 
-    private void replayUpdates(long startRevision) {
+    private void fillNotifyWatchProcessorEventsFromStorage(long startRevision) {
         long minWatchRevision = Math.max(startRevision, watchProcessor.minWatchRevision().orElse(-1));
-
-        if (minWatchRevision <= 0) {
-            return;
-        }
 
         revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
@@ -487,8 +485,25 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                         updatedEntries.add(entry);
                     });
 
-                    notifyWatches();
+                    fillNotifyWatchProcessorEventsFromUpdatedEntries();
                 });
+    }
+
+    private void fillNotifyWatchProcessorEventsFromUpdatedEntries() {
+        if (updatedEntries.isEmpty()) {
+            return;
+        }
+
+        long revision = updatedEntries.get(0).revision();
+
+        HybridTimestamp ts = revToTsMap.get(revision);
+        assert ts != null : revision;
+
+        var event = new UpdateEntriesEvent(List.copyOf(updatedEntries), ts);
+
+        addToNotifyWatchProcessorEventsBeforeStartWatches(event);
+
+        updatedEntries.clear();
     }
 
     private void notifyWatches() {

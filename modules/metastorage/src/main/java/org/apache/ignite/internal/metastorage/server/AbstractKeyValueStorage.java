@@ -90,6 +90,15 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
     /**
+     * Events for notification of the {@link WatchProcessor} that were created before the {@link #startWatches start of watches}, after the
+     * start of watches there will be {@code null}. Events are sorted by {@link NotifyWatchProcessorEvent#timestamp} and are expected to
+     * have no duplicates.
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    protected @Nullable TreeSet<NotifyWatchProcessorEvent> notifyWatchProcessorEventsBeforeStartWatches = new TreeSet<>();
+
+    /**
      * Constructor.
      *
      * @param nodeName Node name.
@@ -120,7 +129,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      *
      * <p>Method is expected to be invoked under {@link #rwLock}.</p>
      */
-    protected boolean isInRecoveryState() {
+    private boolean isInRecoveryState() {
         return recoveryRevisionListener != null;
     }
 
@@ -255,14 +264,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
-            } else {
-
-            }
-
-            if (!isWatchesStarted()) {
-                setCompactionRevision(compactionRevision);
-            } else {
+            } else if (isWatchesStarted()) {
                 watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
+            } else {
+                var notifyWatchesEvent = new UpdateCompactionRevisionEvent(compactionRevision, context.timestamp);
+
+                addToNotifyWatchProcessorEventsBeforeStartWatches(notifyWatchesEvent);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -477,5 +484,21 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     private Revisions createCurrentRevisions() {
         return new Revisions(rev, compactionRevision);
+    }
+
+    protected void addToNotifyWatchProcessorEventsBeforeStartWatches(NotifyWatchProcessorEvent event) {
+        assert !isWatchesStarted();
+
+        boolean added = notifyWatchProcessorEventsBeforeStartWatches.add(event);
+
+        assert added : event;
+    }
+
+    protected void drainNotifyWatchProcessorEventsBeforeStartWatches() {
+        assert !isWatchesStarted();
+
+        notifyWatchProcessorEventsBeforeStartWatches.forEach(event -> event.notify(watchProcessor));
+
+        notifyWatchProcessorEventsBeforeStartWatches = null;
     }
 }

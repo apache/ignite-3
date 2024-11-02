@@ -63,6 +63,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -87,8 +89,10 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.MetastorageChecksum;
+import org.apache.ignite.internal.metastorage.server.NotifyWatchProcessorEvent;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
+import org.apache.ignite.internal.metastorage.server.UpdateEntriesEvent;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -227,15 +231,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * is called.
      */
     private final AtomicReference<RecoveryStatus> recoveryStatus = new AtomicReference<>(RecoveryStatus.INITIAL);
-
-    /**
-     * Buffer used to cache new events while an event replay is in progress. After replay finishes, the cache gets drained and is never
-     * used again.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
-     */
-    @Nullable
-    private List<UpdatedEntries> eventCache;
 
     /**
      * Current list of updated entries.
@@ -926,7 +921,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
 
         if (currentRevision != 0) {
-            replayUpdates(startRevision, currentRevision);
+            Set<NotifyWatchProcessorEvent> fromStorage = collectNotifyWatchProcessorEventsFromStorage(startRevision, currentRevision);
+
+            rwLock.writeLock().lock();
+
+            try {
+                notifyWatchProcessorEventsBeforeStartWatches.addAll(fromStorage);
+
+                drainNotifyWatchProcessorEventsBeforeStartWatches();
+
+                recoveryStatus.set(RecoveryStatus.DONE);
+            } finally {
+                rwLock.writeLock().unlock();
+            }
         }
     }
 
@@ -1090,21 +1097,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 updatedEntries.clear();
 
                 break;
-
             case IN_PROGRESS:
-                // Buffer the event while event replay is still in progress.
-                if (eventCache == null) {
-                    eventCache = new ArrayList<>();
-                }
+                UpdatedEntries copy = updatedEntries.transfer();
 
-                eventCache.add(updatedEntries.transfer());
+                var event = new UpdateEntriesEvent(copy.updatedEntries, copy.ts);
+
+                addToNotifyWatchProcessorEventsBeforeStartWatches(event);
 
                 break;
-
             default:
                 notifyWatches();
-
-                break;
         }
     }
 
@@ -1115,18 +1117,17 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
     }
 
-    private void replayUpdates(long lowerRevision, long upperRevision) {
+    private Set<NotifyWatchProcessorEvent> collectNotifyWatchProcessorEventsFromStorage(long lowerRevision, long upperRevision) {
         long minWatchRevision = Math.max(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
 
-        if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
-            // No events to replay, we can start processing more recent events from the event queue.
-            finishReplay();
-
-            return;
+        if (minWatchRevision > upperRevision) {
+            return Set.of();
         }
 
         var updatedEntries = new ArrayList<Entry>();
         HybridTimestamp ts = null;
+
+        var events = new TreeSet<NotifyWatchProcessorEvent>();
 
         try (
                 var upperBound = new Slice(longToBytes(upperRevision + 1));
@@ -1149,7 +1150,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                         assert ts != null : revision;
 
-                        watchProcessor.notifyWatches(updatedEntriesCopy, ts);
+                        var event = new UpdateEntriesEvent(updatedEntriesCopy, ts);
+
+                        boolean added = events.add(event);
+
+                        assert added : event;
 
                         updatedEntries.clear();
 
@@ -1173,15 +1178,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 throw new MetaStorageException(OP_EXECUTION_ERR, e);
             }
 
-            // Notify about the events left after finishing the loop above.
+            // Adds event left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
                 assert ts != null;
 
-                watchProcessor.notifyWatches(updatedEntries, ts);
+                var event = new UpdateEntriesEvent(updatedEntries, ts);
+
+                boolean added = events.add(event);
+
+                assert added : event;
             }
         }
 
-        finishReplay();
+        return events;
     }
 
     @Override
@@ -1226,28 +1235,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.readLock().unlock();
-        }
-    }
-
-    private void finishReplay() {
-        // Take the lock to drain the event cache and prevent new events from being cached. Since event notification is asynchronous,
-        // this lock shouldn't be held for long.
-        rwLock.writeLock().lock();
-
-        try {
-            if (eventCache != null) {
-                eventCache.forEach(entries -> {
-                    assert entries.ts != null;
-
-                    watchProcessor.notifyWatches(entries.updatedEntries, entries.ts);
-                });
-
-                eventCache = null;
-            }
-
-            recoveryStatus.set(RecoveryStatus.DONE);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 

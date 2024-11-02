@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Listener update of {@link Revisions current metastorage revisions}, needed only for metastorage recovery. */
-@FunctionalInterface
-public interface RecoveryRevisionsListener {
-    /**
-     * Invoked when one of the {@link Revisions current metastorage revisions} is updated.
-     *
-     * <p>Until the method completes its execution, no update or compaction of metastorage will occur, so the method should complete its
-     * execution as soon as possible.</p>
-     */
-    void onUpdate(Revisions currentRevisions);
+/** {@link WatchProcessor} notification events. */
+public interface NotifyWatchProcessorEvent extends Comparable<NotifyWatchProcessorEvent> {
+    /** Event timestamp. */
+    HybridTimestamp timestamp();
+
+    /** Notifies the {@link WatchProcessor}. */
+    void notify(WatchProcessor watchProcessor);
+
+    @Override
+    default int compareTo(NotifyWatchProcessorEvent o) {
+        return timestamp().compareTo(o.timestamp());
+    }
 }
