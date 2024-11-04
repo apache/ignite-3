@@ -27,11 +27,11 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
+import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,16 +41,16 @@ import org.jetbrains.annotations.Nullable;
 public class ScriptTransactionContext implements QueryTransactionContext {
     private final QueryTransactionContextImpl txContext;
 
-    private final TransactionInflights transactionInflights;
+    private final TransactionTracker txTracker;
 
     private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
     /** Constructor. */
-    public ScriptTransactionContext(QueryTransactionContext txContext, TransactionInflights transactionInflights) {
+    public ScriptTransactionContext(QueryTransactionContext txContext, TransactionTracker txTracker) {
         assert txContext instanceof QueryTransactionContextImpl : txContext;
 
         this.txContext = (QueryTransactionContextImpl) txContext;
-        this.transactionInflights = transactionInflights;
+        this.txTracker = txTracker;
     }
 
     /**
@@ -108,7 +108,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = txContext.getOrStartImplicit(readOnly).unwrap();
 
-            this.wrapper = new ScriptTransactionWrapperImpl(tx, transactionInflights);
+            this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
 
             return nullCompletedFuture();
         } else {

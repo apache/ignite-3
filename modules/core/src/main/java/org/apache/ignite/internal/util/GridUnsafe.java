@@ -45,7 +45,7 @@ import sun.misc.Unsafe;
  * {@code getXxx(byte[] arr, long off)} and corresponding methods with {@code LE} suffix are alignment aware
  * and can be safely used with unaligned pointers.</li>
  * <li>All {@code putXxxField(Object obj, long fieldOff, xxx val)} and {@code getXxxField(Object obj, long fieldOff)}
- * methods are not alignment aware and can't be safely used with unaligned pointers. This methods can be safely used
+ * methods are not alignment aware and can't be safely used with unaligned pointers. These methods can be safely used
  * for object field values access because all object fields addresses are aligned.</li>
  * <li>All {@code putXxxLE(...)} and {@code getXxxLE(...)} methods assumes that the byte order is fixed as little-endian
  * while native byte order is big-endian. So it is client code responsibility to check native byte order before

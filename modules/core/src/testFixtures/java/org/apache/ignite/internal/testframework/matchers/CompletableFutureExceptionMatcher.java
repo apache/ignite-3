@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -106,13 +107,17 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             try {
                 item.join();
             } catch (Exception e) {
-                mismatchDescription.appendText("was completed exceptionally with ").appendValue(unwrapCause(e));
+                mismatchDescription.appendText("was completed exceptionally with ").appendValue(describeThrowable(unwrapCause(e)));
             }
         } else if (item.isDone()) {
             mismatchDescription.appendText("was completed successfully");
         } else {
             mismatchDescription.appendText("was not completed");
         }
+    }
+
+    private static String describeThrowable(Throwable throwable) {
+        return throwable.toString() + ", stack trace " + ExceptionUtils.getFullStackTrace(throwable);
     }
 
     private boolean matchesWithCause(Throwable e) {

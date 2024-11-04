@@ -379,7 +379,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Use hash index for primary key, otherwise if sorted index exists,
         // the optimizer might choose it (the primary key index) instead of an existing sorted one.
         sql(format(
-                "CREATE TABLE IF NOT EXISTS {} (id INT, name VARCHAR, salary DOUBLE, PRIMARY KEY USING HASH (id)) WITH PRIMARY_ZONE='{}'",
+                "CREATE TABLE IF NOT EXISTS {} (id INT, name VARCHAR, salary DOUBLE, PRIMARY KEY USING HASH (id)) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         ));
 
