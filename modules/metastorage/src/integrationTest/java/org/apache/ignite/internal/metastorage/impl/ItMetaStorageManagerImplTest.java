@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -289,7 +290,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(MetastorageRepairStorage.class),
                 mock(MetastorageRepair.class),
                 RaftGroupOptionsConfigurer.EMPTY,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                ForkJoinPool.commonPool()
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
