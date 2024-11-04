@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * Base implementation of a {@code VersionedValue} intended to be used by other implementations.
  */
 class BaseVersionedValue<T> implements VersionedValue<T> {
-    private static final IgniteLogger LOG = Loggers.forClass(BaseVersionedValue.class);
+    private final IgniteLogger log = Loggers.forClass(BaseVersionedValue.class);
 
     /** Token until the value is initialized. */
     private static final long NOT_INITIALIZED = -1L;
@@ -349,7 +349,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
                 try {
                     listener.whenComplete(causalityToken, v, unpackedThrowable);
                 } catch (Exception e) {
-                    LOG.error("Exception when notifying a completion listener", e);
+                    log.error("Exception when notifying a completion listener", e);
                 }
             }
         });

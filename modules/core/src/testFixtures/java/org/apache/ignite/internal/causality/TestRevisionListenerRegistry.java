@@ -23,4 +23,9 @@ public class TestRevisionListenerRegistry implements RevisionListenerRegistry {
 
         return allOf(futures);
     }
+
+    /** Deletes revisions. */
+    public void deleteRevisions(long revisionUpperBoundInclusive) {
+        listeners.forEach(listener -> listener.onDelete(revisionUpperBoundInclusive));
+    }
 }
