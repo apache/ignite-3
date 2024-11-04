@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
@@ -70,6 +71,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static final long CAUSALITY_TOKEN_1 = 0;
     private static final long CAUSALITY_TOKEN_2 = 45;
+    private static final long CAUSALITY_TOKEN_3 = 56;
 
     private static final int CATALOG_VERSION_1 = 10;
     private static final int CATALOG_VERSION_2 = 11;
@@ -266,12 +268,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
-        doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
+        doReturn(completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
         assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        completeCausalityToken(CAUSALITY_TOKEN_2);
+        completeCausalityToken(CAUSALITY_TOKEN_3);
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
