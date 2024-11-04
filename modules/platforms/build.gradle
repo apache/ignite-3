@@ -23,6 +23,8 @@ plugins {
 
 import dev.welbyseely.CMakeBuildTask
 import dev.welbyseely.CMakeConfigureTask
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
 
@@ -31,13 +33,23 @@ configurations {
     cppClientHeaders
     dotNet
     odbc
+    platformsHeaders
+}
+
+dependencies {
+    platformsHeaders project(path: ':ignite-api', configuration: 'platformsHeaders')
+}
+
+def copyPlatformsHeaders = tasks.register('copyPlatformsHeaders', Copy) {
+    from configurations.platformsHeaders
+    into "$projectDir"
 }
 
 cmakeConfigure.enabled = false
 cmakeBuild.enabled = false
 
 def restoreTool = tasks.register('restoreTool', Exec) {
-    workingDir "$rootDir/modules/platforms/dotnet"
+    workingDir "$projectDir/dotnet"
 
     commandLine "dotnet", "tool", "restore"
 }
@@ -52,36 +64,37 @@ def docfx = tasks.register('docfx', Exec) {
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
     dependsOn docfx
 
-    from("$rootDir/modules/platforms/dotnet/docs/_site")
-    into("$rootDir/build/docs/dotnet")
+    from "$projectDir/dotnet/docs/_site"
+    into "$rootDir/build/docs/dotnet"
 }
 
 def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
-    workingDir "$rootDir/modules/platforms/cpp"
+    workingDir "$projectDir/cpp"
 
     commandLine "doxygen"
 }
 
 def copyNativeLibs = tasks.register('copyNativeLibs', Copy) {
     include "**/*.so"
-    from("$rootDir/modules/platforms/cpp")
-    into("$buildDir/classes/")
+    from "$projectDir/cpp"
+    into "$buildDir/classes/"
 }
 
 cmake {
-    workingFolder=file("$buildDir/cpp")
-    sourceFolder=file("$projectDir/cpp")
-    buildConfig='Release'
-    buildTarget='install'
-    getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
-    getDef().CMAKE_BUILD_TYPE='Release'
-    getDef().CMAKE_CONFIGURATION_TYPES='Release'
+    workingFolder = file("$buildDir/cpp")
+    sourceFolder = file("$projectDir/cpp")
+    buildConfig = 'Release'
+    buildTarget = 'install'
+    getDef().CMAKE_INSTALL_PREFIX = "$buildDir/install"
+    getDef().CMAKE_BUILD_TYPE = 'Release'
+    getDef().CMAKE_CONFIGURATION_TYPES = 'Release'
 }
 
 def cmakeConfigureClient = tasks.register('cmakeConfigureClient', CMakeConfigureTask) {
+    dependsOn copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
-    getDef().ENABLE_CLIENT='ON'
-    getDef().ENABLE_ODBC='OFF'
+    getDef().ENABLE_CLIENT = 'ON'
+    getDef().ENABLE_ODBC = 'OFF'
 }
 
 def cmakeBuildClient = tasks.register('cmakeBuildClient', CMakeBuildTask) {
@@ -90,9 +103,10 @@ def cmakeBuildClient = tasks.register('cmakeBuildClient', CMakeBuildTask) {
 }
 
 def cmakeConfigureOdbc = tasks.register('cmakeConfigureOdbc', CMakeConfigureTask) {
+    dependsOn copyPlatformsHeaders
     configureFromProject() // uses everything in the cmake { ... } section.
-    getDef().ENABLE_CLIENT='OFF'
-    getDef().ENABLE_ODBC='ON'
+    getDef().ENABLE_CLIENT = 'OFF'
+    getDef().ENABLE_ODBC = 'ON'
 }
 
 def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
@@ -101,7 +115,8 @@ def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
 }
 
 def buildNuGet = tasks.register('buildNuGet', Exec) {
-    workingDir "$rootDir/modules/platforms/dotnet"
+    dependsOn copyPlatformsHeaders
+    workingDir "$projectDir/dotnet"
 
     commandLine "dotnet", "pack", "Apache.Ignite",
             "--configuration", "Release",
@@ -111,7 +126,8 @@ def buildNuGet = tasks.register('buildNuGet', Exec) {
 }
 
 def buildDotNet = tasks.register('buildDotNet', Exec) {
-    workingDir "$rootDir/modules/platforms/dotnet"
+    dependsOn copyPlatformsHeaders
+    workingDir "$projectDir/dotnet"
 
     commandLine "dotnet", "build", "Apache.Ignite",
             "--configuration", "Release",
@@ -122,7 +138,7 @@ def buildDotNet = tasks.register('buildDotNet', Exec) {
 task zipNuGet(type: Zip) {
     archiveFileName = "apache-ignite-${project.version}-nuget.zip"
 
-    from ("$buildDir/nupkg") {
+    from("$buildDir/nupkg") {
         include "*.nupkg"
         include "*.snupkg"
     }
@@ -131,9 +147,10 @@ task zipNuGet(type: Zip) {
 }
 
 task zipCppClient(type: Zip) {
+    dependsOn copyPlatformsHeaders
     archiveFileName = "apache-ignite-${project.version}-cpp.zip"
 
-    from ("$projectDir/cpp") {
+    from("$projectDir/cpp") {
         exclude "CMakeFiles"
         exclude "pom.xml"
         exclude "StyleGuide.md"
@@ -142,9 +159,7 @@ task zipCppClient(type: Zip) {
 }
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
-    dependsOn zipCppClient, zipNuGet
-
-    inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
+    inputFiles.from zipCppClient, zipNuGet
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
@@ -155,7 +170,7 @@ def signArtifacts = tasks.register('signArtifacts', Sign) {
 }
 
 tasks.register('dotnetTest', Exec) {
-    workingDir "$rootDir/modules/platforms/dotnet"
+    workingDir "$projectDir/dotnet"
 
     // Do not require external server, it will be started as part of tests.
     // Alternatively, start PlatformTestNodeRunner manually before executing this task.
@@ -190,8 +205,9 @@ artifacts {
         cppClientHeaders(file("$buildDir/install/include")) {
             builtBy cmakeBuildClient
         }
-        //TODO https://issues.apache.org/jira/browse/IGNITE-23443
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3.0.0")) {
+
+        def cmakeProjectVersion = cmakeProjectVersion(project.projectVersion.toString())
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.$cmakeProjectVersion")) {
             builtBy cmakeBuildClient
         }
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
@@ -206,10 +222,46 @@ artifacts {
             odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
                 builtBy cmakeBuildOdbc
             }
-            //TODO https://issues.apache.org/jira/browse/IGNITE-23443
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3.0.0")) {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.$cmakeProjectVersion")) {
                 builtBy cmakeBuildOdbc
             }
         }
     }
+}
+
+def updateVersion = tasks.register('updateVersion', Task) {
+    description = 'Updates the version of the platforms artifacts'
+    def version = project.projectVersion.toString()
+    updateCMakeVersion(version)
+    updateDotnetVersion(version)
+    updatePythonVersion(version)
+}
+
+private void updateCMakeVersion(String version) {
+    def versionFile = file("$projectDir/cpp/_version.txt")
+    versionFile.text = cmakeProjectVersion(version)
+}
+
+/**
+ * Strips the pre-release portion of the project version string to satisfy CMake requirements
+ */
+private String cmakeProjectVersion(String version) {
+    def dashIndex = version.indexOf('-')
+    if (dashIndex != -1) {
+        return version.substring(0, dashIndex)
+    }
+    return version
+}
+
+private void updateDotnetVersion(String version) {
+    def versionFile = file("$projectDir/dotnet/version.json")
+    def json = new JsonSlurper().parseText(versionFile.text)
+    // Apparently dotnet doesn't like upper-case in version: https://github.com/dotnet/Nerdbank.GitVersioning/issues/1110
+    json.version = version.toLowerCase()
+    versionFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json)) + '\n'
+}
+
+private void updatePythonVersion(String version) {
+    def versionFile = file("$projectDir/python/pyignite3/_version.txt")
+    versionFile.text = version
 }

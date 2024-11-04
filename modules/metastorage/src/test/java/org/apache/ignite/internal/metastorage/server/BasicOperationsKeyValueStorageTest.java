@@ -1611,17 +1611,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(1, new OnRevisionAppliedCallback() {
-            @Override
-            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
-                // No-op.
-            }
-
-            @Override
-            public void onRevisionApplied(long revision) {
-                // No-op.
-            }
-        });
+        storage.startWatches(1, new WatchEventHandlingCallback() {});
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -1938,7 +1928,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.watchExact(key, 1, mockListener2);
         storage.watchExact(key, 1, mockListener3);
 
-        OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
+        WatchEventHandlingCallback mockCallback = mock(WatchEventHandlingCallback.class);
 
         storage.startWatches(1, mockCallback);
 
@@ -2256,7 +2246,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(1, new OnRevisionAppliedCallback() {
+        storage.startWatches(1, new WatchEventHandlingCallback() {
             @Override
             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                 // No-op.

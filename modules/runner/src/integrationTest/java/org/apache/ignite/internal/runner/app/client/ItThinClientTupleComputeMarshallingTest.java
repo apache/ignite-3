@@ -19,12 +19,9 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
-import static org.apache.ignite.compute.JobStatus.COMPLETED;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -32,7 +29,6 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.table.Tuple;
@@ -76,16 +72,15 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         // Given tuple from the table.
         var tup = client().tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("key_col", 2));
 
-        // When submit job with the tuple as an argument.
-        JobExecution<String> resultJobExec = client().compute().submit(
+        // When execute job with the tuple as an argument.
+        String result = client().compute().execute(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(TupleArgJob.class).build(),
                 tup
         );
 
-        // Then job completes successfully.
-        assertThat(resultJobExec.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(resultJobExec.resultAsync(), willBe("hi"));
+        // Then the result is taken from the table.
+        assertThat(result, is("hi"));
     }
 
     @Test
@@ -93,20 +88,15 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         // Given.
         var key = 2;
 
-        // When submit job that returns tuple from the table.
-        JobExecution<Tuple> resultJobExec = client().compute().submit(
+        // When execute job that returns tuple from the table.
+        Tuple result = client().compute().execute(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(TupleResultJob.class).build(),
                 key
         );
 
         // Then tuple is returned.
-        assertThat(resultJobExec.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(resultJobExec.resultAsync(), willCompleteSuccessfully());
-        assertThat(
-                resultJobExec.resultAsync().join().stringValue("value_col"),
-                equalTo("hi")
-        );
+        assertThat(result.stringValue("value_col"), is("hi"));
     }
 
     /**

@@ -227,10 +227,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
 
-        // Streamer has it's own retry policy, so we can disable retries on the client.
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                .retryPolicy(new RetryLimitPolicy().retryLimit(8))
                 .reconnectThrottlingPeriod(0)
                 .loggerFactory(new ConsoleLoggerFactory("client-2"));
 
@@ -308,7 +307,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .loggerFactory(logger)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1));
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0));
 
         client2 = builder.build();
         RecordView<Tuple> view = defaultTableView(ignite2, client2);

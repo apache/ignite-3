@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.toIdempotentCommandKey;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -50,12 +50,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -74,8 +70,6 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(SimpleInMemoryKeyValueStorage.class);
-
     /**
      * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
      *
@@ -147,7 +141,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
     /** Constructor. */
     public SimpleInMemoryKeyValueStorage(String nodeName, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
-        super(nodeName, new NoOpFailureManager(), readOperationForCompactionTracker, ForkJoinPool.commonPool());
+        super(nodeName, new NoOpFailureManager(), readOperationForCompactionTracker);
     }
 
     @Override
@@ -313,7 +307,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
             // were added in order to have matching revisions count through all storages.
             ops.add(Operations.put(
-                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
+                    toIdempotentCommandKey(commandId),
                     branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
             );
 
@@ -367,10 +361,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
                     // operations were added in order to have matching revisions count through all storages.
-                    ops.add(Operations.put(
-                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
-                            branch.update().result().result())
-                    );
+                    ops.add(Operations.put(toIdempotentCommandKey(commandId), branch.update().result().result()));
 
                     for (Operation op : ops) {
                         switch (op.type()) {
@@ -465,7 +456,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
         assert startRevision > 0 : startRevision;
 
         rwLock.readLock().lock();
@@ -473,7 +464,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         try {
             areWatchesEnabled = true;
 
-            watchProcessor.setRevisionCallback(revisionCallback);
+            watchProcessor.setWatchEventHandlingCallback(callback);
 
             replayUpdates(startRevision);
         } finally {
@@ -770,28 +761,23 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
-        assert revision >= 0 : revision;
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
+        savedCompactionRevision = revision;
 
-        rwLock.writeLock().lock();
+        setIndexAndTerm(context.index, context.term);
 
-        try {
-            assertCompactionRevisionLessThanCurrent(revision, rev);
-
-            savedCompactionRevision = revision;
-
-            setIndexAndTerm(context.index, context.term);
-
-            if (!isInRecoveryState()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
-            }
-        } finally {
-            rwLock.writeLock().unlock();
+        if (advanceSafeTime && !isInRecoveryState()) {
+            watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
 
     @Override
     public long checksum(long revision) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ChecksumAndRevisions checksumAndRevisions(long revision) {
         throw new UnsupportedOperationException();
     }
 

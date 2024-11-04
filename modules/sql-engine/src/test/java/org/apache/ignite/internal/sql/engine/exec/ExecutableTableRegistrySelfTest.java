@@ -46,7 +46,9 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
@@ -148,7 +150,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             int schemaVersion = 1;
             int tableVersion = 10;
 
-            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion),
+            TableImpl table = new TableImpl(internalTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(tableVersion),
                     mock(IgniteSql.class), -1);
 
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
@@ -166,6 +168,12 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);
 
             return registry.getTable(schemaVersion, tableId);
+        }
+
+        private LockManager lockManager() {
+            HeapLockManager lockManager = new HeapLockManager();
+            lockManager.start(new WaitDieDeadlockPreventionPolicy());
+            return lockManager;
         }
     }
 }

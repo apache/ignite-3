@@ -33,6 +33,9 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 
 class IndexMetaSerializerTest {
+    private static final String V1_SERIALIZED_BASE64 = "Ae++Q+kH0Q+5F6EfBmluZGV4BgcEBQAAAAAAAJEDAgMAAAAAAADJAQYHAAAAAAAA2QQFBgAAAAAAAPU"
+            + "DAwQAAAAAAACtAgECAAAAAAAAZQ==";
+
     private final IndexMetaSerializer serializer = new IndexMetaSerializer();
 
     @Test
@@ -64,8 +67,7 @@ class IndexMetaSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++Q+kH0Q+5F6EfBmluZGV4BgcCA8gAAAAAAAAAAwQsAQAAAAAAAAECZAAAAAAAAAAFBvQBAAAAAAAABAWQ"
-                + "AQAAAAAAAAYHWAIAAAAAAAA=");
+        byte[] bytes = Base64.getDecoder().decode(V1_SERIALIZED_BASE64);
         IndexMeta restoredMeta = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredMeta.catalogVersion(), is(1000));
@@ -75,5 +77,13 @@ class IndexMetaSerializerTest {
         assertThat(restoredMeta.indexName(), is("index"));
         assertThat(restoredMeta.status(), is(READ_ONLY));
         assertThat(restoredMeta.statusChanges(), equalTo(originalStatusChanges()));
+    }
+
+    @SuppressWarnings("unused")
+    private String v1Base64() {
+        IndexMeta originalMeta = new IndexMeta(1000, 2000, 3000, 4000, "index", READ_ONLY, originalStatusChanges());
+
+        byte[] v1Bytes = VersionedSerialization.toBytes(originalMeta, serializer);
+        return Base64.getEncoder().encodeToString(v1Bytes);
     }
 }

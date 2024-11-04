@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -39,8 +42,7 @@ public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
         }
 
         out.writeBoolean(assignments.force());
-        // Writing long and not varlong as the latter will take 9 bytes for timestamps.
-        out.writeLong(assignments.timestamp());
+        hybridTimestamp(assignments.timestamp()).writeTo(out);
     }
 
     private static void writeAssignment(Assignment assignment, IgniteDataOutput out) throws IOException {
@@ -52,9 +54,9 @@ public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
     protected Assignments readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         Set<Assignment> nodes = readNodes(in);
         boolean force = in.readBoolean();
-        long timestamp = in.readLong();
+        HybridTimestamp timestamp = HybridTimestamp.readFrom(in);
 
-        return force ? Assignments.forced(nodes, timestamp) : Assignments.of(nodes, timestamp);
+        return force ? Assignments.forced(nodes, timestamp.longValue()) : Assignments.of(nodes, timestamp.longValue());
     }
 
     private static Set<Assignment> readNodes(IgniteDataInput in) throws IOException {
