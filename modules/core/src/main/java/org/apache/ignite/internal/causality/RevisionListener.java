@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 /** Revision change listener. */
 public interface RevisionListener {
     /**
-     * Invoked when the revision updates.
+     * Invoked when a revision has been updated.
      *
      * @param revision New revision.
      * @return Future that signifies the end of the event execution.
@@ -30,7 +30,7 @@ public interface RevisionListener {
     CompletableFuture<?> onUpdate(long revision);
 
     /**
-     * Invoked when a revisions is deleted.
+     * Invoked when a revision has been deleted.
      *
      * @param revisionUpperBoundInclusive Upper bound of deleted revisions (inclusive).
      */
