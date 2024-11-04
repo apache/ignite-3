@@ -306,7 +306,7 @@ public class MappingServiceImpl implements MappingService {
         });
     }
 
-    private List<IntObjectPair<ExecutionTarget>> prepareTargets(
+    private static List<IntObjectPair<ExecutionTarget>> prepareTargets(
             FragmentsTemplate template,
             DistributionHolder distr,
             ExecutionTargetFactory targetFactory
@@ -321,7 +321,7 @@ public class MappingServiceImpl implements MappingService {
         return Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
     }
 
-    private ExecutionTarget buildTargetForSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
+    private static ExecutionTarget buildTargetForSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
         if (nullOrEmpty(nodes)) {
             throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
                     + " any active nodes in the cluster", view.name()));
@@ -332,7 +332,7 @@ public class MappingServiceImpl implements MappingService {
                 : factory.allOf(nodes);
     }
 
-    private ExecutionTarget buildTargetforTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
+    private static ExecutionTarget buildTargetforTable(ExecutionTargetFactory factory, List<TokenizedAssignments> assignments) {
         return factory.partitioned(assignments);
     }
 
