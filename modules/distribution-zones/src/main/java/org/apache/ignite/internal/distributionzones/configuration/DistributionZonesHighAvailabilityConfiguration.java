@@ -19,7 +19,7 @@ package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
@@ -43,12 +43,12 @@ public class DistributionZonesHighAvailabilityConfiguration {
     /** Determines partition group reset timeout after a partition group majority loss. */
     private volatile int partitionDistributionResetTimeout;
 
-    private final Consumer<Integer> partitionDistributionResetListener;
+    private final BiConsumer<Integer, Long> partitionDistributionResetListener;
 
     /** Constructor. */
     public DistributionZonesHighAvailabilityConfiguration(
             SystemDistributedConfiguration systemDistributedConfig,
-            Consumer<Integer> partitionDistributionResetListener) {
+            BiConsumer<Integer, Long> partitionDistributionResetListener) {
         this.systemDistributedConfig = systemDistributedConfig;
         this.partitionDistributionResetListener = partitionDistributionResetListener;
     }
@@ -56,7 +56,7 @@ public class DistributionZonesHighAvailabilityConfiguration {
     /** Starts component. */
     public void start() {
         systemDistributedConfig.listen(ctx -> {
-            updateSystemProperties(ctx.newValue());
+            updateSystemProperties(ctx.newValue(), ctx.storageRevision());
 
             return nullCompletedFuture();
         });
@@ -67,7 +67,8 @@ public class DistributionZonesHighAvailabilityConfiguration {
     void startAndInit() {
         start();
 
-        updateSystemProperties(systemDistributedConfig.value());
+        // KKK revision must be fixed
+        updateSystemProperties(systemDistributedConfig.value(), 1);
     }
 
     /** Returns partition group reset timeout after a partition group majority loss. */
@@ -75,13 +76,13 @@ public class DistributionZonesHighAvailabilityConfiguration {
         return partitionDistributionResetTimeout;
     }
 
-    private void updateSystemProperties(SystemDistributedView view) {
+    private void updateSystemProperties(SystemDistributedView view, long revision) {
         partitionDistributionResetTimeout = intValue(
                 view,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE
         );
-        partitionDistributionResetListener.accept(partitionDistributionResetTimeout);
+        partitionDistributionResetListener.accept(partitionDistributionResetTimeout, revision);
     }
 
     private static int intValue(SystemDistributedView systemDistributedView, String systemPropertyName, int defaultValue) {

@@ -378,7 +378,7 @@ public class DistributionZoneManager implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(int partitionDistributionReset) {
+    private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(int partitionDistributionReset, long causalityToken) {
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
@@ -392,7 +392,14 @@ public class DistributionZoneManager implements IgniteComponent {
             ZoneState zoneState = zoneStateEntry.getValue();
 
             if (partitionDistributionReset != INFINITE_TIMER_VALUE) {
-                // Removed casualToken change - is it ok?
+                Optional<Long> highestRevision = zoneState.highestRevision(true);
+
+                assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
+                        "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
+                                + "causalityToken={}",
+                        highestRevision.orElse(null), causalityToken
+                );
+
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionReset,

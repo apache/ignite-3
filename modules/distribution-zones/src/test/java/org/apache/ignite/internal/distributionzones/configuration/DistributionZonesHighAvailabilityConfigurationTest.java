@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -40,7 +40,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
     private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
-    private static final Consumer<Integer> noOpConsumer = (partitionDistributionResetTimeout) -> {};
+    private static final BiConsumer<Integer, Long> noOpConsumer = (partitionDistributionResetTimeout, revision) -> {};
 
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
@@ -75,10 +75,14 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
     @Test
     void testUpdateConfigListener(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
         AtomicReference<Integer> partitionDistributionResetTimeoutValue = new AtomicReference<>();
+        AtomicReference<Long> revisionValue = new AtomicReference<>();
+
         var config = new DistributionZonesHighAvailabilityConfiguration(
                 systemConfig,
-                (partitionDistributionResetTimeout) ->
-                        partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout)
+                (partitionDistributionResetTimeout, revision) -> {
+                        partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout);
+                        revisionValue.set(revision);
+                }
         );
         config.startAndInit();
 
@@ -87,6 +91,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
         assertTrue(waitForCondition(() ->
                 partitionDistributionResetTimeoutValue.get() != null
                         && partitionDistributionResetTimeoutValue.get() == 10, 1_000));
+        assertEquals(1, revisionValue.get());
     }
 
     private static void changeSystemConfig(
