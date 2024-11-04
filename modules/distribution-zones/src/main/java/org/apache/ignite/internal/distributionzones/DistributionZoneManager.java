@@ -87,6 +87,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -938,8 +939,6 @@ public class DistributionZoneManager implements IgniteComponent {
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
-        // KKK check HA mode normally
-        boolean haMode = true;
         int partitionReset = configuration.partitionDistributionResetTimeout();
 
         int zoneId = zone.id();
@@ -965,7 +964,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (nodesRemoved) {
-                if (haMode) {
+                if (zone.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
                     if (partitionReset == IMMEDIATE_TIMER_VALUE) {
                         futures.add(
                                 // TODO: IGNITE-23599 Implement valid behaviour here.
