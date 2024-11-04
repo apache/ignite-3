@@ -96,7 +96,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    protected @Nullable TreeSet<NotifyWatchProcessorEvent> notifyWatchProcessorEventsBeforeStartWatches = new TreeSet<>();
+    protected @Nullable TreeSet<NotifyWatchProcessorEvent> notifyWatchProcessorEventsBeforeStartingWatches = new TreeSet<>();
 
     /**
      * Constructor.
@@ -138,7 +138,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      *
      * <p>Method is expected to be invoked under {@link #rwLock}.</p>
      */
-    protected abstract boolean isWatchesStarted();
+    protected abstract boolean areWatchesStarted();
 
     @Override
     public Entry get(byte[] key) {
@@ -264,12 +264,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
-            } else if (isWatchesStarted()) {
+            } else if (areWatchesStarted()) {
                 watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
             } else {
                 var notifyWatchesEvent = new UpdateCompactionRevisionEvent(compactionRevision, context.timestamp);
 
-                addToNotifyWatchProcessorEventsBeforeStartWatches(notifyWatchesEvent);
+                addToNotifyWatchProcessorEventsBeforeStartingWatches(notifyWatchesEvent);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -463,7 +463,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         try {
             setIndexAndTerm(context.index, context.term);
 
-            if (isWatchesStarted()) {
+            if (areWatchesStarted()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } finally {
@@ -486,19 +486,19 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected void addToNotifyWatchProcessorEventsBeforeStartWatches(NotifyWatchProcessorEvent event) {
-        assert !isWatchesStarted();
+    protected void addToNotifyWatchProcessorEventsBeforeStartingWatches(NotifyWatchProcessorEvent event) {
+        assert !areWatchesStarted();
 
-        boolean added = notifyWatchProcessorEventsBeforeStartWatches.add(event);
+        boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
 
         assert added : event;
     }
 
-    protected void drainNotifyWatchProcessorEventsBeforeStartWatches() {
-        assert !isWatchesStarted();
+    protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
+        assert !areWatchesStarted();
 
-        notifyWatchProcessorEventsBeforeStartWatches.forEach(event -> event.notify(watchProcessor));
+        notifyWatchProcessorEventsBeforeStartingWatches.forEach(event -> event.notify(watchProcessor));
 
-        notifyWatchProcessorEventsBeforeStartWatches = null;
+        notifyWatchProcessorEventsBeforeStartingWatches = null;
     }
 }

@@ -114,7 +114,7 @@ public class UpdateLogImpl implements UpdateLog {
                 );
             }
 
-            recoveryStateFromMetastore(handler);
+            recoverStateFromMetastore(handler);
 
             UpdateListener listener = new UpdateListener(handler, marshaller);
             this.listener = listener;
@@ -237,7 +237,7 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private void recoveryStateFromMetastore(OnUpdateHandler handler) {
+    private void recoverStateFromMetastore(OnUpdateHandler handler) {
         CompletableFuture<Revisions> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assert recoveryFinishedFuture.isDone();

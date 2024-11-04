@@ -466,7 +466,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
             fillNotifyWatchProcessorEventsFromStorage(startRevision);
 
-            drainNotifyWatchProcessorEventsBeforeStartWatches();
+            drainNotifyWatchProcessorEventsBeforeStartingWatches();
 
             areWatchesEnabled = true;
         } finally {
@@ -501,13 +501,13 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         var event = new UpdateEntriesEvent(List.copyOf(updatedEntries), ts);
 
-        addToNotifyWatchProcessorEventsBeforeStartWatches(event);
+        addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
 
         updatedEntries.clear();
     }
 
     private void notifyWatches() {
-        if (!isWatchesStarted() || updatedEntries.isEmpty()) {
+        if (!areWatchesStarted() || updatedEntries.isEmpty()) {
             updatedEntries.clear();
 
             return;
@@ -768,7 +768,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         setIndexAndTerm(context.index, context.term);
 
-        if (advanceSafeTime && isWatchesStarted()) {
+        if (advanceSafeTime && areWatchesStarted()) {
             watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
@@ -847,7 +847,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isWatchesStarted() {
+    protected boolean areWatchesStarted() {
         return areWatchesEnabled;
     }
 

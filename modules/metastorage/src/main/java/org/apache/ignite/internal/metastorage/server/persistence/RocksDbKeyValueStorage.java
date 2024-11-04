@@ -926,9 +926,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             rwLock.writeLock().lock();
 
             try {
-                notifyWatchProcessorEventsBeforeStartWatches.addAll(fromStorage);
+                notifyWatchProcessorEventsBeforeStartingWatches.addAll(fromStorage);
 
-                drainNotifyWatchProcessorEventsBeforeStartWatches();
+                drainNotifyWatchProcessorEventsBeforeStartingWatches();
 
                 recoveryStatus.set(RecoveryStatus.DONE);
             } finally {
@@ -1102,11 +1102,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                 var event = new UpdateEntriesEvent(copy.updatedEntries, copy.ts);
 
-                addToNotifyWatchProcessorEventsBeforeStartWatches(event);
+                addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
 
                 break;
             default:
                 notifyWatches();
+
+                break;
         }
     }
 
@@ -1292,7 +1294,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             db.write(defaultWriteOptions, batch);
 
-            if (advanceSafeTime && isWatchesStarted()) {
+            if (advanceSafeTime && areWatchesStarted()) {
                 watchProcessor.advanceSafeTime(context.timestamp);
             }
         } catch (Throwable t) {
@@ -1484,7 +1486,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isWatchesStarted() {
+    protected boolean areWatchesStarted() {
         return recoveryStatus.get() == RecoveryStatus.DONE;
     }
 

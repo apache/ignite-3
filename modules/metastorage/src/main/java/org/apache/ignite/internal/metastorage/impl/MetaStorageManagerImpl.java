@@ -316,7 +316,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         electionListeners.add(listener);
     }
 
-    private CompletableFuture<?> updateTargetRevisionsForRecovery(MetaStorageService service) {
+    private CompletableFuture<?> recover(MetaStorageService service) {
         return inBusyLockAsync(busyLock, () -> {
             service.currentRevisions()
                     .thenAccept(targetRevisions -> {
@@ -331,21 +331,23 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                         }
                     });
 
-            return recoveryFinishedFuture.whenComplete((revisions, throwable) -> {
-                if (throwable != null) {
-                    LOG.info("Recovery failed", throwable);
-                } else {
-                    long recoveryRevision = revisions.revision();
+            return recoveryFinishedFuture
+                    .thenAccept(revisions -> {
+                        long recoveryRevision = revisions.revision();
 
-                    appliedRevision = recoveryRevision;
+                        appliedRevision = recoveryRevision;
 
-                    if (recoveryRevision > 0) {
-                        clusterTime.updateSafeTime(storage.timestampByRevision(recoveryRevision));
-                    }
-
-                    LOG.info("Finished MetaStorage recovery");
-                }
-            });
+                        if (recoveryRevision > 0) {
+                            clusterTime.updateSafeTime(storage.timestampByRevision(recoveryRevision));
+                        }
+                    })
+                    .whenComplete((revisions, throwable) -> {
+                        if (throwable != null) {
+                            LOG.info("Recovery failed", throwable);
+                        } else {
+                            LOG.info("Finished MetaStorage recovery");
+                        }
+                    });
         });
     }
 
@@ -683,7 +685,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                     }
                 })
                 .thenCompose(service -> repairMetastorageIfNeeded().thenApply(unused -> service))
-                .thenCompose(service -> updateTargetRevisionsForRecovery(service).thenApply(rev -> service))
+                .thenCompose(service -> recover(service).thenApply(rev -> service))
                 .whenComplete((service, e) -> {
                     if (e != null) {
                         metaStorageSvcFut.completeExceptionally(e);
