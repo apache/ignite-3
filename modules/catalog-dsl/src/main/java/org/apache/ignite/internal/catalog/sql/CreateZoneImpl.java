@@ -116,6 +116,13 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
+    CreateZoneImpl consistencyMode(String consistencyMode) {
+        Objects.requireNonNull(consistencyMode, "Consistency mode must not be null");
+
+        withOptions.add(Option.consistencyMode(consistencyMode));
+        return this;
+    }
+
     @Override
     protected void accept(QueryContext ctx) {
         ctx.sql("CREATE ZONE ");

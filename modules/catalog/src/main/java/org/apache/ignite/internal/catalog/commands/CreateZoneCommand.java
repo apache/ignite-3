@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -67,6 +69,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final List<StorageProfileParams> storageProfileParams;
 
+    private final @Nullable ConsistencyMode consistencyMode;
+
     /**
      * Constructor.
      *
@@ -90,7 +94,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            List<StorageProfileParams> storageProfileParams
+            List<StorageProfileParams> storageProfileParams,
+            @Nullable ConsistencyMode consistencyMode
     ) throws CatalogValidationException {
         super(zoneName);
         this.ifNotExists = ifNotExists;
@@ -101,6 +106,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfileParams = storageProfileParams;
+        this.consistencyMode = consistencyMode;
 
         validate();
     }
@@ -136,7 +142,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 ),
                 Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
                 Objects.requireNonNullElse(filter, DEFAULT_FILTER),
-                fromParams(storageProfileParams)
+                fromParams(storageProfileParams),
+                Objects.requireNonNullElse(consistencyMode, STRONG_CONSISTENCY)
         );
 
         return zone;
@@ -179,6 +186,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         private @Nullable Integer dataNodesAutoAdjustScaleDown;
 
         private @Nullable String filter;
+
+        private @Nullable ConsistencyMode consistencyMode;
 
         private List<StorageProfileParams> storageProfileParams;
 
@@ -246,6 +255,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public CreateZoneCommandBuilder consistencyModeParams(@Nullable ConsistencyMode params) {
+            this.consistencyMode = params;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new CreateZoneCommand(
                     zoneName,
@@ -256,7 +272,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    storageProfileParams
+                    storageProfileParams,
+                    consistencyMode
             );
         }
     }

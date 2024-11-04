@@ -39,7 +39,8 @@ class CatalogZoneDescriptorTest {
                 5,
                 6,
                 "the-filter",
-                fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())),
+                ConsistencyMode.STRONG_CONSISTENCY
         );
 
         String toString = descriptor.toString();

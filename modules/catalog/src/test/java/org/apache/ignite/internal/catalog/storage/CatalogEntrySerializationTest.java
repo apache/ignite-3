@@ -54,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -424,7 +425,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 2,
                 3,
                 DEFAULT_FILTER,
-                profiles
+                profiles,
+                ConsistencyMode.STRONG_CONSISTENCY
         );
     }
 

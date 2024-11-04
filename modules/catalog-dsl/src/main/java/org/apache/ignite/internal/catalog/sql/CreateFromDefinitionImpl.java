@@ -84,6 +84,10 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
         if (!StringUtils.nullOrBlank(def.filter())) {
             createZone.filter(def.filter());
         }
+
+        if (!StringUtils.nullOrBlank(def.consistencyMode())) {
+            createZone.consistencyMode(def.consistencyMode());
+        }
         return this;
     }
 
