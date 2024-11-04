@@ -43,6 +43,7 @@ public class DistributionZonesHighAvailabilityConfiguration {
     /** Determines partition group reset timeout after a partition group majority loss. */
     private volatile int partitionDistributionResetTimeout;
 
+    /** Listener, which receives (timeout, revision) on every configuration update. */
     private final BiConsumer<Integer, Long> partitionDistributionResetListener;
 
     /** Constructor. */
@@ -67,7 +68,6 @@ public class DistributionZonesHighAvailabilityConfiguration {
     void startAndInit() {
         start();
 
-        // KKK revision must be fixed
         updateSystemProperties(systemDistributedConfig.value(), 1);
     }
 

@@ -940,8 +940,7 @@ public class DistributionZoneManager implements IgniteComponent {
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
         // KKK check HA mode normally
         boolean haMode = true;
-        // KKK why long?
-        long partitionReset = configuration.partitionDistributionResetTimeout();
+        int partitionReset = configuration.partitionDistributionResetTimeout();
 
         int zoneId = zone.id();
 
@@ -969,7 +968,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (haMode) {
                     if (partitionReset == IMMEDIATE_TIMER_VALUE) {
                         futures.add(
-                                // KKK implement
+                                // TODO: IGNITE-23599 Implement valid behaviour here.
                                 nullCompletedFuture()
                         );
                     }
@@ -977,7 +976,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
-                                () -> {/* KKK implement this method. */ },
+                                // TODO: IGNITE-23599 Implement valid behaviour here.
+                                () -> {},
                                 zoneId
                         );
                     }
