@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -36,9 +40,11 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
     private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
+    private static final Consumer<Integer> noOpConsumer = (partitionDistributionResetTimeout) -> {};
+
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
         assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeout());
@@ -50,7 +56,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
                     + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"5\"}")
             SystemDistributedConfiguration systemConfig
     ) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
         assertEquals(5, config.partitionDistributionResetTimeout());
@@ -58,12 +64,29 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
     @Test
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
         changeSystemConfig(systemConfig, "10");
 
         assertEquals(10, config.partitionDistributionResetTimeout());
+    }
+
+    @Test
+    void testUpdateConfigListener(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
+        AtomicReference<Integer> partitionDistributionResetTimeoutValue = new AtomicReference<>();
+        var config = new DistributionZonesHighAvailabilityConfiguration(
+                systemConfig,
+                (partitionDistributionResetTimeout) ->
+                        partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout)
+        );
+        config.startAndInit();
+
+        changeSystemConfig(systemConfig, "10");
+
+        assertTrue(waitForCondition(() ->
+                partitionDistributionResetTimeoutValue.get() != null
+                        && partitionDistributionResetTimeoutValue.get() == 10, 1_000));
     }
 
     private static void changeSystemConfig(

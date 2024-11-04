@@ -259,7 +259,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 catalogManager
         );
 
-        configuration = new DistributionZonesHighAvailabilityConfiguration(systemDistributedConfiguration);
+        configuration = new DistributionZonesHighAvailabilityConfiguration(
+                systemDistributedConfiguration,
+                this::onUpdatePartitionDistributionResetBusy
+        );
     }
 
     @Override
@@ -287,8 +290,6 @@ public class DistributionZoneManager implements IgniteComponent {
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
-
-            configuration.listenChanges((newTimeout) -> onUpdatePartitionDistributionResetBusy(newTimeout));
 
             configuration.start();
 
@@ -378,17 +379,13 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(int partitionDistributionReset) {
-
-        // KKK check this
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
 
-            int newPartitionReset = partitionDistributionReset;
-
             if (partitionDistributionReset == IMMEDIATE_TIMER_VALUE) {
-               // KKK useful action here
+                // TODO: IGNITE-23599 Implement valid behaviour here.
                 return nullCompletedFuture();
             }
 
@@ -398,12 +395,13 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Removed casualToken change - is it ok?
 
                 zoneState.reschedulePartitionDistributionReset(
-                        newPartitionReset,
-                        () -> {/* KKK useful action here */ }
+                        partitionDistributionReset,
+                        // TODO: IGNITE-23599 Implement valid behaviour here.
+                        () -> {},
                         zoneId
                 );
             } else {
-                zoneState.stopScaleUp();
+                zoneState.stopPartitionDistributionReset();
             }
         }
 
