@@ -49,15 +49,14 @@ NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
 ),
 Optional(
 Sequence(
-Terminal('WITH'),
-OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
+Terminal('ZONE'),
+NonTerminal('zone_name')
 )
 ),
 Optional(
 Sequence(
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name')
+Terminal('STORAGE ENGINE'),
+NonTerminal('storage_engine_name')
 )
 )
 )
@@ -67,10 +66,8 @@ Keywords and parameters:
 * `table_name` - name of the table. Can be schema-qualified.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
-* `WITH` - accepts additional parameters; currently, accepts only:
-** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone].
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted. 
-* `expiry_column_name` - name of the column that contains values on which the record expiry is based.
+* `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone].
+* `STORAGE ENGINE` - sets the link:sql-reference/distribution-zones[Distribution Zone].
 
 Examples:
 
@@ -97,18 +94,7 @@ CREATE TABLE IF NOT EXISTS Person (
   name varchar,
   age int,
   company varchar
-) WITH PRIMARY_ZONE=`MYZONE`
-----
-
-Creates a Person table where the records expire at timestamps in the `ttl` column:
-
-[source,sql]
-----
-CREATE TABLE IF NOT EXISTS Person ( 
-  id int PRIMARY KEY,
-  name varchar,
-  ttl timestamp
-) EXPIRE AT ttl
+) ZONE MYZONE
 ----
 
 Creates a Person table where the default value if the `city_id` column is 1:
@@ -612,15 +598,14 @@ NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
 ),
 Optional(
 Sequence(
-Terminal('WITH'),
-OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
+Terminal('ZONE'),
+NonTerminal('zone_name')
 )
 ),
 Optional(
 Sequence(
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name')
+Terminal('STORAGE ENGINE'),
+NonTerminal('storage_engine_name')
 )
 )
 )
@@ -630,7 +615,5 @@ Keywords and parameters:
 * `cache_name` - name of the cache. Can be schema-qualified.
 * `IF NOT EXISTS` - create the cache only if a cache with the same name does not exist.
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
-* `WITH` - accepts additional parameters; currently, accepts only:
-** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. The selected distribution zone must use `aimem` storage engine.
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted.
-* `expiry_column_name` - name of the column that contains values on which the record expiry is based.
+* `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. The selected distribution zone must use `aimem` storage engine.
+* `STORAGE ENGINE` - sets the link:sql-reference/distribution-zones[Distribution Zone].

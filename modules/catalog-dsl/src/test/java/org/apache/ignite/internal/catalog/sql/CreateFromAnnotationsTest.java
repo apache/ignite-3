@@ -107,7 +107,7 @@ class CreateFromAnnotationsTest {
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
-                        + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
@@ -125,7 +125,7 @@ class CreateFromAnnotationsTest {
                         + " DATA_NODES_FILTER='filter';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
-                        + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
@@ -144,7 +144,7 @@ class CreateFromAnnotationsTest {
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test"
                         + " (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_test (f_name, l_name desc);")
         );
