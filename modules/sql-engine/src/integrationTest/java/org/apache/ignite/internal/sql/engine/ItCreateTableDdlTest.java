@@ -563,7 +563,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         String tableName = "test_table";
 
         sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='no-such-profile'");
-        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
+        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE test_zone");
 
         Table table = CLUSTER.aliveNode().tables().table(tableName);
         assertThat(table, is(notNullValue()));
