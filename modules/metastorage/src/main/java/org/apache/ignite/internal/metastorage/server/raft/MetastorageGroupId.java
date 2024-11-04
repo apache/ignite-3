@@ -27,7 +27,7 @@ public enum MetastorageGroupId implements ReplicationGroupId {
     INSTANCE("metastorage_group");
 
     /** Group id string representation. */
-    private String name;
+    private final String name;
 
     /**
      * The constructor.
@@ -38,7 +38,6 @@ public enum MetastorageGroupId implements ReplicationGroupId {
         this.name = name;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return name;

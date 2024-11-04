@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
@@ -32,7 +32,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private final InternalTransaction transaction;
 
-    private final TransactionInflights transactionInflights;
+    private final TransactionTracker txTracker;
 
     private final AtomicBoolean committedImplicit = new AtomicBoolean();
 
@@ -41,12 +41,12 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
      *
      * @param transaction Transaction.
      * @param implicit Whether tx is implicit.
-     * @param transactionInflights Transaction inflights.
+     * @param txTracker Transaction tracker.
      */
-    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionInflights transactionInflights) {
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionTracker txTracker) {
         this.transaction = transaction;
         this.implicit = implicit;
-        this.transactionInflights = transactionInflights;
+        this.txTracker = txTracker;
     }
 
     @Override
@@ -57,7 +57,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     @Override
     public CompletableFuture<Void> commitImplicit() {
         if (transaction.isReadOnly() && committedImplicit.compareAndSet(false, true)) {
-            transactionInflights.removeInflight(transaction.id());
+            txTracker.unregister(transaction.id());
         }
 
         if (implicit) {

@@ -36,7 +36,9 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
@@ -61,11 +63,17 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
         );
         indexStorage.destroy();
 
-        SortedIndexLocker locker = new SortedIndexLocker(1, PARTITION_ID, new HeapLockManager(), indexStorage, row -> binaryTuple, false);
+        SortedIndexLocker locker = new SortedIndexLocker(1, PARTITION_ID, lockManager(), indexStorage, row -> binaryTuple, false);
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(clock.now());
         CompletableFuture<@Nullable Lock> lockFuture = locker.locksForInsert(txId, mock(BinaryRow.class), new RowId(PARTITION_ID));
 
         assertThat(lockFuture, willBe(nullValue()));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 }

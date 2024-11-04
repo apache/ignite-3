@@ -54,6 +54,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -87,7 +88,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     @Mock
     private PlacementDriver placementDriver;
 
-    private final HeapLockManager lockManager = new HeapLockManager();
+    private final LockManager lockManager = lockManager();
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -101,6 +102,12 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     private VolatileTxStateMetaStorage txStateMetaStorage;
 
     private TransactionIdGenerator idGenerator;
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
+    }
 
     @BeforeEach
     public void setup() {

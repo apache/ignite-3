@@ -661,6 +661,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         createZone(1, 1);
 
@@ -824,7 +826,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 mock(ScheduledExecutorService.class),
-                clock,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,

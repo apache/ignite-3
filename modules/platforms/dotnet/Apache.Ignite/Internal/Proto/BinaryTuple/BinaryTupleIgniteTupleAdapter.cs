@@ -115,7 +115,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     /// <inheritdoc />
     public override int GetHashCode() => IIgniteTuple.GetHashCode(this);
 
-    private IIgniteTuple InitTuple()
+    private IgniteTuple InitTuple()
     {
         if (_tuple != null)
         {

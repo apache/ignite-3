@@ -819,7 +819,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private boolean isPartitionOperation(int opCode) {
+    private static boolean isPartitionOperation(int opCode) {
         return opCode == ClientOp.TABLES_GET
                 || opCode == ClientOp.TUPLE_UPSERT
                 || opCode == ClientOp.TUPLE_GET
@@ -837,7 +837,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS
+                || opCode == ClientOp.STREAMER_BATCH_SEND;
     }
 
     private void processOperationInternal(

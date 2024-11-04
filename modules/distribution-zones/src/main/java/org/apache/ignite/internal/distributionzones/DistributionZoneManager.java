@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -61,9 +62,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -71,7 +70,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -99,7 +97,9 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
@@ -204,6 +204,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Executor for scheduling rebalances. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Configuration of HA mode. */
+    private final DistributionZonesHighAvailabilityConfiguration configuration;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -212,6 +215,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param catalogManager Catalog manager.
+     * @param systemDistributedConfiguration System distributed configuration.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -219,7 +223,8 @@ public class DistributionZoneManager implements IgniteComponent {
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
-            ScheduledExecutorService rebalanceScheduler
+            ScheduledExecutorService rebalanceScheduler,
+            SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -253,6 +258,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 this,
                 catalogManager
         );
+
+        configuration = new DistributionZonesHighAvailabilityConfiguration(systemDistributedConfiguration);
     }
 
     @Override
@@ -280,6 +287,8 @@ public class DistributionZoneManager implements IgniteComponent {
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
+
+            configuration.start();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
@@ -434,7 +443,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 // This case means that there won't any logical topology updates before restart.
                 topologyAugmentationMap = new ConcurrentSkipListMap<>();
             } else {
-                topologyAugmentationMap = fromBytes(topologyAugmentationMapLocalMetaStorage.value());
+                topologyAugmentationMap = TopologyAugmentationMapSerializer.deserialize(topologyAugmentationMapLocalMetaStorage.value());
             }
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
@@ -528,7 +537,11 @@ public class DistributionZoneManager implements IgniteComponent {
             // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
             CompoundCondition triggerKeyCondition = conditionForZoneCreation(zoneId);
 
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, toBytes(toDataNodesMap(dataNodes)));
+            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(
+                    zoneId,
+                    revision,
+                    DataNodesMapSerializer.serialize(toDataNodesMap(dataNodes))
+            );
 
             Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
@@ -677,16 +690,17 @@ public class DistributionZoneManager implements IgniteComponent {
             // that one value is not null, but other is null.
             assert nodeAttributesEntry.value() != null;
 
-            logicalTopology = fromBytes(lastHandledTopologyEntry.value());
+            logicalTopology = deserializeLogicalTopologySet(lastHandledTopologyEntry.value());
 
-            nodesAttributes = fromBytes(nodeAttributesEntry.value());
+            nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
-        assert lastHandledTopologyEntry.value() == null || logicalTopology.equals(fromBytes(lastHandledTopologyEntry.value()))
+        assert lastHandledTopologyEntry.value() == null
+                || logicalTopology.equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry.value() == null
-                || nodesAttributes.equals(fromBytes(nodeAttributesEntry.value()))
+                || nodesAttributes.equals(DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value()))
                 : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
 
@@ -723,7 +737,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
                             newLogicalTopologyBytes = e.value();
 
-                            newLogicalTopology = fromBytes(newLogicalTopologyBytes);
+                            newLogicalTopology = deserializeLogicalTopologySet(newLogicalTopologyBytes);
                         }
                     }
 
@@ -831,18 +845,24 @@ public class DistributionZoneManager implements IgniteComponent {
     ) {
         Operation[] puts = new Operation[3 + zoneIds.size()];
 
-        puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
+        puts[0] = put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes()));
 
         puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
 
-        puts[2] = put(zonesLastHandledTopology(), toBytes(newLogicalTopology));
+        puts[2] = put(
+                zonesLastHandledTopology(),
+                LogicalTopologySetSerializer.serialize(newLogicalTopology)
+        );
 
         int i = 3;
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise topology augmentation map. Also this map
         // TODO: can be saved only once for all zones.
         for (Integer zoneId : zoneIds) {
-            puts[i++] = put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap()));
+            puts[i++] = put(
+                    zoneTopologyAugmentation(zoneId),
+                    TopologyAugmentationMapSerializer.serialize(zonesState.get(zoneId).topologyAugmentationMap())
+            );
         }
 
         Iif iif = iif(
@@ -982,7 +1002,11 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
+                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(
+                        zoneId,
+                        revision,
+                        DataNodesMapSerializer.serialize(newDataNodes)
+                );
 
                 Iif iif = iif(
                         triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
@@ -1088,7 +1112,11 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(zoneId, revision, toBytes(newDataNodes));
+                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(
+                        zoneId,
+                        revision,
+                        DataNodesMapSerializer.serialize(newDataNodes)
+                );
 
                 Iif iif = iif(
                         triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
@@ -1365,16 +1393,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * Class stores the info about nodes that should be added or removed from the data nodes of a zone.
      * With flag {@code addition} we can track whether {@code nodeNames} should be added or removed.
      */
-    public static class Augmentation implements Serializable {
-        private static final long serialVersionUID = -7957428671075739621L;
-
-        /** Names of the node. */
+    public static class Augmentation {
+        /** Nodes. */
         private final Set<Node> nodes;
 
         /** Flag that indicates whether {@code nodeNames} should be added or removed. */
         private final boolean addition;
 
-        Augmentation(Set<Node> nodes, boolean addition) {
+        public Augmentation(Set<Node> nodes, boolean addition) {
             this.nodes = unmodifiableSet(nodes);
             this.addition = addition;
         }
@@ -1441,7 +1467,7 @@ public class DistributionZoneManager implements IgniteComponent {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
-            Set<NodeWithAttributes> newLogicalTopology = fromBytes(topologyEntry.value());
+            Set<NodeWithAttributes> newLogicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
             long topologyRevision = topologyEntry.revision();
 

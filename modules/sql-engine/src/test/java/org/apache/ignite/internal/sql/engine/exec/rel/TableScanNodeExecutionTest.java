@@ -178,7 +178,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             closeables.add(() -> assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
-            TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
+            TestInternalTableImpl internalTable = new TestInternalTableImpl(
+                    replicaSvc,
+                    size,
+                    timestampTracker,
+                    txManager,
+                    clockService
+            );
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
@@ -238,7 +244,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         private final CountDownLatch scanComplete = new CountDownLatch(1);
 
-        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount, HybridTimestampTracker timestampTracker, TxManager txManager) {
+        TestInternalTableImpl(
+                ReplicaService replicaSvc,
+                int dataAmount,
+                HybridTimestampTracker timestampTracker,
+                TxManager txManager,
+                ClockService clockService
+        ) {
             super(
                     "test",
                     1,
@@ -248,7 +260,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,
-                    mock(HybridClock.class),
+                    clockService,
                     timestampTracker,
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),

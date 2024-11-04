@@ -108,12 +108,6 @@ namespace Apache.Ignite.Internal.Buffers
             GC.SuppressFinalize(this);
         }
 
-        private void CheckDisposed()
-        {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(PooledBuffer));
-            }
-        }
+        private void CheckDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
     }
 }

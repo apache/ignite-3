@@ -40,12 +40,10 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -94,7 +92,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static GcConfiguration gcConfig;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
@@ -147,10 +145,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(
-                                DeadlockPreventionPolicy.NO_OP,
                                 HeapLockManager.SLOTS,
-                                CACHE_SIZE,
-                                new HeapUnboundedLockManager()),
+                                CACHE_SIZE),
                         clockService,
                         generator,
                         placementDriver,

@@ -109,7 +109,7 @@ internal static class DataStreamer
         }
         finally
         {
-            flushCts.Cancel();
+            await flushCts.CancelAsync().ConfigureAwait(false);
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();

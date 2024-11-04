@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
 
@@ -64,13 +64,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private Throwable rollbackCause;
 
-    private final TransactionInflights transactionInflights;
+    private final TransactionTracker txTracker;
 
     private final AtomicBoolean completedTx = new AtomicBoolean();
 
-    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionInflights transactionInflights) {
+    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionTracker txTracker) {
         this.managedTx = managedTx;
-        this.transactionInflights = transactionInflights;
+        this.txTracker = txTracker;
     }
 
     @Override
@@ -193,7 +193,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         }
 
         if (managedTx.isReadOnly() && completedTx.compareAndSet(false, true)) {
-            transactionInflights.removeInflight(managedTx.id());
+            txTracker.unregister(managedTx.id());
         }
     }
 

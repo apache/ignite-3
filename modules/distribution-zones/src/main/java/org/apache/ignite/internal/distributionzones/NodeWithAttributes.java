@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,9 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
  * Light-weighted version of the {@link LogicalNode}.
  */
-public class NodeWithAttributes implements Serializable {
-    private static final long serialVersionUID = -7778967985161743937L;
-
+public class NodeWithAttributes {
     private final Node node;
 
     private final Map<String, String> userAttributes;

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.configuration;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -54,4 +55,7 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1000)
     public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
+
+    @ConfigValue
+    public DeadlockPreventionPolicyConfigurationSchema deadlockPreventionPolicy;
 }

@@ -1070,7 +1070,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockIsReleased() {
-        LockKey key = new LockKey(0);
+        LockKey key = lockKey();
 
         UUID txId1 = TestTransactionIds.newTransactionId();
 
@@ -1097,7 +1097,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID tx2 = TestTransactionIds.newTransactionId();
         UUID tx3 = TestTransactionIds.newTransactionId();
 
-        var key = new LockKey(0);
+        var key = lockKey();
 
         assertThat(lockManager.acquire(tx1, key, S), willCompleteSuccessfully());
         assertThat(lockManager.acquire(tx2, key, IS), willCompleteSuccessfully());

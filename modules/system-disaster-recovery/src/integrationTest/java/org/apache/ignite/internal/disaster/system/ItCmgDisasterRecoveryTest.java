@@ -80,8 +80,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertThat(ignite.logicalTopologyService().logicalTopologyOnLeader(), willCompleteSuccessfully());
     }
 
-    private void initiateCmgRepairVia(int condictorIndex, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateCmgRepair("localhost", cluster.httpPort(condictorIndex), nodeNames(newCmgIndexes));
+    private void initiateCmgRepairVia(int conductorIndex, int... newCmgIndexes) throws InterruptedException {
+        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), null, nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -145,7 +145,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    void nodesThatSawNoReparationHaveSeparatePhysicalTopologies() throws Exception {
+    void nodesThatSawNoRepairHaveSeparatePhysicalTopologies() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
@@ -167,7 +167,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    void migratesNodesThatSawNoReparationToNewCluster() throws Exception {
+    void migratesNodesThatSawNoRepairToNewCluster() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
@@ -177,12 +177,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         assertTopologyContainsNode(0, topologySnapshot);
     }
 
-    private void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
-        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
-    }
-
     @Test
-    void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
+    void migratesManyNodesThatSawNoRepairToNewCluster() throws Exception {
         startAndInitCluster(5, new int[]{0, 1, 2}, new int[]{2, 3, 4});
         waitTillClusterStateIsSavedToVaultOnConductor(2);
 
