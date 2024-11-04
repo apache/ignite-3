@@ -24,30 +24,50 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AssignmentsSerializerTest {
-    private static final String NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMCYQECYgAA6AMAAAAAAAA=";
-    private static final String FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMCYQECYgAB6AMAAAAAAAA=";
+    private static final String NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAFHCjAEA9AY=";
+    private static final String FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAVHCjAEA9AY=";
 
     private final AssignmentsSerializer serializer = new AssignmentsSerializer();
+
+    private static final long BASE_PHYSICAL_TIME = LocalDateTime.of(2024, Month.JANUARY, 1, 0, 0)
+            .atOffset(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli();
+
+    private static long baseTimestamp(int logical) {
+        return new HybridTimestamp(BASE_PHYSICAL_TIME, logical).longValue();
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void serializationAndDeserialization(boolean force) {
-        Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
-        Assignments originalAssignments = force ? Assignments.forced(nodes, 1000L) : Assignments.of(nodes, 1000L);
+        Assignments originalAssignments = testAssignments(force);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignments, serializer);
         Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredAssignments, equalTo(originalAssignments));
+    }
+
+    private static Assignments testAssignments(boolean force) {
+        Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
+
+        return force
+                ? Assignments.forced(nodes, baseTimestamp(5))
+                : Assignments.of(nodes, baseTimestamp(5));
     }
 
     @Test
@@ -58,7 +78,7 @@ class AssignmentsSerializerTest {
         assertNodesFromV1(restoredAssignments);
 
         assertThat(restoredAssignments.force(), is(false));
-        assertThat(restoredAssignments.timestamp(), is(1000L));
+        assertThat(restoredAssignments.timestamp(), is(baseTimestamp(5)));
     }
 
     @Test
@@ -69,7 +89,14 @@ class AssignmentsSerializerTest {
         assertNodesFromV1(restoredAssignments);
 
         assertThat(restoredAssignments.force(), is(true));
-        assertThat(restoredAssignments.timestamp(), is(1000L));
+        assertThat(restoredAssignments.timestamp(), is(baseTimestamp(5)));
+    }
+
+    @SuppressWarnings("unused")
+    private String v1Base64(boolean force) {
+        Assignments originalAssignments = testAssignments(force);
+        byte[] v1Bytes = VersionedSerialization.toBytes(originalAssignments, serializer);
+        return Base64.getEncoder().encodeToString(v1Bytes);
     }
 
     private static void assertNodesFromV1(Assignments restoredAssignments) {
@@ -79,11 +106,11 @@ class AssignmentsSerializerTest {
                 .collect(toList());
 
         Assignment assignment1 = orderedNodes.get(0);
-        assertThat(assignment1.consistentId(), is("a"));
+        assertThat(assignment1.consistentId(), is("abc"));
         assertThat(assignment1.isPeer(), is(true));
 
         Assignment assignment2 = orderedNodes.get(1);
-        assertThat(assignment2.consistentId(), is("b"));
+        assertThat(assignment2.consistentId(), is("def"));
         assertThat(assignment2.isPeer(), is(false));
     }
 }
