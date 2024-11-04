@@ -87,7 +87,9 @@ public class DataStorageManager implements IgniteComponent {
     public @Nullable StorageEngine engineByStorageProfile(String storageProfile) {
         String engine = profilesToEngines.get(storageProfile);
 
-        assert engine != null : "Unknown storage profile '" + storageProfile + "'";
+        if (engine == null) {
+            return null;
+        }
 
         return engines.get(engine);
     }

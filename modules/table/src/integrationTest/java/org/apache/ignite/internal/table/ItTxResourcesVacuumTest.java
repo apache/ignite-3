@@ -119,7 +119,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void setup() throws Exception {
         String zoneSql = "create zone test_zone with partitions=20, replicas=" + REPLICAS
                 + ", storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
-        String sql = "create table " + TABLE_NAME + " (key bigint primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
+        String sql = "create table " + TABLE_NAME + " (key bigint primary key, val varchar(20)) zone TEST_ZONE";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -744,7 +744,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // For this test, create another zone and table with number of replicas that is equal to number of nodes.
         String zoneSql = "create zone test_zone_1 with partitions=20, replicas=" + initialNodes()
                 + ", storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
-        String sql = "create table " + tableName + " (key bigint primary key, val varchar(20)) with primary_zone='TEST_ZONE_1'";
+        String sql = "create table " + tableName + " (key bigint primary key, val varchar(20)) zone TEST_ZONE_1";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);

@@ -43,16 +43,14 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
             out.writeVarInt(partitionId.partitionId());
         }
 
-        HybridTimestamp commitTimestamp = meta.commitTimestamp();
-        // Using long and not varlong as the latter requires 9 bytes for hybrid timestamps.
-        out.writeLong(HybridTimestamp.hybridTimestampToLong(commitTimestamp));
+        HybridTimestamp.write(meta.commitTimestamp(), out);
     }
 
     @Override
     protected TxMeta readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         TxState state = TxState.fromOrdinal(in.readVarIntAsInt());
         List<TablePartitionId> enlistedPartitions = readEnlistedPartitions(in);
-        HybridTimestamp commitTimestamp = HybridTimestamp.nullableHybridTimestamp(in.readLong());
+        HybridTimestamp commitTimestamp = HybridTimestamp.readNullableFrom(in);
 
         return new TxMeta(state, enlistedPartitions, commitTimestamp);
     }
