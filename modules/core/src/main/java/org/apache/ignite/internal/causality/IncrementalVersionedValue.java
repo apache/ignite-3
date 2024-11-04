@@ -54,6 +54,13 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     private long lastCompleteToken = -1;
 
     /**
+     * Token that was used with the most recent {@link #deleteInternal} call.
+     *
+     * <p>Multi-threaded access is guarded by {@link #updateMutex}.</p>
+     */
+    private long lastDeletedToken = -1;
+
+    /**
      * Future that will be completed after all updates over the value in context of current causality token will be performed.
      *
      * <p>Multi-threaded access is guarded by {@link #updateMutex}.
@@ -107,7 +114,7 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
 
                 @Override
                 public void onDelete(long revisionUpperBoundInclusive) {
-                    // TODO: IGNITE-23282 написать код
+                    deleteInternal(revisionUpperBoundInclusive);
                 }
             });
         }
@@ -257,6 +264,12 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
         synchronized (updateMutex) {
             assert expectedToken == -1 || expectedToken == causalityToken
                     : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
+            assert causalityToken > lastCompleteToken : String.format(
+                    "Causality token must be greater than the last completed: [token=%s, lastCompleted=%s]", causalityToken,
+                    lastCompleteToken);
+            assert causalityToken > lastDeletedToken : String.format(
+                    "Causality token must be greater than the last deleted: [token=%s, lastDeleted=%s]", causalityToken,
+                    lastDeletedToken);
 
             lastCompleteToken = causalityToken;
             expectedToken = -1;
@@ -273,6 +286,21 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
             }
 
             return updaterFuture;
+        }
+    }
+
+    private void deleteInternal(long causalityToken) {
+        synchronized (updateMutex) {
+            assert causalityToken < lastCompleteToken : String.format(
+                    "Causality token must be less than the last completed: [token=%s, lastCompleted=%s]", causalityToken,
+                    lastCompleteToken);
+            assert causalityToken > lastDeletedToken : String.format(
+                    "Causality token must be greater than the last deleted: [token=%s, lastDeleted=%s]", causalityToken,
+                    lastDeletedToken);
+
+            lastDeletedToken = causalityToken;
+
+            versionedValue.delete(causalityToken);
         }
     }
 }

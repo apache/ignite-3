@@ -504,6 +504,31 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         assertEquals(5, vv.latestCausalityToken());
     }
 
+    @Test
+    void testDelete() {
+        var vv = new IncrementalVersionedValue<Integer>(register);
+
+        assertThat(register.updateRevision(1), willCompleteSuccessfully());
+        assertThat(register.updateRevision(2), willCompleteSuccessfully());
+        assertThat(register.updateRevision(3), willCompleteSuccessfully());
+
+        assertThat(vv.get(1), willCompleteSuccessfully());
+        assertThat(vv.get(2), willCompleteSuccessfully());
+        assertThat(vv.get(3), willCompleteSuccessfully());
+
+        register.deleteRevisions(1);
+
+        assertThrows(OutdatedTokenException.class, () -> vv.get(1));
+        assertThat(vv.get(2), willCompleteSuccessfully());
+        assertThat(vv.get(3), willCompleteSuccessfully());
+
+        register.deleteRevisions(2);
+
+        assertThrows(OutdatedTokenException.class, () -> vv.get(1));
+        assertThrows(OutdatedTokenException.class, () -> vv.get(2));
+        assertThat(vv.get(3), willCompleteSuccessfully());
+    }
+
     /**
      * Tests a case when there is no default value supplier.
      */

@@ -75,6 +75,13 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      */
     private long actualToken = NOT_INITIALIZED;
 
+    /**
+     * Last deleted causality token.
+     *
+     * <p>Multi-threaded access is guarded by the {@link #readWriteLock}.</p>
+     */
+    private long deletedToken = NOT_INITIALIZED;
+
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     BaseVersionedValue(@Nullable Supplier<T> defaultValueSupplier) {
@@ -145,6 +152,8 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *
+     * <p>{@code causalityToken} is expected to be greater than the last {@link #delete deleted} and greater than the last completed.</p>
+     *
      * @param causalityToken Causality token.
      */
     void complete(long causalityToken) {
@@ -187,6 +196,10 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      * been called before, all these futures will be complete with the configured default value.
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
+     *
+     * <p>{@code causalityToken} is expected to be greater than the last {@link #delete deleted} and greater than the last completed.</p>
+     *
+     * @param causalityToken Causality token.
      */
     void complete(long causalityToken, CompletableFuture<T> future) {
         assert future.isDone();
@@ -281,7 +294,9 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      */
     private void setActualToken(long causalityToken) {
         assert actualToken < causalityToken
-                : format("Token must be greater than actual [token={}, actual={}]", causalityToken, actualToken);
+                : format("Token must be greater than last applied [token={}, lastApplied={}]", causalityToken, actualToken);
+        assert causalityToken > deletedToken
+                : format("Token must be greater than last deleted [token={}, lastDeleted={}]", causalityToken, deletedToken);
 
         actualToken = causalityToken;
     }
@@ -353,5 +368,38 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
                 }
             }
         });
+    }
+
+    /**
+     * Deletes all versions from the Version Value up to and including the {@code causalityToken} and notify all
+     * {@link #whenDelete(DeletionListener) registered deletion listeners}.
+     *
+     * <p>{@code causalityToken} is expected to be less than the last {@link #complete completed} and greater than the last deleted.</p>
+     *
+     * @param causalityToken Causality token.
+     */
+    void delete(long causalityToken) {
+        readWriteLock.writeLock().lock();
+
+        try {
+            assert causalityToken < actualToken
+                    : format("Token must be less than last applied [token={}, lastApplied={}]", causalityToken, actualToken);
+            assert causalityToken > deletedToken
+                    : format("Token must be greater than last deleted [token={}, lastDeleted={}]", causalityToken, deletedToken);
+
+            deletedToken = causalityToken;
+
+            history.headMap(causalityToken, true).clear();
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+
+        for (DeletionListener<T> listener : deletionListeners) {
+            try {
+                listener.whenDelete(causalityToken);
+            } catch (Exception e) {
+                log.error("Exception when notifying a deletion listener", e);
+            }
+        }
     }
 }

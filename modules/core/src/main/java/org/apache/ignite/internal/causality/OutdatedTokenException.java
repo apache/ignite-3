@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.causality;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
 /**
  * This exception is thrown when {@link VersionedValue#get(long)} is called with an outdated token
@@ -36,7 +37,6 @@ public class OutdatedTokenException extends IgniteInternalException {
      * @param historySize Size of stored history.
      */
     OutdatedTokenException(long outdatedToken, long actualToken, int historySize) {
-        super(IgniteStringFormatter.format("Token expired [token={}, actualToken={}, historySize={}]", outdatedToken,
-                actualToken, historySize));
+        super(INTERNAL_ERR, "Token expired [token={}, actualToken={}, historySize={}]", outdatedToken, actualToken, historySize);
     }
 }
