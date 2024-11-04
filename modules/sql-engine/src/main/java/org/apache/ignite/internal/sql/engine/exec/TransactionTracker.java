@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.registry;
+package org.apache.ignite.internal.sql.engine.exec;
+
+import java.util.UUID;
 
 /**
- * Phases of query execution.
+ * Tracker of ongoing transactions.
  */
-public enum QueryExecutionPhase {
-    /**
-     * Query parsing, metadata synchronization.
-     */
-    INITIALIZATION,
+public interface TransactionTracker {
+    /** Registers given transaction within the tracker. */ 
+    boolean register(UUID txId, boolean readOnly);
 
-    /**
-     * Query validation and optimization.
-     */
-    OPTIMIZATION,
-
-    /**
-     * Query execution.
-     */
-    EXECUTION
+    /** De-registers given transaction from the tracker. */
+    void unregister(UUID txId);
 }
