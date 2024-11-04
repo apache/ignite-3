@@ -25,6 +25,7 @@ import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -489,6 +490,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 
+    /** Registers a metastorage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /** Unregisters a metastorage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
     /** Explicitly notifies revision update listeners. */
     CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
 
@@ -546,8 +553,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
      *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
      *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
-     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes
-     *     {@link WatchEventHandlingCallback#onCompactionRevisionUpdated}.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes {@link CompactionRevisionUpdateListener#onUpdate}.</li>
      * </ul>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>

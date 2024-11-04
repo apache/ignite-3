@@ -110,6 +110,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -155,6 +156,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageExtensionConfiguration;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -162,6 +164,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
+import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -329,6 +332,9 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
 
+    /** Metastorage compaction trigger. */
+    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
+
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
@@ -386,6 +392,9 @@ public class IgniteImpl implements Ignite {
 
     /** Metric manager. */
     private final MetricManager metricManager;
+
+    /** Metric messaging. */
+    private final MetricMessaging metricMessaging;
 
     private final IgniteDeployment deploymentManager;
 
@@ -727,6 +736,14 @@ public class IgniteImpl implements Ignite {
                 clusterIdService
         );
 
+        metaStorageCompactionTrigger = new MetaStorageCompactionTrigger(
+                name,
+                storage,
+                metaStorageMgr,
+                readOperationForCompactionTracker,
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+        );
+
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
@@ -877,7 +894,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler
+                rebalanceScheduler,
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1118,6 +1136,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor()
         );
 
+        metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
+
         restComponent = createRestComponent(name);
 
         publicTables = new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
@@ -1181,7 +1201,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
-        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
@@ -1195,7 +1215,7 @@ public class IgniteImpl implements Ignite {
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
-                        nodeMetricRestFactory,
+                        metricRestFactory,
                         deploymentCodeRestFactory,
                         authProviderFactory,
                         restManagerFactory,
@@ -1346,6 +1366,7 @@ public class IgniteImpl implements Ignite {
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,
+                                metricMessaging,
                                 distributionZoneManager,
                                 computeComponent,
                                 volatileLogStorageFactoryCreator,
@@ -1364,7 +1385,8 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
-                                resourceVacuumManager
+                                resourceVacuumManager,
+                                metaStorageCompactionTrigger
                         );
 
                         // The system view manager comes last because other components

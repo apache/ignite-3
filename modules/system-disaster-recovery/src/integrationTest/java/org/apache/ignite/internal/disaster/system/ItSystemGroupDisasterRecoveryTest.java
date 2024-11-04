@@ -74,28 +74,28 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
     }
 
     final IgniteImpl waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
-        // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
+        // restartFuture() becomes non-null when restart is initiated.
 
-        assertThat(waitForRestartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
+        assertThat(waitForRestartFuture(nodeIndex), willCompleteSuccessfully());
 
         return unwrapIgniteImpl(cluster.server(nodeIndex).api());
     }
 
-    final CompletableFuture<Void> waitForRestartOrShutdownFuture(int nodeIndex) throws InterruptedException {
+    final CompletableFuture<Void> waitForRestartFuture(int nodeIndex) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
-                "Node did not attempt to be restarted (or shut down) in time"
+                waitForCondition(() -> restartFuture(nodeIndex) != null, SECONDS.toMillis(20)),
+                "Node did not attempt to be restarted in time"
         );
 
-        CompletableFuture<Void> future = restartOrShutdownFuture(nodeIndex);
+        CompletableFuture<Void> future = restartFuture(nodeIndex);
         assertNotNull(future);
 
         return future;
     }
 
     @Nullable
-    private CompletableFuture<Void> restartOrShutdownFuture(int nodeIndex) {
-        return ((IgniteServerImpl) cluster.server(nodeIndex)).restartOrShutdownFuture();
+    private CompletableFuture<Void> restartFuture(int nodeIndex) {
+        return ((IgniteServerImpl) cluster.server(nodeIndex)).restartFuture();
     }
 
     static ClusterState clusterState(IgniteImpl ignite) throws InterruptedException, ExecutionException, TimeoutException {

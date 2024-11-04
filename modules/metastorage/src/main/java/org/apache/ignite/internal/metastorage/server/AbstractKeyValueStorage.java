@@ -37,9 +37,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -104,6 +104,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
 
         watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
+
+        watchProcessor.registerCompactionRevisionUpdateListener(this::setCompactionRevision);
     }
 
     /** Returns the key revisions for operation, an empty array if not found. */
@@ -274,6 +276,18 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return watchProcessor.notifyUpdateRevisionListeners(newRevision);
     }
 
+    /** Registers a metastorage compaction revision update listener. */
+    @Override
+    public void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        watchProcessor.registerCompactionRevisionUpdateListener(listener);
+    }
+
+    /** Unregisters a metastorage compaction revision update listener. */
+    @Override
+    public void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        watchProcessor.unregisterCompactionRevisionUpdateListener(listener);
+    }
+
     @Override
     public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
         rwLock.writeLock().lock();
@@ -415,26 +429,5 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
 
         return res;
-    }
-
-    protected WatchEventHandlingCallback createWrapper(WatchEventHandlingCallback callback) {
-        return new WatchEventHandlingCallback() {
-            @Override
-            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
-                callback.onSafeTimeAdvanced(newSafeTime);
-            }
-
-            @Override
-            public void onRevisionApplied(long revision) {
-                callback.onRevisionApplied(revision);
-            }
-
-            @Override
-            public void onCompactionRevisionUpdated(long compactionRevision) {
-                setCompactionRevision(compactionRevision);
-
-                callback.onCompactionRevisionUpdated(compactionRevision);
-            }
-        };
     }
 }

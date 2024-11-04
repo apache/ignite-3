@@ -118,6 +118,8 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -257,8 +259,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(120)
-// TODO: IGNITE-23538 - enable after fixing the test
-@Disabled("IGNITE-23538")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -1285,7 +1285,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(ClusterConfiguration.KEY),
                     List.of(
                             GcExtensionConfigurationSchema.class,
-                            StorageUpdateExtensionConfigurationSchema.class
+                            StorageUpdateExtensionConfigurationSchema.class,
+                            SystemDistributedExtensionConfigurationSchema.class
                     ),
                     List.of()
             );
@@ -1393,7 +1394,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    rebalanceScheduler
+                    rebalanceScheduler,
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1509,7 +1511,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         void start() {
             ComponentContext componentContext = new ComponentContext();
 
-            deployWatchesFut = startComponentsAsync(componentContext, List.of(
+            deployWatchesFut = startComponentsAsync(
+                    componentContext,
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1519,9 +1522,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgLogStorageFactory,
                     msLogStorageFactory,
                     raftManager,
-                    cmgManager
-            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
-                    lowWatermark,
+                    cmgManager,
+                    lowWatermark
+            ).thenComposeAsync(
+                    v -> cmgManager.joinFuture()
+            ).thenApplyAsync(v -> startComponentsAsync(
+                    componentContext,
                     metaStorageManager,
                     clusterCfgMgr,
                     clockWaiter,
@@ -1534,7 +1540,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     tableManager,
                     indexManager
-            ))).thenComposeAsync(componentFuts -> {
+            )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
                                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -1551,12 +1557,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             });
         }
 
-        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
-            nodeComponents.addAll(components);
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components) {
+            var componentStartFutures = new CompletableFuture[components.length];
 
-            return allOf(components.stream()
-                    .map(component -> component.startAsync(componentContext))
-                    .toArray(CompletableFuture[]::new));
+            for (int compIdx = 0; compIdx < components.length; compIdx++) {
+                IgniteComponent component = components[compIdx];
+                componentStartFutures[compIdx] = component.startAsync(componentContext);
+                nodeComponents.add(component);
+            }
+
+            return allOf(componentStartFutures);
         }
 
         /**

@@ -37,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -102,8 +104,18 @@ public class WatchProcessor implements ManuallyCloseable {
     /** Meta Storage revision update listeners. */
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
 
+    /** Metastorage compaction revision update listeners. */
+    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
+
     /** Failure processor that is used to handle critical errors. */
     private final FailureManager failureManager;
+
+    /**
+     * Whether a failure in notification chain was passed to the FailureHandler. Used to make sure that we only pass first such a failure
+     * because, as any failure in the chain will stop any notifications, it only makes sense to log the first one. Subsequent ones will
+     * be instances of the same original exception.
+     */
+    private final AtomicBoolean firedFailureOnChain = new AtomicBoolean(false);
 
     /**
      * Creates a new instance.
@@ -187,11 +199,7 @@ public class WatchProcessor implements ManuallyCloseable {
                             .thenComposeAsync(watchAndEvents -> {
                                 long startTimeNanos = System.nanoTime();
 
-                                CompletableFuture<Void> notifyWatchesFuture = notifyWatches(
-                                        watchAndEvents,
-                                        newRevision,
-                                        time,
-                                        failureManager);
+                                CompletableFuture<Void> notifyWatchesFuture = notifyWatches(watchAndEvents, newRevision, time);
 
                                 // Revision update is triggered strictly after all watch listeners have been notified.
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
@@ -206,7 +214,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                     maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos);
 
                                     if (e != null) {
-                                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
                                     }
                                 });
 
@@ -219,11 +227,10 @@ public class WatchProcessor implements ManuallyCloseable {
         return newFuture;
     }
 
-    private static CompletableFuture<Void> notifyWatches(
+    private CompletableFuture<Void> notifyWatches(
             List<WatchAndEvents> watchAndEventsList,
             long revision,
-            HybridTimestamp time,
-            FailureManager failureManager
+            HybridTimestamp time
     ) {
         if (watchAndEventsList.isEmpty()) {
             return nullCompletedFuture();
@@ -247,7 +254,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                 }
 
                                 if (!(e instanceof NodeStoppingException)) {
-                                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                                    notifyFailureHandlerOnFirstFailureInNotificationChain(e);
                                 }
 
                                 watchAndEvents.watch.onError(e);
@@ -258,7 +265,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
                 notifyWatchFuture = failedFuture(throwable);
 
-                failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
+                notifyFailureHandlerOnFirstFailureInNotificationChain(throwable);
             }
 
             notifyWatchFutures[i] = notifyWatchFuture;
@@ -341,9 +348,18 @@ public class WatchProcessor implements ManuallyCloseable {
                 .thenRunAsync(() -> watchEventHandlingCallback.onSafeTimeAdvanced(time), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
                     }
                 });
+    }
+
+    private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
+        if (firedFailureOnChain.compareAndSet(false, true)) {
+            LOG.info("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
+                    + "until a restart. Notifying the FailureManager");
+
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+        }
     }
 
     @Override
@@ -354,13 +370,23 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /** Registers a Meta Storage revision update listener. */
-    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+    void registerRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.add(listener);
     }
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
         revisionUpdateListeners.remove(listener);
+    }
+
+    /** Registers a metastorage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        compactionRevisionUpdateListeners.add(listener);
+    }
+
+    /** Unregisters a metastorage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        compactionRevisionUpdateListeners.remove(listener);
     }
 
     /** Explicitly notifies revision update listeners. */
@@ -387,10 +413,10 @@ public class WatchProcessor implements ManuallyCloseable {
      * @param compactionRevision New metastorage compaction revision.
      * @param time Metastorage compaction revision update timestamp.
      */
-    public void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
+    void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
         notificationFuture = notificationFuture
                 .thenRunAsync(() -> {
-                    watchEventHandlingCallback.onCompactionRevisionUpdated(compactionRevision);
+                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)

@@ -23,12 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.testobjects.TestOuterObject;
 import org.apache.ignite.internal.schema.testobjects.TestOuterObject.NestedObject;
@@ -95,14 +95,15 @@ public class MapperTest {
                 Long.class,
                 Float.class,
                 Double.class,
-                BigInteger.class,
                 BigDecimal.class,
-                BitSet.class,
                 byte[].class,
                 String.class,
                 LocalDate.class,
                 LocalTime.class,
                 LocalDateTime.class,
+                Instant.class,
+                UUID.class,
+                Boolean.class
         }) {
             assertNull(((OneColumnMapper<?>) Mapper.of(c)).mappedColumn());
 

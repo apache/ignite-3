@@ -128,6 +128,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(1, 2, 5/* Tombstone */), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6/* Tombstone */), collectRevisions(SOME_KEY));
+
+        storage.registerCompactionRevisionUpdateListener(
+                compactionRevision -> updateCompactionRevisionInWatchEvenQueue.update(compactionRevision, null)
+        );
     }
 
     @Override
@@ -1123,11 +1127,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
             @Override
             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                 clusterTime.updateSafeTime(newSafeTime);
-            }
-
-            @Override
-            public void onCompactionRevisionUpdated(long compactionRevision) {
-                updateCompactionRevisionInWatchEvenQueue.update(compactionRevision, null);
             }
         });
     }

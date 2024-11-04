@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.sql.engine.registry.RunningQueriesRegistryImpl.SCRIPT_QUERY_TYPE;
+import static org.apache.ignite.internal.sql.engine.SqlQueriesViewProvider.SCRIPT_QUERY_TYPE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.registry.QueryExecutionPhase;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -185,7 +184,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
                 List<Object> row = res.get(i);
 
                 verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, expectedQueries.get(i), timeBefore, timeAfter,
-                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).name(), i + 1);
+                        hasLength(36), (i == 1 ? SqlQueryType.DML : SqlQueryType.QUERY).name(), i);
 
                 transactionIds.add((String) row.get(7));
             }
@@ -239,10 +238,10 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
                 timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.name(), 1);
 
         verifyQueryInfo(res.get(1), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "SELECT *\nFROM `TEST`",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.name(), 2);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.name(), 3);
 
         verifyQueryInfo(res.get(2), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO `TEST`\nVALUES ROW(2),\nROW(3)",
-                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.name(), 3);
+                timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.name(), 4);
 
         for (AsyncSqlCursor<InternalSqlRow> cursor : cursors) {
             await(cursor.closeAsync());
@@ -253,7 +252,6 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void checkCleanupOnError() throws InterruptedException {
         // Parsing error.
         {
@@ -330,7 +328,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         assertThat((String) row.get(idx++), hasLength(36));
 
         // PHASE
-        assertThat(row.get(idx++), equalTo(QueryExecutionPhase.EXECUTION.name()));
+        assertThat(row.get(idx++), equalTo("EXECUTION"));
 
         // TYPE
         assertThat(row.get(idx++), equalTo(queryType));

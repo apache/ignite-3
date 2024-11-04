@@ -78,7 +78,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.security",
             "ignite.sql",
             "ignite.storageUpdate",
-            "ignite.transaction"
+            "ignite.transaction",
+            "ignite.system"
     };
 
     private static final String[] LOCAL_CONFIGURATION_KEYS = {

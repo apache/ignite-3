@@ -70,42 +70,19 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Inject
     @Client("http://localhost:10300" + COMPUTE_URL)
-    HttpClient client0;
-
-    @Inject
-    @Client("http://localhost:10301" + COMPUTE_URL)
-    HttpClient client1;
-
-    @Inject
-    @Client("http://localhost:10303" + COMPUTE_URL)
-    HttpClient client2;
-
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port:{} },\n"
-                + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1 \n"
-                + "}";
-    }
+    HttpClient client;
 
     @AfterEach
     void tearDown() {
         // Cancel all jobs.
-        getJobStates(client0).values().stream()
+        getJobStates(client).values().stream()
                 .filter(it -> it.finishTime() == null)
                 .map(JobState::id)
-                .forEach(jobId -> cancelJob(client0, jobId));
+                .forEach(jobId -> cancelJob(client, jobId));
 
         // Wait for all jobs to complete.
         await().until(() -> {
-            Collection<JobState> states = getJobStates(client0).values();
+            Collection<JobState> states = getJobStates(client).values();
 
             for (JobState state : states) {
                 if (state.finishTime() == null) {
@@ -129,7 +106,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         UUID remoteJobId = remoteExecution.idAsync().join();
 
         await().untilAsserted(() -> {
-            Map<UUID, JobState> states = getJobStates(client0);
+            Map<UUID, JobState> states = getJobStates(client);
 
             assertThat(states.get(localJobId), executing(localJobId));
             assertThat(states.get(remoteJobId), executing(remoteJobId));
@@ -148,11 +125,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
     }
 
     @Test
@@ -163,11 +140,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
     }
 
     @Test
@@ -176,7 +153,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> getJobState(client0, jobId)
+                () -> getJobState(client, jobId)
         );
 
         assertThat(
@@ -193,11 +170,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
-        cancelJob(client0, jobId);
+        cancelJob(client, jobId);
 
-        await().until(() -> getJobState(client0, jobId), canceled(jobId, true));
+        await().until(() -> getJobState(client, jobId), canceled(jobId, true));
     }
 
     @Test
@@ -208,11 +185,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
-        cancelJob(client0, jobId);
+        cancelJob(client, jobId);
 
-        await().until(() -> getJobState(client0, jobId), canceled(jobId, true));
+        await().until(() -> getJobState(client, jobId), canceled(jobId, true));
     }
 
     @Test
@@ -221,7 +198,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> cancelJob(client0, jobId)
+                () -> cancelJob(client, jobId)
         );
 
         assertThat(
@@ -238,15 +215,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> cancelJob(client0, jobId)
+                () -> cancelJob(client, jobId)
         );
 
         assertThat(
@@ -266,15 +243,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId2), queued(jobId2));
+        await().until(() -> getJobState(client, jobId2), queued(jobId2));
 
-        updatePriority(client0, jobId2, 1);
+        updatePriority(client, jobId2, 1);
     }
 
     @Test
@@ -287,15 +264,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId2), queued(jobId2));
+        await().until(() -> getJobState(client, jobId2), queued(jobId2));
 
-        updatePriority(client0, jobId2, 1);
+        updatePriority(client, jobId2, 1);
     }
 
     @Test
@@ -304,7 +281,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
+                () -> updatePriority(client, jobId, 1)
         );
 
         assertThat(
@@ -323,11 +300,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
+                () -> updatePriority(client, jobId, 1)
         );
 
         assertThat(
@@ -347,15 +324,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
 
         HttpClientResponseException httpClientResponseException = assertThrows(
                 HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
+                () -> updatePriority(client, jobId, 1)
         );
 
         assertThat(
