@@ -87,9 +87,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     public void startTrack() {
         msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentsListener);
 
-        msManager.recoveryFinishedFuture().thenAccept(recoveryRevision -> {
+        msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
             try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
-                    ByteArray.fromString(incrementLastChar(STABLE_ASSIGNMENTS_PREFIX)), recoveryRevision);
+                    ByteArray.fromString(incrementLastChar(STABLE_ASSIGNMENTS_PREFIX)), recoveryRevisions.revision());
             ) {
                 for (Entry entry : cursor) {
                     if (entry.tombstone()) {

@@ -102,7 +102,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join());
+        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join().revision());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 

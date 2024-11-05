@@ -465,8 +465,8 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static String createTableSql() {
         return String.format(
-                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH STORAGE_PROFILE='%s',PRIMARY_ZONE='%s'",
-                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, DEFAULT_AIPERSIST_PROFILE_NAME, ZONE_NAME
+                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) ZONE %s STORAGE PROFILE '%s'",
+                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, ZONE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME
         );
     }
 

@@ -226,7 +226,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         notifyWatches();
 
-        notifyRevisionUpdate();
+        notifyRevisionsUpdate();
     }
 
     @Override
@@ -462,22 +462,20 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            areWatchesEnabled = true;
-
             watchProcessor.setWatchEventHandlingCallback(callback);
 
-            replayUpdates(startRevision);
+            fillNotifyWatchProcessorEventsFromStorage(startRevision);
+
+            drainNotifyWatchProcessorEventsBeforeStartingWatches();
+
+            areWatchesEnabled = true;
         } finally {
             rwLock.readLock().unlock();
         }
     }
 
-    private void replayUpdates(long startRevision) {
+    private void fillNotifyWatchProcessorEventsFromStorage(long startRevision) {
         long minWatchRevision = Math.max(startRevision, watchProcessor.minWatchRevision().orElse(-1));
-
-        if (minWatchRevision <= 0) {
-            return;
-        }
 
         revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
@@ -487,12 +485,29 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                         updatedEntries.add(entry);
                     });
 
-                    notifyWatches();
+                    fillNotifyWatchProcessorEventsFromUpdatedEntries();
                 });
     }
 
+    private void fillNotifyWatchProcessorEventsFromUpdatedEntries() {
+        if (updatedEntries.isEmpty()) {
+            return;
+        }
+
+        long revision = updatedEntries.get(0).revision();
+
+        HybridTimestamp ts = revToTsMap.get(revision);
+        assert ts != null : revision;
+
+        var event = new UpdateEntriesEvent(List.copyOf(updatedEntries), ts);
+
+        addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
+
+        updatedEntries.clear();
+    }
+
     private void notifyWatches() {
-        if (isInRecoveryState() || updatedEntries.isEmpty()) {
+        if (!areWatchesStarted() || updatedEntries.isEmpty()) {
             updatedEntries.clear();
 
             return;
@@ -632,6 +647,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             savedCompactionRevision = snapshot.savedCompactionRevision;
             term = snapshot.term;
             index = snapshot.index;
+
+            notifyRevisionsUpdate();
         } catch (Throwable t) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, t);
         } finally {
@@ -746,27 +763,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void advanceSafeTime(KeyValueUpdateContext context) {
-        rwLock.writeLock().lock();
-
-        try {
-            setIndexAndTerm(context.index, context.term);
-
-            if (!isInRecoveryState()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
-            }
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         savedCompactionRevision = revision;
 
         setIndexAndTerm(context.index, context.term);
 
-        if (advanceSafeTime && !isInRecoveryState()) {
+        if (advanceSafeTime && areWatchesStarted()) {
             watchProcessor.advanceSafeTime(context.timestamp);
         }
     }
@@ -845,8 +847,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected boolean isInRecoveryState() {
-        return !areWatchesEnabled;
+    protected boolean areWatchesStarted() {
+        return areWatchesEnabled;
     }
 
     private @Nullable Value getValueNullable(byte[] key, long revision) {

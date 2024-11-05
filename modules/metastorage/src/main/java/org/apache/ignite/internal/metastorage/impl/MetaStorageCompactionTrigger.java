@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -41,6 +42,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -65,6 +68,14 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Metastorage leader locally gets notification of the completion of the local compaction for the new revision.</li>
  *     <li>Metastorage leader locally schedules a new start of compaction.</li>
  * </ol>
+ *
+ * <p>About recovery:</p>
+ * <ul>
+ *     <li>At the start of the component, we will start a local compaction for the compaction revision from
+ *     {@link MetaStorageManager#recoveryFinishedFuture}.</li>
+ *     <li>{@link CompactionCommand}s that were received before the {@link MetaStorageManager#deployWatches} will start a local compaction
+ *     in the {@link MetaStorageManager#deployWatches}.</li>
+ * </ul>
  */
 // TODO: IGNITE-23280 Turn on compaction
 public class MetaStorageCompactionTrigger implements IgniteComponent {
@@ -140,9 +151,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             lock.lock();
 
             try {
-                started = true;
-
                 config.init();
+
+                startCompactionOnRecoveryInBackground();
+
+                started = true;
 
                 scheduleNextCompactionBusy();
 
@@ -317,6 +330,37 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             this.lastScheduledFuture = null;
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void startCompactionOnRecoveryInBackground() {
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
+
+        assert recoveryFuture.isDone();
+
+        long recoveredCompactionRevision = recoveryFuture.join().compactionRevision();
+
+        if (recoveredCompactionRevision != -1) {
+            runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(recoveredCompactionRevision)), compactionExecutor)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            if (!(cause instanceof NodeStoppingException)) {
+                                LOG.error(
+                                        "Unknown error during metastore compaction launched on node recovery: [compactionRevision={}]",
+                                        cause,
+                                        recoveredCompactionRevision
+                                );
+                            }
+                        } else {
+                            LOG.info(
+                                    "Metastorage compaction launched during node recovery has been successfully completed: "
+                                            + "[compactionRevision={}]",
+                                    recoveredCompactionRevision
+                            );
+                        }
+                    });
         }
     }
 }

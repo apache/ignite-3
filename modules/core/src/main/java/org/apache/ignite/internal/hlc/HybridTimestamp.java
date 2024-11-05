@@ -19,10 +19,13 @@ package org.apache.ignite.internal.hlc;
 
 import static org.apache.ignite.internal.lang.JavaLoggerFormatter.DATE_FORMATTER;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,10 +42,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     public static final int LOGICAL_TIME_BITS_SIZE = 2 * Byte.SIZE;
 
     /** Mask to extract logical time. */
-    public static final long LOGICAL_TIME_MASK = (1L << LOGICAL_TIME_BITS_SIZE) - 1;
+    private static final long LOGICAL_TIME_MASK = (1L << LOGICAL_TIME_BITS_SIZE) - 1;
 
     /** Number of bits in "physical time" part. */
-    public static final int PHYSICAL_TIME_BITS_SIZE = 6 * Byte.SIZE;
+    static final int PHYSICAL_TIME_BITS_SIZE = 6 * Byte.SIZE;
 
     /** Timestamp size in bytes. */
     public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES;
@@ -201,7 +204,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public String toString() {
-        String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atZone(ZoneId.systemDefault()));
+        String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atOffset(ZoneOffset.UTC));
 
         return String.format("HybridTimestamp [physical=%s, logical=%d, composite=%d]", formattedTime, getLogical(), time);
     }
@@ -255,5 +258,74 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public byte[] toBytes() {
         return ByteUtils.longToBytes(longValue());
+    }
+
+    /**
+     * Writes this timestamp to the output.
+     *
+     * @param out Output to write to.
+     * @throws IOException If something goes wrong.
+     */
+    public void writeTo(IgniteDataOutput out) throws IOException {
+        long physical = getPhysical();
+
+        //noinspection NumericCastThatLosesPrecision
+        out.writeInt((int) (physical >> Short.SIZE));
+        out.writeShort((int) (physical & 0xFFFF));
+
+        out.writeVarInt(getLogical());
+    }
+
+    /**
+     * Writes a nullable timestamp to an output.
+     *
+     * @param timestamp Timestamp to write
+     * @param out Output to write to.
+     * @throws IOException If something goes wrong.
+     */
+    public static void write(@Nullable HybridTimestamp timestamp, IgniteDataOutput out) throws IOException {
+        if (timestamp == null) {
+            out.writeInt(0);
+            out.writeShort(0);
+            out.writeVarInt(0);
+        } else {
+            timestamp.writeTo(out);
+        }
+    }
+
+    /**
+     * Reads a timestamp written with {@link #writeTo(IgniteDataOutput)}.
+     *
+     * @param in Input from which to read.
+     * @throws IOException If something goes wrong.
+     */
+    public static @Nullable HybridTimestamp readNullableFrom(IgniteDataInput in) throws IOException {
+        long physicalHigh = in.readInt();
+        int physicalLow = in.readShort() & 0xFFFF;
+
+        long physical = (physicalHigh << Short.SIZE) | physicalLow;
+        int logical = in.readVarIntAsInt();
+
+        if (physical == 0 && logical == 0) {
+            return null;
+        }
+
+        return new HybridTimestamp(physical, logical);
+    }
+
+    /**
+     * Reads a timestamp written with {@link #writeTo(IgniteDataOutput)}.
+     *
+     * @param in Input from which to read.
+     * @throws IOException If something goes wrong.
+     */
+    public static HybridTimestamp readFrom(IgniteDataInput in) throws IOException {
+        HybridTimestamp ts = readNullableFrom(in);
+
+        if (ts == null) {
+            throw new IOException("A non-null timestamp is expected");
+        }
+
+        return ts;
     }
 }

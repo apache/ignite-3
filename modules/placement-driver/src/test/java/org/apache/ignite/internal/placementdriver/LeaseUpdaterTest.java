@@ -56,6 +56,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationImpl;
@@ -127,7 +128,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
-        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
         when(metaStorageManager.getLocally(any(ByteArray.class), any(ByteArray.class), anyLong())).thenReturn(mcEntriesCursor);
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(node))));
 

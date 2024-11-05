@@ -48,11 +48,13 @@ import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventL
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Zone rebalance manager.
@@ -88,6 +90,11 @@ public class DistributionZoneRebalanceEngine {
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
     public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+
+    /** Special flag to skip rebalance on node recovery for tests. */
+    // TODO: IGNITE-23466 Remove it
+    @TestOnly
+    public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
     /**
      * Constructor.
@@ -132,12 +139,16 @@ public class DistributionZoneRebalanceEngine {
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
 
-            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
             // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
             assert recoveryFinishFuture.isDone();
 
-            long recoveryRevision = recoveryFinishFuture.join();
+            long recoveryRevision = recoveryFinishFuture.join().revision();
+
+            if (getBoolean(SKIP_REBALANCE_TRIGGERS_RECOVERY, false)) {
+                return nullCompletedFuture();
+            }
 
             if (ENABLED) {
                 return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)

@@ -68,7 +68,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     public void beforeEach() {
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
                 ZONE_NAME, initialNodes(), 10, DEFAULT_STORAGE_PROFILE));
-        sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) WITH PRIMARY_ZONE='{}'",
+        sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) ZONE {}",
                 TABLE_NAME, ZONE_NAME));
 
         Ignite ignite = CLUSTER.aliveNode();

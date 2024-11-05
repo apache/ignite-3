@@ -179,7 +179,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
         CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
-                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
+                .thenApplyAsync(revisions -> readDataOnRecovery0(revisions.revision()), threadPool);
 
         return registerFuture(future);
     }
@@ -329,7 +329,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> localRevision() {
         return metaStorageMgr.recoveryFinishedFuture()
-                .thenApply(rev -> metaStorageMgr.getLocally(MASTER_KEY, rev).revision());
+                .thenApply(revisions -> metaStorageMgr.getLocally(MASTER_KEY, revisions.revision()).revision());
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

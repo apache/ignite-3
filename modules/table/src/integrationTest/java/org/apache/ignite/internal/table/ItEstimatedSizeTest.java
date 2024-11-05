@@ -140,7 +140,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         String tableName = tableName(profile);
 
         executeSql(String.format(
-                "CREATE TABLE %s (key INT PRIMARY KEY) WITH PRIMARY_ZONE=%s, STORAGE_PROFILE='%s'",
+                "CREATE TABLE %s (key INT PRIMARY KEY) ZONE %s STORAGE PROFILE '%s'",
                 tableName,
                 TEST_ZONE_NAME,
                 profile
