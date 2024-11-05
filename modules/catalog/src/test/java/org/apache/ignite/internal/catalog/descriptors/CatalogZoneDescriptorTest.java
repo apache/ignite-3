@@ -55,5 +55,6 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=6"));
         assertThat(toString, containsString("filter=the-filter"));
         assertThat(toString, containsString("storageProfiles=CatalogStorageProfilesDescriptor ["));
+        assertThat(toString, containsString("consistencyMode=STRONG_CONSISTENCY"));
     }
 }

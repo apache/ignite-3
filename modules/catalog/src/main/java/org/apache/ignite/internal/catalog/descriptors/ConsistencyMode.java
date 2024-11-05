@@ -21,7 +21,6 @@ package org.apache.ignite.internal.catalog.descriptors;
  * Specifies the consistency mode of the zone, determining how the system balances data consistency and availability.
  */
 public enum ConsistencyMode {
-
     /**
      * Ensures strong consistency by requiring a majority of nodes for operations. Partitions become unavailable if the majority of assigned
      * nodes are lost.

@@ -119,8 +119,16 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
     CreateZoneImpl consistencyMode(String consistencyMode) {
         Objects.requireNonNull(consistencyMode, "Consistency mode must not be null");
 
+        if (!isValidConsistencyMode(consistencyMode)) {
+            throw new IllegalArgumentException("Invalid consistency mode: " + consistencyMode);
+        }
+
         withOptions.add(Option.consistencyMode(consistencyMode));
         return this;
+    }
+
+    private static boolean isValidConsistencyMode(String consistencyMode) {
+        return "HIGH_AVAILABILITY".equals(consistencyMode) || "STRONG_CONSISTENCY".equals(consistencyMode);
     }
 
     @Override

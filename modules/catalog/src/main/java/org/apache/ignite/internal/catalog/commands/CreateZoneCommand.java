@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
@@ -163,6 +164,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         );
 
         validateZoneFilter(filter);
+
+        validateConsistencyMode(consistencyMode);
 
         validateStorageProfiles(storageProfileParams);
     }

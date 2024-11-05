@@ -135,7 +135,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThrows(
                 SqlException.class,
                 () -> converter.convert((SqlDdl) node, createContext()),
-                "Failed to parse consistency mode: MY_CUSTOM_MODE"
+                "Failed to parse consistency mode: MY_CUSTOM_MODE. Valid values are: [STRONG_CONSISTENCY, HIGH_AVAILABILITY]"
         );
     }
 

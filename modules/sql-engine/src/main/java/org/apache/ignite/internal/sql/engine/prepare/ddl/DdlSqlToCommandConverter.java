@@ -47,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -203,7 +204,8 @@ public class DdlSqlToCommandConverter {
         try {
             return ConsistencyMode.valueOf(consistencyMode);
         } catch (IllegalArgumentException e) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Failed to parse consistency mode: " + consistencyMode);
+            throw new SqlException(STMT_VALIDATION_ERR, "Failed to parse consistency mode: " + consistencyMode
+                    + ". Valid values are: " + Arrays.toString(ConsistencyMode.values()));
         }
     }
 
