@@ -31,6 +31,19 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
+ *
+ * <p>Serialization methods ({@link #toBytes()}, {@link #writeTo(IgniteDataOutput)}, {@link #write(HybridTimestamp, IgniteDataOutput)})
+ * write a timestamp in the following format:
+ *
+ * <pre>{@code
+ *   <TS> ::= <PHYSICAL_PART> <LOGICAL_PART>
+ *
+ *   <PHYSICAL_PART> ::= <PHYSICAL_HIGH> (4 bytes int) <PHYSICAL_LOW> (2 bytes short) // both are in little-endian
+ *
+ *   <LOGICAL_PART> ::= (varint)
+ * }</pre>
+ *
+ * A null timestamp is serialized as both parts (physical and logical) equal to 0.
  */
 public final class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Serial version UID. */
@@ -129,7 +142,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Restores a timestamp converted to bytes using {@link #toBytes()}.
      *
+     * <p>See the class javadoc for details on the serialization format.
+     *
      * @param bytes Byte array representing a timestamp.
+     * @see #toBytes()
      */
     public static HybridTimestamp fromBytes(byte[] bytes) {
         // Reversing bytes as ByteUtils works in BE, but we store in LE (as IgniteDataOutput uses LE and we want to be consistent between
@@ -267,6 +283,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /**
      * Returns a byte array representing this timestamp.
+     *
+     * <p>See the class javadoc for details on the serialization format.
+     *
+     * @see #fromBytes(byte[])
      */
     @SuppressWarnings("NumericCastThatLosesPrecision")
     public byte[] toBytes() {
@@ -288,8 +308,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Writes this timestamp to the output.
      *
+     * <p>See the class javadoc for details on the serialization format.
+     *
      * @param out Output to write to.
      * @throws IOException If something goes wrong.
+     * @see #readFrom(IgniteDataInput)
      */
     public void writeTo(IgniteDataOutput out) throws IOException {
         long physical = getPhysical();
@@ -304,9 +327,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Writes a nullable timestamp to an output.
      *
+     * <p>See the class javadoc for details on the serialization format.
+     *
      * @param timestamp Timestamp to write
      * @param out Output to write to.
      * @throws IOException If something goes wrong.
+     * @see #readNullableFrom(IgniteDataInput)
      */
     public static void write(@Nullable HybridTimestamp timestamp, IgniteDataOutput out) throws IOException {
         if (timestamp == null) {
@@ -321,8 +347,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Reads a timestamp written with {@link #writeTo(IgniteDataOutput)}.
      *
+     * <p>See the class javadoc for details on the serialization format.
+     *
      * @param in Input from which to read.
      * @throws IOException If something goes wrong.
+     * @see #write(HybridTimestamp, IgniteDataOutput)
      */
     public static @Nullable HybridTimestamp readNullableFrom(IgniteDataInput in) throws IOException {
         long physicalHigh = in.readInt();
@@ -341,8 +370,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Reads a timestamp written with {@link #writeTo(IgniteDataOutput)}.
      *
+     * <p>See the class javadoc for details on the serialization format.
+     *
      * @param in Input from which to read.
      * @throws IOException If something goes wrong.
+     * @see #writeTo(IgniteDataOutput)
      */
     public static HybridTimestamp readFrom(IgniteDataInput in) throws IOException {
         HybridTimestamp ts = readNullableFrom(in);
