@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  *   <LOGICAL_PART> ::= (varint)
  * }</pre>
  *
- * A null timestamp is serialized as both parts (physical and logical) equal to 0.
+ * <p>A null timestamp is serialized as both parts (physical and logical) equal to 0.
  */
 public final class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Serial version UID. */
