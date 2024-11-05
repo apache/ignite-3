@@ -131,13 +131,6 @@ class Query implements Runnable {
         do {
             ExecutionPhase phaseBefore = currentPhase;
 
-            // Check if the query has already been cancelled.
-            try {
-                cancel.throwIfCancelled();
-            } catch (QueryCancelledException e) {
-                throw (SqlException) SqlExceptionMapperUtil.mapToPublicSqlException(e);
-            }
-
             try {
                 result = phaseBefore.evaluate(this);
             } catch (Throwable th) {
