@@ -232,10 +232,9 @@ public class PrepareServiceImpl implements PrepareService {
             return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
         }
 
-        // Add an action to trigger planner timeout, when operation times out.
-        // Or trigger timeout immediately if operation has already timed out.
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
+        // Check if the query has already been cancelled.
         try {
             cancelHandler.throwIfCancelled();
         } catch (QueryCancelledException e) {

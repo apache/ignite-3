@@ -91,11 +91,12 @@ final class CancelHandleImpl implements CancelHandle {
             assert cancelAction != null : "cancelAction must be not null";
             assert completionFut != null : "completionFut must be not null";
 
+            Cancellation cancellation = new Cancellation(cancelAction, completionFut);
             if (handle.isCancelled()) {
-                return;
+                cancellation.run();
+            } else {
+                cancellations.add(cancellation);
             }
-
-            cancellations.add(new Cancellation(cancelAction, completionFut));
         }
 
         @SuppressWarnings("rawtypes")

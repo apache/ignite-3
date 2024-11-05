@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * A {@code Cancellable} represents a process or an operation that can be canceled.
  */
+@FunctionalInterface
 public interface Cancellable {
     /**
      * Cancels the ongoing operation or process or do nothing if it has been already cancelled.
@@ -29,9 +28,4 @@ public interface Cancellable {
      * @param timeout If process was cancelled due to timeout.
      */
     void cancel(boolean timeout);
-
-    /**
-     * Returns a future that completes when a cancellation produce, triggered by {@link Cancellable#cancel(boolean)} completes.
-     */
-    CompletableFuture<Void> future();
 }

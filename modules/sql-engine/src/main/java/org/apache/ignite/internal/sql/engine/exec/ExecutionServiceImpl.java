@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fr
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -307,21 +309,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert cancelHandler != null;
 
         // This call immediately triggers a cancellation exception if operation has timed out or it has already been cancelled.
-        cancelHandler.add(new Cancellable() {
-            final CompletableFuture<Void> fut = new CompletableFuture<>();
-
-            @Override
-            public void cancel(boolean timeout) {
-                QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
-                queryManager.close(reason).whenComplete((r, t) -> {
-                    fut.complete(null);
-                });
-            }
-
-            @Override
-            public CompletableFuture<Void> future() {
-                return fut;
-            }
+        cancelHandler.add(timeout -> {
+            QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
+            queryManager.close(reason);
         });
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -477,11 +467,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert queryCancel != null;
 
         queryCancel.add(timeout -> {
-            if (!timeout) {
-                return;
-            }
+            String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
-            ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+            ret.completeExceptionally(new QueryCancelledException(message));
         });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);

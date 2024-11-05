@@ -31,6 +31,8 @@ public final class CancelHandleHelper {
     /**
      * Attaches the given cancel action to this token.
      *
+     * <p>NOTE: If this token has already been cancelled, this method immediately invokes the {@code cancelAction.run()}.
+     *
      * @param token CancellationToken.
      * @param cancelAction Action that terminates an operation.
      * @param completionFut Future that completes when operation completes and all resources it created are released.

@@ -22,12 +22,31 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.util.Cancellable;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds query cancel state.
  */
 public class QueryCancel {
     private final CompletableFuture<Reason> state = new CompletableFuture<>();
+
+    /** Constructor. */
+    public QueryCancel() {
+       this(null);
+    }
+
+    /** Constructor. */
+    public QueryCancel(@Nullable CancellationToken cancellationToken) {
+        if (cancellationToken != null) {
+            // If token is provided, add this cancellation to its handle.
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+            state.thenAccept(ignore -> fut.complete(null));
+
+            CancelHandleHelper.addCancelAction(cancellationToken, this::cancel, fut);
+        }
+    }
 
     /**
      * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
@@ -88,8 +107,19 @@ public class QueryCancel {
     }
 
     /** Returns {@code true} if the cancellation procedure has already been started. */
-    public synchronized boolean isCancelled() {
+    public boolean isCancelled() {
         return state.isDone();
+    }
+
+    /**
+     * Throws a {@link QueryCancelledException} if the cancellation procedure has already been started.
+     */
+    public void throwIfCancelled() {
+        if (state.isDone()) {
+            Reason reason = state.join();
+
+            throwException(reason);
+        }
     }
 
     private static void throwException(Reason reason) {

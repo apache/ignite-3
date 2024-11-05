@@ -390,20 +390,18 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Schedules a timeout task that is going to complete the given future exceptionally with a {@link QueryCancelledException},
-     * if timeout is set of this context.
+     * Subscribes the given future to cancellation of this query completing it with {@link QueryCancelledException} when
+     * the cancellation procedure completes. If the query has already been cancelled, this method throws {@link QueryCancelledException}.
      */
-    public void scheduleTimeout(CompletableFuture<?> fut) {
+    public void subscribeToCancellation(CompletableFuture<?> fut) {
         if (cancel == null) {
             return;
         }
 
         cancel.add(timeout -> {
-            if (!timeout) {
-                return;
-            }
+            String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
-            fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+            fut.completeExceptionally(new QueryCancelledException(message));
         });
     }
 

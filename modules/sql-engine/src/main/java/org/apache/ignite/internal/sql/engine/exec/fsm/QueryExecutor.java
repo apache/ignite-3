@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -128,6 +129,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param txContext Transactional context to use.
      * @param sql Query string.
+     * @param cancellationToken Cancellation token.
      * @param params Query parameters.
      * @return Future which will be completed with cursor.
      */
@@ -135,7 +137,8 @@ public class QueryExecutor implements LifecycleAware {
             SqlProperties properties,
             QueryTransactionContext txContext,
             String sql,
-            Object... params
+            @Nullable CancellationToken cancellationToken,
+            Object[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
 
@@ -146,6 +149,7 @@ public class QueryExecutor implements LifecycleAware {
                 sql,
                 properties0,
                 txContext,
+                cancellationToken,
                 params,
                 null
         );

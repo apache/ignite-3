@@ -98,7 +98,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.QueryCancel.QueryCancellationToken;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
@@ -158,6 +157,8 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.Cancellable;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -1117,10 +1118,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
-        QueryCancellationToken queryCancellationToken = mock(QueryCancellationToken.class);
-        when(queryCancellationToken.isCancelled()).thenReturn(true);
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
 
-        QueryCancel queryCancel = new QueryCancel(queryCancellationToken);
+        QueryCancel queryCancel = new QueryCancel(token);
 
         SqlOperationContext execCtx = operationContext(null)
                 .cancel(queryCancel)
@@ -1130,7 +1132,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void cancelWhenCancellationTokenIsCancelledExternally() throws InterruptedException {
+    public void cancelWhenCancellationTokenIsCancelledExternally() {
         ExecutionService execService = executionServices.get(0);
 
         // Use a separate context, so planning won't be cancelled.
@@ -1138,20 +1140,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
-        QueryCancellationToken queryCancellationToken = mock(QueryCancellationToken.class);
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
 
-        LinkedBlockingQueue<Cancellable> actions = new LinkedBlockingQueue<>();
-
-        // We are not cancelled yet, allow starting a query.
-        when(queryCancellationToken.isCancelled()).thenReturn(false);
-
-        doAnswer((i) -> {
-            Cancellable cancelAction = i.getArgument(0);
-            actions.add(cancelAction);
-            return null;
-        }).when(queryCancellationToken).addCancelAction(any(Cancellable.class));
-
-        QueryCancel queryCancel = new QueryCancel(queryCancellationToken);
+        QueryCancel queryCancel = new QueryCancel(token);
 
         SqlOperationContext execCtx = operationContext(null)
                 .cancel(queryCancel)
@@ -1160,11 +1152,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AsyncDataCursor<InternalSqlRow> cursor = execService.executePlan(plan, execCtx);
 
         // Cancel a query.
-        Cancellable cancel = actions.take();
-        cancel.cancel(false);
-
-        // Await until query is closed.
-        cancel.future().join();
+        cancelHandle.cancel();
 
         CompletableFuture<BatchedResult<InternalSqlRow>> f = cursor.requestNextAsync(1);
         CompletionException err = assertThrows(CompletionException.class, f::join);

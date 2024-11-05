@@ -47,7 +47,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.QueryCancel.QueryCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -364,10 +364,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareService service = createPlannerService(schema);
 
-        QueryCancellationToken queryCancellationToken = mock(QueryCancellationToken.class);
-        when(queryCancellationToken.isCancelled()).thenReturn(true);
+        CancelHandle cancelHandle = CancelHandle.create();
+        cancelHandle.cancel();
 
-        QueryCancel queryCancel = new QueryCancel(queryCancellationToken);
+        QueryCancel queryCancel = new QueryCancel(cancelHandle.token());
 
         SqlOperationContext context = operationContext()
                 .cancel(queryCancel)
