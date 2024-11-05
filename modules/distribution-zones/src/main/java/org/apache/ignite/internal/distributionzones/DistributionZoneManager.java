@@ -381,7 +381,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(int partitionDistributionReset, long causalityToken) {
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
-        // and this map will be initialized on a manager start or with catalog notification or with configuration changes.
+        // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
 

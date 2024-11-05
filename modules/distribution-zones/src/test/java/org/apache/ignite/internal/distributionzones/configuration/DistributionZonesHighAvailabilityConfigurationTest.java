@@ -80,8 +80,8 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
         var config = new DistributionZonesHighAvailabilityConfiguration(
                 systemConfig,
                 (partitionDistributionResetTimeout, revision) -> {
-                        partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout);
-                        revisionValue.set(revision);
+                    partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout);
+                    revisionValue.set(revision);
                 }
         );
         config.startAndInit();
