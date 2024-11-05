@@ -34,7 +34,7 @@ public class QueryCancel {
 
     /** Constructor. */
     public QueryCancel() {
-       this(null);
+        this(null);
     }
 
     /** Constructor. */
@@ -89,8 +89,7 @@ public class QueryCancel {
     }
 
     /**
-     * Schedules a timeout after {@code timeoutMillis} milliseconds.
-     * Call be called only once.
+     * Schedules a timeout after {@code timeoutMillis} milliseconds. Call be called only once.
      *
      * @param scheduler Scheduler to trigger an action.
      * @param timeoutMillis Timeout in milliseconds.
@@ -125,7 +124,7 @@ public class QueryCancel {
     private static void throwException(Reason reason) {
         throw new QueryCancelledException(
                 reason == Reason.TIMEOUT
-                        ? QueryCancelledException.TIMEOUT_MSG 
+                        ? QueryCancelledException.TIMEOUT_MSG
                         : QueryCancelledException.CANCEL_MSG
         );
     }
