@@ -56,7 +56,7 @@ public class MetastorageDivergencyValidator {
             throw new MetastorageDivergedException(String.format(
                     "Node compaction is ahead of the leader, this should not happen; probably means divergence "
                             + "[localCompactionRevision=%d, leaderCompactionRevision=%d]",
-                    localRevision, leaderChecksumInfo.maxRevision()
+                    localCompactionRevision, leaderChecksumInfo.compactionRevision()
             ));
         } else {
             assert localRevision < leaderChecksumInfo.minRevision();

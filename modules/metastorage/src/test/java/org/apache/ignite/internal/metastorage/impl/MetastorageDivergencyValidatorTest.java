@@ -82,6 +82,20 @@ class MetastorageDivergencyValidatorTest {
         );
     }
 
+    @Test
+    void validationFailsIfNodeCompactionRevisionIsBehindLeaderCompactionRevision() {
+        MetastorageDivergedException ex = assertThrows(
+                MetastorageDivergedException.class,
+                () -> validator.validate(revisions(7, 5), 42, checksumInfo(0, 10, 20, 3))
+        );
+
+        assertThat(
+                ex.getMessage(),
+                is("Node compaction is ahead of the leader, this should not happen; probably means divergence "
+                        + "[localCompactionRevision=5, leaderCompactionRevision=3]")
+        );
+    }
+
     private static ChecksumInfo checksumInfo(long checksum, long minRevision, long maxRevision, long compactionRevision) {
         return new ChecksumInfo(checksum, minRevision, maxRevision, compactionRevision);
     }

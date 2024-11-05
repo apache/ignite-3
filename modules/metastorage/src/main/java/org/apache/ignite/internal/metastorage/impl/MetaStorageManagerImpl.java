@@ -241,7 +241,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         learnerManager = new MetaStorageLearnerManager(busyLock, logicalTopologyService, metaStorageSvcFut);
 
-        recoveryRevisionsListener = new RecoveryRevisionsListenerImpl(busyLock, recoveryFinishedFuture, storage);
+        recoveryRevisionsListener = new RecoveryRevisionsListenerImpl(busyLock, recoveryFinishedFuture);
         storage.setRecoveryRevisionsListener(recoveryRevisionsListener);
     }
 
@@ -342,6 +342,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                         }
                     })
                     .whenComplete((revisions, throwable) -> {
+                        storage.setRecoveryRevisionsListener(null);
+
                         if (throwable != null) {
                             LOG.info("Recovery failed", throwable);
                         } else {
