@@ -61,6 +61,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -183,11 +184,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+        CompletableFuture<Revisions> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
 
-        leasePlacementDriver.startTrack(recoveryFinishedFuture.join());
+        leasePlacementDriver.startTrack(recoveryFinishedFuture.join().revision());
 
         assignmentsPlacementDriver.startTrack();
 

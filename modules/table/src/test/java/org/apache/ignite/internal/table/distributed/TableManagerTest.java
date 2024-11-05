@@ -96,6 +96,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -681,7 +682,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -723,7 +724,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }

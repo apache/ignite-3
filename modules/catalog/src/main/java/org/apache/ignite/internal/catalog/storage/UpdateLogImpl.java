@@ -49,6 +49,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -113,7 +114,7 @@ public class UpdateLogImpl implements UpdateLog {
                 );
             }
 
-            recoveryStateFromMetastore(handler);
+            recoverStateFromMetastore(handler);
 
             UpdateListener listener = new UpdateListener(handler, marshaller);
             this.listener = listener;
@@ -236,12 +237,12 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private void recoveryStateFromMetastore(OnUpdateHandler handler) {
-        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+    private void recoverStateFromMetastore(OnUpdateHandler handler) {
+        CompletableFuture<Revisions> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assert recoveryFinishedFuture.isDone();
 
-        long recoveryRevision = recoveryFinishedFuture.join();
+        long recoveryRevision = recoveryFinishedFuture.join().revision();
 
         Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 

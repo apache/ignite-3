@@ -113,6 +113,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
@@ -270,12 +271,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
 
-            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
             // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
             assert recoveryFinishFuture.isDone();
 
-            long recoveryRevision = recoveryFinishFuture.join();
+            long recoveryRevision = recoveryFinishFuture.join().revision();
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 

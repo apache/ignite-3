@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.registry;
+package org.apache.ignite.internal.metastorage.server;
 
-/**
- * Phases of query execution.
- */
-public enum QueryExecutionPhase {
-    /**
-     * Query parsing, metadata synchronization.
-     */
-    INITIALIZATION,
+import org.apache.ignite.internal.metastorage.Revisions;
 
+/** Listener update of {@link Revisions current metastorage revisions}, needed only for metastorage recovery. */
+@FunctionalInterface
+public interface RecoveryRevisionsListener {
     /**
-     * Query validation and optimization.
+     * Invoked when one of the {@link Revisions current metastorage revisions} is updated.
+     *
+     * <p>Until the method completes its execution, no update or compaction of metastorage will occur, so the method should complete its
+     * execution as soon as possible.</p>
      */
-    OPTIMIZATION,
-
-    /**
-     * Query execution.
-     */
-    EXECUTION
+    void onUpdate(Revisions currentRevisions);
 }

@@ -80,6 +80,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
@@ -173,7 +174,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return null;
         }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
-        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
 
         AtomicLong raftIndex = new AtomicLong();
 

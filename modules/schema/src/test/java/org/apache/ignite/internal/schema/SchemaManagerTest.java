@@ -50,6 +50,7 @@ import org.apache.ignite.internal.causality.TestRevisionListenerRegistry;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
@@ -268,7 +269,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
-        doReturn(completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
+        doReturn(completedFuture(new Revisions(CAUSALITY_TOKEN_2, -1))).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
         assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
