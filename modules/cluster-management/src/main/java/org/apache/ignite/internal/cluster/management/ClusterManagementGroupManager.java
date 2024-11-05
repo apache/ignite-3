@@ -327,6 +327,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             String clusterName,
             @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
+        assert raftService != null : "raft service must be initialized";
+
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
