@@ -99,11 +99,20 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        startMetastorageAndCatalog();
 
         deployWatches();
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+    }
+
+    private void startMetastorageAndCatalog() {
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, catalogManager), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -217,7 +226,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        startMetastorageAndCatalog();
     }
 
     private void deployWatches() throws Exception {

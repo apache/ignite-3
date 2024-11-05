@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RecoveryRevisionsListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -30,8 +29,6 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
     private final IgniteSpinBusyLock busyLock;
 
     private final CompletableFuture<Revisions> recoveryFinishFuture;
-
-    private final KeyValueStorage storage;
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -43,12 +40,10 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
 
     RecoveryRevisionsListenerImpl(
             IgniteSpinBusyLock busyLock,
-            CompletableFuture<Revisions> recoveryFinishFuture,
-            KeyValueStorage storage
+            CompletableFuture<Revisions> recoveryFinishFuture
     ) {
         this.busyLock = busyLock;
         this.recoveryFinishFuture = recoveryFinishFuture;
-        this.storage = storage;
     }
 
     @Override
@@ -88,8 +83,6 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
                     || currentRevisions.compactionRevision() < targetRevisions.compactionRevision()) {
                 return;
             }
-
-            storage.setRecoveryRevisionsListener(null);
 
             recoveryFinishFuture.complete(currentRevisions);
         } catch (Throwable t) {

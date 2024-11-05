@@ -709,7 +709,8 @@ public class IgniteImpl implements Ignite {
                 systemDisasterRecoveryStorage,
                 new MetastorageRepairImpl(clusterSvc.messagingService(), logicalTopology, cmgMgr),
                 msRaftConfigurer,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                threadPoolsManager.tableIoExecutor()
         );
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);

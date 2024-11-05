@@ -144,8 +144,13 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, new TestLowWatermark(), metastore);
 
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
         assertThat(
-                startAsync(new ComponentContext(), clockWaiter, metastore, catalogManager, indexMetaStorage),
+                startAsync(context, clockWaiter, catalogManager, indexMetaStorage),
                 willCompleteSuccessfully()
         );
 
