@@ -37,9 +37,9 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
         log.info("Tables [client={}, srv={}]", clientTable.getClass().getSimpleName(), srvTable.getClass().getSimpleName());
 
-        clientTable.keyValueView().put(null, Tuple.create().set(COLUMN_KEY, 42), Tuple.create().set(COLUMN_VAL, "client value"));
-
         srvTable.keyValueView().put(null, Tuple.create().set(COLUMN_KEY, 42), Tuple.create().set(COLUMN_VAL, "srv value"));
+
+        clientTable.keyValueView().put(null, Tuple.create().set(COLUMN_KEY, 42), Tuple.create().set(COLUMN_VAL, "client value"));
 
         Transaction tx =  client().transactions().begin(new TransactionOptions().readOnly(true));
 
@@ -47,13 +47,19 @@ public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
         tx.commit();
 
-        String srvValue = srvTable.keyValueView().get(null,  Tuple.create().set(COLUMN_KEY, 42)).value(COLUMN_VAL);
+        Transaction srvTx =  server().transactions().begin(new TransactionOptions().readOnly(true));
+
+        String srvValue = srvTable.keyValueView().get(srvTx,  Tuple.create().set(COLUMN_KEY, 42)).value(COLUMN_VAL);
+
+        srvTx.commit();
 
         assertEquals("client value", clientValue, "Values [client=" + clientValue + ", srv=" + srvValue + ']');
         assertEquals("srv value", srvValue, "Values [client=" + clientValue + ", srv=" + srvValue + ']');
 
         String directClientValue = clientTable.keyValueView().get(null,  Tuple.create().set(COLUMN_KEY, 42)).value(COLUMN_VAL);
+        String directSrvValue = srvTable.keyValueView().get(null,  Tuple.create().set(COLUMN_KEY, 42)).value(COLUMN_VAL);
 
-        assertEquals("srv value", directClientValue, directClientValue);
+        assertEquals("client value", directClientValue, directClientValue);
+        assertEquals("client value", directSrvValue, directSrvValue);
     }
 }

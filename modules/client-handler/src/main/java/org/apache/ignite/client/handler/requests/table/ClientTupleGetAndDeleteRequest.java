@@ -51,7 +51,6 @@ public class ClientTupleGetAndDeleteRequest {
             IgniteTransactionsImpl igniteTransactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            // TODO: We have tho create an implicit transaction, but leave a possibility to start RO direct.
             var tx = readOrStartImplicitTx(in, out, resources, igniteTransactions, false);
             return readTuple(in, table, true).thenCompose(tuple -> {
                 return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(
