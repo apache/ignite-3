@@ -214,13 +214,7 @@ public class ByteUtils {
      * @return The array.
      */
     public static byte[] putIntToBytes(int i, byte[] bytes, int off) {
-        assert bytes != null;
-        assert off + Integer.BYTES <= bytes.length;
-
-        for (int k = Integer.BYTES - 1; k >= 0; k--) {
-            bytes[off + k] = (byte) i;
-            i >>>= Byte.SIZE;
-        }
+        putToBytes(i, Integer.BYTES, bytes, off);
 
         return bytes;
     }
@@ -234,16 +228,19 @@ public class ByteUtils {
      * @return The array.
      */
     public static byte[] putShortToBytes(short s, byte[] bytes, int off) {
-        assert bytes != null;
-        assert off + Short.BYTES <= bytes.length;
+        putToBytes(s, Short.BYTES, bytes, off);
 
-        int value = s;
-        for (int k = Short.BYTES - 1; k >= 0; k--) {
+        return bytes;
+    }
+
+    private static void putToBytes(long value, int sizeInBytes, byte[] bytes, int off) {
+        assert bytes != null;
+        assert off + sizeInBytes <= bytes.length;
+
+        for (int k = sizeInBytes - 1; k >= 0; k--) {
             bytes[off + k] = (byte) value;
             value >>>= Byte.SIZE;
         }
-
-        return bytes;
     }
 
     /**
