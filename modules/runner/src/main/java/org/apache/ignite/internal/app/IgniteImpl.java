@@ -688,13 +688,22 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+        LogSyncer logSyncer = () -> {
+            partitionsLogStorageFactory.sync();
+
+            cmgLogStorageFactory.sync();
+
+            msLogStorageFactory.sync();
+        };
+
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         var storage = new RocksDbKeyValueStorage(
                 name,
                 metastorageWorkDir.dbPath(),
                 failureManager,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                logSyncer
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
@@ -830,12 +839,6 @@ public class IgniteImpl implements Ignite {
         Path storagePath = partitionsWorkDir.dbPath();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
-        LogSyncer logSyncer = () -> {
-            partitionsLogStorageFactory.sync();
-            cmgLogStorageFactory.sync();
-            msLogStorageFactory.sync();
-        };
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,

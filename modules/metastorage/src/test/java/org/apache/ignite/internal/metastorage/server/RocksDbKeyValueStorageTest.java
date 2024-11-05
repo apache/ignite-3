@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 import java.util.zip.Checksum;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -53,7 +54,8 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                new ReadOperationForCompactionTracker()
+                new ReadOperationForCompactionTracker(),
+                new NoOpLogSyncer()
         );
     }
 
@@ -81,7 +83,8 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                new ReadOperationForCompactionTracker()
+                new ReadOperationForCompactionTracker(),
+                new NoOpLogSyncer()
         );
 
         storage.start();

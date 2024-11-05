@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -33,7 +34,8 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                new NoOpLogSyncer()
         );
     }
 

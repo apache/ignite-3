@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -155,7 +156,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
                     name,
                     listenerPersistencePath,
                     new NoOpFailureManager(),
-                    new ReadOperationForCompactionTracker()
+                    new ReadOperationForCompactionTracker(),
+                    new NoOpLogSyncer()
             );
 
             s.start();

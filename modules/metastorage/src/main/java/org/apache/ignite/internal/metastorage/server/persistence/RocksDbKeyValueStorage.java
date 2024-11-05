@@ -68,8 +68,11 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -99,11 +102,13 @@ import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -174,12 +179,18 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Batch size (number of keys) for storage compaction. The value is arbitrary. */
     private static final int COMPACT_BATCH_SIZE = 10;
 
+    /** Key value storage flush delay in mills. Value is taken from the example of default values of other components. */
+    private static final int KV_STORAGE_FLUSH_DELAY = 100;
+
     static {
         RocksDB.loadLibrary();
     }
 
-    /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor;
+    /** Executor for storage operations. */
+    private final ExecutorService executor;
+
+    /** Scheduled executor for storage operations. */
+    private final ScheduledExecutorService scheduledExecutor;
 
     /** Path to the rocksdb database. */
     private final Path dbPath;
@@ -258,6 +269,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      */
     private WriteOptions checksumWriteOptions;
 
+    /** Multi-threaded access is guarded by {@link #rwLock}. */
+    private RocksDbFlusher flusher;
+
+    private final LogSyncer logSyncer;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean closeGuard = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -265,12 +285,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     public RocksDbKeyValueStorage(
             String nodeName,
             Path dbPath,
             FailureManager failureManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            LogSyncer logSyncer
     ) {
         super(
                 nodeName,
@@ -279,8 +301,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         );
 
         this.dbPath = dbPath;
+        this.logSyncer = logSyncer;
 
-        snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", log));
+        executor = Executors.newFixedThreadPool(
+                2,
+                NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
+        );
+
+        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-scheduler", log)
+        );
     }
 
     @Override
@@ -293,6 +323,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             createDb();
         } catch (IOException | RocksDBException e) {
             closeRocksResources();
+
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         } finally {
             rwLock.writeLock().unlock();
@@ -346,6 +377,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         DBOptions options = new DBOptions()
                 .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
+                .setListeners(List.of(flusher.listener()))
                 .setCreateIfMissing(true);
 
         rocksResources.add(options);
@@ -368,6 +400,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
+        flusher = new RocksDbFlusher(
+                "rocksdb metastorage kv storage",
+                busyLock,
+                scheduledExecutor,
+                executor,
+                () -> KV_STORAGE_FLUSH_DELAY,
+                logSyncer,
+                () -> {}
+        );
+
         options = createDbOptions();
 
         db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
@@ -386,8 +428,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         snapshotManager = new RocksSnapshotManager(db,
                 List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs), fullRange(revisionToChecksum)),
-                snapshotExecutor
+                executor
         );
+
+        flusher.init(db, handles);
 
         byte[] revision = data.get(REVISION_KEY);
 
@@ -429,7 +473,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @throws IOException If failed.
      */
-    protected void destroyRocksDb() throws IOException {
+    private void destroyRocksDb() throws IOException {
         // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
         IgniteUtils.deleteIfExists(dbPath);
 
@@ -438,11 +482,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void close() throws Exception {
+        if (!closeGuard.compareAndSet(false, true)) {
+            return;
+        }
+
         stopCompaction();
 
-        watchProcessor.close();
+        busyLock.block();
 
-        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+        watchProcessor.close();
+        flusher.stop();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {

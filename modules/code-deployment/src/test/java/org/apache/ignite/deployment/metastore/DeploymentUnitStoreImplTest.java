@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
@@ -97,7 +98,13 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var storage = new RocksDbKeyValueStorage(LOCAL_NODE, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        var storage = new RocksDbKeyValueStorage(
+                LOCAL_NODE,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                new NoOpLogSyncer()
+        );
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);

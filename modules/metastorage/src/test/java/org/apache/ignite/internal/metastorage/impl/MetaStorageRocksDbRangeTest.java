@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -28,6 +29,12 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
     @Override
     KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureManager(), readOperationForCompactionTracker);
+        return new RocksDbKeyValueStorage(
+                "test",
+                path,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                new NoOpLogSyncer()
+        );
     }
 }

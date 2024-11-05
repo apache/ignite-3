@@ -1213,6 +1213,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+            ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, dir);
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            LogSyncer logSyncer = () -> {
+                logStorageFactory.sync();
+
+                cmgLogStorageFactory.sync();
+
+                msLogStorageFactory.sync();
+            };
+
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
             KeyValueStorage keyValueStorage = !testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
@@ -1221,7 +1234,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             name,
                             resolveDir(dir, "metaStorage"),
                             failureManager,
-                            readOperationForCompactionTracker
+                            readOperationForCompactionTracker,
+                            logSyncer
                     );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1230,11 +1244,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     Loza.FACTORY,
                     raftGroupEventsClientListener
             );
-
-            ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, dir);
-
-            msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -1312,8 +1321,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ));
 
             Path storagePath = dir.resolve("storage");
-
-            LogSyncer logSyncer = logStorageFactory;
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(

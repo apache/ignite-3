@@ -1058,7 +1058,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             failureManager = new NoOpFailureManager();
 
-            ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
+            var cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
@@ -1080,7 +1080,19 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     cmgRaftConfigurer
             );
 
-            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
+
+            msLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            LogSyncer logSyncer = () -> {
+                partitionsLogStorageFactory.sync();
+
+                cmgLogStorageFactory.sync();
+
+                msLogStorageFactory.sync();
+            };
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -1088,7 +1100,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     name,
                     resolveDir(dir, "metaStorageTestKeyValue"),
                     failureManager,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    logSyncer
             );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1097,11 +1110,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     Loza.FACTORY,
                     raftGroupEventsClientListener
             );
-
-            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
-
-            msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -1193,8 +1201,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             ));
 
             Path storagePath = dir.resolve("storage");
-
-            LogSyncer logSyncer = partitionsLogStorageFactory;
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(

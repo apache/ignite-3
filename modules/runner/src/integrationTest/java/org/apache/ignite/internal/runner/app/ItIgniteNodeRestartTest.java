@@ -477,23 +477,32 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
+        var metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
+
+        LogStorageFactory msLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                clusterSvc.nodeName(),
+                metastorageWorkDir.raftLogPath()
+        );
+
+        LogSyncer logSyncer = () -> {
+            partitionsLogStorageFactory.sync();
+
+            msLogStorageFactory.sync();
+        };
+
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         var metaStorage = new RocksDbKeyValueStorage(
                 name,
                 dir.resolve("metastorage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                logSyncer
         );
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
         CompletableFuture<LongSupplier> maxClockSkewFuture = new CompletableFuture<>();
-
-        ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
-
-        LogStorageFactory msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -638,8 +647,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         Path storagePath = getPartitionsStorePath(dir);
-
-        LogSyncer logSyncer = partitionsLogStorageFactory;
 
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
