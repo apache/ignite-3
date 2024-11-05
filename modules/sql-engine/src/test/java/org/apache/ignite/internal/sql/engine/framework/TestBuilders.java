@@ -88,6 +88,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -513,6 +515,9 @@ public class TestBuilders {
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
 
+        /** Sets the query cancellation procedure. */
+        ExecutionContextBuilder queryCancel(QueryCancel queryCancel);
+
         /**
          * Builds the context object.
          *
@@ -528,6 +533,7 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private QueryCancel queryCancel = null;
 
         /** {@inheritDoc} */
         @Override
@@ -561,9 +567,17 @@ public class TestBuilders {
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override
         public ExecutionContextBuilder dynamicParameters(Object... params) {
             this.dynamicParams = params;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder queryCancel(QueryCancel queryCancel) {
+            this.queryCancel = queryCancel;
             return this;
         }
 
@@ -580,7 +594,7 @@ public class TestBuilders {
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name())),
                     SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                    null
+                    queryCancel
             );
         }
     }

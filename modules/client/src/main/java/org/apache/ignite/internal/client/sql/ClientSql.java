@@ -131,7 +131,8 @@ public class ClientSql implements IgniteSql {
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
             String query,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(query);
 
         try {
@@ -148,7 +149,8 @@ public class ClientSql implements IgniteSql {
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(statement);
 
         try {

@@ -21,6 +21,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -44,10 +45,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -77,6 +80,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -109,6 +113,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -146,6 +151,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -169,6 +175,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
@@ -1157,6 +1166,66 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
+    }
+
+    @ParameterizedTest
+    @MethodSource("execPlans")
+    public void testCancelExecPlan(
+            String query,
+            Class<? extends ExecutablePlan> execPlanClass,
+            Supplier<QueryTransactionContext> txCtx
+    ) {
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext.Builder planCtx = operationContext(null);
+
+        if (txCtx != null) {
+            planCtx.txContext(txCtx.get());
+        }
+
+        QueryPlan plan = prepare(query, planCtx.build());
+
+        ExecutablePlan execPlan = assertInstanceOf(execPlanClass, plan);
+
+        ExecutableTableRegistry tableRegistry = mock(ExecutableTableRegistry.class);
+        CompletableFuture<ExecutableTable> fut = new CompletableFuture<>();
+
+        when(tableRegistry.getTable(anyInt(), anyInt())).thenReturn(fut);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        QueryCancel queryCancel = new QueryCancel(cancelHandle.token());
+
+        // Execution context
+        FragmentDescription fragmentDescription = new FragmentDescription(1, true,
+                Long2ObjectMaps.emptyMap(), null, null, null);
+
+        ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
+                .queryId(randomUUID())
+                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
+                .fragment(fragmentDescription)
+                .executor(mock(QueryTaskExecutor.class))
+                .queryCancel(queryCancel)
+                .build();
+
+        // Cancel this query.
+        cancelHandle.cancel();
+
+        // Query has already been cancelled
+        assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                "cancelled",
+                () -> execPlan.execute(ctx, null, tableRegistry, null)
+        );
+    }
+
+    private static Stream<Arguments> execPlans() {
+        Supplier<QueryTransactionContext> returnImplicitTx = () -> ImplicitTxContext.INSTANCE;
+
+        return Stream.of(
+                // query, plan class, transaction context
+                Arguments.of("SELECT * FROM test_tbl WHERE id = 1", KeyValueGetPlan.class, null),
+                Arguments.of("INSERT INTO test_tbl VALUES(1, 2)", KeyValueModifyPlan.class, null),
+                Arguments.of("SELECT count(*) FROM test_tbl", SelectCountPlan.class, returnImplicitTx)
+        );
     }
 
     /** Creates an execution service instance for the node with given consistent id. */

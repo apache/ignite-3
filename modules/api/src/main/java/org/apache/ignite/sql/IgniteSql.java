@@ -58,6 +58,23 @@ public interface IgniteSql {
     }
 
     /**
+     * Executes a single SQL query.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return SQL query result set.
+     * @throws SqlException If failed.
+     */
+    ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    );
+
+    /**
      * Executes a single SQL statement.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
@@ -65,9 +82,29 @@ public interface IgniteSql {
      * @param arguments Arguments for the statement.
      * @return SQL query result set.
      */
-    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+    default ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
         return execute(transaction, (CancellationToken) null, statement, arguments);
     }
+
+    /**
+     * Executes a single SQL statement.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return SQL query result set.
+     */
+    ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object... arguments
+    );
 
     /**
      * Executes single SQL statement and maps results to objects with the provided mapper.
@@ -92,6 +129,25 @@ public interface IgniteSql {
      * Executes single SQL statement and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return SQL query results set.
+     */
+    <T> ResultSet<T> execute(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    );
+
+    /**
+     * Executes single SQL statement and maps results to objects with the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
@@ -106,6 +162,25 @@ public interface IgniteSql {
     ) {
         return execute(transaction, mapper, null, statement, arguments);
     }
+
+    /**
+     * Executes single SQL statement and maps results to objects with the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return SQL query results set.
+     */
+    <T> ResultSet<T> execute(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object... arguments
+    );
 
     /**
      * Executes SQL query in an asynchronous way.
@@ -123,6 +198,23 @@ public interface IgniteSql {
     ) {
         return executeAsync(transaction, (CancellationToken) null, query, arguments);
     }
+
+    /**
+     * Executes SQL query in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    );
 
     /**
      * Executes an SQL statement asynchronously.
@@ -180,89 +272,6 @@ public interface IgniteSql {
     }
 
     /**
-     * Executes a single SQL query.
-     *
-     * @param transaction Transaction to execute the query within or {@code null}.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param query SQL query template.
-     * @param arguments Arguments for the template (optional).
-     * @return SQL query result set.
-     * @throws SqlException If failed.
-     */
-    ResultSet<SqlRow> execute(
-            @Nullable Transaction transaction,
-            @Nullable CancellationToken cancellationToken,
-            String query,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes a single SQL statement.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @return SQL query result set.
-     */
-    ResultSet<SqlRow> execute(
-            @Nullable Transaction transaction,
-            @Nullable CancellationToken cancellationToken,
-            Statement statement,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes single SQL statement and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param query SQL query template.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return SQL query results set.
-     */
-    <T> ResultSet<T> execute(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            @Nullable CancellationToken cancellationToken,
-            String query,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes single SQL statement and maps results to objects with the provided mapper.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @param <T> A type of object contained in result set.
-     * @return SQL query results set.
-     */
-    <T> ResultSet<T> execute(
-            @Nullable Transaction transaction,
-            @Nullable Mapper<T> mapper,
-            @Nullable CancellationToken cancellationToken,
-            Statement statement,
-            @Nullable Object... arguments);
-
-    /**
-     * Executes SQL query in an asynchronous way.
-     *
-     * @param transaction Transaction to execute the query within or {@code null}.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param query SQL query template.
-     * @param arguments Arguments for the template (optional).
-     * @return Operation future.
-     * @throws SqlException If failed.
-     */
-    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
-            @Nullable Transaction transaction,
-            @Nullable CancellationToken cancellationToken,
-            String query,
-            @Nullable Object... arguments);
-
-    /**
      * Executes an SQL statement asynchronously.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
@@ -276,7 +285,8 @@ public interface IgniteSql {
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
-            @Nullable Object... arguments);
+            @Nullable Object... arguments
+    );
 
     /**
      * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
@@ -294,7 +304,8 @@ public interface IgniteSql {
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
             String query,
-            @Nullable Object... arguments);
+            @Nullable Object... arguments
+    );
 
     /**
      * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
