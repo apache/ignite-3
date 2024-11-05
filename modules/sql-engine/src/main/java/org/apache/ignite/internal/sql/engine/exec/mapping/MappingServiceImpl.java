@@ -123,9 +123,7 @@ public class MappingServiceImpl implements MappingService {
 
     @Override
     public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        RelOptCluster cluster = Commons.cluster();
-
-        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, cluster);
+        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan);
 
         boolean mapOnBackups = parameters.mapOnBackups();
 
@@ -161,7 +159,7 @@ public class MappingServiceImpl implements MappingService {
     }
 
     CompletableFuture<DistributionHolder> composeDistributions(
-            List<IgniteSystemView> views,
+            Set<IgniteSystemView> views,
             Set<IgniteTable> tables,
             boolean mapOnBackups
     ) {
@@ -198,7 +196,7 @@ public class MappingServiceImpl implements MappingService {
                 // this is a safe join, because we have waited for all futures to be completed
                 tablesAssignments.forEach((k, v) -> tablesAssignmentsResolved.put(k, v.join()));
 
-                Map<String, List<String>> nodesPerView = views.stream().distinct()
+                Map<String, List<String>> nodesPerView = views.stream()
                         .collect(Collectors.toMap(IgniteDataSource::name, distributionProvider::forSystemView));
 
                 List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
@@ -214,8 +212,8 @@ public class MappingServiceImpl implements MappingService {
             FragmentsTemplate template,
             boolean mapOnBackups
     ) {
-        List<IgniteSystemView> views = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream())
-                .collect(Collectors.toList());
+        Set<IgniteSystemView> views = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream())
+                .collect(Collectors.toSet());
 
         Set<IgniteTable> tables = template.fragments.stream().flatMap(fragment -> fragment.tables().values().stream())
                 .collect(Collectors.toSet());
@@ -340,10 +338,12 @@ public class MappingServiceImpl implements MappingService {
         return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
     }
 
-    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan, RelOptCluster cluster) {
+    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan) {
         // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
         return templatesCache.get(plan.id(), key -> {
             IdGenerator idGenerator = new IdGenerator(0);
+
+            RelOptCluster cluster = Commons.cluster();
 
             List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.root());
 

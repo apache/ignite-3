@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -181,7 +180,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
         verify(execProvider, times(1)).forSystemView(any());
 
-        verify(mappingService, times(2)).composeDistributions(anyList(), anySet(), anyBoolean());
+        verify(mappingService, times(2)).composeDistributions(anySet(), anySet(), anyBoolean());
 
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
@@ -242,7 +241,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2")));
         assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
-        verify(mappingService, times(1)).composeDistributions(anyList(), anySet(), anyBoolean());
+        verify(mappingService, times(1)).composeDistributions(anySet(), anySet(), anyBoolean());
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
