@@ -16,8 +16,8 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=jre-build /javaruntime $JAVA_HOME
 
 # Set default memory and GC configuration
-ENV JVM_MAX_MEM="16384m"
-ENV JVM_MIN_MEM="16384m"
+ENV JVM_MAX_MEM="16g"
+ENV JVM_MIN_MEM="16g"
 
 ENV JVM_GC="G1GC"
 ENV JVM_G1HeapRegionSize="32M"
