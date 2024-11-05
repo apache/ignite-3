@@ -589,4 +589,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see #getCompactionRevision()
      */
     Revisions revisions();
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     *
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    CompletableFuture<Void> flush();
 }

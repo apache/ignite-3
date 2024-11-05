@@ -1653,4 +1653,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private void addIndexAndTermToWriteBatch(WriteBatch batch, KeyValueUpdateContext context) throws RocksDBException {
         data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, context.index, context.term));
     }
+
+    @Override
+    public CompletableFuture<Void> flush() {
+        rwLock.writeLock().lock();
+
+        try {
+            return flusher.awaitFlush(true);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
 }

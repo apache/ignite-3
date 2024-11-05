@@ -225,6 +225,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         storage.snapshot(path)
+                .thenCompose(unused -> storage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
