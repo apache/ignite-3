@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Get command for MetaStorageCommandListener that retrieves current revision. */
-@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)
-public interface GetCurrentRevisionCommand extends ReadCommand {
+/** {@link WatchProcessor} notification events. */
+public interface NotifyWatchProcessorEvent extends Comparable<NotifyWatchProcessorEvent> {
+    /** Event timestamp. */
+    HybridTimestamp timestamp();
+
+    /** Notifies the {@link WatchProcessor}. */
+    void notify(WatchProcessor watchProcessor);
+
+    @Override
+    default int compareTo(NotifyWatchProcessorEvent o) {
+        return timestamp().compareTo(o.timestamp());
+    }
 }

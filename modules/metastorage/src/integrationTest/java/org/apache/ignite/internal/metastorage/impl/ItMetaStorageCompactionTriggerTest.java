@@ -19,10 +19,12 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.VALUE;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainSingleRevisionForKeyLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.createClusterConfigWithCompactionProperties;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,20 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,10 +48,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test for {@link MetaStorageCompactionTrigger}. */
 public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrationTest {
-    private static final ByteArray FOO_KEY = ByteArray.fromString("foo_key");
-
-    private static final byte[] VALUE = ByteArray.fromString("value").bytes();
-
     @Override
     protected int initialNodes() {
         return 2;
@@ -69,12 +62,7 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        String clusterConfig = "ignite.system.properties: {"
-                + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue= \"10\", "
-                + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue= \"10\""
-                + "}";
-
-        builder.clusterConfiguration(clusterConfig);
+        builder.clusterConfiguration(createClusterConfigWithCompactionProperties(10, 10));
     }
 
     @ParameterizedTest
@@ -97,19 +85,13 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
 
         long latestFooEntryRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
-        assertTrue(waitForCondition(() -> allNodesContainsSingleRevisionForKeyLocally(FOO_KEY, latestFooEntryRevision), 10, 1_000));
+        assertTrue(
+                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000)
+        );
     }
 
     private static IgniteImpl aliveNode() {
         return unwrapIgniteImpl(CLUSTER.aliveNode());
-    }
-
-    private static boolean allNodesContainsSingleRevisionForKeyLocally(ByteArray key, long revision) {
-        return CLUSTER.runningNodes()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .map(IgniteImpl::metaStorageManager)
-                .map(metaStorageManager -> collectRevisionsLocally(metaStorageManager, key))
-                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
     }
 
     private static void watchExact(MetaStorageManager metaStorageManager, ByteArray key, CountDownLatch latch) {
@@ -125,31 +107,6 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
             public void onError(Throwable e) {
             }
         });
-    }
-
-    private static long latestKeyRevision(MetaStorageManager metaStorageManager, ByteArray key) {
-        CompletableFuture<Entry> latestEntryFuture = metaStorageManager.get(key);
-        assertThat(latestEntryFuture.thenApply(Entry::empty), willBe(false));
-
-        return latestEntryFuture.join().revision();
-    }
-
-    private static Set<Long> collectRevisionsLocally(MetaStorageManager metaStorageManager, ByteArray key) {
-        var res = new HashSet<Long>();
-
-        for (int i = 0; i <= metaStorageManager.appliedRevision(); i++) {
-            try {
-                Entry entry = metaStorageManager.getLocally(key, i);
-
-                if (!entry.empty()) {
-                    res.add(entry.revision());
-                }
-            } catch (CompactedException ignore) {
-                // Do nothing.
-            }
-        }
-
-        return res;
     }
 
     private void transferMetastorageLeadershipToAnotherNode() throws Exception {

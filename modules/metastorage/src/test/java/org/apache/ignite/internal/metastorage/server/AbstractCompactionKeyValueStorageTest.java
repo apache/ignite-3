@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -1021,9 +1022,29 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
     /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is in recovery state. */
     @Test
-    void testUpdateCompactionRevisionWithoutStartWatches() {
+    void testUpdateCompactionRevisionAndStorageInRecoveryState() {
+        storage.setRecoveryRevisionsListener(currentRevisions -> {});
         storage.updateCompactionRevision(1, kvContext(clock.now()));
         assertEquals(1, storage.getCompactionRevision());
+
+        storage.setRecoveryRevisionsListener(null);
+        storage.updateCompactionRevision(2, kvContext(clock.now()));
+        assertEquals(1, storage.getCompactionRevision());
+
+        assertThat(
+                allOf(
+                        updateCompactionRevisionInWatchEvenQueue.waitFor(1L),
+                        updateCompactionRevisionInWatchEvenQueue.waitFor(2L)
+                ),
+                willTimeoutFast()
+        );
+    }
+
+    /** Tests {@link KeyValueStorage#updateCompactionRevision} case from method description when storage is in recovery state. */
+    @Test
+    void testUpdateCompactionRevisionWithoutStartWatches() {
+        storage.updateCompactionRevision(1, kvContext(clock.now()));
+        assertEquals(-1, storage.getCompactionRevision());
 
         assertThat(updateCompactionRevisionInWatchEvenQueue.waitFor(1L), willTimeoutFast());
     }
