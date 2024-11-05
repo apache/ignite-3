@@ -25,7 +25,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RecoveryRevisionsListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
-/** Implementation for {@link MetaStorageManagerImpl}. */
+/** Implementation of {@link RecoveryRevisionsListener}. */
 class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
     private final IgniteSpinBusyLock busyLock;
 

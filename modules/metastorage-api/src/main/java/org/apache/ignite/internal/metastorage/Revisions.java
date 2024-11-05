@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.tostring.S;
 
 /** Information about metastorage revisions. */
@@ -41,7 +42,10 @@ public class Revisions {
         return revision;
     }
 
-    /** Returns metastorage compaction revision. */
+    /**
+     * Returns metastorage compaction revision of the up to which (inclusive) key versions will be deleted and when trying to read them,
+     * {@link CompactedException} will occur.
+     */
     public long compactionRevision() {
         return compactionRevision;
     }
