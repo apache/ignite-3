@@ -48,11 +48,11 @@ public class ByteUtils {
     public static long bytesToLong(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Math.min(Long.BYTES, bytes.length - off);
+        int bytesCount = Math.min(Long.BYTES, bytes.length - off);
 
         long res = 0;
 
-        for (int i = 0; i < bytesCnt; i++) {
+        for (int i = 0; i < bytesCount; i++) {
             res = (res << 8) | (0xffL & bytes[off + i]);
         }
 
@@ -131,11 +131,11 @@ public class ByteUtils {
     public static int bytesToInt(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Math.min(Integer.BYTES, bytes.length - off);
+        int bytesCount = Math.min(Integer.BYTES, bytes.length - off);
 
         int res = 0;
 
-        for (int i = 0; i < bytesCnt; i++) {
+        for (int i = 0; i < bytesCount; i++) {
             res = (res << 8) | (0xff & bytes[off + i]);
         }
 
@@ -173,11 +173,11 @@ public class ByteUtils {
     public static short bytesToShort(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Math.min(Short.BYTES, bytes.length - off);
+        int bytesCount = Math.min(Short.BYTES, bytes.length - off);
 
         int res = 0;
 
-        for (int i = 0; i < bytesCnt; i++) {
+        for (int i = 0; i < bytesCount; i++) {
             res = (res << 8) | (0xff & bytes[off + i]);
         }
 
