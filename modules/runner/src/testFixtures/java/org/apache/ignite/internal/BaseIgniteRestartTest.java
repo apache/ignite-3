@@ -58,6 +58,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -288,11 +289,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
-        Long recoveryRevision = metaStorageMgr.recoveryFinishedFuture().getNow(null);
+        Revisions recoveryRevisions = metaStorageMgr.recoveryFinishedFuture().getNow(null);
 
-        assertNotNull(recoveryRevision);
+        assertNotNull(recoveryRevisions);
 
-        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
+        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevisions);
 
         return new PartialNode(
                 name,

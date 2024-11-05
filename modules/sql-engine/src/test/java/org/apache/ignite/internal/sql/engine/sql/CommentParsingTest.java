@@ -226,7 +226,7 @@ public class CommentParsingTest extends AbstractParserTest {
         DML_DELETE("DELETE", "FROM", "t", "WHERE", "EXISTS(" + Q15_STRING + ")"),
 
         DDL("CREATE", "TABLE", "t", "(", "id", "INT", "PRIMARY", "KEY", ",", "val VARCHAR", "NOT", "NULL",
-                ",", "PRIMARY", "KEY (", "id", ")", ")", "WITH", "PRIMARY_ZONE", "=", "mZone"),
+                ",", "PRIMARY", "KEY (", "id", ")", ")", "ZONE", "mZone"),
 
         EXPLAIN("EXPLAIN", "PLAN", "FOR", Q15_STRING),
 

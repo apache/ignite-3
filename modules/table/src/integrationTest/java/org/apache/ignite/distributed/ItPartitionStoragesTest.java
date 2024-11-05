@@ -58,7 +58,7 @@ class ItPartitionStoragesTest extends ClusterPerTestIntegrationTest {
                     session
             );
             executeUpdate("create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
-                    + " with primary_zone='TEST_ZONE', storage_profile='" + DEFAULT_STORAGE_PROFILE + "';", session);
+                    + " zone TEST_ZONE storage profile '" + DEFAULT_STORAGE_PROFILE + "';", session);
         });
     }
 

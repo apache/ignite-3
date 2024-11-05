@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.catalog.sql;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.ReadCommand;
+class Zone extends QueryPart {
 
-/** Get command for MetaStorageCommandListener that retrieves current revision. */
-@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)
-public interface GetCurrentRevisionCommand extends ReadCommand {
+    private final String zone;
+
+    Zone(String zone) {
+        this.zone = zone;
+    }
+
+    @Override
+    protected void accept(QueryContext ctx) {
+        ctx.sql("ZONE " + zone);
+    }
 }

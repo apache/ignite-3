@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
+package org.apache.ignite.internal.metastorage.server;
 
-/**
- * Enumerates the options for CREATE TABLE and ALTER TABLE statements.
- */
-public enum TableOptionEnum {
-    /** Primary zone. */
-    PRIMARY_ZONE,
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-    /** Storage profile. */
-    STORAGE_PROFILE
+/** {@link WatchProcessor} notification events. */
+public interface NotifyWatchProcessorEvent extends Comparable<NotifyWatchProcessorEvent> {
+    /** Event timestamp. */
+    HybridTimestamp timestamp();
+
+    /** Notifies the {@link WatchProcessor}. */
+    void notify(WatchProcessor watchProcessor);
+
+    @Override
+    default int compareTo(NotifyWatchProcessorEvent o) {
+        return timestamp().compareTo(o.timestamp());
+    }
 }

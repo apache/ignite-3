@@ -214,7 +214,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
 
     private int createTestTable(String tableName, String zoneName) {
         String sql2 = "create table " + tableName + " (id int primary key, val varchar(20))"
-                + " with primary_zone='" + zoneName + "'";
+                + " zone " + zoneName;
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql2, session);

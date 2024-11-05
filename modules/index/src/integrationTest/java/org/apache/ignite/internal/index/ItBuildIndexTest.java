@@ -206,7 +206,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         ));
 
         sql(format(
-                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
+                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         ));
 

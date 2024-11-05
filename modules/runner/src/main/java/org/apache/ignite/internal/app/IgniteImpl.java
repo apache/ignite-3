@@ -1737,9 +1737,8 @@ public class IgniteImpl implements Ignite {
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
-                .thenComposeAsync(t -> {
+                .thenComposeAsync(unused -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
-                    // TODO: IGNITE-23292 Run local metastore compaction after start watches for the latest compacted revision
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
     }
