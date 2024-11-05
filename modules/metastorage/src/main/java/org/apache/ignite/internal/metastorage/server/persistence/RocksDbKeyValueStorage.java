@@ -1325,7 +1325,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return new ChecksumAndRevisions(
                     checksumByRevisionOrZero(revision),
                     minChecksummedRevisionOrZero(),
-                    rev
+                    rev,
+                    compactionRevision
             );
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);

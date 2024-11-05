@@ -387,28 +387,29 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private CompletableFuture<Void> validateMetastorageForDivergence(Set<String> metastorageNodes) {
-        long localRevision = storage.revision();
+        Revisions localRevisions = storage.revisions();
 
-        if (localRevision == 0) {
+        if (localRevisions.revision() == 0) {
             // No revisions, so local Metastorage could not diverge.
             return nullCompletedFuture();
         }
 
-        return doWithOneOffRaftGroupService(PeersAndLearners.fromConsistentIds(metastorageNodes), raftClient -> {
-            return createMetaStorageService(raftClient).checksum(localRevision)
-                    .thenAccept(leaderChecksumInfo -> {
-                        long localChecksum = storage.checksum(localRevision);
+        return doWithOneOffRaftGroupService(
+                PeersAndLearners.fromConsistentIds(metastorageNodes),
+                raftClient -> createMetaStorageService(raftClient)
+                        .checksum(localRevisions.revision())
+                        .thenAccept(leaderChecksumInfo -> {
+                            long localChecksum = storage.checksum(localRevisions.revision());
 
-                        LOG.info(
-                                "Validating Metastorage for divergence [localRevision={}, localChecksum={}, leaderChecksumInfo={}",
-                                localRevision, localChecksum, leaderChecksumInfo
-                        );
+                            LOG.info(
+                                    "Validating Metastorage for divergence [localRevisions={}, localChecksum={}, leaderChecksumInfo={}",
+                                    localRevisions, localChecksum, leaderChecksumInfo
+                            );
 
-                        divergencyValidator.validate(localRevision, localChecksum, leaderChecksumInfo);
+                            divergencyValidator.validate(localRevisions, localChecksum, leaderChecksumInfo);
 
-                        LOG.info("Metastorage did not diverge, proceeding");
-                    });
-        });
+                            LOG.info("Metastorage did not diverge, proceeding");
+                        }));
     }
 
     private void prepareMetaStorageReentry(UUID currentClusterId) {
@@ -671,18 +672,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 .thenCompose(infoAndState -> {
                     LOG.info("Metastorage info on start is {}", infoAndState.metaStorageInfo);
 
-                    if (!busyLock.enterBusy()) {
-                        return failedFuture(new NodeStoppingException());
-                    }
-
-                    try {
-                        return reenterIfNeededAndInitializeMetaStorage(
-                                infoAndState.metaStorageInfo,
-                                infoAndState.clusterState.clusterTag().clusterId()
-                        );
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
+                    return inBusyLockAsync(busyLock, () -> reenterIfNeededAndInitializeMetaStorage(
+                            infoAndState.metaStorageInfo,
+                            infoAndState.clusterState.clusterTag().clusterId()
+                    ));
                 })
                 .thenCompose(service -> repairMetastorageIfNeeded().thenApply(unused -> service))
                 .thenCompose(service -> recover(service).thenApply(rev -> service))

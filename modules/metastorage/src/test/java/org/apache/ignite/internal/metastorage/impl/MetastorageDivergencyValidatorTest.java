@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,7 +35,7 @@ class MetastorageDivergencyValidatorTest {
     void doesNothingIfLeaderHasNoChecksumsInfo() {
         MetastorageDivergedException ex = assertThrows(
                 MetastorageDivergedException.class,
-                () -> validator.validate(1, 42, checksumInfo(0, 0, 0))
+                () -> validator.validate(revisions(1, -1), 42, checksumInfo(0, 0, 0, -1))
         );
 
         assertThat(ex.getMessage(), is("Metastorage on leader does not have any checksums, this should not happen"));
@@ -43,7 +44,7 @@ class MetastorageDivergencyValidatorTest {
     @ParameterizedTest
     @ValueSource(longs = {1, 5, 10})
     void validationSucceedsIfChecksumMatches(long revision) {
-        assertDoesNotThrow(() -> validator.validate(revision, 42, checksumInfo(42, 1, 10)));
+        assertDoesNotThrow(() -> validator.validate(revisions(revision, -1), 42, checksumInfo(42, 1, 10, -1)));
     }
 
     @ParameterizedTest
@@ -51,7 +52,7 @@ class MetastorageDivergencyValidatorTest {
     void validationFailsIfChecksumDoesNotMatchForKnownRevision(long revision) {
         MetastorageDivergedException ex = assertThrows(
                 MetastorageDivergedException.class,
-                () -> validator.validate(revision, 42, checksumInfo(123, 1, 10))
+                () -> validator.validate(revisions(revision, -1), 42, checksumInfo(123, 1, 10, -1))
         );
 
         assertThat(ex.getMessage(), is("Metastorage has diverged [revision=" + revision + ", localChecksum=42, leaderChecksum=123"));
@@ -61,7 +62,7 @@ class MetastorageDivergencyValidatorTest {
     void validationFailsIfNodeIsAheadLeader() {
         MetastorageDivergedException ex = assertThrows(
                 MetastorageDivergedException.class,
-                () -> validator.validate(11, 42, checksumInfo(0, 1, 10))
+                () -> validator.validate(revisions(11, -1), 42, checksumInfo(0, 1, 10, -1))
         );
 
         assertThat(ex.getMessage(), is("Node is ahead of the leader, this should not happen; probably means divergence "
@@ -72,7 +73,7 @@ class MetastorageDivergencyValidatorTest {
     void validationFailsIfNodeIsBehindCompactionRevision() {
         MetastorageDivergedException ex = assertThrows(
                 MetastorageDivergedException.class,
-                () -> validator.validate(9, 42, checksumInfo(0, 10, 20))
+                () -> validator.validate(revisions(9, -1), 42, checksumInfo(0, 10, 20, -1))
         );
 
         assertThat(
@@ -81,7 +82,11 @@ class MetastorageDivergencyValidatorTest {
         );
     }
 
-    private static ChecksumInfo checksumInfo(long checksum, long minRevision, long maxRevision) {
-        return new ChecksumInfo(checksum, minRevision, maxRevision);
+    private static ChecksumInfo checksumInfo(long checksum, long minRevision, long maxRevision, long compactionRevision) {
+        return new ChecksumInfo(checksum, minRevision, maxRevision, compactionRevision);
+    }
+
+    private static Revisions revisions(long revision, long compactionRevision) {
+        return new Revisions(revision, compactionRevision);
     }
 }

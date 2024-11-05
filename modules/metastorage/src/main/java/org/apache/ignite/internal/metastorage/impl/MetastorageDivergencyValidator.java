@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 
 /**
@@ -27,33 +28,42 @@ public class MetastorageDivergencyValidator {
     /**
      * Validates local Metastorage against leader's Metastorage to detect if the local one has diverged.
      *
-     * @param revision Current revision locally.
+     * @param localRevisions Current revisions locally.
      * @param localChecksum Checksum corresponding to the local current revision.
      * @param leaderChecksumInfo Checksum info obtained from the leader.
      */
-    public void validate(long revision, long localChecksum, ChecksumInfo leaderChecksumInfo) {
+    public void validate(Revisions localRevisions, long localChecksum, ChecksumInfo leaderChecksumInfo) {
         if (leaderChecksumInfo.minRevision() == 0 || leaderChecksumInfo.maxRevision() == 0) {
             throw new MetastorageDivergedException("Metastorage on leader does not have any checksums, this should not happen");
         }
 
-        if (revision >= leaderChecksumInfo.minRevision() && revision <= leaderChecksumInfo.maxRevision()) {
+        long localRevision = localRevisions.revision();
+        long localCompactionRevision = localRevisions.compactionRevision();
+
+        if (localRevision >= leaderChecksumInfo.minRevision() && localRevision <= leaderChecksumInfo.maxRevision()) {
             if (localChecksum != leaderChecksumInfo.checksum()) {
                 throw new MetastorageDivergedException(String.format(
                         "Metastorage has diverged [revision=%d, localChecksum=%d, leaderChecksum=%d",
-                        revision, localChecksum, leaderChecksumInfo.checksum()
+                        localRevision, localChecksum, leaderChecksumInfo.checksum()
                 ));
             }
-        } else if (revision > leaderChecksumInfo.maxRevision()) {
+        } else if (localRevision > leaderChecksumInfo.maxRevision()) {
             throw new MetastorageDivergedException(String.format(
                     "Node is ahead of the leader, this should not happen; probably means divergence [localRevision=%d, leaderRevision=%d]",
-                    revision, leaderChecksumInfo.maxRevision()
+                    localRevision, leaderChecksumInfo.maxRevision()
+            ));
+        } else if (localCompactionRevision > leaderChecksumInfo.compactionRevision()) {
+            throw new MetastorageDivergedException(String.format(
+                    "Node compaction is ahead of the leader, this should not happen; probably means divergence "
+                            + "[localCompactionRevision=%d, leaderCompactionRevision=%d]",
+                    localRevision, leaderChecksumInfo.maxRevision()
             ));
         } else {
-            assert revision < leaderChecksumInfo.minRevision();
+            assert localRevision < leaderChecksumInfo.minRevision();
 
             throw new MetastorageDivergedException(String.format(
                     "Node revision is already removed due to compaction on the leader [localRevision=%d, minLeaderRevision=%d]",
-                    revision, leaderChecksumInfo.minRevision()
+                    localRevision, leaderChecksumInfo.minRevision()
             ));
         }
     }

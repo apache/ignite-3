@@ -40,7 +40,6 @@ import org.apache.ignite.internal.metastorage.command.PaginationCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
 import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
-import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -155,13 +154,9 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
                     clo.result(RevisionsInfo.of(currentRevisions));
                 } else if (command instanceof GetChecksumCommand) {
-                    ChecksumAndRevisions checksumInfo = storage.checksumAndRevisions(((GetChecksumCommand) command).revision());
+                    long revision = ((GetChecksumCommand) command).revision();
 
-                    clo.result(new ChecksumInfo(
-                            checksumInfo.checksum(),
-                            checksumInfo.minChecksummedRevision(),
-                            checksumInfo.maxChecksummedRevision()
-                    ));
+                    clo.result(ChecksumInfo.of(storage.checksumAndRevisions(revision)));
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }

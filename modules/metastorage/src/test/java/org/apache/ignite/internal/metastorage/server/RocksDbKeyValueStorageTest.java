@@ -353,6 +353,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         assertThat(checksumAndRevisions.checksum(), is(-3394571179261091112L));
         assertThat(checksumAndRevisions.minChecksummedRevision(), is(1L));
         assertThat(checksumAndRevisions.maxChecksummedRevision(), is(3L));
+        assertThat(checksumAndRevisions.compactionRevision(), is(-1L));
     }
 
     @Test
@@ -362,6 +363,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         assertThat(checksumAndRevisions.checksum(), is(0L));
         assertThat(checksumAndRevisions.minChecksummedRevision(), is(0L));
         assertThat(checksumAndRevisions.maxChecksummedRevision(), is(0L));
+        assertThat(checksumAndRevisions.compactionRevision(), is(-1L));
     }
 
     @Test
@@ -373,6 +375,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         assertThat(checksumAndRevisions.checksum(), is(0L));
         assertThat(checksumAndRevisions.minChecksummedRevision(), is(1L));
         assertThat(checksumAndRevisions.maxChecksummedRevision(), is(1L));
+        assertThat(checksumAndRevisions.compactionRevision(), is(-1L));
     }
 
     @Test
@@ -382,6 +385,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         putToMs(key, keyValue(1, 1));
         putToMs(key, keyValue(1, 2));
 
+        storage.setCompactionRevision(1);
         storage.compact(1);
 
         ChecksumAndRevisions checksumAndRevisions = storage.checksumAndRevisions(1);
@@ -389,5 +393,6 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         assertThat(checksumAndRevisions.checksum(), is(0L));
         assertThat(checksumAndRevisions.minChecksummedRevision(), is(2L));
         assertThat(checksumAndRevisions.maxChecksummedRevision(), is(2L));
+        assertThat(checksumAndRevisions.compactionRevision(), is(1L));
     }
 }

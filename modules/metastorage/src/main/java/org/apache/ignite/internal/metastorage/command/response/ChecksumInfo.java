@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.metastorage.command.response;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Information about checksum for a revision of the Metastorage.
+ * Information about checksum and revisions of the Metastorage.
  */
 public class ChecksumInfo implements Serializable {
     private static final long serialVersionUID = 8681846172504003981L;
@@ -30,13 +32,16 @@ public class ChecksumInfo implements Serializable {
     private final long minRevision;
     private final long maxRevision;
 
+    private final long compactionRevision;
+
     /**
      * Constructor.
      */
-    public ChecksumInfo(long checksum, long minRevision, long maxRevision) {
+    public ChecksumInfo(long checksum, long minRevision, long maxRevision, long compactionRevision) {
         this.checksum = checksum;
         this.minRevision = minRevision;
         this.maxRevision = maxRevision;
+        this.compactionRevision = compactionRevision;
     }
 
     /**
@@ -60,6 +65,24 @@ public class ChecksumInfo implements Serializable {
      */
     public long maxRevision() {
         return maxRevision;
+    }
+
+    /**
+     * Returns metastorage compaction revision of the up to which (inclusive) key versions will be deleted and when trying to read them,
+     * {@link CompactedException} will occur, {@code -1} if it has never been updated.
+     */
+    public long compactionRevision() {
+        return compactionRevision;
+    }
+
+    /** Converts to {@link ChecksumInfo}. */
+    public static ChecksumInfo of(ChecksumAndRevisions checksumAndRevisions) {
+        return new ChecksumInfo(
+                checksumAndRevisions.checksum(),
+                checksumAndRevisions.minChecksummedRevision(),
+                checksumAndRevisions.maxChecksummedRevision(),
+                checksumAndRevisions.compactionRevision()
+        );
     }
 
     @Override

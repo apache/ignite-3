@@ -37,14 +37,14 @@ public class Revisions {
         this.compactionRevision = compactionRevision;
     }
 
-    /** Returns metastorage revision. */
+    /** Returns metastorage revision, {@code 0} if it has never been updated. */
     public long revision() {
         return revision;
     }
 
     /**
      * Returns metastorage compaction revision of the up to which (inclusive) key versions will be deleted and when trying to read them,
-     * {@link CompactedException} will occur.
+     * {@link CompactedException} will occur, {@code -1} if it has never been updated.
      */
     public long compactionRevision() {
         return compactionRevision;

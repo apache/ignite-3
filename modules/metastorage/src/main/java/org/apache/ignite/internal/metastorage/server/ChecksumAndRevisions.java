@@ -17,21 +17,26 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.tostring.S;
+
 /**
- * Information about a checksum and checksummed revisions.
+ * Information about a checksum and revisions.
  */
 public class ChecksumAndRevisions {
     private final long checksum;
     private final long minChecksummedRevision;
     private final long maxChecksummedRevision;
+    private final long compactionRevision;
 
     /**
      * Constructor.
      */
-    public ChecksumAndRevisions(long checksum, long minChecksummedRevision, long maxChecksummedRevision) {
+    public ChecksumAndRevisions(long checksum, long minChecksummedRevision, long maxChecksummedRevision, long compactionRevision) {
         this.checksum = checksum;
         this.minChecksummedRevision = minChecksummedRevision;
         this.maxChecksummedRevision = maxChecksummedRevision;
+        this.compactionRevision = compactionRevision;
     }
 
     /** Checksum (or 0 if there is no checksum for the requested revision). */
@@ -47,5 +52,18 @@ public class ChecksumAndRevisions {
     /** Max revision that has a checksum (0 if there are no such revisions). */
     public long maxChecksummedRevision() {
         return maxChecksummedRevision;
+    }
+
+    /**
+     * Returns metastorage compaction revision of the up to which (inclusive) key versions will be deleted and when trying to read them,
+     * {@link CompactedException} will occur, {@code -1} if it has never been updated.
+     */
+    public long compactionRevision() {
+        return compactionRevision;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
