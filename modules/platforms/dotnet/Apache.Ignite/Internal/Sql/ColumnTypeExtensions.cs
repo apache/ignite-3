@@ -27,7 +27,7 @@ using NodaTime;
 /// </summary>
 internal static class ColumnTypeExtensions
 {
-    private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql = GetClrToSqlMap();
+    private static readonly Dictionary<Type, ColumnType> ClrToSql = GetClrToSqlMap();
 
     /// <summary>
     /// Gets corresponding .NET type.

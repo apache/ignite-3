@@ -131,7 +131,5 @@ SELECT 1, 2 UNION ALL SELECT 1, 2, 3
 statement error: Type mismatch in column 1 of UNION ALL
 SELECT 'abcd' UNION ALL SELECT '2000-11-02'::DATE
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22358
 statement error: Type mismatch in column 1 of UNION ALL
 SELECT 1 UNION ALL SELECT '2000-11-02'::DATE

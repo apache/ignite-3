@@ -36,10 +36,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
+import org.apache.ignite.internal.metastorage.command.GetChecksumCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -48,6 +50,8 @@ import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -257,8 +261,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<Long> currentRevision() {
-        GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
+    public CompletableFuture<RevisionsInfo> currentRevisions() {
+        GetCurrentRevisionsCommand cmd = context.commandsFactory().getCurrentRevisionsCommand().build();
+
+        return context.raftService().run(cmd);
+    }
+
+    @Override
+    public CompletableFuture<ChecksumInfo> checksum(long revision) {
+        GetChecksumCommand cmd = context.commandsFactory().getChecksumCommand()
+                .revision(revision)
+                .build();
 
         return context.raftService().run(cmd);
     }
@@ -357,5 +370,20 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             HybridTimestamp ts
     ) {
         return commandsFactory.evictIdempotentCommandsCacheCommand().evictionTimestamp(evictionTimestamp).initiatorTime(ts).build();
+    }
+
+    /**
+     * Sends command {@link CompactionCommand} to the leader.
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
+        CompactionCommand command = context.commandsFactory().compactionCommand()
+                .compactionRevision(compactionRevision)
+                .initiatorTime(clusterTime.now())
+                .build();
+
+        return context.raftService().run(command);
     }
 }

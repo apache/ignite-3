@@ -324,18 +324,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         });
 
-        CompletableFuture<Void> timeoutFut = cancelHandler.timeoutFuture();
-        if (timeoutFut != null) {
-            timeoutFut.thenAcceptAsync((r) -> queryManager.close(QueryCompletionReason.TIMEOUT), taskExecutor);
-        }
-
         QueryTransactionContext txContext = operationContext.txContext();
 
         assert txContext != null;
 
         QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+        InternalTransaction tx = txWrapper.unwrap();
 
-        AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(txWrapper.unwrap(), plan);
+        AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(tx, plan);
+
+        operationContext.notifyTxUsed(tx);
 
         PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
 
@@ -433,7 +431,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
-                queryCancel.timeoutFuture()
+                operationContext.cancel()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -478,12 +476,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryCancel queryCancel = operationContext.cancel();
         assert queryCancel != null;
 
-        CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
-        if (timeoutFut != null) {
-            timeoutFut.whenCompleteAsync((r, t) -> {
-                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
-            }, taskExecutor);
-        }
+        queryCancel.add(timeout -> {
+            if (!timeout) {
+                return;
+            }
+
+            ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+        });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
@@ -789,7 +788,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final @Nullable CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> root;
 
-        private final @Nullable CompletableFuture<Void> timeoutFut;
+        private final @Nullable QueryCancel cancel;
 
         /** Mutex for {@link #remoteFragmentInitCompletion} modifications. */
         private final Object initMux = new Object();
@@ -806,9 +805,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             this.coordinatorNodeName = coordinatorNodeName;
 
             if (coordinator) {
-                QueryCancel queryCancel = ctx.cancel();
-                assert queryCancel != null;
-
                 var root = new CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>>();
 
                 root.exceptionally(t -> {
@@ -824,10 +820,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
                 this.root = root;
-                this.timeoutFut = queryCancel.timeoutFuture();
+                this.cancel = ctx.cancel();
             } else {
                 this.root = null;
-                this.timeoutFut = null;
+                this.cancel = null;
             }
         }
 
@@ -941,7 +937,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
                     ctx.timeZoneId(),
-                    timeoutFut
+                    cancel
             );
         }
 

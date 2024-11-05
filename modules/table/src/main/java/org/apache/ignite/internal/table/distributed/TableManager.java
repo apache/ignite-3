@@ -114,7 +114,6 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -130,6 +129,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -199,6 +199,7 @@ import org.apache.ignite.internal.table.distributed.schema.ExecutorInclinedSchem
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -287,7 +288,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, HybridTimestamp)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -332,8 +333,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Separate executor for IO operations like partition storage initialization or partition raft group meta data persisting.
      */
     private final ExecutorService ioExecutor;
-
-    private final HybridClock clock;
 
     private final ClockService clockService;
 
@@ -445,6 +444,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
+     * @param clockService hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param lowWatermark Low watermark.
@@ -472,7 +472,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             ScheduledExecutorService rebalanceScheduler,
-            HybridClock clock,
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             DistributionZoneManager distributionZoneManager,
@@ -500,7 +499,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
-        this.clock = clock;
         this.clockService = clockService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.distributionZoneManager = distributionZoneManager;
@@ -613,11 +611,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             fullStateTransferIndexChooser.start();
 
-            CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
             assert recoveryFinishFuture.isDone();
 
-            long recoveryRevision = recoveryFinishFuture.join();
+            long recoveryRevision = recoveryFinishFuture.join().revision();
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
 
@@ -768,7 +766,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
                     }
 
-                    return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
+                    return getOrCreatePartitionStorages(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
                 }, ioExecutor).thenCompose(identity())));
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
@@ -1543,7 +1541,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableStorage,
                 txStateStorage,
                 replicaSvc,
-                clock,
+                clockService,
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,
@@ -1643,13 +1641,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
-                    // TODO assigned partitions.
                     for (int i = 0; i < newAssignments.size(); i++) {
-                        parts.set(i);
+                        Assignments partitionAssignments = newAssignments.get(i);
+                        if (localMemberAssignment(partitionAssignments) != null) {
+                            parts.set(i);
+                        }
                     }
 
-                    return getOrCreatePartitionStorages(table, parts).thenAccept(u -> localPartsByTableId.put(tableId, parts));
+                    return getOrCreatePartitionStorages(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
                 }, ioExecutor)));
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
@@ -1740,7 +1739,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
+        if (engine == null) {
+            // Create a placeholder to allow Table object being created.
+            engine = new NullStorageEngine();
+        }
 
         return engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
@@ -2193,19 +2195,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             localServicesStartFuture = localPartitionsVv.get(revision)
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
                     .thenComposeAsync(
-                            partitionSet -> inBusyLock(busyLock, () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)),
+                            unused -> inBusyLock(
+                                    busyLock,
+                                    () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                                            .thenRun(() -> localPartsByTableId.compute(
+                                                    replicaGrpId.tableId(),
+                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
+                                            ))
+                            ),
                             ioExecutor
                     )
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
-                        if (!isRecovery) {
-                            // We create index storages (and also register the necessary structures) for the rebalancing one partition
-                            // before start the raft node, so that the updates that come when applying the replication log can safely
-                            // update the indexes. On recovery node, we do not need to call this code, since during restoration we start
-                            // all partitions and already register indexes there.
-                            lowWatermark.getLowWatermarkSafe(lwm ->
-                                    registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                            );
-                        }
+                        lowWatermark.getLowWatermarkSafe(lwm ->
+                                registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                        );
 
                         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
                             int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
@@ -2260,6 +2263,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
+        PartitionSet newPartitionSet = Objects.requireNonNullElseGet(oldPartitionSet, BitSetPartitionSet::new);
+        newPartitionSet.set(partitionId);
+        return newPartitionSet;
     }
 
     private boolean isNodeInReducedStableOrPendingAssignments(

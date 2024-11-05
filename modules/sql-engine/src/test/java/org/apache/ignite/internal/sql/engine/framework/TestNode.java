@@ -317,8 +317,10 @@ public class TestNode implements LifecycleAware {
     }
 
     private SqlOperationContext.Builder createContext(QueryTransactionContext txContext, Object... params) {
+        UUID queryId = UUID.randomUUID();
+
         return SqlOperationContext.builder()
-                .queryId(UUID.randomUUID())
+                .queryId(queryId)
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)

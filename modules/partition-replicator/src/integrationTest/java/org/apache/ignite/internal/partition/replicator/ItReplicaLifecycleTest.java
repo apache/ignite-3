@@ -104,6 +104,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -1275,7 +1276,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    rebalanceScheduler
+                    rebalanceScheduler,
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
             );
 
             partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1294,8 +1296,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
-
-            HybridClockImpl clock = new HybridClockImpl();
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
@@ -1319,7 +1319,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     rebalanceScheduler,
-                    clock,
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     distributionZoneManager,
@@ -1382,7 +1381,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         void start() {
             ComponentContext componentContext = new ComponentContext();
 
-            deployWatchesFut = startComponentsAsync(componentContext, List.of(
+            deployWatchesFut = startComponentsAsync(
+                    componentContext,
                     threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
@@ -1392,9 +1392,12 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     msLogStorageFactory,
                     cmgLogStorageFactory,
                     raftManager,
-                    cmgManager
-            )).thenApplyAsync(v -> startComponentsAsync(componentContext, List.of(
-                    lowWatermark,
+                    cmgManager,
+                    lowWatermark
+            ).thenComposeAsync(
+                    v -> cmgManager.joinFuture()
+            ).thenApplyAsync(v -> startComponentsAsync(
+                    componentContext,
                     metaStorageManager,
                     clusterCfgMgr,
                     clockWaiter,
@@ -1408,7 +1411,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     partitionReplicaLifecycleManager,
                     tableManager,
                     indexManager
-            ))).thenComposeAsync(componentFuts -> {
+            )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
                                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -1425,12 +1428,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             });
         }
 
-        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, List<IgniteComponent> components) {
-            nodeComponents.addAll(components);
+        private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components) {
+            var componentStartFutures = new CompletableFuture[components.length];
 
-            return allOf(components.stream()
-                    .map(component -> component.startAsync(componentContext))
-                    .toArray(CompletableFuture[]::new));
+            for (int compIdx = 0; compIdx < components.length; compIdx++) {
+                IgniteComponent component = components[compIdx];
+                componentStartFutures[compIdx] = component.startAsync(componentContext);
+                nodeComponents.add(component);
+            }
+
+            return allOf(componentStartFutures);
         }
 
         /**

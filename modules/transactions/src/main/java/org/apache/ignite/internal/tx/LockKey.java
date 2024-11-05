@@ -88,6 +88,6 @@ public class LockKey {
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(LockKey.class, this, "ctx", contextId, "key", key);
     }
 }

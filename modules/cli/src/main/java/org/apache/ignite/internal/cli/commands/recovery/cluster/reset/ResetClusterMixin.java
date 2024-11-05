@@ -19,17 +19,34 @@ package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_METASTORAGE_REPLICATION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_METASTORAGE_REPLICATION_OPTION;
 
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
 
 /** Arguments for 'recovery cluster reset' command. */
 public class ResetClusterMixin {
-    @Option(names = RECOVERY_CMG_NODES_OPTION, description = RECOVERY_CMG_NODES_OPTION_DESC, split = ",", required = true)
-    private List<String> cmgNodeNames;
+    @ArgGroup(multiplicity = "1", exclusive = false)
+    private Options options;
 
     /** Returns names of the proposed CMG nodes. */
-    public List<String> cmgNodeNames() {
-        return cmgNodeNames;
+    public @Nullable List<String> cmgNodeNames() {
+        return options.cmgNodeNames;
+    }
+
+    /** Returns metastorage replication factor. */
+    public @Nullable Integer metastorageReplicationFactor() {
+        return options.metastorageReplicationFactor;
+    }
+
+    private static class Options {
+        @Option(names = RECOVERY_CMG_NODES_OPTION, description = RECOVERY_CMG_NODES_OPTION_DESC, split = ",")
+        private List<String> cmgNodeNames;
+
+        @Option(names = RECOVERY_METASTORAGE_REPLICATION_OPTION, description = RECOVERY_METASTORAGE_REPLICATION_DESC)
+        private Integer metastorageReplicationFactor;
     }
 }

@@ -21,9 +21,11 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +45,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
+    private final @Nullable Consumer<InternalTransaction> txUsedListener;
 
     /**
      * Private constructor, used by a builder.
@@ -55,7 +58,8 @@ public final class SqlOperationContext {
             @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
-            @Nullable PrefetchCallback prefetchCallback
+            @Nullable PrefetchCallback prefetchCallback,
+            @Nullable Consumer<InternalTransaction> txUsedListener
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -65,6 +69,7 @@ public final class SqlOperationContext {
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
         this.prefetchCallback = prefetchCallback;
+        this.txUsedListener = txUsedListener;
     }
 
     public static Builder builder() {
@@ -123,6 +128,15 @@ public final class SqlOperationContext {
     }
 
     /**
+     * Notifies context that transaction was used for query execution.
+     */
+    public void notifyTxUsed(InternalTransaction tx) {
+        if (txUsedListener != null) {
+            txUsedListener.accept(tx);
+        }
+    }
+
+    /**
      * Returns the operation time.
      *
      * <p>The time the operation started is the logical time it runs, and all the time readings during the execution time as well as all
@@ -143,6 +157,7 @@ public final class SqlOperationContext {
         private HybridTimestamp operationTime;
         private @Nullable QueryTransactionContext txContext;
 
+        private @Nullable Consumer<InternalTransaction> txUsedListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
         private @Nullable PrefetchCallback prefetchCallback;
@@ -187,6 +202,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder txUsedListener(Consumer<InternalTransaction> txUsedListener) {
+            this.txUsedListener = txUsedListener;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -197,7 +217,8 @@ public final class SqlOperationContext {
                     txContext,
                     cancel,
                     defaultSchemaName,
-                    prefetchCallback
+                    prefetchCallback,
+                    txUsedListener
             );
         }
     }

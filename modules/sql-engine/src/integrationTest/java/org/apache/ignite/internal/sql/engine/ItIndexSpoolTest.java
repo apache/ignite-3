@@ -104,8 +104,8 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
                     parts,
                     DEFAULT_STORAGE_PROFILE
             ));
-            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
-                    name, "ZONE_" + name.toUpperCase()));
+            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) ZONE %s",
+                    name, "ZONE_" + name));
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 

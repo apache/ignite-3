@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.Arrays.copyOfRange;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -58,7 +58,7 @@ import org.rocksdb.WriteOptions;
 
 /**
  * Log storage that shares rocksdb instance with other log storages.
- * Stores key with groupId prefix to distinguish them from keys that belongs to other storages.
+ * Stores key with raft node storage ID prefix to distinguish them from keys that belongs to other storages.
  */
 public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Logger. */
@@ -98,16 +98,16 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     private final WriteOptions writeOptions;
 
     /** Start prefix. */
-    private final byte[] groupStartPrefix;
+    private final byte[] startPrefix;
 
     /** End prefix. */
-    private final byte[] groupEndPrefix;
+    private final byte[] endPrefix;
 
-    /** Raft group start bound. */
-    private final Slice groupStartBound;
+    /** Raft node start bound. */
+    private final Slice startBound;
 
-    /** Raft group end bound. */
-    private final Slice groupEndBound;
+    /** Raft node end bound. */
+    private final Slice endBound;
 
     /** RW lock. */
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -142,7 +142,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             RocksDB db,
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
-            String groupId,
+            String raftNodeStorageId,
             WriteOptions writeOptions,
             Executor executor
     ) {
@@ -152,12 +152,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         Requires.requireNonNull(executor);
 
         Requires.requireTrue(
-                groupId.indexOf(0) == -1,
-                "Raft group id " + groupId + " must not contain char(0)"
+                raftNodeStorageId.indexOf(0) == -1,
+                "Raft node storage id " + raftNodeStorageId + " must not contain char(0)"
         );
         Requires.requireTrue(
-                groupId.indexOf(1) == -1,
-                "Raft group id " + groupId + " must not contain char(1)"
+                raftNodeStorageId.indexOf(1) == -1,
+                "Raft node storage id " + raftNodeStorageId + " must not contain char(1)"
         );
 
         this.logStorageFactory = logStorageFactory;
@@ -165,10 +165,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
         this.executor = executor;
-        this.groupStartPrefix = groupStartPrefix(groupId);
-        this.groupEndPrefix = groupEndPrefix(groupId);
-        this.groupStartBound = new Slice(groupStartPrefix);
-        this.groupEndBound = new Slice(groupEndPrefix);
+        this.startPrefix = raftNodeStorageStartPrefix(raftNodeStorageId);
+        this.endPrefix = raftNodeStorageEndPrefix(raftNodeStorageId);
+        this.startBound = new Slice(startPrefix);
+        this.endBound = new Slice(endPrefix);
         this.writeOptions = writeOptions;
     }
 
@@ -206,10 +206,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     private void load(ConfigurationManager confManager) {
         try (
-                var readOptions = new ReadOptions().setIterateUpperBound(groupEndBound);
+                var readOptions = new ReadOptions().setIterateUpperBound(endBound);
                 RocksIterator it = this.db.newIterator(this.confHandle, readOptions)
         ) {
-            it.seek(groupStartPrefix);
+            it.seek(startPrefix);
             while (it.isValid()) {
                 byte[] keyWithPrefix = it.key();
                 byte[] ks = getKey(keyWithPrefix);
@@ -252,7 +252,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     }
 
     private byte[] getKey(byte[] ks) {
-        return copyOfRange(ks, groupStartPrefix.length, ks.length);
+        return copyOfRange(ks, startPrefix.length, ks.length);
     }
 
     private void setFirstLogIndex(long index) {
@@ -307,10 +307,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             }
 
             try (
-                    var readOptions = new ReadOptions().setIterateUpperBound(groupEndBound);
+                    var readOptions = new ReadOptions().setIterateUpperBound(endBound);
                     RocksIterator it = this.db.newIterator(this.dataHandle, readOptions)
             ) {
-                it.seek(groupStartPrefix);
+                it.seek(startPrefix);
 
                 if (it.isValid()) {
                     byte[] key = getKey(it.key());
@@ -333,10 +333,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.useLock.lock();
 
         try (
-                var readOptions = new ReadOptions().setIterateLowerBound(groupStartBound);
+                var readOptions = new ReadOptions().setIterateLowerBound(startBound);
                 RocksIterator it = this.db.newIterator(this.dataHandle, readOptions)
         ) {
-            it.seekForPrev(groupEndPrefix);
+            it.seekForPrev(endPrefix);
 
             if (it.isValid()) {
                 byte[] key = getKey(it.key());
@@ -539,7 +539,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
         try {
             LogEntry entry = getEntry(nextLogIndex);
-            destroyAllEntriesBetween(db, confHandle, dataHandle, groupStartPrefix, groupEndPrefix);
+            destroyAllEntriesBetween(db, confHandle, dataHandle, startPrefix, endPrefix);
 
             onReset(nextLogIndex);
 
@@ -664,24 +664,24 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called upon closing the storage.
      */
     protected void onShutdown() {
-        groupEndBound.close();
-        groupStartBound.close();
+        endBound.close();
+        startBound.close();
     }
 
     @SuppressWarnings("SameParameterValue")
     private byte[] createKey(byte[] key) {
-        var buffer = new byte[groupStartPrefix.length + key.length];
+        var buffer = new byte[startPrefix.length + key.length];
 
-        System.arraycopy(groupStartPrefix, 0, buffer, 0, groupStartPrefix.length);
-        System.arraycopy(key, 0, buffer, groupStartPrefix.length, key.length);
+        System.arraycopy(startPrefix, 0, buffer, 0, startPrefix.length);
+        System.arraycopy(key, 0, buffer, startPrefix.length, key.length);
 
         return buffer;
     }
 
     private byte[] createKey(long index) {
-        byte[] ks = new byte[groupStartPrefix.length + Long.BYTES];
-        System.arraycopy(groupStartPrefix, 0, ks, 0, groupStartPrefix.length);
-        LONG_ARRAY_HANDLE.set(ks, groupStartPrefix.length, index);
+        byte[] ks = new byte[startPrefix.length + Long.BYTES];
+        System.arraycopy(startPrefix, 0, ks, 0, startPrefix.length);
+        LONG_ARRAY_HANDLE.set(ks, startPrefix.length, index);
         return ks;
     }
 

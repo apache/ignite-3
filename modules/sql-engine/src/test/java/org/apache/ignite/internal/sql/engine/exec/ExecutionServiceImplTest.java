@@ -945,7 +945,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 0);
+        CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 0);
 
         SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
@@ -1072,7 +1072,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
 
         QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
+        CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 50);
 
         SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
@@ -1349,7 +1349,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         for (int k = 0; k < attempts; k++) {
             QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
+            CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, deadlineMillis);
 
             SqlOperationContext execCtx = execCtxFunc.apply(queryCancel);
 
@@ -1697,5 +1697,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 }
             };
         }
+    }
+
+    private CompletableFuture<Void> setTimeout(QueryCancel queryCancel, long millis) {
+        CompletableFuture<Void> timeoutFut = new CompletableFuture<>();
+        queryCancel.add(timeout -> {
+            if (timeout) {
+                timeoutFut.complete(null);
+            }
+        });
+
+        queryCancel.setTimeout(scheduler, millis);
+
+        return timeoutFut;
     }
 }

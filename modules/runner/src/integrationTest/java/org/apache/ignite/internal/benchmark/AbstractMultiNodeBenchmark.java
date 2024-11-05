@@ -132,7 +132,7 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nZONE " + ZONE_NAME;
 
         getAllFromCursor(
                 await(igniteImpl.queryEngine().queryAsync(
@@ -197,7 +197,8 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync
+                + "  raft.fsync = " + fsync() + ",\n"
+                + "  system.partitionsLogPath = \"" + logPath() + "\""
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -235,6 +236,14 @@ public class AbstractMultiNodeBenchmark {
 
     protected Path workDir() throws Exception {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    }
+
+    protected String logPath() {
+        return "";
+    }
+
+    protected boolean fsync() {
+        return fsync;
     }
 
     protected int nodes() {

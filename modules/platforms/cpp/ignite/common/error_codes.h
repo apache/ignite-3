@@ -113,6 +113,7 @@ enum class code : underlying_t {
     OP_EXECUTION = 0x50004,
     OP_EXECUTION_TIMEOUT = 0x50005,
     COMPACTED = 0x50006,
+    DIVERGED = 0x50007,
 
     // Index group. Group code: 6
     INVALID_INDEX_DEFINITION = 0x60001,

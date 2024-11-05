@@ -102,7 +102,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join());
+        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join().revision());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
@@ -384,17 +384,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 .thenReturn(new RowId(partitionId))
                 .thenReturn(null);
 
-        indexBuilder.scheduleBuildIndex(
-                tableId(TABLE_NAME),
-                partitionId,
-                indexId,
-                indexStorage,
-                mock(MvPartitionStorage.class),
-                mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
-        );
-
-        CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
+        var finishBuildIndexFuture = new CompletableFuture<Void>();
 
         indexBuilder.listen(new IndexBuildCompletionListener() {
             @Override
@@ -404,6 +394,16 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 }
             }
         });
+
+        indexBuilder.scheduleBuildIndex(
+                tableId(TABLE_NAME),
+                partitionId,
+                indexId,
+                indexStorage,
+                mock(MvPartitionStorage.class),
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
+        );
 
         assertThat(finishBuildIndexFuture, willCompleteSuccessfully());
     }
