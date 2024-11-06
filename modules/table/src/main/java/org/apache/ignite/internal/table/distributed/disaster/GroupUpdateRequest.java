@@ -43,8 +43,11 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -155,6 +158,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet());
 
+            int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
+
             return forceAssignmentsUpdate(
                     tableDescriptor,
                     zoneDescriptor,
@@ -163,7 +168,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     msRevision,
                     disasterRecoveryManager.metaStorageManager,
                     localStatesMap,
-                    catalog.time()
+                    catalog.time(),
+                    partitionIdsArray,
+                    manualUpdate
             );
         }).thenCompose(Function.identity());
     }
@@ -183,7 +190,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
-    private CompletableFuture<Void> forceAssignmentsUpdate(
+    private static CompletableFuture<Void> forceAssignmentsUpdate(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
@@ -191,11 +198,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageManager,
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            int[] partitionIds,
+            boolean manualUpdate
     ) {
-        int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
-
-        return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIdsArray)
+        return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIds)
                 .thenCompose(tableAssignments -> {
                     if (tableAssignments.isEmpty()) {
                         return nullCompletedFuture();
@@ -210,9 +217,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                             metaStorageManager,
                             localStatesMap,
                             assignmentsTimestamp,
-                            partitionIdsArray,
+                            partitionIds,
                             tableAssignments,
-                            this.manualUpdate
+                            manualUpdate
                     );
                 });
     }
@@ -295,19 +302,28 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     null
             );
         } else {
-            Set<Assignment> stableAssignments = Set.copyOf(partAssignments);
+            assert !partAssignments.isEmpty() : "Alive nodes with data should not be empty";
+
+            List<Assignment> stableAssignments = new ArrayList<>(partAssignments);
+
+            stableAssignments.sort(
+                    Comparator.<Assignment>comparingLong(
+                                    node -> localPartitionStateMessageByNode.partitionState(node.consistentId()).logIndex()
+                            )
+                            .reversed()
+                            .thenComparing(Assignment::consistentId));
+
 
             if (manualUpdate) {
                 enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
             }
-
             // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
             // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
             // for the case of the manual update, that was triggered by a user.
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(stableAssignments, assignmentsTimestamp).toBytes(),
+                    Assignments.forced(Set.of(stableAssignments.get(0)), assignmentsTimestamp).toBytes(),
                     Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
