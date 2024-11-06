@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.components;
 
-/** Implementation that does nothing for tests. */
+/** Implementation that does nothing. */
 public class NoOpLogSyncer implements LogSyncer {
     @Override
     public void sync() {

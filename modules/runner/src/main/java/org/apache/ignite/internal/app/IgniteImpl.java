@@ -88,8 +88,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -584,13 +584,13 @@ public class IgniteImpl implements Ignite {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
-        boolean raftUseFsync = raftConfiguration.fsync().value();
+        boolean partitionsUseFsyncFroWriteToRaftLog = raftConfiguration.fsync().value();
 
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
-                raftUseFsync
+                partitionsUseFsyncFroWriteToRaftLog
         );
 
         raftMgr = new Loza(
@@ -688,14 +688,6 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
-        LogSyncer logSyncer = () -> {
-            partitionsLogStorageFactory.sync();
-
-            cmgLogStorageFactory.sync();
-
-            msLogStorageFactory.sync();
-        };
-
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         var storage = new RocksDbKeyValueStorage(
@@ -703,7 +695,8 @@ public class IgniteImpl implements Ignite {
                 metastorageWorkDir.dbPath(),
                 failureManager,
                 readOperationForCompactionTracker,
-                logSyncer
+                // Because it does fsync on every write in the command log.
+                new NoOpLogSyncer()
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
@@ -846,7 +839,7 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureManager,
-                logSyncer,
+                partitionsUseFsyncFroWriteToRaftLog ? partitionsLogStorageFactory : new NoOpLogSyncer(),
                 clock
         );
 
@@ -1014,7 +1007,7 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                logSyncer,
+                partitionsUseFsyncFroWriteToRaftLog ? partitionsLogStorageFactory : new NoOpLogSyncer(),
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService
         );
