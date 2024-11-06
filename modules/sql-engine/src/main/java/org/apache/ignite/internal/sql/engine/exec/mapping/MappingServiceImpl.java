@@ -185,10 +185,9 @@ public class MappingServiceImpl implements MappingService {
                     .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
             );
 
-            CompletableFuture<List<String>> participantNodes = fut.thenApply(
+            CompletableFuture<Set<String>> participantNodes = fut.thenApply(
                     v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
-                            .distinct()
-                            .collect(Collectors.toList()));
+                            .collect(Collectors.toSet()));
 
             return participantNodes.thenApply(nodes -> {
                 nodes.add(localNodeName);
