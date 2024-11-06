@@ -246,7 +246,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-               GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\t[0-9]+\tPUBLIC\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
+                GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\t[0-9]+\tPUBLIC\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
     }
 
     @Test
