@@ -72,7 +72,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -272,8 +272,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Multi-threaded access is guarded by {@link #rwLock}. */
     private RocksDbFlusher flusher;
 
-    private final LogSyncer logSyncer;
-
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -285,14 +283,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
-     * @param logSyncer Write-ahead log synchronizer.
      */
     public RocksDbKeyValueStorage(
             String nodeName,
             Path dbPath,
             FailureManager failureManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            LogSyncer logSyncer
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
         super(
                 nodeName,
@@ -301,14 +297,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         );
 
         this.dbPath = dbPath;
-        this.logSyncer = logSyncer;
 
         executor = Executors.newFixedThreadPool(
                 2,
                 NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
         );
 
-        // TODO: IGNITE-23615 Use a common pool, eg ThreadPoolsManager#commonScheduler
+        // TODO: IGNITE-23615 Use a common pool, e.g. ThreadPoolsManager#commonScheduler
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-scheduler", log)
         );
@@ -407,7 +402,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 scheduledExecutor,
                 executor,
                 () -> KV_STORAGE_FLUSH_DELAY,
-                logSyncer,
+                // It is expected that the metastorage command raft log works with fsync=true.
+                new NoOpLogSyncer(),
                 () -> {}
         );
 
@@ -516,7 +512,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            return snapshotManager.createSnapshot(snapshotPath);
+            return snapshotManager
+                    .createSnapshot(snapshotPath)
+                    .thenCompose(unused -> flush());
         } finally {
             rwLock.writeLock().unlock();
         }

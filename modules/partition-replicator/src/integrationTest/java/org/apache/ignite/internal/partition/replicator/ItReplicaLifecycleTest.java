@@ -96,7 +96,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1088,8 +1087,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     name,
                     resolveDir(dir, "metaStorageTestKeyValue"),
                     failureManager,
-                    readOperationForCompactionTracker,
-                    new NoOpLogSyncer()
+                    readOperationForCompactionTracker
             );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1202,7 +1200,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            new NoOpLogSyncer(),
+                            partitionsLogStorageFactory,
                             hybridClock
                     ),
                     storageConfiguration
@@ -1330,7 +1328,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    new NoOpLogSyncer(),
+                    partitionsLogStorageFactory,
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService
             ) {

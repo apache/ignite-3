@@ -56,7 +56,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -185,8 +184,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 clusterService.nodeName(),
                 metastorageWorkDir.dbPath(),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker,
-                new NoOpLogSyncer()
+                readOperationForCompactionTracker
         );
 
         metaStorageManager = new MetaStorageManagerImpl(

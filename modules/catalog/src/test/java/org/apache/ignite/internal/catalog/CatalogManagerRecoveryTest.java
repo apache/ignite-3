@@ -49,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -194,13 +193,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private void createComponents() {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var keyValueStorage = new RocksDbKeyValueStorage(
-                NODE_NAME,
-                workDir,
-                new NoOpFailureManager(),
-                readOperationForCompactionTracker,
-                new NoOpLogSyncer()
-        );
+        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
 
         metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
 

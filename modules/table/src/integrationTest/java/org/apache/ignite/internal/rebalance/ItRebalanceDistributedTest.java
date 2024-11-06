@@ -110,7 +110,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1221,8 +1220,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             name,
                             resolveDir(dir, "metaStorage"),
                             failureManager,
-                            readOperationForCompactionTracker,
-                            new NoOpLogSyncer()
+                            readOperationForCompactionTracker
                     );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1321,7 +1319,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            new NoOpLogSyncer(),
+                            logStorageFactory,
                             hybridClock
                     ),
                     storageConfiguration
@@ -1436,7 +1434,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    new NoOpLogSyncer(),
+                    logStorageFactory,
                     new PartitionReplicaLifecycleManager(
                             catalogManager,
                             replicaManager,

@@ -105,7 +105,6 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -483,8 +482,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 dir.resolve("metastorage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker,
-                new NoOpLogSyncer()
+                readOperationForCompactionTracker
         );
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
@@ -647,7 +645,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        new NoOpLogSyncer(),
+                        partitionsLogStorageFactory,
                         hybridClock
                 ),
                 storageConfiguration
@@ -728,7 +726,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                new NoOpLogSyncer(),
+                partitionsLogStorageFactory,
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,

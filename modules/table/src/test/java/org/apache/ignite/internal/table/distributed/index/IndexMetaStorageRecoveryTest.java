@@ -48,7 +48,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -74,13 +73,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
     MetaStorageManager createMetastore() {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var keyValueStorage = new RocksDbKeyValueStorage(
-                NODE_NAME,
-                workDir,
-                new NoOpFailureManager(),
-                readOperationForCompactionTracker,
-                new NoOpLogSyncer()
-        );
+        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
 
         return StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
     }

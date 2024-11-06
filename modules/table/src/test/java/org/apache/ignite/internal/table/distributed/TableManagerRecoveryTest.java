@@ -272,13 +272,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var storage = new RocksDbKeyValueStorage(
-                NODE_NAME,
-                workDir,
-                new NoOpFailureManager(),
-                readOperationForCompactionTracker,
-                logSyncer
-        );
+        var storage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
 
         clock = new HybridClockImpl();
 
