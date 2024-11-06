@@ -300,7 +300,7 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
 
             lastDeletedToken = causalityToken;
 
-            versionedValue.delete(causalityToken);
+            versionedValue.deleteUpTo(causalityToken);
         }
     }
 }

@@ -30,7 +30,7 @@ public interface RevisionListener {
     CompletableFuture<?> onUpdate(long revision);
 
     /**
-     * Invoked when a revision has been deleted.
+     * Invoked when revisions up to {@code revisionUpperBoundInclusive} have been deleted.
      *
      * @param revisionUpperBoundInclusive Upper bound of deleted revisions (inclusive).
      */

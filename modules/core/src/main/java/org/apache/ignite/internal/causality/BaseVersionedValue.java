@@ -152,7 +152,8 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *
-     * <p>{@code causalityToken} is expected to be greater than the last {@link #delete deleted} and greater than the last completed.</p>
+     * <p>{@code causalityToken} is expected to be greater than the last {@link #deleteUpTo deleted} and greater than the last
+     * completed.</p>
      *
      * @param causalityToken Causality token.
      */
@@ -197,7 +198,8 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      *
      * <p>Calling this method will trigger the {@link #whenComplete} listeners for the given token.
      *
-     * <p>{@code causalityToken} is expected to be greater than the last {@link #delete deleted} and greater than the last completed.</p>
+     * <p>{@code causalityToken} is expected to be greater than the last {@link #deleteUpTo deleted} and greater than the last
+     * completed.</p>
      *
      * @param causalityToken Causality token.
      */
@@ -378,7 +380,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      */
-    void delete(long causalityToken) {
+    void deleteUpTo(long causalityToken) {
         readWriteLock.writeLock().lock();
 
         try {
