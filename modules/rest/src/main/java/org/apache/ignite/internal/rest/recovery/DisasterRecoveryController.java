@@ -111,16 +111,19 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
                 states.add(new LocalPartitionStateResponse(
                         state.partitionId,
-                        state.tableName,
-                        state.zoneName,
                         nodeName,
+                        state.zoneName,
+                        state.tableId,
+                        state.schemaName,
+                        state.tableName,
                         state.state.name()
                 ));
             }
         }
 
         // Sort the output conveniently.
-        states.sort(comparing(LocalPartitionStateResponse::tableName)
+        states.sort(comparing(LocalPartitionStateResponse::schemaName)
+                .thenComparing(LocalPartitionStateResponse::tableName)
                 .thenComparingInt(LocalPartitionStateResponse::partitionId)
                 .thenComparing(LocalPartitionStateResponse::nodeName));
 
@@ -133,14 +136,17 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         for (GlobalPartitionState state : globalStates.values()) {
             states.add(new GlobalPartitionStateResponse(
                     state.partitionId,
-                    state.tableName,
                     state.zoneName,
+                    state.tableId,
+                    state.schemaName,
+                    state.tableName,
                     state.state.name()
             ));
         }
 
         // Sort the output conveniently.
-        states.sort(comparing(GlobalPartitionStateResponse::tableName)
+        states.sort(comparing(GlobalPartitionStateResponse::schemaName)
+                .thenComparing(GlobalPartitionStateResponse::tableName)
                 .thenComparingInt(GlobalPartitionStateResponse::partitionId));
 
         return new GlobalPartitionStatesResponse(states);

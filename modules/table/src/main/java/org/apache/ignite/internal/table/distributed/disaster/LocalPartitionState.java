@@ -26,6 +26,12 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class LocalPartitionState {
     @IgniteToStringInclude
+    public final int tableId;
+
+    @IgniteToStringInclude
+    public final String schemaName;
+
+    @IgniteToStringInclude
     public final String tableName;
 
     @IgniteToStringInclude
@@ -37,7 +43,16 @@ public class LocalPartitionState {
     @IgniteToStringInclude
     public final LocalPartitionStateEnum state;
 
-    LocalPartitionState(String tableName, String zoneName, int partitionId, LocalPartitionStateEnum state) {
+    LocalPartitionState(
+            int partitionId,
+            String zoneName,
+            int tableId,
+            String schemaName,
+            String tableName,
+            LocalPartitionStateEnum state
+    ) {
+        this.tableId = tableId;
+        this.schemaName = schemaName;
         this.tableName = tableName;
         this.zoneName = zoneName;
         this.partitionId = partitionId;

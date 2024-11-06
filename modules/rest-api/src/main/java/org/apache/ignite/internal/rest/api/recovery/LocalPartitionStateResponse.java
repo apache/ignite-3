@@ -29,6 +29,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class LocalPartitionStateResponse {
     private final int partitionId;
     private final String zoneName;
+    private final int tableId;
+    private final String schemaName;
     private final String tableName;
     private final String nodeName;
     private final String state;
@@ -39,12 +41,16 @@ public class LocalPartitionStateResponse {
     @JsonCreator
     public LocalPartitionStateResponse(
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("zoneName") String zoneName,
             @JsonProperty("nodeName") String nodeName,
+            @JsonProperty("zoneName") String zoneName,
+            @JsonProperty("tableId") int tableId,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName,
             @JsonProperty("state") String state
     ) {
         this.partitionId = partitionId;
+        this.tableId = tableId;
+        this.schemaName = schemaName;
         this.tableName = tableName;
         this.zoneName = zoneName;
         this.nodeName = nodeName;
@@ -54,6 +60,11 @@ public class LocalPartitionStateResponse {
     @JsonGetter("partitionId")
     public int partitionId() {
         return partitionId;
+    }
+
+    @JsonGetter("tableId")
+    public int tableId() {
+        return tableId;
     }
 
     @JsonGetter("tableName")
@@ -69,6 +80,11 @@ public class LocalPartitionStateResponse {
     @JsonGetter("zoneName")
     public String zoneName() {
         return zoneName;
+    }
+
+    @JsonGetter("schemaName")
+    public String schemaName() {
+        return schemaName;
     }
 
     @JsonGetter("state")

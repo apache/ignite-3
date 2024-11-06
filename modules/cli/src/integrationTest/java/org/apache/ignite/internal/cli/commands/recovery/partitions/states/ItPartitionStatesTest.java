@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -54,6 +55,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final Set<String> STATES = Set.of("HEALTHY", "AVAILABLE");
 
     private static final int DONT_CHECK_PARTITIONS = -1;
+
+    private static final String GLOBAL_PARTITION_STATE_FIELDS = "Zone name\tTable ID\tSchema name\tTable name\tPartition ID\tState";
 
     private static Set<String> nodeNames;
 
@@ -242,8 +245,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                "Zone name\tTable name\tPartition ID\tState\\r?\\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
-                zoneName));
+               GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\t[0-9]+\tPUBLIC\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
     }
 
     @Test
@@ -262,7 +264,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "Node name\tZone name\tTable name\tPartition ID\tState\\r?\\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS
+                        + "\\r?\\n(%1$s)\t%2$s\t[0-9]+\tPUBLIC\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
                 possibleNodeNames,
                 zoneName)
         );
@@ -270,7 +273,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        assertOutputStartsWith((global ? "" : "Node name\t") + "Zone name\tTable name\tPartition ID\tState");
+        assertOutputStartsWith((global ? "" : "Node name\t") + GLOBAL_PARTITION_STATE_FIELDS);
 
         if (!global) {
             if (!nodes.isEmpty()) {
@@ -306,10 +309,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
             for (int i = 0; i < partitions; i++) {
                 assertOutputContains("\t" + i + "\t");
             }
-
-            for (int i = partitions; i < DEFAULT_PARTITION_COUNT; i++) {
-                assertOutputDoesNotContain("\t" + i + "\t");
-            }
         }
+
+        assertOutputContains(DEFAULT_SCHEMA_NAME);
     }
 }

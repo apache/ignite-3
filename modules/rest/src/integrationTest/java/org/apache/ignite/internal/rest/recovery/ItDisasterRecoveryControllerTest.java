@@ -21,8 +21,10 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
@@ -47,6 +49,8 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
@@ -84,6 +88,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     private static Set<String> nodeNames;
 
+    private static Set<Integer> tableIds;
+
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
     HttpClient client;
@@ -96,6 +102,12 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         });
 
         sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
+
+        tableIds = catalogManager.tables(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toSet());
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
@@ -432,6 +444,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         states.forEach(state -> {
             assertThat(zoneNames, hasItem(state.zoneName()));
             assertThat(nodes, hasItem(state.nodeName()));
+            assertThat(tableIds, hasItem(state.tableId()));
+            assertEquals(DEFAULT_SCHEMA_NAME, state.schemaName());
             assertThat(TABLE_NAMES, hasItem(state.tableName()));
             assertThat(STATES, hasItem(state.state()));
         });
@@ -442,6 +456,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         states.forEach(state -> {
             assertThat(zoneNames, hasItem(state.zoneName()));
+            assertThat(tableIds, hasItem(state.tableId()));
+            assertEquals(DEFAULT_SCHEMA_NAME, state.schemaName());
             assertThat(TABLE_NAMES, hasItem(state.tableName()));
             assertThat(STATES, hasItem(state.state()));
         });

@@ -25,6 +25,12 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class GlobalPartitionState {
     @IgniteToStringInclude
+    public final int tableId;
+
+    @IgniteToStringInclude
+    public final String schemaName;
+
+    @IgniteToStringInclude
     public final String tableName;
 
     @IgniteToStringInclude
@@ -36,7 +42,16 @@ public class GlobalPartitionState {
     @IgniteToStringInclude
     public final GlobalPartitionStateEnum state;
 
-    GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
+    GlobalPartitionState(
+            int partitionId,
+            String zoneName,
+            int tableId,
+            String schemaName,
+            String tableName,
+            GlobalPartitionStateEnum state
+    ) {
+        this.tableId = tableId;
+        this.schemaName = schemaName;
         this.tableName = tableName;
         this.zoneName = zoneName;
         this.partitionId = partitionId;
