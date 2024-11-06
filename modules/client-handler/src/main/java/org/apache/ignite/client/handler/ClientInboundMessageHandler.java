@@ -819,26 +819,28 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private static boolean isPartitionOperation(int opCode) {
+    private boolean isPartitionOperation(int opCode) {
         return opCode == ClientOp.TABLES_GET
                 || opCode == ClientOp.TUPLE_UPSERT
                 || opCode == ClientOp.TUPLE_GET
-                || opCode == ClientOp.TUPLE_UPSERT_ALL
-                || opCode == ClientOp.TUPLE_GET_ALL
                 || opCode == ClientOp.TUPLE_GET_AND_UPSERT
                 || opCode == ClientOp.TUPLE_INSERT
-                || opCode == ClientOp.TUPLE_INSERT_ALL
                 || opCode == ClientOp.TUPLE_REPLACE
                 || opCode == ClientOp.TUPLE_REPLACE_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_REPLACE
                 || opCode == ClientOp.TUPLE_DELETE
-                || opCode == ClientOp.TUPLE_DELETE_ALL
                 || opCode == ClientOp.TUPLE_DELETE_EXACT
-                || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS
                 || opCode == ClientOp.STREAMER_BATCH_SEND;
+
+                // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
+                // || opCode == ClientOp.TUPLE_UPSERT_ALL
+                // || opCode == ClientOp.TUPLE_GET_ALL
+                // || opCode == ClientOp.TUPLE_INSERT_ALL
+                // || opCode == ClientOp.TUPLE_DELETE_ALL
+                // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+                // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
     }
 
     private void processOperationInternal(
