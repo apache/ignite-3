@@ -239,7 +239,7 @@ public class ReplicaService {
                     } else {
                         int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryInterval().value();
                         if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)
-                            && replicaOperationRetryInterval > 0) {
+                                && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
                                     () -> partitionOperationsExecutor.execute(() -> res.completeExceptionally(errResp.throwable())),
