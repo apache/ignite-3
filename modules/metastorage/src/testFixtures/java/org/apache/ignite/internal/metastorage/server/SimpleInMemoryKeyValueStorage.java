@@ -916,4 +916,9 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             }
         };
     }
+
+    @Override
+    public CompletableFuture<Void> flush() {
+        return nullCompletedFuture();
+    }
 }

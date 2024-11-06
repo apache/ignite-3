@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type.NOT_EXISTS;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -389,5 +390,19 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         assertThat(checksumAndRevisions.checksum(), is(0L));
         assertThat(checksumAndRevisions.minChecksummedRevision(), is(2L));
         assertThat(checksumAndRevisions.maxChecksummedRevision(), is(2L));
+    }
+
+    @Test
+    void testFlush() throws Exception {
+        byte[] key = key(1);
+        byte[] value = keyValue(1, 1);
+
+        putToMs(key, value);
+
+        assertThat(storage.flush(), willCompleteSuccessfully());
+
+        restartStorage();
+
+        assertArrayEquals(value, storage.get(key).value());
     }
 }

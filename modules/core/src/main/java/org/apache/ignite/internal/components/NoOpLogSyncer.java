@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.components;
 
-/** Interface to synchronize write-ahead log. Operates only for persistent log storages. */
-@FunctionalInterface
-public interface LogSyncer {
-    /**
-     * Synchronizes write-ahead log.
-     *
-     * @throws Exception if an error occurs whilst syncing.
-     */
-    void sync() throws Exception;
+/** Implementation that does nothing. */
+public class NoOpLogSyncer implements LogSyncer {
+    @Override
+    public void sync() {
+        // No-op.
+    }
 }
