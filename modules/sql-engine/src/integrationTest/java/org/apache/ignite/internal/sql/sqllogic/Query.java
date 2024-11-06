@@ -21,6 +21,9 @@ import com.google.common.base.Strings;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -32,6 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.StringUtils;
 
@@ -451,6 +455,10 @@ final class Query extends Command {
             return ByteString.toString((byte[]) res, 16);
         } else if (res instanceof Map) {
             return mapToString(ctx, (Map<?, ?>) res);
+        } else if (res instanceof LocalTime) {
+            return ((LocalTime) res).format(DateTimeFormatter.ISO_TIME);
+        } else if (res instanceof LocalDateTime) {
+            return ((LocalDateTime) res).format(SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER);
         } else {
             return String.valueOf(res);
         }
