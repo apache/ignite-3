@@ -819,6 +819,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
+                metaStorageMgr.clusterTime(),
                 threadPoolsManager.tableIoExecutor()
         );
 

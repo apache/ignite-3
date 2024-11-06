@@ -120,6 +120,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-raft')))
     testFixturesImplementation(testFixtures(project(':ignite-replicator')))
     testFixturesImplementation(testFixtures(project(':ignite-marshaller-common')))
+    testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core

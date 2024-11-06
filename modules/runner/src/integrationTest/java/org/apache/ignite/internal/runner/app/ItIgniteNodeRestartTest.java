@@ -586,6 +586,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
+                metaStorageMgr.clusterTime(),
                 threadPoolsManager.tableIoExecutor()
         );
 

@@ -1370,6 +1370,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
+                    metaStorageManager.clusterTime(),
                     ForkJoinPool.commonPool()
             ));
 

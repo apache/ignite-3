@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-partition-distribution')
+    implementation project(':ignite-metastorage-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -56,10 +57,12 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-metastorage'))
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation(testFixtures(project(':ignite-failure-handler')))
+    testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
