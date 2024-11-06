@@ -61,6 +61,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -1160,12 +1161,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
-        storage.registerRevisionUpdateListener(listener);
+        inBusyLock(busyLock, () -> storage.registerRevisionUpdateListener(listener));
     }
 
     @Override
     public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
-        storage.unregisterRevisionUpdateListener(listener);
+        inBusyLock(busyLock, () -> storage.unregisterRevisionUpdateListener(listener));
     }
 
     /** Explicitly notifies revisions update listeners. */
@@ -1219,6 +1220,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public long getCompactionRevisionLocally() {
         return inBusyLock(busyLock, storage::getCompactionRevision);
+    }
+
+    @Override
+    public void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        inBusyLock(busyLock, () -> storage.registerCompactionRevisionUpdateListener(listener));
+    }
+
+    @Override
+    public void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
+        inBusyLock(busyLock, () -> storage.unregisterCompactionRevisionUpdateListener(listener));
     }
 
     @TestOnly
