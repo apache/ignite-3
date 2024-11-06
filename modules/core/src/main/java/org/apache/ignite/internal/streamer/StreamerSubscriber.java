@@ -244,7 +244,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     invokeResultSubscriber(res);
                 }
             });
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
             close(e);
             return CompletableFuture.failedFuture(e);
