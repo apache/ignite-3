@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -48,47 +50,53 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
 
     @Override
     public void onUpdate(Revisions currentRevisions) {
-        lock.lock();
-
-        try {
-            this.currentRevisions = currentRevisions;
-
-            completeRecoveryFinishFutureIfPossible();
-        } finally {
-            lock.unlock();
-        }
+        completeRecoveryFinishFutureIfPossible(() -> this.currentRevisions = currentRevisions);
     }
 
     void setTargetRevisions(Revisions targetRevisions) {
-        lock.lock();
-
-        try {
-            this.targetRevisions = targetRevisions;
-
-            completeRecoveryFinishFutureIfPossible();
-        } finally {
-            lock.unlock();
-        }
+        completeRecoveryFinishFutureIfPossible(() -> this.targetRevisions = targetRevisions);
     }
 
-    private void completeRecoveryFinishFutureIfPossible() {
+    private void completeRecoveryFinishFutureIfPossible(Runnable updateFieldFunction) {
         if (!busyLock.enterBusy()) {
             recoveryFinishFuture.completeExceptionally(new NodeStoppingException());
+
+            return;
         }
 
-        try {
-            if (targetRevisions == null
-                    || currentRevisions == null
-                    || currentRevisions.revision() < targetRevisions.revision()
-                    || currentRevisions.compactionRevision() < targetRevisions.compactionRevision()) {
-                return;
-            }
+        boolean recoveryAchieved = false;
+        Throwable throwable = null;
 
-            recoveryFinishFuture.complete(currentRevisions);
+        try {
+            lock.lock();
+
+            try {
+                updateFieldFunction.run();
+
+                recoveryAchieved = isRecoveryAchieved();
+            } finally {
+                lock.unlock();
+            }
         } catch (Throwable t) {
-            recoveryFinishFuture.completeExceptionally(t);
+            throwable = t;
         } finally {
             busyLock.leaveBusy();
         }
+
+        if (throwable != null) {
+            recoveryFinishFuture.completeExceptionally(throwable);
+
+            throw sneakyThrow(throwable);
+        } else if (recoveryAchieved) {
+            recoveryFinishFuture.complete(currentRevisions);
+        }
     }
+
+    private boolean isRecoveryAchieved() {
+        return targetRevisions != null
+                && currentRevisions != null
+                && currentRevisions.revision() >= targetRevisions.revision()
+                && currentRevisions.compactionRevision() >= targetRevisions.compactionRevision();
+    }
+
 }
