@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -167,37 +166,40 @@ public class MappingServiceImpl implements MappingService {
 
             return completedFuture(holder);
         } else {
-            Map<IgniteTable, CompletableFuture<List<TokenizedAssignments>>> tablesAssignments = newHashMap(tables.size());
-            Map<IgniteTable, List<TokenizedAssignments>> tablesAssignmentsResolved = newHashMap(tables.size());
+            Int2ObjectMap<CompletableFuture<List<TokenizedAssignments>>> tablesAssignments = new Int2ObjectOpenHashMap<>(tables.size());
+            Set<String> allNodes = new HashSet<>();
+
+            allNodes.add(localNodeName);
 
             for (IgniteTable tbl : tables) {
                 CompletableFuture<List<TokenizedAssignments>> assignments = distributionProvider
                         .forTable(clock.now(), tbl, mapOnBackups);
 
-                tablesAssignments.put(tbl, assignments);
+                tablesAssignments.put(tbl.id(), assignments);
             }
 
-            CompletableFuture<Void> all = CompletableFuture.allOf(tablesAssignments.values().toArray(new CompletableFuture[0]));
+            return CompletableFuture.allOf(tablesAssignments.values().toArray(new CompletableFuture[0]))
+                    .thenApply(ignore -> {
+                        Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable = new Int2ObjectOpenHashMap<>();
 
-            CompletableFuture<Set<String>> participantNodes = all.thenApply(
-                    v -> tablesAssignments.values().stream().map(CompletableFuture::join).flatMap(List::stream).flatMap(i -> i.nodes()
-                            .stream()).map(Assignment::consistentId).collect(Collectors.toSet()));
+                        tablesAssignments.keySet().forEach(k -> {
+                            List<TokenizedAssignments> assignments = tablesAssignments.get(k).join();
 
-            return participantNodes.thenApply(nodes -> {
-                nodes.add(localNodeName);
+                            assignments.stream().flatMap(i -> i.nodes().stream()).map(Assignment::consistentId).forEach(allNodes::add);
 
-                // this is a safe join, because we have waited for all futures to be completed
-                tablesAssignments.forEach((k, v) -> tablesAssignmentsResolved.put(k, v.join()));
+                            assignmentsPerTable.put(k, assignments);
+                        });
 
-                Map<String, List<String>> nodesPerView = views.stream()
-                        .collect(Collectors.toMap(IgniteDataSource::name, distributionProvider::forSystemView));
+                        return assignmentsPerTable;
+                    })
+                    .thenApply(assignmentsPerTable -> {
+                        Map<String, List<String>> nodesPerView = views.stream()
+                                .collect(Collectors.toMap(IgniteDataSource::name, distributionProvider::forSystemView));
 
-                List<String> viewNodes = nodesPerView.values().stream().flatMap(List::stream).collect(Collectors.toList());
+                        nodesPerView.values().stream().flatMap(List::stream).forEach(allNodes::add);
 
-                List<String> nodes0 = Stream.concat(viewNodes.stream(), nodes.stream()).distinct().collect(Collectors.toUnmodifiableList());
-
-                return new DistributionHolder(nodes0, tablesAssignmentsResolved, nodesPerView);
-            });
+                        return new DistributionHolder(new ArrayList<>(allNodes), assignmentsPerTable, nodesPerView);
+                    });
         }
     }
 
@@ -304,7 +306,8 @@ public class MappingServiceImpl implements MappingService {
     ) {
         Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
                 fragment.tables().values().stream()
-                        .map(table -> IntObjectPair.of(table.id(), buildTargetforTable(targetFactory, distr.tableAssignments(table)))));
+                        .map(table -> IntObjectPair.of(table.id(),
+                                buildTargetforTable(targetFactory, distr.tableAssignments(table.id())))));
 
         Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
                 .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.name())))));
@@ -412,12 +415,12 @@ public class MappingServiceImpl implements MappingService {
 
     private static class DistributionHolder {
         private final List<String> nodes;
-        private final Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable;
+        private final Map<Integer, List<TokenizedAssignments>> assignmentsPerTable;
         private final Map<String, List<String>> nodesPerView;
 
         DistributionHolder(
                 List<String> nodes,
-                Map<IgniteTable, List<TokenizedAssignments>> assignmentsPerTable,
+                Map<Integer, List<TokenizedAssignments>> assignmentsPerTable,
                 Map<String, List<String>> nodesPerView) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
@@ -428,8 +431,8 @@ public class MappingServiceImpl implements MappingService {
             return nodes;
         }
 
-        List<TokenizedAssignments> tableAssignments(IgniteTable table) {
-            return assignmentsPerTable.get(table);
+        List<TokenizedAssignments> tableAssignments(int tableId) {
+            return assignmentsPerTable.get(tableId);
         }
 
         List<String> viewNodes(String viewName) {
