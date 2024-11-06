@@ -43,8 +43,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
 /**
- * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage. Requires
- * enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
+ * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
+ * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
     /** Logger. */
@@ -105,13 +105,13 @@ public class RocksDbFlusher {
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to run flush completion closure, provided by {@code onFlushCompleted} parameter.
-     * @param delaySupplier Supplier of delay values to batch independent flush requests. When {@link #awaitFlush(boolean)} is
-     *         called with {@code true} parameter, the flusher waits given number of milliseconds (using {@code scheduledPool}) and then
-     *         executes flush only if there were no other {@code awaitFlush(true)} calls. Otherwise, it does nothing after the timeout. This
-     *         guarantees that either the last one wins, or automatic flush wins if there's an endless stream of {@code awaitFlush(true)}
-     *         calls with very small time-intervals between them. Such behavior allows to save on unnecessary flushes when multiple await
-     *         flush calls appear at roughly the same time from different threads. For example, several partitions might be flushed at the
-     *         same time, because they started at the same time and their flush frequency is also the same.
+     * @param delaySupplier Supplier of delay values to batch independent flush requests. When {@link #awaitFlush(boolean)} is called with
+     *      {@code true} parameter, the flusher waits given number of milliseconds (using {@code scheduledPool}) and then executes flush
+     *      only if there were no other {@code awaitFlush(true)} calls. Otherwise, it does nothing after the timeout. This guarantees that
+     *      either the last one wins, or automatic flush wins if there's an endless stream of {@code awaitFlush(true)} calls with very small
+     *      time-intervals between them. Such behavior allows to save on unnecessary flushes when multiple await flush calls appear at
+     *      roughly the same time from different threads. For example, several partitions might be flushed at the same time, because they
+     *      started at the same time and their flush frequency is also the same.
      * @param onFlushCompleted Flush completion callback. Executed on every individual column family flush.
      */
     public RocksDbFlusher(
@@ -143,8 +143,7 @@ public class RocksDbFlusher {
      * Initializes the flusher with DB instance and a list of column families.
      *
      * @param db Rocks DB instance.
-     * @param columnFamilyHandles List of all column families. Column families missing from this list may not have flush events
-     *         processed.
+     * @param columnFamilyHandles List of all column families. Column families missing from this list may not have flush events processed.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public void init(RocksDB db, List<ColumnFamilyHandle> columnFamilyHandles) {
@@ -179,14 +178,15 @@ public class RocksDbFlusher {
 
     /**
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
-     * achieve this, by fixing its value at the time of invocation. Storage is considered flushed when at least one persisted column family
-     * has its latest sequence number greater or equal to the one that we fixed. This is enough to guarantee that all column families have
-     * up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option enabled.
+     * achieve this, by fixing its value at the time of invocation. Storage is considered flushed when at least one persisted column
+     * family has its latest sequence number greater or equal to the one that we fixed. This is enough to guarantee that all column families
+     * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
+     * enabled.
      *
-     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
-     *         Please refer to
-     *         {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
-     *         LogSyncer, Runnable)} parameters description to see what's really happening in this case.
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
+     *      to {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
+     *      LogSyncer, Runnable)} parameters description to see what's really happening in this case.
+     *
      * @see #scheduleFlush()
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {

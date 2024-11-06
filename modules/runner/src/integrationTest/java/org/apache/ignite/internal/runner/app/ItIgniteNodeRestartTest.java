@@ -105,7 +105,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -477,19 +477,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
-
-        LogStorageFactory msLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                clusterSvc.nodeName(),
-                metastorageWorkDir.raftLogPath()
-        );
-
-        LogSyncer logSyncer = () -> {
-            partitionsLogStorageFactory.sync();
-
-            msLogStorageFactory.sync();
-        };
-
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         var metaStorage = new RocksDbKeyValueStorage(
@@ -497,12 +484,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dir.resolve("metastorage"),
                 new NoOpFailureManager(),
                 readOperationForCompactionTracker,
-                logSyncer
+                new NoOpLogSyncer()
         );
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
         CompletableFuture<LongSupplier> maxClockSkewFuture = new CompletableFuture<>();
+
+        ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
+
+        LogStorageFactory msLogStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -655,7 +647,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        logSyncer,
+                        new NoOpLogSyncer(),
                         hybridClock
                 ),
                 storageConfiguration
@@ -736,7 +728,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                logSyncer,
+                new NoOpLogSyncer(),
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,

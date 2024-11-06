@@ -308,6 +308,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
         );
 
+        // TODO: IGNITE-23615 Use a common pool, eg ThreadPoolsManager#commonScheduler
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-scheduler", log)
         );

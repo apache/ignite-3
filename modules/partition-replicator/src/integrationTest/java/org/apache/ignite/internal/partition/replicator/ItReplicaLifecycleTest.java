@@ -96,7 +96,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1058,7 +1058,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             failureManager = new NoOpFailureManager();
 
-            var cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
+            ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
@@ -1080,19 +1080,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     cmgRaftConfigurer
             );
 
-            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
-            var metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
-
-            msLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
-
-            LogSyncer logSyncer = () -> {
-                partitionsLogStorageFactory.sync();
-
-                cmgLogStorageFactory.sync();
-
-                msLogStorageFactory.sync();
-            };
+            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -1101,7 +1089,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     resolveDir(dir, "metaStorageTestKeyValue"),
                     failureManager,
                     readOperationForCompactionTracker,
-                    logSyncer
+                    new NoOpLogSyncer()
             );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1110,6 +1098,11 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     Loza.FACTORY,
                     raftGroupEventsClientListener
             );
+
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -1209,7 +1202,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            logSyncer,
+                            new NoOpLogSyncer(),
                             hybridClock
                     ),
                     storageConfiguration
@@ -1337,7 +1330,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logSyncer,
+                    new NoOpLogSyncer(),
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService
             ) {
