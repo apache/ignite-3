@@ -19,7 +19,6 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -116,13 +115,32 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
                 null,
                 token,
                 "SELECT 1"
-        );
+        ).join();
 
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                "The query was cancelled while executing.",
-                run::run
-        );
+        expectQueryCancelled(run);
+    }
+
+    @Test
+    public void testPrepareWontStartWhenHandleIsCancelled() {
+        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
+                .build();
+
+        QueryProcessor qryProc = queryProcessor();
+
+        CancelHandleImpl handle = (CancelHandleImpl) CancelHandle.create();
+        CancellationToken token = handle.token();
+
+        handle.cancel();
+
+        Runnable run = () -> qryProc.prepareSingleAsync(
+                properties,
+                null,
+                token,
+                "SELECT 1"
+        ).join();
+
+        expectQueryCancelled(run);
     }
 
     private static void expectQueryCancelled(Runnable action) {

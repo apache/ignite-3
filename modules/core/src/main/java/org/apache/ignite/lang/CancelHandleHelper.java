@@ -21,7 +21,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.CancelHandleImpl.CancellationTokenImpl;
 
-/** Helper. */
+/**
+ * Utility class to provide direct access to internals of {@link CancelHandleImpl}.
+ */
 public final class CancelHandleHelper {
 
     private CancelHandleHelper() {
@@ -45,24 +47,6 @@ public final class CancelHandleHelper {
         if (token instanceof CancellationTokenImpl) {
             CancellationTokenImpl t = (CancellationTokenImpl) token;
             t.addCancelAction(cancelAction, completionFut);
-        } else {
-            throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
-        }
-    }
-
-    /**
-     * Checks if the given token was cancelled.
-     *
-     * @param token Cancellation token.
-     *
-     * @return {@code true} if taken was cancelled.
-     */
-    public static boolean isCancelled(CancellationToken token) {
-        Objects.requireNonNull(token, "token");
-
-        if (token instanceof CancellationTokenImpl) {
-            CancellationTokenImpl t = (CancellationTokenImpl) token;
-            return t.isCancelled();
         } else {
             throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
         }
