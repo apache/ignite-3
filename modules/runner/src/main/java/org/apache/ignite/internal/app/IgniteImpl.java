@@ -1102,6 +1102,8 @@ public class IgniteImpl implements Ignite {
                 computeCfg
         );
 
+        systemViewManager.register(computeComponent);
+
         compute = new IgniteComputeImpl(
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),

@@ -220,7 +220,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
+        assertTrue(waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000));
         assertThat(queryProcessor().runningQueries(), is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "

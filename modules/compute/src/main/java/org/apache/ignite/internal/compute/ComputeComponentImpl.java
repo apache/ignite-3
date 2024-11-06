@@ -56,6 +56,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -90,6 +91,8 @@ public class ComputeComponentImpl implements ComputeComponent {
     private final ExecutionManager executionManager;
 
     private final ExecutorService failoverExecutor;
+
+    private final ComputeViewProvider computeViewProvider = new ComputeViewProvider();
 
     /**
      * Creates a new instance.
@@ -271,6 +274,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         executor.start();
         messaging.start(this::executeLocally);
         executionManager.start();
+        computeViewProvider.init(executionManager);
 
         return nullCompletedFuture();
     }
@@ -320,5 +324,10 @@ public class ComputeComponentImpl implements ComputeComponent {
     @TestOnly
     ExecutionManager executionManager() {
         return executionManager;
+    }
+
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(computeViewProvider.get());
     }
 }
