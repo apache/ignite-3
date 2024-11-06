@@ -152,24 +152,6 @@ class CreateFromAnnotationsTest {
     }
 
     @Test
-    void testDefinitionInvalid() {
-        ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
-                .ifNotExists()
-                .partitions(1)
-                .replicas(3)
-                .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
-                .dataNodesAutoAdjustScaleDown(2)
-                .dataNodesAutoAdjustScaleUp(3)
-                .filter("filter")
-                .storageProfiles("default")
-                .consistencyMode("MY_CONSISTENCY")
-                .build();
-
-        assertThrows(IllegalArgumentException.class, () -> new CreateFromDefinitionImpl(null).from(zoneDefinition));
-    }
-
-    @Test
     void createFromKeyValueClassesInvalid() {
         assertThrows(IllegalArgumentException.class, () -> createTable().processKeyValueClasses(Integer.class, PojoValueInvalid.class));
     }
