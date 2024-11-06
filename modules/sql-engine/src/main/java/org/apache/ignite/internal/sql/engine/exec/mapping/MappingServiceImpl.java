@@ -183,6 +183,7 @@ public class MappingServiceImpl implements MappingService {
                         Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable = new Int2ObjectOpenHashMap<>();
 
                         tablesAssignments.keySet().forEach(k -> {
+                            // this is a safe join, because we have waited for all futures to be completed
                             List<TokenizedAssignments> assignments = tablesAssignments.get(k).join();
 
                             assignments.stream().flatMap(i -> i.nodes().stream()).map(Assignment::consistentId).forEach(allNodes::add);
