@@ -470,7 +470,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @throws IOException If failed.
      */
-    private void destroyRocksDb() throws IOException {
+    protected void destroyRocksDb() throws IOException {
         // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
         IgniteUtils.deleteIfExists(dbPath);
 
