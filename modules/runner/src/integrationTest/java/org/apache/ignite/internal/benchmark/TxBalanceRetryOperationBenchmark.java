@@ -98,6 +98,9 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         new Runner(opt).run();
     }
 
+    /**
+     * Setup.
+     */
     @Setup(Level.Trial)
     public void setup() {
         recordView = publicIgnite.tables().table(TABLE_NAME).recordView();
@@ -112,10 +115,16 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         tx.commit();
     }
 
-    @TearDown(Level.Trial)
+    /**
+     * Print counters.
+     *
+     * @param counters Counters.
+     */
+    @TearDown(Level.Iteration)
     public void printCounters(TxnCounters counters) {
         LOG.info("Total txns: " + counters.txnCounter.get());
         LOG.info("Rolled back txns: " + counters.rollbackCounter.get());
+        counters.reset();
     }
 
     @Override
@@ -130,6 +139,11 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         );
     }
 
+    /**
+     * Perform transaction.
+     *
+     * @param state Benchmark state.
+     */
     @Benchmark
     public void doTx(BenchmarkState state) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -152,11 +166,19 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         }
     }
 
+    /**
+     * Transaction state.
+     */
     @State(Scope.Thread)
     public static class BenchmarkState {
         InternalTransaction tx;
         boolean toBeRolledBack;
 
+        /**
+         * Start transaction.
+         *
+         * @param counters Counters.
+         */
         @Setup(Level.Invocation)
         public void startTx(TxnCounters counters) {
             tx = (InternalTransaction) transactions.begin();
@@ -164,6 +186,11 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
             counters.txnCounter.incrementAndGet();
         }
 
+        /**
+         * Finish transaction.
+         *
+         * @param counters Counters.
+         */
         @TearDown(Level.Invocation)
         public void finishTx(TxnCounters counters) {
             if (toBeRolledBack) {
@@ -183,9 +210,17 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         }
     }
 
+    /**
+     * Transaction counters.
+     */
     @State(Scope.Benchmark)
     public static class TxnCounters {
         AtomicInteger txnCounter = new AtomicInteger();
         AtomicInteger rollbackCounter = new AtomicInteger();
+
+        void reset() {
+            txnCounter.set(0);
+            rollbackCounter.set(0);
+        }
     }
 }

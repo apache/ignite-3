@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.benchmark;
 
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,8 +65,6 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
 
     private static IgniteTransactions transactions;
 
-    private Set<UUID> txns = ConcurrentHashMap.newKeySet();
-
     @Param({"false"})
     private boolean fsync;
 
@@ -103,6 +98,9 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
         new Runner(opt).run();
     }
 
+    /**
+     * Setup.
+     */
     @Setup(Level.Trial)
     public void setup() {
         recordView = publicIgnite.tables().table(TABLE_NAME).recordView();
@@ -117,9 +115,16 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
         tx.commit();
     }
 
-    @TearDown(Level.Trial)
-    public void checkTxnsCompleted() {
-        assert txns.isEmpty();
+    /**
+     * Print counters.
+     *
+     * @param counters Counters.
+     */
+    @TearDown(Level.Iteration)
+    public void printCounters(TxnCounters counters) {
+        LOG.info("Total txns: " + counters.txnCounter.get());
+        LOG.info("Rolled back txns: " + counters.rollbackCounter.get());
+        counters.reset();
     }
 
     @Override
@@ -134,6 +139,11 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
         );
     }
 
+    /**
+     * Perform a transaction.
+     *
+     * @param state Benchmark state.
+     */
     @Benchmark
     public void doTx(BenchmarkState state) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -148,11 +158,17 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
         }
     }
 
+    /**
+     * Benchmark state.
+     */
     @State(Scope.Thread)
     public static class BenchmarkState {
         InternalTransaction tx;
         boolean toBeRolledBack;
 
+        /**
+         * Start transaction.
+         */
         @Setup(Level.Invocation)
         public void startTx(TxnCounters counters) {
             tx = (InternalTransaction) transactions.begin();
@@ -160,6 +176,9 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
             counters.txnCounter.incrementAndGet();
         }
 
+        /**
+         * Finish transaction.
+         */
         @TearDown(Level.Invocation)
         public void finishTx(TxnCounters counters) {
             if (toBeRolledBack) {
@@ -179,9 +198,17 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
         }
     }
 
+    /**
+     * Transaction counters.
+     */
     @State(Scope.Benchmark)
     public static class TxnCounters {
         AtomicInteger txnCounter = new AtomicInteger();
         AtomicInteger rollbackCounter = new AtomicInteger();
+
+        void reset() {
+            txnCounter.set(0);
+            rollbackCounter.set(0);
+        }
     }
 }
