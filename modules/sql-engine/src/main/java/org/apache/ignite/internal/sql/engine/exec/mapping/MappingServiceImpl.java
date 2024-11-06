@@ -180,7 +180,7 @@ public class MappingServiceImpl implements MappingService {
 
             return CompletableFuture.allOf(tablesAssignments.values().toArray(new CompletableFuture[0]))
                     .thenApply(ignore -> {
-                        Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable = new Int2ObjectOpenHashMap<>();
+                        Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable = new Int2ObjectOpenHashMap<>(tables.size());
 
                         tablesAssignments.keySet().forEach(k -> {
                             // this is a safe join, because we have waited for all futures to be completed
