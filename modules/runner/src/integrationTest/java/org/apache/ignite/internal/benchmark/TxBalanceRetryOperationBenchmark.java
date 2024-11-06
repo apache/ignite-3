@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -35,6 +36,7 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -46,23 +48,44 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+/**
+ * Benchmark that tests lock conflicts on concurrent balance transfers.
+ */
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(8)
-@Warmup(iterations = 3, time = 5)
-@Measurement(iterations = 3, time = 10)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@Warmup(iterations = 3, time = 10)
+@Measurement(iterations = 2, time = 30)
+@BenchmarkMode({Mode.AverageTime, Mode.Throughput})
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark {
-    private static final int KEYS_UPPER_BOUND = 100;
+    private static final IgniteLogger LOG = Loggers.forClass(TxBalanceRetryOperationBenchmark.class);
 
     private static RecordView<Tuple> recordView;
 
     private static IgniteTransactions transactions;
 
-    private Set<UUID> txns = ConcurrentHashMap.newKeySet();
+    @Param({"false"})
+    private boolean fsync;
 
-    private InternalTransaction tx;
+    @Param({"100", "1000"})
+    private int keysUpperBound;
+
+    @Param({"waitTimeout", "replicaOperationRetry"})
+    private String txRetryMode;
+
+    @Override
+    protected String clusterConfiguration() {
+        if (txRetryMode.equals("waitTimeout")) {
+            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 1000, txIdComparator: NATURAL } },"
+                    + "replication: { replicaOperationRetryInterval: 0 }";
+        } else {
+            assert txRetryMode.equals("replicaOperationRetry");
+
+            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NATURAL } },"
+                    + "replication: { replicaOperationRetryInterval: 10 }";
+        }
+    }
 
     /**
      * Benchmark's entry point.
@@ -75,43 +98,47 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
         new Runner(opt).run();
     }
 
-    @Setup(Level.Invocation)
-    public void startTx() {
-        tx = (InternalTransaction) transactions.begin();
-        txns.add(tx.id());
-    }
-
-    @TearDown(Level.Invocation)
-    public void finishTx() {
-        try {
-            tx.commit();
-        } catch (MismatchingTransactionOutcomeException ex) {
-
-        } finally {
-            txns.remove(tx.id());
-        }
-    }
-
     @Setup(Level.Trial)
     public void setup() {
         recordView = publicIgnite.tables().table(TABLE_NAME).recordView();
         transactions = publicIgnite.transactions();
+
+        Transaction tx = transactions.begin();
+
+        for (int i = 0; i < keysUpperBound; i++) {
+            recordView.insert(tx, Tuple.create().set("id", i).set("amount", 1000.0f));
+        }
+
+        tx.commit();
     }
 
     @TearDown(Level.Trial)
-    public void checkTxnsCompleted() {
-        assert txns.isEmpty();
+    public void printCounters(TxnCounters counters) {
+        LOG.info("Total txns: " + counters.txnCounter.get());
+        LOG.info("Rolled back txns: " + counters.rollbackCounter.get());
+    }
+
+    @Override
+    protected void createTable(String tableName) {
+        createTable(tableName,
+                List.of(
+                        "id int",
+                        "amount float"
+                ),
+                List.of("id"),
+                List.of()
+        );
     }
 
     @Benchmark
-    public void doTx() {
+    public void doTx(BenchmarkState state) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        Transaction tx = transactions.begin();
+        Transaction tx = state.tx;
 
-        int from = random.nextInt(KEYS_UPPER_BOUND);
+        int from = random.nextInt(keysUpperBound);
         int to = from;
         while (to == from) {
-            to = random.nextInt(KEYS_UPPER_BOUND);
+            to = random.nextInt(keysUpperBound);
         }
 
         try {
@@ -121,14 +148,44 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
             recordView.upsert(tx, Tuple.create().set("id", from).set("amount", amountFrom - 10));
             recordView.upsert(tx, Tuple.create().set("id", to).set("amount", amountTo + 10));
         } catch (Exception e) {
-            System.out.println("qqq " + e);
+            state.toBeRolledBack = true;
+        }
+    }
 
-            boolean rolledBack = true;
+    @State(Scope.Thread)
+    public static class BenchmarkState {
+        InternalTransaction tx;
+        boolean toBeRolledBack;
+
+        @Setup(Level.Invocation)
+        public void startTx(TxnCounters counters) {
+            tx = (InternalTransaction) transactions.begin();
+            toBeRolledBack = false;
+            counters.txnCounter.incrementAndGet();
+        }
+
+        @TearDown(Level.Invocation)
+        public void finishTx(TxnCounters counters) {
+            if (toBeRolledBack) {
+                try {
+                    tx.rollback();
+                } catch (MismatchingTransactionOutcomeException ex) {
+                    // No-op.
+                }
+
+                counters.rollbackCounter.incrementAndGet();
+            }
             try {
-                tx.rollback();
+                tx.commit();
             } catch (MismatchingTransactionOutcomeException ex) {
-                rolledBack = false;
+                counters.rollbackCounter.incrementAndGet();
             }
         }
+    }
+
+    @State(Scope.Benchmark)
+    public static class TxnCounters {
+        AtomicInteger txnCounter = new AtomicInteger();
+        AtomicInteger rollbackCounter = new AtomicInteger();
     }
 }
