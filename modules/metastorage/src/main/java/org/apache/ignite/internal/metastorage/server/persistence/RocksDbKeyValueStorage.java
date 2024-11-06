@@ -46,6 +46,8 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
@@ -311,6 +313,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void start() {
+        inBusyLock(busyLock, this::startBusy);
+    }
+
+    private void startBusy() {
         rwLock.writeLock().lock();
 
         try {
@@ -1655,12 +1661,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public CompletableFuture<Void> flush() {
-        rwLock.writeLock().lock();
-
-        try {
-            return flusher.awaitFlush(true);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
+        return inBusyLockAsync(busyLock, () -> flusher.awaitFlush(true));
     }
 }
