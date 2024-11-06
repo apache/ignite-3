@@ -40,6 +40,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Base test class for Cluster Recovery partition states commands. */
+// TODO IGNITE-23617 refactor to use more flexible output matching.
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -311,6 +312,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
             }
         }
 
-        assertOutputContains(DEFAULT_SCHEMA_NAME);
+        if (partitions != 0) {
+            assertOutputContains(DEFAULT_SCHEMA_NAME);
+        }
     }
 }

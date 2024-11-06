@@ -76,7 +76,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
-        int tableId = getTableId(TABLE_NAME);
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
 
         assertQuery(globalPartitionStatesSystemViewSql())
                 .returns(ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, AVAILABLE.name())
@@ -99,7 +99,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         String nodeName0 = nodeNames.get(0);
         String nodeName1 = nodeNames.get(1);
 
-        int tableId = getTableId(TABLE_NAME);
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
 
         assertQuery(localPartitionStatesSystemViewSql())
                 .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name())
@@ -142,9 +142,9 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.LOCAL_PARTITION_STATES";
     }
 
-    private static int getTableId(String tableName) {
+    private static int getTableId(String schemaName, String tableName) {
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(tableName).id();
+        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
     }
 }
