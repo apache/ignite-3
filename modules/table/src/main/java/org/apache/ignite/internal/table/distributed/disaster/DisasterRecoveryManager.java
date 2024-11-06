@@ -248,7 +248,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
         try {
             Catalog catalog = catalogLatestVersion();
 
@@ -258,7 +258,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds));
+            return processNewRequest(
+                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds, manualUpdate)
+            );
         } catch (Throwable t) {
             return failedFuture(t);
         }
