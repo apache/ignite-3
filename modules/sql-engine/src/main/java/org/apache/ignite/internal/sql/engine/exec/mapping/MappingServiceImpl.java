@@ -162,7 +162,7 @@ public class MappingServiceImpl implements MappingService {
             boolean mapOnBackups
     ) {
         if (tables.isEmpty() && views.isEmpty()) {
-            DistributionHolder holder = new DistributionHolder(List.of(localNodeName), Map.of(), Map.of());
+            DistributionHolder holder = new DistributionHolder(Set.of(localNodeName), Map.of(), Map.of());
 
             return completedFuture(holder);
         } else {
@@ -194,12 +194,12 @@ public class MappingServiceImpl implements MappingService {
                         return assignmentsPerTable;
                     })
                     .thenApply(assignmentsPerTable -> {
-                        Map<String, List<String>> nodesPerView = views.stream()
-                                .collect(Collectors.toMap(IgniteDataSource::name, distributionProvider::forSystemView));
+                        Map<Integer, List<String>> nodesPerView = views.stream()
+                                .collect(Collectors.toMap(IgniteDataSource::id, distributionProvider::forSystemView));
 
                         nodesPerView.values().stream().flatMap(List::stream).forEach(allNodes::add);
 
-                        return new DistributionHolder(new ArrayList<>(allNodes), assignmentsPerTable, nodesPerView);
+                        return new DistributionHolder(allNodes, assignmentsPerTable, nodesPerView);
                     });
         }
     }
@@ -219,7 +219,7 @@ public class MappingServiceImpl implements MappingService {
         return res.thenApply(assignments -> {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
-            MappingContext context = new MappingContext(localNodeName, assignments.nodes(), template.cluster);
+            MappingContext context = new MappingContext(localNodeName, new ArrayList<>(assignments.nodes()), template.cluster);
 
             ExecutionTargetFactory targetFactory = context.targetFactory();
 
@@ -311,7 +311,7 @@ public class MappingServiceImpl implements MappingService {
                                 buildTargetforTable(targetFactory, distr.tableAssignments(table.id())))));
 
         Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
-                .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.name())))));
+                .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.id())))));
 
         return Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
     }
@@ -415,20 +415,20 @@ public class MappingServiceImpl implements MappingService {
     }
 
     private static class DistributionHolder {
-        private final List<String> nodes;
+        private final Set<String> nodes;
         private final Map<Integer, List<TokenizedAssignments>> assignmentsPerTable;
-        private final Map<String, List<String>> nodesPerView;
+        private final Map<Integer, List<String>> nodesPerView;
 
         DistributionHolder(
-                List<String> nodes,
+                Set<String> nodes,
                 Map<Integer, List<TokenizedAssignments>> assignmentsPerTable,
-                Map<String, List<String>> nodesPerView) {
+                Map<Integer, List<String>> nodesPerView) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
             this.nodesPerView = nodesPerView;
         }
 
-        List<String> nodes() {
+        Set<String> nodes() {
             return nodes;
         }
 
@@ -436,8 +436,8 @@ public class MappingServiceImpl implements MappingService {
             return assignmentsPerTable.get(tableId);
         }
 
-        List<String> viewNodes(String viewName) {
-            return nodesPerView.get(viewName);
+        List<String> viewNodes(int viewId) {
+            return nodesPerView.get(viewId);
         }
     }
 }
