@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -51,11 +51,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -155,7 +155,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet());
 
-            CompletableFuture<?>[] futures = forceAssignmentsUpdate(
+            return forceAssignmentsUpdate(
                     tableDescriptor,
                     zoneDescriptor,
                     dataNodes,
@@ -165,8 +165,6 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     localStatesMap,
                     catalog.time()
             );
-
-            return allOf(futures);
         }).thenCompose(Function.identity());
     }
 
@@ -181,10 +179,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
-     * @param localStatesMap Local partition states retrieved by {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
+     * @param localStatesMap Local partition states retrieved by
+     *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
-    private CompletableFuture<?>[] forceAssignmentsUpdate(
+    private CompletableFuture<Void> forceAssignmentsUpdate(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
@@ -194,45 +193,69 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp
     ) {
-        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
-                metaStorageManager,
-                tableDescriptor.id(),
-                partitionIds,
-                zoneDescriptor.partitions()
-        );
+        int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
 
+        return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIdsArray)
+                .thenCompose(tableAssignments -> {
+                    if (tableAssignments.isEmpty()) {
+                        return nullCompletedFuture();
+                    }
+
+                    return updateAssignments(
+                            tableDescriptor,
+                            zoneDescriptor,
+                            dataNodes,
+                            aliveNodesConsistentIds,
+                            revision,
+                            metaStorageManager,
+                            localStatesMap,
+                            assignmentsTimestamp,
+                            partitionIdsArray,
+                            tableAssignments,
+                            this.manualUpdate
+                    );
+                });
+    }
+
+    private static CompletableFuture<Void> updateAssignments(
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<String> dataNodes,
+            Set<String> aliveNodesConsistentIds,
+            long revision,
+            MetaStorageManager metaStorageManager,
+            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            long assignmentsTimestamp,
+            int[] partitionIdsArray,
+            Map<Integer, Assignments> tableAssignments,
+            boolean manualUpdate
+    ) {
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
-
-        int[] partitionIdsArray = partitionIds.isEmpty()
-                ? IntStream.range(0, zoneDescriptor.partitions()).toArray()
-                : partitionIds.stream().mapToInt(Integer::intValue).toArray();
 
         CompletableFuture<?>[] futures = new CompletableFuture[partitionIdsArray.length];
 
-        for (int partitionId = 0; partitionId < partitionIdsArray.length; partitionId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIdsArray[partitionId]);
+        for (int i = 0; i < partitionIdsArray.length; i++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIdsArray[i]);
 
-            futures[partitionId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : partitionUpdate(
-                            replicaGrpId,
-                            aliveDataNodes,
-                            aliveNodesConsistentIds,
-                            zoneDescriptor.replicas(),
-                            revision,
-                            metaStorageManager,
-                            tableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                            localStatesMap.get(replicaGrpId),
-                            assignmentsTimestamp,
-                            this.manualUpdate
-                    )).thenAccept(res -> {
-                        DisasterRecoveryManager.LOG.info(
-                                "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
-                        );
-                    }
-            );
+            futures[i] = partitionUpdate(
+                    replicaGrpId,
+                    aliveDataNodes,
+                    aliveNodesConsistentIds,
+                    zoneDescriptor.replicas(),
+                    revision,
+                    metaStorageManager,
+                    tableAssignments.get(replicaGrpId.partitionId()).nodes(),
+                    localStatesMap.get(replicaGrpId),
+                    assignmentsTimestamp,
+                    manualUpdate
+            ).thenAccept(res -> {
+                DisasterRecoveryManager.LOG.info(
+                        "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
+                );
+            });
         }
 
-        return futures;
+        return allOf(futures);
     }
 
     private static CompletableFuture<Integer> partitionUpdate(
