@@ -21,9 +21,11 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -85,8 +87,10 @@ public class CatalogTestUtils {
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
+                assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
                 return allOf(
-                        metastore.startAsync(componentContext),
                         clockWaiter.startAsync(componentContext),
                         super.startAsync(componentContext)
                 ).thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());

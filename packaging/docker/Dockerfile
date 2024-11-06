@@ -22,6 +22,8 @@ ENV JVM_MIN_MEM="16g"
 ENV JVM_GC="G1GC"
 ENV JVM_G1HeapRegionSize="32M"
 
+ENV IGNITE3_EXTRA_JVM_ARGS=""
+
 # Copy and setup DB app
 ENV IGNITE_HOME=/opt/ignite
 

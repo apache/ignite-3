@@ -105,7 +105,12 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark, indexMetaStorage);
 
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         indexChooser.start();
 

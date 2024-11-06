@@ -104,7 +104,6 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -639,8 +638,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Path storagePath = getPartitionsStorePath(dir);
 
-        LogSyncer logSyncer = partitionsLogStorageFactory;
-
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
@@ -648,7 +645,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        logSyncer,
+                        partitionsLogStorageFactory,
                         hybridClock
                 ),
                 storageConfiguration
@@ -729,7 +726,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                logSyncer,
+                partitionsLogStorageFactory,
                 new PartitionReplicaLifecycleManager(
                         catalogManager,
                         replicaMgr,

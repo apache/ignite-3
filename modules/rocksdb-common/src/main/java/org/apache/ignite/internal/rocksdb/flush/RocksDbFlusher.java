@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -279,6 +281,18 @@ public class RocksDbFlusher {
      * @return Future that completes when the {@code onFlushCompleted} callback finishes.
      */
     CompletableFuture<Void> onFlushCompleted() {
-        return CompletableFuture.runAsync(onFlushCompleted, threadPool);
+        return inBusyLockSafeAsync(() -> runAsync(onFlushCompleted, threadPool));
+    }
+
+    private CompletableFuture<Void> inBusyLockSafeAsync(Supplier<CompletableFuture<Void>> supplier) {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

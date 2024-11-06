@@ -108,7 +108,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1311,8 +1310,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            LogSyncer logSyncer = logStorageFactory;
-
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
@@ -1320,7 +1317,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            logSyncer,
+                            logStorageFactory,
                             hybridClock
                     ),
                     storageConfiguration
@@ -1435,7 +1432,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logSyncer,
+                    logStorageFactory,
                     new PartitionReplicaLifecycleManager(
                             catalogManager,
                             replicaManager,

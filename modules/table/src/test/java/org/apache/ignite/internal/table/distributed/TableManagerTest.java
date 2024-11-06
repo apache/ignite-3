@@ -279,7 +279,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, catalogMetastore), willCompleteSuccessfully());
+        assertThat(catalogMetastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         revisionUpdater = new MetaStorageRevisionListenerRegistry(catalogMetastore);
 

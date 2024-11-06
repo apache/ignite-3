@@ -99,8 +99,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker));
 
         metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
-
-        components.add(metaStorageManager);
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
         clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
@@ -146,6 +146,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.forEach(component -> toCloseList.add(component::beforeNodeStop));
         toCloseList.add(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()));
+
+        toCloseList.add(() -> metaStorageManager.beforeNodeStop());
+        toCloseList.add(() -> assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
+
         toCloseList.add(keyValueStorage::close);
 
         closeAll(toCloseList);

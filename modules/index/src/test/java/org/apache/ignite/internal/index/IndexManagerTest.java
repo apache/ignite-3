@@ -244,9 +244,16 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 lowWatermark
         );
 
+        ComponentContext context = new ComponentContext();
+
         assertThat(
-                startAsync(new ComponentContext(), metaStorageManager, catalogManager, indexManager)
-                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                startAsync(context, metaStorageManager)
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(
+                startAsync(context, catalogManager, indexManager)
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
