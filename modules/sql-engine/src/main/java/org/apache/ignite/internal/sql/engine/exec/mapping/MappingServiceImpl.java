@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -180,14 +179,9 @@ public class MappingServiceImpl implements MappingService {
 
             CompletableFuture<Void> all = CompletableFuture.allOf(tablesAssignments.values().toArray(new CompletableFuture[0]));
 
-            CompletableFuture<Map<IgniteTable, List<TokenizedAssignments>>> fut = all.thenApply(v -> tablesAssignments.entrySet().stream()
-                    .map(e -> Map.entry(e.getKey(), e.getValue().join()))
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
-            );
-
-            CompletableFuture<Set<String>> participantNodes = fut.thenApply(
-                    v -> v.values().stream().flatMap(List::stream).flatMap(i -> i.nodes().stream()).map(Assignment::consistentId)
-                            .collect(Collectors.toSet()));
+            CompletableFuture<Set<String>> participantNodes = all.thenApply(
+                    v -> tablesAssignments.values().stream().map(CompletableFuture::join).flatMap(List::stream).flatMap(i -> i.nodes()
+                            .stream()).map(Assignment::consistentId).collect(Collectors.toSet()));
 
             return participantNodes.thenApply(nodes -> {
                 nodes.add(localNodeName);
