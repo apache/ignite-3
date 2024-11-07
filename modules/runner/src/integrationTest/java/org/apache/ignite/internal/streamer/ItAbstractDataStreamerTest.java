@@ -502,6 +502,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
+        // TODO: SubmissionPublisher discards buffered items on close.
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
                     .pageSize(10)
