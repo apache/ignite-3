@@ -66,4 +66,10 @@ public interface VersionedValue<T> {
      * @param action Action to remove.
      */
     void removeWhenComplete(CompletionListener<T> action);
+
+    /** Adds a listener. */
+    void whenDelete(DeletionListener<T> action);
+
+    /** Removes a listener. */
+    void removeWhenDelete(DeletionListener<T> action);
 }
