@@ -230,6 +230,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), err);
 
                     // Release IO thread - close the streamer using the flush executor.
+                    // TODO: As a result, close is called earlier without an error.
                     flushExecutor.execute(() -> close(streamerErr));
 
                     throw streamerErr;
@@ -291,6 +292,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private synchronized void close(@Nullable Throwable throwable) {
+        if (closed) {
+            return;
+        }
+
         closed = true;
 
         if (flushTask != null) {
