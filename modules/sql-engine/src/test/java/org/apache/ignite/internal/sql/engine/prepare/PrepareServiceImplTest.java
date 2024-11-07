@@ -46,7 +46,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -66,7 +65,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -350,38 +348,6 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
         boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);
         assertTrue(empty, "Cache is not empty: " + cache.size());
-    }
-
-    @Test
-    public void cancelIfTokenHasAlreadyBeenCancelled() {
-        IgniteTable table = TestBuilders.table()
-                .name("T")
-                .addColumn("C", NativeTypes.INT32)
-                .distribution(IgniteDistributions.single())
-                .build();
-
-        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
-
-        PrepareService service = createPlannerService(schema);
-
-        CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken cancellationToken = new SqlCancellationToken(cancelHandle.token());
-        cancelHandle.cancel();
-
-        QueryCancel queryCancel = new QueryCancel(cancellationToken);
-
-        SqlOperationContext context = operationContext()
-                .cancel(queryCancel)
-                .build();
-
-        Throwable err = assertThrowsWithCause(
-                () -> service.prepareAsync(parse("SELECT 1"), context).join(),
-                SqlException.class
-        );
-
-        Throwable cause = ExceptionUtils.unwrapCause(err);
-        SqlException sqlErr = assertInstanceOf(SqlException.class, cause, "Unexpected error. Root error: " + err);
-        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), "Unexpected error: " + sqlErr);
     }
 
     private static Stream<Arguments> parameterTypes() {

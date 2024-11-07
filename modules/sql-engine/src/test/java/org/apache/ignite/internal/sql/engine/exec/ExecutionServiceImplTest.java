@@ -44,12 +44,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -79,7 +77,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -102,7 +99,6 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
@@ -113,7 +109,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
-import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -160,9 +155,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -173,9 +166,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
@@ -1114,119 +1104,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    public void cancelledTokenShouldPreventSimpleQueryFromExecution() {
-        ExecutionService execService = executionServices.get(0);
-
-        // Use a separate context, so planning won't be cancelled.
-        SqlOperationContext planCtx = operationContext(null).build();
-
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
-
-        CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
-        cancelHandle.cancel();
-
-        QueryCancel queryCancel = new QueryCancel(token);
-
-        SqlOperationContext execCtx = operationContext(null)
-                .cancel(queryCancel)
-                .build();
-
-        assertThrows(QueryCancelledException.class, () -> execService.executePlan(plan, execCtx));
-    }
-
-    @Test
-    public void cancelWhenCancellationTokenIsCancelledExternally() {
-        ExecutionService execService = executionServices.get(0);
-
-        // Use a separate context, so planning won't be cancelled.
-        SqlOperationContext planCtx = operationContext(null).build();
-
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
-
-        CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
-
-        QueryCancel queryCancel = new QueryCancel(token);
-
-        SqlOperationContext execCtx = operationContext(null)
-                .cancel(queryCancel)
-                .build();
-
-        AsyncDataCursor<InternalSqlRow> cursor = execService.executePlan(plan, execCtx);
-
-        // Cancel a query.
-        cancelHandle.cancel();
-
-        CompletableFuture<BatchedResult<InternalSqlRow>> f = cursor.requestNextAsync(1);
-        CompletionException err = assertThrows(CompletionException.class, f::join);
-
-        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
-        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
-    }
-
-    @ParameterizedTest
-    @MethodSource("execPlans")
-    public void testCancelExecPlan(
-            String query,
-            Class<? extends ExecutablePlan> execPlanClass,
-            Supplier<QueryTransactionContext> txCtx
-    ) {
-        // Use a separate context, so planning won't timeout.
-        SqlOperationContext.Builder planCtx = operationContext(null);
-
-        if (txCtx != null) {
-            planCtx.txContext(txCtx.get());
-        }
-
-        QueryPlan plan = prepare(query, planCtx.build());
-
-        ExecutablePlan execPlan = assertInstanceOf(execPlanClass, plan);
-
-        ExecutableTableRegistry tableRegistry = mock(ExecutableTableRegistry.class);
-        CompletableFuture<ExecutableTable> fut = new CompletableFuture<>();
-
-        when(tableRegistry.getTable(anyInt(), anyInt())).thenReturn(fut);
-
-        CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
-        QueryCancel queryCancel = new QueryCancel(token);
-
-        // Execution context
-        FragmentDescription fragmentDescription = new FragmentDescription(1, true,
-                Long2ObjectMaps.emptyMap(), null, null, null);
-
-        ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
-                .queryId(randomUUID())
-                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
-                .fragment(fragmentDescription)
-                .executor(mock(QueryTaskExecutor.class))
-                .queryCancel(queryCancel)
-                .build();
-
-        // Cancel this query.
-        cancelHandle.cancel();
-
-        // Query has already been cancelled
-        IgniteTestUtils.assertThrows(
-                QueryCancelledException.class,
-                () -> execPlan.execute(ctx, null, tableRegistry, null),
-                "The query was cancelled while executing."
-        );
-    }
-
-    private static Stream<Arguments> execPlans() {
-        Supplier<QueryTransactionContext> returnImplicitTx = () -> ImplicitTxContext.INSTANCE;
-
-        return Stream.of(
-                // query, plan class, transaction context
-                Arguments.of("SELECT * FROM test_tbl WHERE id = 1", KeyValueGetPlan.class, null),
-                Arguments.of("INSERT INTO test_tbl VALUES(1, 2)", KeyValueModifyPlan.class, null),
-                Arguments.of("SELECT count(*) FROM test_tbl", SelectCountPlan.class, returnImplicitTx)
-        );
-    }
-
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName, CacheFactory mappingCacheFactory, QueryTaskExecutor taskExecutor) {
         if (!nodeNames.contains(nodeName)) {
@@ -1759,7 +1636,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             if (timeout) {
                 timeoutFut.complete(null);
             }
-        }, timeoutFut);
+        });
 
         queryCancel.setTimeout(scheduler, millis);
 

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,23 +33,20 @@ import org.jetbrains.annotations.Nullable;
 public interface QueryProcessor extends IgniteComponent {
 
     /**
-     * Returns columns and parameters metadata for the given statement.
-     * This method uses optional array of parameters to assist with type inference.
+     * Returns columns and parameters metadata for the given statement. This method uses optional array of parameters to assist with type
+     * inference.
      *
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param transaction A transaction to use to resolve a schema.
-     * @param cancellationToken A cancellation token.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Query metadata.
-     *
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
     CompletableFuture<QueryMetadata> prepareSingleAsync(
             SqlProperties properties,
             @Nullable InternalTransaction transaction,
-            @Nullable SqlCancellationToken cancellationToken,
             String qry,
             Object... params
     );
@@ -72,7 +70,7 @@ public interface QueryProcessor extends IgniteComponent {
             SqlProperties properties,
             HybridTimestampTracker observableTime,
             @Nullable InternalTransaction transaction,
-            @Nullable SqlCancellationToken cancellationToken,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     );

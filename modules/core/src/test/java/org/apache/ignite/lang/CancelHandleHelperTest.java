@@ -44,7 +44,6 @@ public class CancelHandleHelperTest extends BaseIgniteAbstractTest {
 
         // Initially is not cancelled
         assertFalse(cancelHandle.isCancelled());
-        assertFalse(CancelHandleHelper.isCancelled(token));
 
         CountDownLatch operationLatch = new CountDownLatch(1);
         CompletableFuture<Void> cancelFut = new CompletableFuture<>();
@@ -87,8 +86,6 @@ public class CancelHandleHelperTest extends BaseIgniteAbstractTest {
 
         // Initially is not cancelled
         assertFalse(cancelHandle.isCancelled());
-        assertFalse(CancelHandleHelper.isCancelled(token));
-
         CountDownLatch operationLatch = new CountDownLatch(1);
         CompletableFuture<Void> cancelFut = new CompletableFuture<>();
 

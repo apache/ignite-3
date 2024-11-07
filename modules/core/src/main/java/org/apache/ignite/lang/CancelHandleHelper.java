@@ -57,15 +57,14 @@ public final class CancelHandleHelper {
     }
 
     /**
-     * Checks if the handle associated with this token requested cancellation or not.
+     * Returns a future associated with this cancellation token's handle.
      *
      * @param token Cancellation token.
-     * @return {@code} if cancellation wqs requested and {@code false} otherwise.
      */
-    public static boolean isCancelled(CancellationToken token) {
+    public static CompletableFuture<Void> getCancellationFuture(CancellationToken token) {
         if (token instanceof CancellationTokenImpl) {
             CancellationTokenImpl t = (CancellationTokenImpl) token;
-            return t.isCancelled();
+            return t.cancelHandleFut();
         } else {
             throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
         }

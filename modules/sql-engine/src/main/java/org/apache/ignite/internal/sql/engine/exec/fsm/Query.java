@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.fsm.Result.Status;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -39,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a query initiated on current node.
- * 
+ *
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
 class Query implements Runnable {
@@ -50,7 +49,7 @@ class Query implements Runnable {
     final UUID id;
     final String sql;
     final Object[] params;
-    final QueryCancel cancel;
+    final QueryCancel cancel = new QueryCancel();
     final QueryExecutor executor;
     final SqlProperties properties;
     final QueryTransactionContext txContext;
@@ -79,7 +78,6 @@ class Query implements Runnable {
             String sql,
             SqlProperties properties,
             QueryTransactionContext txContext,
-            @Nullable SqlCancellationToken cancellationToken,
             Object[] params,
             @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
     ) {
@@ -89,7 +87,6 @@ class Query implements Runnable {
         this.sql = sql;
         this.properties = properties;
         this.txContext = txContext;
-        this.cancel = new QueryCancel(cancellationToken);
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
 
@@ -115,7 +112,6 @@ class Query implements Runnable {
         this.sql = parsedResult.originalQuery();
         this.properties = parent.properties;
         this.txContext = txContext;
-        this.cancel = new QueryCancel();
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
 
@@ -174,7 +170,7 @@ class Query implements Runnable {
         return onPhaseStartedCallback.computeIfAbsent(phase, k -> new CompletableFuture<>());
     }
 
-    /** Moves the query to a given state. */ 
+    /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         synchronized (mux) {
             assert currentPhase.transitionAllowed(newPhase) : "currentPhase=" + currentPhase + ", newPhase=" + newPhase;

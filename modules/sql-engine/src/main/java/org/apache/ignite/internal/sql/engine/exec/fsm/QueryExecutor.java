@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -56,6 +55,8 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -137,7 +138,7 @@ public class QueryExecutor implements LifecycleAware {
             SqlProperties properties,
             QueryTransactionContext txContext,
             String sql,
-            @Nullable SqlCancellationToken cancellationToken,
+            @Nullable CancellationToken cancellationToken,
             Object[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
@@ -149,7 +150,6 @@ public class QueryExecutor implements LifecycleAware {
                 sql,
                 properties0,
                 txContext,
-                cancellationToken,
                 params,
                 null
         );
@@ -159,7 +159,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query);
+            trackQuery(query, cancellationToken);
         } finally {
             busyLock.leaveBusy();
         }
@@ -203,7 +203,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query);
+            trackQuery(query, null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -314,13 +314,26 @@ public class QueryExecutor implements LifecycleAware {
         );
     }
 
-    private void trackQuery(Query query) {
+    private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
         assert old == null : "Query with the same id already registered";
 
-        query.onPhaseStarted(ExecutionPhase.TERMINATED)
-                .whenComplete((ignored, ex) -> runningQueries.remove(query.id));
+        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+
+        if (cancellationToken != null) {
+            CompletableFuture<Void> cancellationFuture = CancelHandleHelper.getCancellationFuture(cancellationToken);
+            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationFut);
+
+            queryTerminationFut.whenComplete((ignored, ex) -> {
+                runningQueries.remove(query.id);
+                cancellationFuture.complete(null);
+            });
+        } else {
+            queryTerminationFut.whenComplete((ignored, ex) -> {
+                runningQueries.remove(query.id);
+            });
+        }
     }
 
     /** Returns list of queries registered on server at the moment. */

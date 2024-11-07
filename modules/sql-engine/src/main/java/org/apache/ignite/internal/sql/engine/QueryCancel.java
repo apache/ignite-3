@@ -22,25 +22,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.util.Cancellable;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds query cancel state.
  */
 public class QueryCancel {
     private final CompletableFuture<Reason> state = new CompletableFuture<>();
-
-    private final SqlCancellationToken token;
-
-    /** Constructor. */
-    public QueryCancel() {
-        this(null);
-    }
-
-    /** Constructor. */
-    public QueryCancel(@Nullable SqlCancellationToken token) {
-        this.token = token;
-    }
 
     /**
      * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
@@ -49,17 +36,12 @@ public class QueryCancel {
      * and then throw a {@link QueryCancelledException}.
      *
      * @param clo Cancel action.
-     * @param cancelFut Future that completes a cancellation procedure completes.
      * @throws QueryCancelledException If operation has been already cancelled.
      */
-    public void add(Cancellable clo, CompletableFuture<?> cancelFut) throws QueryCancelledException {
+    public void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
 
         state.thenAccept(reason -> clo.cancel(reason == Reason.TIMEOUT));
-
-        if (token != null) {
-            token.addOperation(this::cancel, cancelFut);
-        }
 
         if (state.isDone()) {
             Reason reason = state.join();
@@ -88,7 +70,8 @@ public class QueryCancel {
     }
 
     /**
-     * Schedules a timeout after {@code timeoutMillis} milliseconds. Call be called only once.
+     * Schedules a timeout after {@code timeoutMillis} milliseconds.
+     * Call be called only once.
      *
      * @param scheduler Scheduler to trigger an action.
      * @param timeoutMillis Timeout in milliseconds.
@@ -107,17 +90,6 @@ public class QueryCancel {
     /** Returns {@code true} if the cancellation procedure has already been started. */
     public boolean isCancelled() {
         return state.isDone();
-    }
-
-    /**
-     * Throws a {@link QueryCancelledException} if the cancellation procedure has already been started.
-     */
-    public void throwIfCancelled() {
-        if (state.isDone()) {
-            Reason reason = state.join();
-
-            throwException(reason);
-        }
     }
 
     private static void throwException(Reason reason) {

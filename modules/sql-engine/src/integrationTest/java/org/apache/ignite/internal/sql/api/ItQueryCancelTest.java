@@ -31,12 +31,12 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         query.append(" ) t(v)");
 
         CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
+        CancellationToken token = cancelHandle.token();
 
         AsyncSqlCursor<InternalSqlRow> query1 = qryProc.queryAsync(
                 properties,
@@ -112,36 +112,13 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         QueryProcessor qryProc = queryProcessor();
 
         CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
+        CancellationToken token = cancelHandle.token();
 
         cancelHandle.cancel();
 
         Runnable run = () -> qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
-                null,
-                token,
-                "SELECT 1"
-        ).join();
-
-        expectQueryCancelled(run);
-    }
-
-    @Test
-    public void testPrepareWontStartWhenHandleIsCancelled() {
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
-                .build();
-
-        QueryProcessor qryProc = queryProcessor();
-
-        CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
-
-        cancelHandle.cancelAsync().join();
-
-        Runnable run = () -> qryProc.prepareSingleAsync(
-                properties,
                 null,
                 token,
                 "SELECT 1"
@@ -170,7 +147,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         QueryProcessor qryProc = queryProcessor();
 
         CancelHandle cancelHandle = CancelHandle.create();
-        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
+        CancellationToken token = cancelHandle.token();
 
         Runnable run = () -> qryProc.queryAsync(
                 properties,

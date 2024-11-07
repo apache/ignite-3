@@ -539,7 +539,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                     .build();
 
             QueryProcessor qryProc = queryProcessor();
-            await(qryProc.prepareSingleAsync(properties, null, null, stmt.toString())).parameterTypes();
+            await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
         });
     }
 
@@ -592,6 +592,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     private List<ParameterType> getParameterTypes(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
-        return await(qryProc.prepareSingleAsync(SqlQueryProcessor.DEFAULT_PROPERTIES, null, null, query, params)).parameterTypes();
+        return await(qryProc.prepareSingleAsync(SqlQueryProcessor.DEFAULT_PROPERTIES, null, query, params)).parameterTypes();
     }
 }

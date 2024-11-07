@@ -101,6 +101,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -389,7 +390,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @Override
     public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction,
-            @Nullable SqlCancellationToken cancellationToken,
             String qry, Object... params) {
 
         if (!busyLock.enterBusy()) {
@@ -397,7 +397,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         }
 
         try {
-            return prepareSingleAsync0(properties, transaction, cancellationToken, qry, params);
+            return prepareSingleAsync0(properties, transaction, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -409,7 +409,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlProperties properties,
             HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
-            @Nullable SqlCancellationToken cancellationToken,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     ) {
@@ -448,7 +448,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private CompletableFuture<QueryMetadata> prepareSingleAsync0(
             SqlProperties properties,
             @Nullable InternalTransaction explicitTransaction,
-            @Nullable SqlCancellationToken cancellationToken,
             String sql,
             Object... params
     ) {
@@ -456,7 +455,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
         Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
 
-        QueryCancel queryCancel = new QueryCancel(cancellationToken);
+        QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
             queryCancel.setTimeout(commonScheduler, queryTimeout);
         }
@@ -482,7 +481,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
                     f.completeExceptionally(new SqlException(EXECUTION_CANCELLED_ERR, message));
-                }, f);
+                });
             } catch (QueryCancelledException ignored) {
                 // no-op
             }

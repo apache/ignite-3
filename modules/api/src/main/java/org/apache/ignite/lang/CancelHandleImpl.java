@@ -17,9 +17,10 @@
 
 package org.apache.ignite.lang;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Implementation of {@link CancelHandle}. */
 final class CancelHandleImpl implements CancelHandle {
@@ -74,17 +75,23 @@ final class CancelHandleImpl implements CancelHandle {
 
         private final CancelHandleImpl handle;
 
-        // Actions that trigger cancellations - action that triggers a cancellation + a future that completes, when a resource is closed.
-        private final ConcurrentLinkedQueue<Cancellation> cancellations = new ConcurrentLinkedQueue<>();
+        private final Object mutex = new Object();
 
-        private final AtomicReference<CompletableFuture<Void>> cancelFutRef = new AtomicReference<>();
+        // Actions that trigger cancellations - action that triggers a cancellation + a future that completes, when a resource is closed.
+        private final ArrayDeque<Cancellation> cancellations = new ArrayDeque<>();
+
+        private volatile CompletableFuture<Void> cancelFut;
 
         CancellationTokenImpl(CancelHandleImpl handle) {
             this.handle = handle;
         }
 
         boolean isCancelled() {
-            return cancelFutRef.get() != null;
+            return cancelFut != null;
+        }
+
+        CompletableFuture<Void> cancelHandleFut() {
+            return handle.cancelFut;
         }
 
         void addCancelAction(Runnable cancelAction, CompletableFuture<?> completionFut) {
@@ -92,36 +99,49 @@ final class CancelHandleImpl implements CancelHandle {
             assert completionFut != null : "completionFut must be not null";
 
             Cancellation cancellation = new Cancellation(cancelAction, completionFut);
-            if (handle.isCancelled()) {
-                cancellation.run();
-            } else {
-                cancellations.add(cancellation);
+
+            synchronized (mutex) {
+                if (cancelFut == null) {
+                    cancellations.add(cancellation);
+                    return;
+                }
             }
+
+            // Run cancellation action outside of lock
+            cancellation.run();
         }
 
         @SuppressWarnings("rawtypes")
         private CompletableFuture<Void> cancel() {
-            CompletableFuture<Void> f = cancelFutRef.get();
+            CompletableFuture<Void> f = cancelFut;
+
             if (f != null) {
                 return f;
-            }
+            } else {
+                List<Cancellation> registered;
 
-            // First assemble all completion futures
-            CompletableFuture[] futures = cancellations.stream()
-                    .map(c -> c.completionFut)
-                    .toArray(CompletableFuture[]::new);
+                synchronized (mutex) {
+                    if (cancelFut != null) {
+                        return cancelFut;
+                    }
 
-            CompletableFuture<Void> cancelAll = CompletableFuture.allOf(futures);
-            CompletableFuture<Void> fut = cancelFutRef.compareAndExchange(null, cancelAll);
+                    // First assemble all completion futures
+                    registered = new ArrayList<>(cancellations);
 
-            // If cancel future has not been set, trigger cancellation actions.
-            if (fut == null) {
-                for (Cancellation cancellation : cancellations) {
+                    CompletableFuture[] futures = registered.stream()
+                            .map(c -> c.completionFut)
+                            .toArray(CompletableFuture[]::new);
+
+                    cancelFut = CompletableFuture.allOf(futures);
+                }
+
+                // Run cancellation actions outside of lock
+                for (Cancellation cancellation : registered) {
                     cancellation.run();
                 }
-            }
 
-            return fut != null ? fut : cancelAll;
+                return cancelFut;
+            }
         }
     }
 
@@ -140,11 +160,7 @@ final class CancelHandleImpl implements CancelHandle {
         }
 
         private void run() {
-            try {
-                cancelAction.run();
-            } catch (Throwable ignore) {
-                // Ignore
-            }
+            cancelAction.run();
         }
     }
 }

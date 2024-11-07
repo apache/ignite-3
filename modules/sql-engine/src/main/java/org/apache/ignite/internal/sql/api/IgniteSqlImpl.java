@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
@@ -369,15 +368,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();
 
-            SqlCancellationToken sqlCancellationToken = cancellationToken != null
-                    ? new SqlCancellationToken(cancellationToken)
-                    : null;
-
             result = queryProcessor.queryAsync(
                     properties,
                     observableTimestampTracker,
                     (InternalTransaction) transaction,
-                    sqlCancellationToken,
+                    cancellationToken,
                     statement.query(),
                     arguments
             ).thenCompose(cur -> {
