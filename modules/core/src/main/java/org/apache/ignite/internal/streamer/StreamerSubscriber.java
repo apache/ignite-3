@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.streamer;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
@@ -229,9 +227,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
 
-                    // TODO: Error code
-                    DataStreamerException streamerErr = new DataStreamerException(
-                            INTERNAL_ERR, err.getMessage(), new HashSet<>(batch), err);
+                    DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), err);
 
                     // Release IO thread - close the streamer using the flush executor.
                     flushExecutor.execute(() -> close(streamerErr));
@@ -263,8 +259,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         } catch (Throwable e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
 
-            // TODO: Error code
-            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), new HashSet<>(batch), e);
+            DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), e);
             close(streamerErr);
 
             return CompletableFuture.failedFuture(streamerErr);
@@ -329,10 +324,9 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             });
         } else {
             // Collect failed/non-delivered items.
-            // TODO: Error code
             DataStreamerException streamerErr = throwable instanceof DataStreamerException
-                    ? (DataStreamerException)throwable
-                    : new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), new HashSet<>(), throwable);
+                    ? (DataStreamerException) throwable
+                    : new DataStreamerException(new HashSet<>(), throwable);
 
             Set<V> failedItems = (Set<V>) streamerErr.failedItems();
 
@@ -344,7 +338,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     Throwable cause = ExceptionUtils.unwrapCause(t);
 
                     if (cause instanceof DataStreamerException) {
-                        failedItems.addAll((Set<V>) ((DataStreamerException)cause).failedItems());
+                        failedItems.addAll((Set<V>) ((DataStreamerException) cause).failedItems());
                     }
                 }
             }

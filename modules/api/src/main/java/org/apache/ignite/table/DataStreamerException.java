@@ -17,9 +17,10 @@
 
 package org.apache.ignite.table;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.Set;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents an exception that is thrown during data streaming. Includes information about failed items.
@@ -29,8 +30,8 @@ public final class DataStreamerException extends IgniteException {
 
     private final Set<?> failedItems;
 
-    public DataStreamerException(int code, String message, @Nullable Set<?> failedItems, Throwable cause) {
-        super(code, message, cause);
+    public DataStreamerException(Set<?> failedItems, Throwable cause) {
+        super(getCode(cause), cause.getMessage(), cause);
 
         this.failedItems = failedItems;
     }
@@ -42,5 +43,21 @@ public final class DataStreamerException extends IgniteException {
      */
     public Set<?> failedItems() {
         return failedItems;
+    }
+
+    private static int getCode(Throwable cause) {
+        if (cause instanceof IgniteException) {
+            IgniteException e = (IgniteException) cause;
+
+            return e.code();
+        }
+
+        if (cause.getCause() instanceof IgniteException) {
+            IgniteException e = (IgniteException) cause.getCause();
+
+            return e.code();
+        }
+
+        return INTERNAL_ERR;
     }
 }
