@@ -233,7 +233,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     DataStreamerException streamerErr = new DataStreamerException(
                             INTERNAL_ERR, err.getMessage(), new HashSet<>(batch), err);
 
-                    close(streamerErr);
+                    // Release IO thread - close the streamer using the flush executor.
+                    flushExecutor.execute(() -> close(streamerErr));
 
                     throw streamerErr;
                 } else {
