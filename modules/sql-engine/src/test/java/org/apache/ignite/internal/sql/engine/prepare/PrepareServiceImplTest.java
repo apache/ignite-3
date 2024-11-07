@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -364,9 +365,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         PrepareService service = createPlannerService(schema);
 
         CancelHandle cancelHandle = CancelHandle.create();
+        SqlCancellationToken cancellationToken = new SqlCancellationToken(cancelHandle.token());
         cancelHandle.cancel();
 
-        QueryCancel queryCancel = new QueryCancel(cancelHandle.token());
+        QueryCancel queryCancel = new QueryCancel(cancellationToken);
 
         SqlOperationContext context = operationContext()
                 .cancel(queryCancel)

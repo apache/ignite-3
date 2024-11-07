@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -124,7 +124,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         public CompletableFuture<QueryMetadata> prepareSingleAsync(
                 SqlProperties properties,
                 @Nullable InternalTransaction transaction,
-                @Nullable CancellationToken cancellationToken,
+                @Nullable SqlCancellationToken cancellationToken,
                 String qry,
                 Object... params
         ) {
@@ -141,7 +141,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 SqlProperties properties,
                 HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
-                @Nullable CancellationToken cancellationToken,
+                @Nullable SqlCancellationToken cancellationToken,
                 String qry,
                 Object... params
         ) {

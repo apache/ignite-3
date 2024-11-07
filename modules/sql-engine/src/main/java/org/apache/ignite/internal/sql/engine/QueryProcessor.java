@@ -23,7 +23,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +48,7 @@ public interface QueryProcessor extends IgniteComponent {
     CompletableFuture<QueryMetadata> prepareSingleAsync(
             SqlProperties properties,
             @Nullable InternalTransaction transaction,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             String qry,
             Object... params
     );
@@ -73,7 +72,7 @@ public interface QueryProcessor extends IgniteComponent {
             SqlProperties properties,
             HybridTimestampTracker observableTime,
             @Nullable InternalTransaction transaction,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             String qry,
             Object... params
     );

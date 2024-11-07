@@ -21,7 +21,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
+import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
@@ -161,7 +161,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -1125,7 +1124,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         CancelHandle cancelHandle = CancelHandle.create();
-        CancellationToken token = cancelHandle.token();
+        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
         cancelHandle.cancel();
 
         QueryCancel queryCancel = new QueryCancel(token);
@@ -1147,7 +1146,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         CancelHandle cancelHandle = CancelHandle.create();
-        CancellationToken token = cancelHandle.token();
+        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
 
         QueryCancel queryCancel = new QueryCancel(token);
 
@@ -1191,7 +1190,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         when(tableRegistry.getTable(anyInt(), anyInt())).thenReturn(fut);
 
         CancelHandle cancelHandle = CancelHandle.create();
-        QueryCancel queryCancel = new QueryCancel(cancelHandle.token());
+        SqlCancellationToken token = new SqlCancellationToken(cancelHandle.token());
+        QueryCancel queryCancel = new QueryCancel(token);
 
         // Execution context
         FragmentDescription fragmentDescription = new FragmentDescription(1, true,
@@ -1209,10 +1209,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         cancelHandle.cancel();
 
         // Query has already been cancelled
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                "cancelled",
-                () -> execPlan.execute(ctx, null, tableRegistry, null)
+        IgniteTestUtils.assertThrows(
+                QueryCancelledException.class,
+                () -> execPlan.execute(ctx, null, tableRegistry, null),
+                "The query was cancelled while executing."
         );
     }
 
@@ -1759,7 +1759,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             if (timeout) {
                 timeoutFut.complete(null);
             }
-        });
+        }, timeoutFut);
 
         queryCancel.setTimeout(scheduler, millis);
 

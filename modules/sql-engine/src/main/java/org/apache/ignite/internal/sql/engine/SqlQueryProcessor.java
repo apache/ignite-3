@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
@@ -100,7 +101,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -389,7 +389,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @Override
     public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             String qry, Object... params) {
 
         if (!busyLock.enterBusy()) {
@@ -409,7 +409,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlProperties properties,
             HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             String qry,
             Object... params
     ) {
@@ -421,7 +421,19 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             QueryTransactionContext txContext = new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction,
                     txTracker);
 
-            return queryExecutor.executeQuery(properties, txContext, qry, cancellationToken, params);
+            return queryExecutor.executeQuery(
+                    properties,
+                    txContext,
+                    qry,
+                    cancellationToken,
+                    params
+            ).handle((r, t) -> {
+                if (t != null) {
+                    throw new CompletionException(mapToPublicSqlException(ExceptionUtils.unwrapCause(t)));
+                } else {
+                    return r;
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -436,7 +448,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private CompletableFuture<QueryMetadata> prepareSingleAsync0(
             SqlProperties properties,
             @Nullable InternalTransaction explicitTransaction,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             String sql,
             Object... params
     ) {
@@ -470,7 +482,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
                     f.completeExceptionally(new SqlException(EXECUTION_CANCELLED_ERR, message));
-                });
+                }, f);
             } catch (QueryCancelledException ignored) {
                 // no-op
             }

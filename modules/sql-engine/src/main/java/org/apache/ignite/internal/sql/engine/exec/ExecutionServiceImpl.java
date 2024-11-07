@@ -309,7 +309,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         cancelHandler.add(timeout -> {
             QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
             queryManager.close(reason);
-        });
+        }, queryManager.cancelFut);
 
         QueryTransactionContext txContext = operationContext.txContext();
 
@@ -467,7 +467,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
             ret.completeExceptionally(new QueryCancelledException(message));
-        });
+        }, ret);
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }

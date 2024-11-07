@@ -49,8 +49,11 @@ import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningCol
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -402,7 +405,7 @@ public class ExecutionContext<RowT> implements DataContext {
             String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
 
             fut.completeExceptionally(new QueryCancelledException(message));
-        });
+        }, fut);
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */

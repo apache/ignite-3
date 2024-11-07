@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlCancellationToken;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -137,7 +137,7 @@ public class QueryExecutor implements LifecycleAware {
             SqlProperties properties,
             QueryTransactionContext txContext,
             String sql,
-            @Nullable CancellationToken cancellationToken,
+            @Nullable SqlCancellationToken cancellationToken,
             Object[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);

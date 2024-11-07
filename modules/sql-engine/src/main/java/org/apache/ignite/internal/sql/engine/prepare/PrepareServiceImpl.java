@@ -238,7 +238,7 @@ public class PrepareServiceImpl implements PrepareService {
         try {
             cancelHandler.throwIfCancelled();
         } catch (QueryCancelledException e) {
-            return CompletableFuture.failedFuture(SqlExceptionMapperUtil.mapToPublicSqlException(e));
+            return CompletableFuture.failedFuture(e);
         }
 
         boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;

@@ -31,15 +31,19 @@ public final class CancelHandleHelper {
     }
 
     /**
-     * Attaches the given cancel action to this token.
+     * Attaches a cancellable operation to the given token.
      *
      * <p>NOTE: If this token has already been cancelled, this method immediately invokes the {@code cancelAction.run()}.
      *
-     * @param token CancellationToken.
+     * @param token Cancellation token.
      * @param cancelAction Action that terminates an operation.
      * @param completionFut Future that completes when operation completes and all resources it created are released.
      */
-    public static void addCancelAction(CancellationToken token, Runnable cancelAction, CompletableFuture<Void> completionFut) {
+    public static void addCancelAction(
+            CancellationToken token,
+            Runnable cancelAction,
+            CompletableFuture<?> completionFut
+    ) {
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(cancelAction, "cancelAction");
         Objects.requireNonNull(completionFut, "completionFut");
@@ -47,6 +51,21 @@ public final class CancelHandleHelper {
         if (token instanceof CancellationTokenImpl) {
             CancellationTokenImpl t = (CancellationTokenImpl) token;
             t.addCancelAction(cancelAction, completionFut);
+        } else {
+            throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
+        }
+    }
+
+    /**
+     * Checks if the handle associated with this token requested cancellation or not.
+     *
+     * @param token Cancellation token.
+     * @return {@code} if cancellation wqs requested and {@code false} otherwise.
+     */
+    public static boolean isCancelled(CancellationToken token) {
+        if (token instanceof CancellationTokenImpl) {
+            CancellationTokenImpl t = (CancellationTokenImpl) token;
+            return t.isCancelled();
         } else {
             throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
         }

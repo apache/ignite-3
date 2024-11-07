@@ -25,10 +25,8 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleLong;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
@@ -44,7 +42,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -144,11 +141,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
         }
 
-        try {
-            ctx.subscribeToCancellation(result);
-        } catch (QueryCancelledException e) {
-            throw (SqlException) SqlExceptionMapperUtil.mapToPublicSqlException(e);
-        }
+        ctx.subscribeToCancellation(result);
 
         return new AsyncWrapper<>(result, Runnable::run);
     }

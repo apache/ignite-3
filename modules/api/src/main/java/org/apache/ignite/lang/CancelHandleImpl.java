@@ -51,7 +51,7 @@ final class CancelHandleImpl implements CancelHandle {
     /** {@inheritDoc} */
     @Override
     public boolean isCancelled() {
-        return cancelFut.isDone();
+        return token.isCancelled();
     }
 
     /** {@inheritDoc} */
@@ -84,10 +84,10 @@ final class CancelHandleImpl implements CancelHandle {
         }
 
         boolean isCancelled() {
-            return handle.isCancelled();
+            return cancelFutRef.get() != null;
         }
 
-        void addCancelAction(Runnable cancelAction, CompletableFuture<Void> completionFut) {
+        void addCancelAction(Runnable cancelAction, CompletableFuture<?> completionFut) {
             assert cancelAction != null : "cancelAction must be not null";
             assert completionFut != null : "completionFut must be not null";
 
@@ -132,9 +132,9 @@ final class CancelHandleImpl implements CancelHandle {
 
         private final Runnable cancelAction;
 
-        private final CompletableFuture<Void> completionFut;
+        private final CompletableFuture<?> completionFut;
 
-        private Cancellation(Runnable cancelAction, CompletableFuture<Void> completionFut) {
+        private Cancellation(Runnable cancelAction, CompletableFuture<?> completionFut) {
             this.cancelAction = cancelAction;
             this.completionFut = completionFut;
         }

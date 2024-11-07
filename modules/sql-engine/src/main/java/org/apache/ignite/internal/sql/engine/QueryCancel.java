@@ -22,8 +22,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.lang.CancelHandleHelper;
-import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,20 +30,16 @@ import org.jetbrains.annotations.Nullable;
 public class QueryCancel {
     private final CompletableFuture<Reason> state = new CompletableFuture<>();
 
+    private final SqlCancellationToken token;
+
     /** Constructor. */
     public QueryCancel() {
         this(null);
     }
 
     /** Constructor. */
-    public QueryCancel(@Nullable CancellationToken cancellationToken) {
-        if (cancellationToken != null) {
-            // If token is provided, add this cancellation to its handle.
-            CompletableFuture<Void> fut = new CompletableFuture<>();
-            state.thenAccept(ignore -> fut.complete(null));
-
-            CancelHandleHelper.addCancelAction(cancellationToken, this::cancel, fut);
-        }
+    public QueryCancel(@Nullable SqlCancellationToken token) {
+        this.token = token;
     }
 
     /**
@@ -55,12 +49,20 @@ public class QueryCancel {
      * and then throw a {@link QueryCancelledException}.
      *
      * @param clo Cancel action.
+     * @param cancelFut Future that completes a cancellation procedure completes.
      * @throws QueryCancelledException If operation has been already cancelled.
      */
-    public void add(Cancellable clo) throws QueryCancelledException {
+    public void add(Cancellable clo, CompletableFuture<?> cancelFut) throws QueryCancelledException {
         assert clo != null;
 
         state.thenAccept(reason -> clo.cancel(reason == Reason.TIMEOUT));
+
+        if (token != null) {
+            token.addOperation(this::cancel, cancelFut);
+            if (token.isCancelled()) {
+                this.cancel();
+            }
+        }
 
         if (state.isDone()) {
             Reason reason = state.join();

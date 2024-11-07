@@ -70,6 +70,8 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         query.operationContext = operationContext;
 
+//        SqlCancellationToken cancellationToken = (SqlCancellationToken) query.cancel.cancellationToken();
+
         CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationTime)
                 .thenCompose(none -> query.executor.prepare(result, operationContext)
                         .thenAccept(plan -> {
@@ -84,6 +86,10 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
                             query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
                         }));
+
+//        if (cancellationToken != null) {
+//            cancellationToken.addOperation(query.cancel::cancel, awaitFuture);
+//        }
 
         return Result.proceedAfter(awaitFuture);
     }
