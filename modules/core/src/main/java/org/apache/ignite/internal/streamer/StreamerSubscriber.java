@@ -291,6 +291,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private synchronized void close(@Nullable Throwable throwable) {
+        closed = true;
+
         if (flushTask != null) {
             flushTask.cancel(false);
         }
@@ -331,8 +333,6 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 resultSubscriber.onError(throwable);
             }
         }
-
-        closed = true;
     }
 
     private synchronized void requestMore() {
