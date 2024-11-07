@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
@@ -428,13 +427,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                     qry,
                     cancellationToken,
                     params
-            ).handle((r, t) -> {
-                if (t != null) {
-                    throw new CompletionException(mapToPublicSqlException(ExceptionUtils.unwrapCause(t)));
-                } else {
-                    return r;
-                }
-            });
+            );
         } finally {
             busyLock.leaveBusy();
         }
