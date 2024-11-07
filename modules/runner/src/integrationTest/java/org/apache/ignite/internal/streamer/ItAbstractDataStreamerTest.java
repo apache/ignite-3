@@ -47,6 +47,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -219,19 +220,22 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testMissingKeyColumn() {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
+        var tuple = Tuple.create();
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
-            var tuple = Tuple.create();
-
             publisher.submit(tuple);
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         assertThat(ex.getMessage(), endsWith("Missed key column: ID"));
+
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+        assertEquals(1, cause.failedItems().size());
+        assertEquals(tuple, cause.failedItems().iterator().next());
     }
 
     @SuppressWarnings("Convert2MethodRef")
