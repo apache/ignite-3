@@ -95,14 +95,15 @@ public class ExecutionTargetFactorySelfTest {
         List<String> partiallyInvalidNodeSet = CollectionUtils.concat(SINGLE_NODE_SET, invalidNodeSet);
 
         assertThrows(AssertionError.class, () -> f.allOf(invalidNodeSet), "invalid node");
-        assertThrows(AssertionError.class, () -> f.someOf(invalidNodeSet), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.oneOf(invalidNodeSet), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(invalidNodeSet)), "No partition node found");
+        assertThrows(AssertionError.class, () -> f.someOf(invalidNodeSet), "invalid node");
+        assertThrows(AssertionError.class, () -> f.oneOf(invalidNodeSet), "invalid node");
+        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(invalidNodeSet)), "invalid node");
 
-        assertThrows(Throwable.class, () -> f.allOf(partiallyInvalidNodeSet), "invalid node");
-        assertThat(f.resolveNodes(f.someOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
-        assertThat(f.resolveNodes(f.oneOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
-        assertThat(f.resolveNodes(f.partitioned(assignment(partiallyInvalidNodeSet, partiallyInvalidNodeSet))), equalTo(SINGLE_NODE_SET));
+        assertThrows(AssertionError.class, () -> f.allOf(partiallyInvalidNodeSet), "invalid node");
+        assertThrows(AssertionError.class, () -> f.resolveNodes(f.someOf(partiallyInvalidNodeSet)), "invalid node");
+        assertThrows(AssertionError.class, () -> f.resolveNodes(f.oneOf(partiallyInvalidNodeSet)), "invalid node");
+        assertThrows(AssertionError.class, () -> f.resolveNodes(
+                f.partitioned(assignment(partiallyInvalidNodeSet, partiallyInvalidNodeSet))), "invalid node");
     }
 
     @ParameterizedTest
