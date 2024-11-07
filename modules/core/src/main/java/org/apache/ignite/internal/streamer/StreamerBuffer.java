@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 class StreamerBuffer<T> {
     private final int capacity;
@@ -84,5 +85,9 @@ class StreamerBuffer<T> {
         flusher.accept(buf, deleted);
         buf = new ArrayList<>(capacity);
         deleted = new BitSet(capacity);
+    }
+
+    synchronized void forEach(Consumer<T> consumer) {
+        buf.forEach(consumer);
     }
 }

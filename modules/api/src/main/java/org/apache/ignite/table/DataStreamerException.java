@@ -27,9 +27,9 @@ import org.jetbrains.annotations.Nullable;
 public final class DataStreamerException extends IgniteException {
     private static final long serialVersionUID = -7516813059448101081L;
 
-    private final Set<Object> failedItems;
+    private final Set<?> failedItems;
 
-    public DataStreamerException(int code, String message, @Nullable Set<Object> failedItems) {
+    public DataStreamerException(int code, String message, @Nullable Set<?> failedItems) {
         super(code, message);
 
         this.failedItems = failedItems;
@@ -40,7 +40,7 @@ public final class DataStreamerException extends IgniteException {
      *
      * @return Set of failed items.
      */
-    public Set<Object> failedItems() {
+    public Set<?> failedItems() {
         return failedItems;
     }
 }

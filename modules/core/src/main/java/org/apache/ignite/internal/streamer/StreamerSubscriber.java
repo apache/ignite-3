@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.table.DataStreamerException;
 import org.jetbrains.annotations.Nullable;
 
@@ -323,10 +325,31 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 }
             });
         } else {
-            // TODO: Collect failed items and include them in the exception.
-            // 1. Wait for all pending futs. If any of them fails, include failed items in the exception.
-            // 2. Get pending items from buffers and include them in the exception.
+            // Collect failed/non-delivered items.
+            Set<V> failedItems = new HashSet<>();
 
+            // 1. Current failure.
+            if (throwable instanceof DataStreamerException) {
+                failedItems.addAll((Set<V>) ((DataStreamerException)throwable).failedItems());
+            }
+
+            // 2. Pending requests.
+            for (var req : pendingRequests.values()) {
+                try {
+                    req.join();
+                } catch (Throwable t) {
+                    Throwable cause = ExceptionUtils.unwrapCause(t);
+
+                    if (cause instanceof DataStreamerException) {
+                        failedItems.addAll((Set<V>) ((DataStreamerException)cause).failedItems());
+                    }
+                }
+            }
+
+            // 3. Pending buffers.
+            buffers.values().forEach(buf -> buf.forEach(failedItems::add));
+
+            throwable = new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), failedItems);
             completionFut.completeExceptionally(throwable);
 
             if (resultSubscriber != null) {
