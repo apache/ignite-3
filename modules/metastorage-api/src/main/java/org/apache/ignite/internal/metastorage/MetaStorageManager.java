@@ -430,10 +430,4 @@ public interface MetaStorageManager extends IgniteComponent {
      * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
      */
     long getCompactionRevisionLocally();
-
-    /** Registers a Meta Storage compaction revision update listener. */
-    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
-
-    /** Unregisters a Meta Storage compaction revision update listener. */
-    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 }

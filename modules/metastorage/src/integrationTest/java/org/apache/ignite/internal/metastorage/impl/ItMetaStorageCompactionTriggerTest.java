@@ -99,7 +99,7 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testCompactionRevisionMonotonouslyGrowsWithoutDuplicates(boolean changeMetastorageLeader) {
-        MetaStorageManager metaStorageManager = aliveNode().metaStorageManager();
+        MetaStorageManagerImpl metaStorageManager = (MetaStorageManagerImpl) aliveNode().metaStorageManager();
 
         long currentCompactionRevisionLocally = metaStorageManager.getCompactionRevisionLocally();
 
@@ -108,7 +108,7 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
         var stopCollectCompactionRevisionFuture = new CompletableFuture<Void>();
         var compactionRevisions = new ConcurrentLinkedQueue<Long>();
 
-        aliveNode().metaStorageManager().registerCompactionRevisionUpdateListener(compactionRevision -> {
+        metaStorageManager.storage().registerCompactionRevisionUpdateListener(compactionRevision -> {
             compactionRevisions.add(compactionRevision);
 
             if (compactionRevision >= currentCompactionRevisionLocally + 100) {
