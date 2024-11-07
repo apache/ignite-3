@@ -363,12 +363,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
-        Assignments assignment013 = Assignments.of(timestamp,
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(3).name())
-        );
-
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -386,6 +380,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 4);
 
         assertRealAssignments(node0, partId, 0, 1, 3);
+
+        Assignments assignment013 = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        );
 
         cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
             BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013);
@@ -487,8 +487,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
-     * create new raft group on the remaining node, without any data.
+     * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost.
+     * Not manual reset should do nothing in that case, so no new pending or planned is presented.
      */
     @Test
     @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
@@ -516,7 +516,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        // This is needed to be sure that all pervious meta storage events are handled.
+        // This is needed to be sure that all previous meta storage events are handled.
         executeSql(format("CREATE ZONE %s with storage_profiles='%s'",
                 "FAKE_ZONE", DEFAULT_STORAGE_PROFILE
         ));
@@ -530,14 +530,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests a scenario where all stable nodes are lost, yet we have data on one of pending nodes and perform reset partition operation. In
-     * this case we should use that pending node as a source of data for recovery.
+     * Tests a scenario where only one node from stable is left, but we have node in pending nodes and perform reset partition operation.
+     * We expect this node from pending being presented after reset, so not manual reset logic take into account pending nodes.
      *
      * <p>It goes like this:
      * <ul>
      *     <li>We have 6 nodes and a partition on nodes 1, 4 and 5.</li>
      *     <li>We stop node 5, so rebalance on 1, 3, 4 is triggered, but blocked and cannot be finished.</li>
-     *     <li>Zones scale down is set to infinite value, we stop node 4 and new rebalance is not tirggered and majority is lost.</li>
+     *     <li>Zones scale down is set to infinite value, we stop node 4 and new rebalance is not triggered and majority is lost.</li>
      *     <li>We execute "resetPartitions" and expect that pending assignments will be 1, 3, so node 3 from pending is presented.</li>
      * </ul>
      */
@@ -551,21 +551,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
-        Assignments assignment134 = Assignments.of(timestamp,
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(3).name()),
-                Assignment.forPeer(node(4).name())
-        );
-
-        Assignments assignmentForced13 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(3).name())), timestamp);
-
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
         assertRealAssignments(node0, partId, 1, 4, 5);
 
         insertValues(table, partId, 0);
+
+        Assignments assignment134 = Assignments.of(timestamp,
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name())
+        );
 
         cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
             BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment134);
@@ -597,6 +594,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<Void> resetFuture =
                 node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), false);
         assertThat(resetFuture, willCompleteSuccessfully());
+
+        Assignments assignmentForced13 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())), timestamp);
 
         assertPendingAssignments(node0, partId, assignmentForced13);
     }
@@ -765,6 +765,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         }, 250, SECONDS.toMillis(60)));
     }
 
+    /**
+     * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes
+     * from stable and pending, for example, when rebalance is in progress.
+     */
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
         CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
                 .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
