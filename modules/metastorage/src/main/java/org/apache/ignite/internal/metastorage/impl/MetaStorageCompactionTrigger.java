@@ -266,6 +266,30 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         }
     }
 
+    /**
+     * It should be used precisely at the complete of the compaction, so as not to schedule a new update together with the event of
+     * electing a local node as a new leader.
+     */
+    private void scheduleNextCompactionIfNotScheduleBusy() {
+        lock.lock();
+
+        try {
+            if (started && isLocalNodeLeader) {
+                ScheduledFuture<?> lastScheduledFuture = this.lastScheduledFuture;
+
+                if (lastScheduledFuture == null || lastScheduledFuture.isDone()) {
+                    this.lastScheduledFuture = compactionExecutor.schedule(
+                            () -> inBusyLock(busyLock, this::doCompactionBusy),
+                            config.interval(),
+                            MILLISECONDS
+                    );
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Invoked when the metastorage compaction revision is updated. */
     private void onCompactionRevisionUpdate(long compactionRevision) {
         inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
@@ -290,7 +314,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         }
                     }
 
-                    inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
+                    inBusyLockSafe(busyLock, this::scheduleNextCompactionIfNotScheduleBusy);
                 });
     }
 

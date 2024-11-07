@@ -118,6 +118,17 @@ public class WatchProcessor implements ManuallyCloseable {
     private final AtomicBoolean firedFailureOnChain = new AtomicBoolean(false);
 
     /**
+     * Compaction revision to ensure monotony without duplicates when updating it.
+     *
+     * <p>This is necessary to avoid a situation when changing the leader, we get two requests to update the same compaction revision.
+     * Fixing the leader change problem is not at the protocol level since the update is performed asynchronously and in the background and
+     * we can get into a gap when commands came from different leaders to the same compaction revision, but we simply did not have time to
+     * process the update of the compaction revision from the previous leader. This is necessary to cover corner cases with a sufficiently
+     * small compaction revision update interval.</p>
+     */
+    private volatile long compactionRevision = -1;
+
+    /**
      * Creates a new instance.
      *
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
@@ -416,7 +427,11 @@ public class WatchProcessor implements ManuallyCloseable {
     void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
         notificationFuture = notificationFuture
                 .thenRunAsync(() -> {
-                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
+                    if (compactionRevision > this.compactionRevision) {
+                        this.compactionRevision = compactionRevision;
+
+                        compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
+                    }
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)
