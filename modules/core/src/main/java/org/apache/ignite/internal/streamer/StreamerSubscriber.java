@@ -230,7 +230,9 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
 
                     // TODO: Error code
-                    DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, err.getMessage(), new HashSet<>(batch));
+                    DataStreamerException streamerErr = new DataStreamerException(
+                            INTERNAL_ERR, err.getMessage(), new HashSet<>(batch), err);
+
                     close(streamerErr);
 
                     throw streamerErr;
@@ -261,7 +263,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
 
             // TODO: Error code
-            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), Set.of(batch));
+            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), Set.of(batch), e);
             close(streamerErr);
 
             return CompletableFuture.failedFuture(streamerErr);
@@ -326,14 +328,14 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             });
         } else {
             // Collect failed/non-delivered items.
-            Set<V> failedItems = new HashSet<>();
+            // TODO: Error code
+            DataStreamerException streamerErr = throwable instanceof DataStreamerException
+                    ? (DataStreamerException)throwable
+                    : new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), new HashSet<>(), throwable);
 
-            // 1. Current failure.
-            if (throwable instanceof DataStreamerException) {
-                failedItems.addAll((Set<V>) ((DataStreamerException)throwable).failedItems());
-            }
+            Set<V> failedItems = (Set<V>) streamerErr.failedItems();
 
-            // 2. Pending requests.
+            // 1. Pending requests.
             for (var req : pendingRequests.values()) {
                 try {
                     req.join();
@@ -346,17 +348,13 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 }
             }
 
-            // 3. Pending buffers.
+            // 2. Pending buffers.
             buffers.values().forEach(buf -> buf.forEach(failedItems::add));
 
-            if (!failedItems.isEmpty()) {
-                throwable = new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), failedItems);
-            }
-
-            completionFut.completeExceptionally(throwable);
+            completionFut.completeExceptionally(streamerErr);
 
             if (resultSubscriber != null) {
-                resultSubscriber.onError(throwable);
+                resultSubscriber.onError(streamerErr);
             }
         }
     }

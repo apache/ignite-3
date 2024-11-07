@@ -29,8 +29,8 @@ public final class DataStreamerException extends IgniteException {
 
     private final Set<?> failedItems;
 
-    public DataStreamerException(int code, String message, @Nullable Set<?> failedItems) {
-        super(code, message);
+    public DataStreamerException(int code, String message, @Nullable Set<?> failedItems, Throwable cause) {
+        super(code, message, cause);
 
         this.failedItems = failedItems;
     }
