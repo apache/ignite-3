@@ -20,8 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.toIntMapCollector;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -31,7 +33,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -162,7 +163,7 @@ public class MappingServiceImpl implements MappingService {
             boolean mapOnBackups
     ) {
         if (tables.isEmpty() && views.isEmpty()) {
-            DistributionHolder holder = new DistributionHolder(Set.of(localNodeName), Map.of(), Map.of());
+            DistributionHolder holder = new DistributionHolder(Set.of(localNodeName), Int2ObjectMaps.emptyMap(), Int2ObjectMaps.emptyMap());
 
             return completedFuture(holder);
         } else {
@@ -194,8 +195,8 @@ public class MappingServiceImpl implements MappingService {
                         return assignmentsPerTable;
                     })
                     .thenApply(assignmentsPerTable -> {
-                        Map<Integer, List<String>> nodesPerView = views.stream()
-                                .collect(Collectors.toMap(IgniteDataSource::id, distributionProvider::forSystemView));
+                        Int2ObjectMap<List<String>> nodesPerView = views.stream()
+                                .collect(toIntMapCollector(IgniteDataSource::id, distributionProvider::forSystemView));
 
                         nodesPerView.values().stream().flatMap(List::stream).forEach(allNodes::add);
 
@@ -416,13 +417,13 @@ public class MappingServiceImpl implements MappingService {
 
     private static class DistributionHolder {
         private final Set<String> nodes;
-        private final Map<Integer, List<TokenizedAssignments>> assignmentsPerTable;
-        private final Map<Integer, List<String>> nodesPerView;
+        private final Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable;
+        private final Int2ObjectMap<List<String>> nodesPerView;
 
         DistributionHolder(
                 Set<String> nodes,
-                Map<Integer, List<TokenizedAssignments>> assignmentsPerTable,
-                Map<Integer, List<String>> nodesPerView) {
+                Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable,
+                Int2ObjectMap<List<String>> nodesPerView) {
             this.nodes = nodes;
             this.assignmentsPerTable = assignmentsPerTable;
             this.nodesPerView = nodesPerView;
