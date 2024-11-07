@@ -77,7 +77,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -145,6 +144,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -630,7 +630,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager
         );
 
-        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
+        var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class)

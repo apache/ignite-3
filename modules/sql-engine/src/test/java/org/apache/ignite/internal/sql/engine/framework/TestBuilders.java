@@ -100,9 +100,7 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -709,7 +707,7 @@ public class TestBuilders {
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(
+                        var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
                                 useTablePartitions
@@ -718,17 +716,16 @@ public class TestBuilders {
                         var mappingService = new MappingServiceImpl(
                                 name,
                                 new TestClockService(clock, clockWaiter),
-                                targetProvider,
                                 EmptyCacheFactory.INSTANCE,
                                 0,
                                 partitionPruner,
-                                Runnable::run
+                                () -> 1L,
+                                executionProvider
                         );
 
                         systemViewManager.register(() -> systemViews);
 
                         LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
-                        mappingService.onTopologyLeap(newTopology);
                         systemViewManager.onTopologyLeap(newTopology);
 
                         return new TestNode(
@@ -1535,13 +1532,14 @@ public class TestBuilders {
         return newRow;
     }
 
-    /** Returns a builder for {@link ExecutionTargetProvider}. */
-    public static ExecutionTargetProviderBuilder executionTargetProviderBuilder() {
-        return new ExecutionTargetProviderBuilder();
+
+    /** Returns a builder for {@link ExecutionDistributionProvider}. */
+    public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
+        return new ExecutionDistributionProviderBuilder();
     }
 
-    /** A builder to create instances of {@link ExecutionTargetProvider}. */
-    public static final class ExecutionTargetProviderBuilder {
+    /** A builder to create instances of {@link ExecutionDistributionProvider}. */
+    public static final class ExecutionDistributionProviderBuilder {
 
         private final Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
 
@@ -1549,12 +1547,12 @@ public class TestBuilders {
 
         private boolean useTablePartitions;
 
-        private ExecutionTargetProviderBuilder() {
+        private ExecutionDistributionProviderBuilder() {
 
         }
 
         /** Adds tables to list of nodes mapping. */
-        public ExecutionTargetProviderBuilder addTables(Map<String, List<List<String>>> tables) {
+        public ExecutionDistributionProviderBuilder addTables(Map<String, List<List<String>>> tables) {
             this.owningNodesByTableName.putAll(tables);
             return this;
         }
@@ -1563,20 +1561,20 @@ public class TestBuilders {
          * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
          * a system view is available at.
          */
-        public ExecutionTargetProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
+        public ExecutionDistributionProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
             this.owningNodesBySystemViewName = systemViews;
             return this;
         }
 
         /** Use table partitions to build mapping targets. Default is {@code false}. */
-        public ExecutionTargetProviderBuilder useTablePartitions(boolean value) {
+        public ExecutionDistributionProviderBuilder useTablePartitions(boolean value) {
             useTablePartitions = value;
             return this;
         }
 
-        /** Creates an instance of {@link ExecutionTargetProvider}. */
-        public ExecutionTargetProvider build() {
-            return new TestNodeExecutionTargetProvider(
+        /** Creates an instance of {@link ExecutionDistributionProvider}. */
+        public ExecutionDistributionProvider build() {
+            return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
                     Map.copyOf(owningNodesByTableName),
                     useTablePartitions
@@ -1584,15 +1582,14 @@ public class TestBuilders {
         }
     }
 
-    private static class TestNodeExecutionTargetProvider implements ExecutionTargetProvider {
-
+    private static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         final Function<String, List<String>> owningNodesBySystemViewName;
 
         final Map<String, List<List<String>>> owningNodesByTableName;
 
         final boolean useTablePartitions;
 
-        private TestNodeExecutionTargetProvider(
+        private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
                 Map<String, List<List<String>>> owningNodesByTableName,
                 boolean useTablePartitions
@@ -1602,18 +1599,17 @@ public class TestBuilders {
             this.useTablePartitions = useTablePartitions;
         }
 
-        @Override
-        public CompletableFuture<ExecutionTarget> forTable(
-                HybridTimestamp operationTime,
-                ExecutionTargetFactory factory,
-                IgniteTable table,
-                boolean includeBackups
-        ) {
-            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
+        private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
+            return new TokenizedAssignmentsImpl(
+                    nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet()),
+                    token
+            );
+        }
 
-            if (nullOrEmpty(owningNodes)) {
-                throw new AssertionError("DataProvider is not configured for table " + table.name());
-            }
+        @Override
+        public CompletableFuture<List<TokenizedAssignments>> forTable(HybridTimestamp operationTime, IgniteTable table,
+                boolean includeBackups) {
+            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
 
             List<TokenizedAssignments> assignments;
 
@@ -1630,34 +1626,19 @@ public class TestBuilders {
                         .collect(Collectors.toList());
             }
 
-            ExecutionTarget target = factory.partitioned(assignments);
-
-            return CompletableFuture.completedFuture(target);
-        }
-
-        private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
-            return new TokenizedAssignmentsImpl(
-                    nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet()),
-                    token
-            );
+            return CompletableFuture.completedFuture(assignments);
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+        public List<String> forSystemView(IgniteSystemView view) {
             List<String> nodes = owningNodesBySystemViewName.apply(view.name());
 
             if (nullOrEmpty(nodes)) {
-                return CompletableFuture.failedFuture(
-                        new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                + " any active nodes in the cluster", view.name()))
-                );
+                throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                + " any active nodes in the cluster", view));
             }
 
-            return CompletableFuture.completedFuture(
-                    view.distribution() == IgniteDistributions.single()
-                            ? factory.oneOf(nodes)
-                            : factory.allOf(nodes)
-            );
+            return view.distribution() == IgniteDistributions.single() ? List.of(nodes.get(0)) : nodes;
         }
     }
 }

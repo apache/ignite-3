@@ -84,6 +84,19 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      */
     protected long compactionRevision = -1;
 
+    /**
+     * Planned for update compaction revision to ensure monotony without duplicates when updating it.
+     *
+     * <p>This is necessary to avoid a situation when changing the leader, we get two requests to update the same compaction revision.
+     * Fixing the leader change problem is not at the protocol level since the update is performed asynchronously and in the background and
+     * we can get into a gap when commands came from different leaders to the same compaction revision, but we simply did not have time to
+     * process the update of the compaction revision from the previous leader. This is necessary to cover corner cases with a sufficiently
+     * small compaction revision update interval.</p>
+     *
+     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
+     */
+    private volatile long planedUpdateCompactionRevision = -1;
+
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
 
     /** Tracks only cursors, since reading a single entry or a batch is done entirely under {@link #rwLock}. */
@@ -265,8 +278,16 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
             } else if (areWatchesStarted()) {
-                watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
-            } else {
+                if (compactionRevision > planedUpdateCompactionRevision) {
+                    planedUpdateCompactionRevision = compactionRevision;
+
+                    watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
+                } else {
+                    watchProcessor.advanceSafeTime(context.timestamp);
+                }
+            } else if (compactionRevision > planedUpdateCompactionRevision) {
+                planedUpdateCompactionRevision = compactionRevision;
+
                 var notifyWatchesEvent = new UpdateCompactionRevisionEvent(compactionRevision, context.timestamp);
 
                 addToNotifyWatchProcessorEventsBeforeStartingWatches(notifyWatchesEvent);

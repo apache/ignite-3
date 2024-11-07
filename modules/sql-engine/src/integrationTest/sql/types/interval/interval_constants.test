@@ -1,7 +1,6 @@
 # name: test/sql/types/interval/interval_constants.test
 # description: Test constant intervals
 # group: [interval]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-18362
 
 statement ok
 PRAGMA enable_verification
@@ -121,19 +120,21 @@ SELECT interval '12:30' minutes to seconds
 PT12M30S
 
 # test out of range interval constants
-statement error
+statement error: Interval field value 99,999,999,999,999 exceeds precision of YEAR(10) field
 SELECT interval '99999999999999' years;
 
-statement error
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-20238
+statement error: some error txt
 SELECT interval '214748364' years;
 
-statement error
+statement error: Interval field value 9,223,372,036,854,775,807 exceeds precision of HOUR(10) field
 SELECT interval '9223372036854775807' hours;
 
-statement error
+statement error: Interval field value 9,223,372,036,854,775,807 exceeds precision of MINUTE(10) field
 SELECT interval '9223372036854775807' minutes;
 
-statement error
+statement error: Interval field value 9,223,372,036,854,775,807 exceeds precision of SECOND(10) field
 SELECT interval '9223372036854775807' seconds;
 
 # milliseconds

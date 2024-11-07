@@ -143,6 +143,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
             if (!zone.filter().isEmpty()) {
                 createZone.filter(zone.filter());
             }
+
+            if (!zone.consistencyMode().isEmpty()) {
+                createZone.consistencyMode(zone.consistencyMode());
+            }
         }
     }
 

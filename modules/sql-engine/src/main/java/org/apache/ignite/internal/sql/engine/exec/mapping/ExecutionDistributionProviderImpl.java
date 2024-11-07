@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
@@ -44,59 +41,39 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 
-/**
- * Implementation of {@link ExecutionTargetProvider} which takes assignments from {@link PlacementDriver} and {@link SystemViewManager}.
- */
-public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
-    private static final IgniteLogger LOG = Loggers.forClass(ExecutionTargetProviderImpl.class);
-
+/** Execution nodes information provider. */
+public class ExecutionDistributionProviderImpl implements ExecutionDistributionProvider {
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
     private final SystemViewManager systemViewManager;
 
-    ExecutionTargetProviderImpl(
-            PlacementDriver placementDriver, SystemViewManager systemViewManager
-    ) {
+    /**
+     * Constructor.
+     *
+     * @param placementDriver Placement driver.
+     * @param systemViewManager Manager for system views.
+     */
+    public ExecutionDistributionProviderImpl(PlacementDriver placementDriver, SystemViewManager systemViewManager) {
         this.placementDriver = placementDriver;
         this.systemViewManager = systemViewManager;
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forTable(
-            HybridTimestamp operationTime,
-            ExecutionTargetFactory factory,
-            IgniteTable table,
-            boolean includeBackups
-    ) {
-        return collectAssignments(table, operationTime, includeBackups)
-                .thenApply(factory::partitioned);
+    public List<String> forSystemView(IgniteSystemView view) {
+        return systemViewManager.owningNodes(view.name());
     }
 
     @Override
-    public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-        List<String> nodes = systemViewManager.owningNodes(view.name());
-
-        if (nullOrEmpty(nodes)) {
-            return failedFuture(
-                    new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                            + " any active nodes in the cluster", view.name()))
-            );
-        }
-
-        return completedFuture(
-                view.distribution() == IgniteDistributions.single()
-                        ? factory.oneOf(nodes)
-                        : factory.allOf(nodes)
-        );
+    public CompletableFuture<List<TokenizedAssignments>> forTable(
+            HybridTimestamp operationTime,
+            IgniteTable table,
+            boolean includeBackups
+    ) {
+        return collectAssignments(table, operationTime, includeBackups);
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925

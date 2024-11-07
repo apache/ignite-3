@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -85,4 +86,12 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
      * @return This instance.
      */
     CreateZoneCommandBuilder storageProfilesParams(List<StorageProfileParams> params);
+
+    /**
+     * Sets consistency mode.
+     *
+     * @param params Optional consistency mode params.
+     * @return This instance.
+     */
+    CreateZoneCommandBuilder consistencyModeParams(@Nullable ConsistencyMode params);
 }

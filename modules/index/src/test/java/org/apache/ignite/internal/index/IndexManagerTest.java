@@ -49,7 +49,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -240,7 +240,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 mockTableManager,
                 catalogManager,
                 ForkJoinPool.commonPool(),
-                (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply),
+                new MetaStorageRevisionListenerRegistry(metaStorageManager),
                 lowWatermark
         );
 
