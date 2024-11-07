@@ -23,8 +23,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -98,11 +98,17 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.serializationService = serializationService;
             this.msg = outObject.networkMessage();
 
-            List<ClassDescriptorMessage> outDescriptors = outObject.descriptors().stream()
-                    .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
-                    .collect(Collectors.toList());
+            List<ClassDescriptorMessage> outDescriptors = null;
+            for (ClassDescriptorMessage classDescriptorMessage : outObject.descriptors()) {
+                if (!serializationService.isDescriptorSent(classDescriptorMessage.descriptorId())) {
+                    if (outDescriptors == null) {
+                        outDescriptors = new ArrayList<>(outObject.descriptors().size());
+                    }
+                    outDescriptors.add(classDescriptorMessage);
+                }
+            }
 
-            if (!outDescriptors.isEmpty()) {
+            if (outDescriptors != null) {
                 this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(outDescriptors).build();
                 short groupType = this.descriptors.groupType();
                 short messageType = this.descriptors.messageType();
@@ -119,20 +125,20 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         /** {@inheritDoc} */
         @Override
-        public boolean isEndOfInput() throws Exception {
+        public boolean isEndOfInput() {
             return finished;
         }
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
 
         }
 
         /** {@inheritDoc} */
         @Deprecated
         @Override
-        public ByteBuf readChunk(ChannelHandlerContext ctx) throws Exception {
+        public ByteBuf readChunk(ChannelHandlerContext ctx) {
             return readChunk(ctx.alloc());
         }
 
