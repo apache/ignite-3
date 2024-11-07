@@ -46,6 +46,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
@@ -493,6 +494,41 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         assertEquals(1, cause.failedItems().size());
         assertEquals(key, cause.failedItems().iterator().next());
+    }
+
+    @Test
+    public void testFailedItems() {
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            var options = DataStreamerOptions.builder()
+                    .pageSize(10)
+                    .autoFlushInterval(100)
+                    .build();
+
+            streamerFut = view.streamData(publisher, options);
+
+            // Submit good items.
+            for (int i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+            }
+
+            TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
+
+            // Submit bad items.
+            for (int i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(Tuple.create()
+                        .set("id1", i)
+                        .set("name1", "foo-" + i)));
+            }
+        }
+
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+
+        assertEquals(100, cause.failedItems().size());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
