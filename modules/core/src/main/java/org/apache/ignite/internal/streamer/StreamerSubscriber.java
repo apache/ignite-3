@@ -228,10 +228,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
 
                     DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), err);
-
-                    // Release IO thread - close the streamer using the flush executor.
-                    // TODO: As a result, close is called earlier without an error.
-                    flushExecutor.execute(() -> close(streamerErr));
+                    close(streamerErr);
 
                     throw streamerErr;
                 } else {
@@ -336,27 +333,35 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             Set<V> failedItems = (Set<V>) streamerErr.failedItems();
 
             // 1. Pending requests.
-            for (var req : pendingRequests.values()) {
-                try {
-                    req.join();
-                } catch (Throwable t) {
-                    Throwable cause = ExceptionUtils.unwrapCause(t);
+            var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-                    if (cause instanceof DataStreamerException) {
-                        failedItems.addAll((Set<V>) ((DataStreamerException) cause).failedItems());
+            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+                for (var req : futs) {
+                    try {
+                        req.join();
+                    } catch (Throwable t) {
+                        Throwable cause = ExceptionUtils.unwrapCause(t);
+
+                        if (cause instanceof DataStreamerException) {
+                            failedItems.addAll((Set<V>) ((DataStreamerException) cause).failedItems());
+                        }
                     }
                 }
-            }
 
-            // 2. Pending buffers.
-            buffers.values().forEach(buf -> buf.forEach(failedItems::add));
+                // 2. Pending buffers.
+                buffers.values().forEach(buf -> buf.forEach(failedItems::add));
 
-            completionFut.completeExceptionally(streamerErr);
+                completionFut.completeExceptionally(streamerErr);
 
-            if (resultSubscriber != null) {
-                resultSubscriber.onError(streamerErr);
-            }
+                if (resultSubscriber != null) {
+                    resultSubscriber.onError(streamerErr);
+                }
+            });
         }
+    }
+
+    private void closeWithError() {
+
     }
 
     private synchronized void requestMore() {
