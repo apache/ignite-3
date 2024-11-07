@@ -25,6 +25,8 @@ import org.jetbrains.annotations.Nullable;
  * Represents an exception that is thrown during data streaming. Includes information about failed items.
  */
 public final class DataStreamerException extends IgniteException {
+    private static final long serialVersionUID = -7516813059448101081L;
+
     private final Set<Object> failedItems;
 
     public DataStreamerException(int code, String message, @Nullable Set<Object> failedItems) {

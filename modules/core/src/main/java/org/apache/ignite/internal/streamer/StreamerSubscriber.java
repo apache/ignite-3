@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.streamer;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.table.DataStreamerException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -217,12 +221,17 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
+            return batchSender.sendAsync(partition, batch, deleted).handle((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
-                    close(err);
+
+                    // TODO: Error code
+                    DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, err.getMessage(), Set.of(batch));
+                    close(streamerErr);
+
+                    throw streamerErr;
                 } else {
                     int batchSize = batch.size();
 
@@ -242,12 +251,18 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     });
 
                     invokeResultSubscriber(res);
+
+                    return res;
                 }
             });
         } catch (Throwable e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
-            close(e);
-            return CompletableFuture.failedFuture(e);
+
+            // TODO: Error code
+            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), Set.of(batch));
+            close(streamerErr);
+
+            return CompletableFuture.failedFuture(streamerErr);
         }
     }
 
@@ -306,6 +321,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 }
             });
         } else {
+            // TODO: Collect failed items and include them in the exception.
+            // 1. Wait for all pending futs. If any of them fails, include failed items in the exception.
+            // 2. Get pending items from buffers and include them in the exception.
+
             completionFut.completeExceptionally(throwable);
 
             if (resultSubscriber != null) {
