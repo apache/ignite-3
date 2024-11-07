@@ -50,7 +50,7 @@ class DisasterRecoveryRequestSerializer extends VersionedSerializer<DisasterReco
     }
 
     private enum Operation {
-        MANUAL_GROUP_UPDATE(0, GroupUpdateRequestSerializer.INSTANCE),
+        GROUP_UPDATE(0, GroupUpdateRequestSerializer.INSTANCE),
         MANUAL_GROUP_RESTART(1, ManualGroupRestartRequestSerializer.INSTANCE);
 
         private static final Map<Integer, Operation> valuesByCode = Arrays.stream(values())
@@ -76,7 +76,7 @@ class DisasterRecoveryRequestSerializer extends VersionedSerializer<DisasterReco
 
         static Operation findByRequest(DisasterRecoveryRequest request) {
             if (request instanceof GroupUpdateRequest) {
-                return MANUAL_GROUP_UPDATE;
+                return GROUP_UPDATE;
             }
             if (request instanceof ManualGroupRestartRequest) {
                 return MANUAL_GROUP_RESTART;
