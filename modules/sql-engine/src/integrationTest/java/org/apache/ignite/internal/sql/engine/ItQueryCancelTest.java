@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,10 +28,6 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -46,8 +42,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Set of test cases for query cancellation. */
 public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
+    /** Calling {@link CancelHandle#cancel()} should cancel execution of a single query. */
     @Test
-    public void testQueryCancel()  {
+    public void testCancelSingleQuery()  {
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
 
         SqlProperties properties = SqlPropertiesHelper.newBuilder()
@@ -56,7 +53,57 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
-        QueryProcessor qryProc = queryProcessor();
+        SqlQueryProcessor qryProc = queryProcessor();
+
+        StringBuilder query = new StringBuilder();
+
+        query.append("SELECT v FROM (VALUES ");
+        for (int i = 0; i < 100; i++) {
+            if (i > 0) {
+                query.append(", ");
+            }
+            query.append("(");
+            query.append(i);
+            query.append(")");
+        }
+        query.append(" ) t(v)");
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        AsyncSqlCursor<InternalSqlRow> query1 = qryProc.queryAsync(
+                properties,
+                hybridTimestampTracker,
+                null,
+                token,
+                query.toString()
+        ).join();
+
+        assertEquals(1, qryProc.runningQueries().size());
+
+        // Request cancellation.
+        CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
+
+        // Obverse cancellation error
+        expectQueryCancelled(() -> query1.requestNextAsync(1).join());
+
+        cancelled.join();
+
+        assertEquals(0, qryProc.runningQueries().size());
+    }
+
+    /** Calling {@link CancelHandle#cancel()} should cancel execution of multiple queries. */
+    @Test
+    public void testCancelMultipleQueries()  {
+        IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
+
+        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
+                .build();
+
+        HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
+
+        SqlQueryProcessor qryProc = queryProcessor();
 
         StringBuilder query = new StringBuilder();
 
@@ -90,15 +137,21 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
                 query.toString()
         ).join();
 
+        assertEquals(2, qryProc.runningQueries().size());
+
         // Request cancellation.
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
 
+        // Obverse cancellation errors
         expectQueryCancelled(() -> query1.requestNextAsync(1).join());
         expectQueryCancelled(() -> query2.requestNextAsync(1).join());
 
         cancelled.join();
+
+        assertEquals(0, qryProc.runningQueries().size());
     }
 
+    /** Starting a query with a cancelled token should trigger query cancellation. */
     @Test
     public void testQueryWontStartWhenHandleIsCancelled() {
         IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(CLUSTER.node(0));
@@ -109,7 +162,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
-        QueryProcessor qryProc = queryProcessor();
+        SqlQueryProcessor qryProc = queryProcessor();
 
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
@@ -127,6 +180,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(run);
     }
 
+    /** Calling {@link CancelHandle#cancel()} should cancel execution of queries that use executable plans. */
     @ParameterizedTest
     @ValueSource(strings = {
             "SELECT * FROM t WHERE id = 1",
@@ -144,7 +198,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
         HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
-        QueryProcessor qryProc = queryProcessor();
+        SqlQueryProcessor qryProc = queryProcessor();
 
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
@@ -157,11 +211,15 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
                 query
         ).join();
 
+        // Request cancellation
         CompletableFuture<Void> f = cancelHandle.cancelAsync();
 
+        // Obverse cancellation error
         expectQueryCancelled(run);
 
         f.join();
+
+        assertEquals(0, qryProc.runningQueries().size());
     }
 
     private static void expectQueryCancelled(Runnable action) {

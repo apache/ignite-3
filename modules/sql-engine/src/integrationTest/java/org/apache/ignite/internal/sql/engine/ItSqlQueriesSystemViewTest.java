@@ -150,7 +150,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         assertThat(cursors, hasSize(3));
-        assertThat(queryProcessor().runningQueries(), is(4));
+        assertThat(queryProcessor().runningQueries().size(), is(4));
 
         // Verify script query info.
         {
@@ -195,10 +195,10 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Closing cursors.
         await(cursors.get(0).closeAsync());
-        assertThat(queryProcessor().runningQueries(), is(3));
+        assertThat(queryProcessor().runningQueries().size(), is(3));
 
         await(cursors.get(1).closeAsync());
-        assertThat(queryProcessor().runningQueries(), is(2));
+        assertThat(queryProcessor().runningQueries().size(), is(2));
 
         await(cursors.get(2).closeAsync());
     }
@@ -220,8 +220,8 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
-        assertThat(queryProcessor().runningQueries(), is(4));
+        waitForCondition(() -> queryProcessor().runningQueries().size() == 4, 5_000);
+        assertThat(queryProcessor().runningQueries().size(), is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
                 + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
@@ -303,8 +303,8 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         for (Ignite node : nodes) {
             SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
 
-            boolean success = waitForCondition(() -> queryProcessor.runningQueries() == 0, 5_000);
-            assertTrue(success, "node=" + node.name() + ", count=" + queryProcessor().runningQueries());
+            boolean success = waitForCondition(() -> queryProcessor.runningQueries().isEmpty(), 5_000);
+            assertTrue(success, "node=" + node.name() + ", count=" + queryProcessor().runningQueries().size());
         }
     }
 

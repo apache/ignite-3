@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -555,15 +556,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     }
 
     /** Returns the number of running queries. */
-    @TestOnly
-    public int runningQueries() {
-        QueryExecutor executor = queryExecutor;
-
-        if (executor == null) {
-            return 0;
+    public List<QueryInfo> runningQueries() {
+        if (queryExecutor == null) {
+            return List.of();
+        } else {
+            return queryExecutor.runningQueries();
         }
-
-        return executor.runningQueries().size();
     }
 
     @Override
