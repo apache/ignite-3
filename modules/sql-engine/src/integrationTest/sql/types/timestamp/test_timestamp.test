@@ -84,7 +84,7 @@ statement error: Cannot apply '%' to arguments of type '<TIMESTAMP(6)> % <TIMEST
 SELECT t%t FROM timestamp_t
 
 skipif ignite3
-# Ihttps://issues.apache.org/jira/browse/IGNITE-20968
+# https://issues.apache.org/jira/browse/IGNITE-20968
 query T
 SELECT t-t FROM timestamp_t
 ----
