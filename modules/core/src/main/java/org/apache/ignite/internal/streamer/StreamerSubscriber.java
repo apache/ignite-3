@@ -264,7 +264,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
 
             // TODO: Error code
-            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), Set.of(batch), e);
+            DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, e.getMessage(), new HashSet<>(batch), e);
             close(streamerErr);
 
             return CompletableFuture.failedFuture(streamerErr);
