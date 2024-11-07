@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.causality;
 
 /**
- * Listener that will be notified of every deletion form a Versioned Value.
+ * Listener that will be notified of every deletion from a Versioned Value.
  *
  * @see VersionedValue#whenComplete(CompletionListener)
  */
+@FunctionalInterface
 public interface DeletionListener<T> {
     /**
      * Method that will be invoked on every deletion from a Versioned Value.
