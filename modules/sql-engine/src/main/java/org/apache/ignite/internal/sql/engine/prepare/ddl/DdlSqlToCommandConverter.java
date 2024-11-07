@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
@@ -46,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -108,6 +110,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -172,7 +175,9 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
                 STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString,
-                        (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params)))
+                        (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params))),
+                CONSISTENCY_MODE, new DdlOptionInfo<>(String.class, this::checkEmptyString,
+                        (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
 
         // ALTER ZONE options.
@@ -187,6 +192,21 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjustScaleDown)
         ));
+    }
+
+    /**
+     * Parse string representation of consistency mode.
+     *
+     * @param consistencyMode String representation of consistency mode.
+     * @return Consistency mode
+     */
+    public static ConsistencyMode parseConsistencyMode(String consistencyMode) {
+        try {
+            return ConsistencyMode.valueOf(consistencyMode);
+        } catch (IllegalArgumentException e) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Failed to parse consistency mode: " + consistencyMode
+                    + ". Valid values are: " + Arrays.toString(ConsistencyMode.values()));
+        }
     }
 
     /**

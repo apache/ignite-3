@@ -43,6 +43,8 @@ public class ZoneDefinition {
 
     private final String storageProfiles;
 
+    private final String consistencyMode;
+
     private ZoneDefinition(
             String zoneName,
             boolean ifNotExists,
@@ -53,7 +55,8 @@ public class ZoneDefinition {
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
             String filter,
-            String storageProfiles
+            String storageProfiles,
+            String consistencyMode
     ) {
         this.zoneName = zoneName;
         this.ifNotExists = ifNotExists;
@@ -65,6 +68,7 @@ public class ZoneDefinition {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
+        this.consistencyMode = consistencyMode;
     }
 
     /**
@@ -168,6 +172,15 @@ public class ZoneDefinition {
     }
 
     /**
+     * Returns consistency mode.
+     *
+     * @return Consistency mode.
+     */
+    public String consistencyMode() {
+        return consistencyMode;
+    }
+
+    /**
      * Returns new builder using this definition.
      *
      * @return New builder.
@@ -189,6 +202,7 @@ public class ZoneDefinition {
                 + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown
                 + ", filter='" + filter + '\''
                 + ", storageProfiles='" + storageProfiles + '\''
+                + ", consistencyMode='" + consistencyMode + '\''
                 + '}';
     }
 
@@ -216,6 +230,8 @@ public class ZoneDefinition {
 
         private String storageProfiles;
 
+        private String consistencyMode;
+
         private Builder() {}
 
         private Builder(ZoneDefinition definition) {
@@ -229,6 +245,7 @@ public class ZoneDefinition {
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
             filter = definition.filter;
             storageProfiles = definition.storageProfiles;
+            consistencyMode = definition.consistencyMode;
         }
 
         /**
@@ -371,6 +388,19 @@ public class ZoneDefinition {
         }
 
         /**
+         * Sets consistency mode.
+         *
+         * @param consistencyMode Consistency mode.
+         * @return This builder instance.
+         */
+        public Builder consistencyMode(String consistencyMode) {
+            Objects.requireNonNull(consistencyMode, "Consistency mode must not be null.");
+
+            this.consistencyMode = consistencyMode;
+            return this;
+        }
+
+        /**
          * Builds the zone definition.
          *
          * @return Zone definition.
@@ -386,7 +416,8 @@ public class ZoneDefinition {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    storageProfiles
+                    storageProfiles,
+                    consistencyMode
             );
         }
     }

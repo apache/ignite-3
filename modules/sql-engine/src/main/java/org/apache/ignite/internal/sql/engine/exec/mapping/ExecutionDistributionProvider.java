@@ -17,38 +17,34 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
-/**
- * An integration point that helps the mapper to acquire an execution target of particular
- * relation from fragment.
- */
-public interface ExecutionTargetProvider {
+/** Execution nodes information provider. */
+public interface ExecutionDistributionProvider {
     /**
      * Returns an execution target for a given table.
      *
      * @param operationTime Time of the operation to get consistent results among different calls.
-     * @param factory A factory to create target for given table.
      * @param table A table to create execution target for.
      * @param includeBackups Flags denotes whether to include non-primary replicas into target.
      * @return A future representing the result.
      */
-    CompletableFuture<ExecutionTarget> forTable(
+    CompletableFuture<List<TokenizedAssignments>> forTable(
             HybridTimestamp operationTime,
-            ExecutionTargetFactory factory,
             IgniteTable table,
             boolean includeBackups
     );
 
     /**
-     * Returns an execution target for a given view.
+     * Returns a distribution for a given view.
      *
-     * @param factory A factory to create target for given table.
      * @param view A view to create execution target for.
-     * @return A future representing the result.
+     * @return Distribution for a given view.
      */
-    CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view);
+    List<String> forSystemView(IgniteSystemView view);
 }

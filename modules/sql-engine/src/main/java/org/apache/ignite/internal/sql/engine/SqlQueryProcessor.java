@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -297,22 +298,21 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 view -> () -> systemViewManager.scanView(view.name())
         );
 
-        var executionTargetProvider = new ExecutionTargetProviderImpl(placementDriver, systemViewManager);
-
         var partitionPruner = new PartitionPrunerImpl();
 
         var mappingService = new MappingServiceImpl(
                 nodeName,
                 clockService,
-                executionTargetProvider,
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                taskExecutor
+                () -> logicalTopologyService.localLogicalTopology().version(),
+                new ExecutionDistributionProviderImpl(placementDriver, systemViewManager)
         );
 
-        logicalTopologyService.addEventListener(mappingService);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
+        // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
+        // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
