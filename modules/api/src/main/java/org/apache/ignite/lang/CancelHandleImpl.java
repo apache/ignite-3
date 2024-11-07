@@ -52,7 +52,7 @@ final class CancelHandleImpl implements CancelHandle {
     /** {@inheritDoc} */
     @Override
     public boolean isCancelled() {
-        return token.isCancelled();
+        return token.cancelled;
     }
 
     /** {@inheritDoc} */
@@ -62,86 +62,74 @@ final class CancelHandleImpl implements CancelHandle {
     }
 
     private void doCancelAsync() {
-        token.cancel().whenComplete((r, t) -> {
-            if (t != null) {
-                cancelFut.completeExceptionally(t);
-            } else {
-                cancelFut.complete(null);
-            }
-        });
+        token.cancel();
     }
 
     static final class CancellationTokenImpl implements CancellationToken {
 
-        private final CancelHandleImpl handle;
-
-        private final Object mutex = new Object();
-
-        // Actions that trigger cancellations - action that triggers a cancellation + a future that completes, when a resource is closed.
         private final ArrayDeque<Cancellation> cancellations = new ArrayDeque<>();
 
-        private volatile CompletableFuture<Void> cancelFut;
+        private final CancelHandleImpl handle;
+
+        private volatile CompletableFuture<Void> fut;
+
+        private volatile boolean cancelled;
 
         CancellationTokenImpl(CancelHandleImpl handle) {
             this.handle = handle;
         }
 
-        boolean isCancelled() {
-            return cancelFut != null;
-        }
+        void addCancelAction(Runnable action, CompletableFuture<?> fut) {
+            Cancellation cancellation = new Cancellation(action, fut);
 
-        CompletableFuture<Void> cancelHandleFut() {
-            return handle.cancelFut;
-        }
-
-        void addCancelAction(Runnable cancelAction, CompletableFuture<?> completionFut) {
-            assert cancelAction != null : "cancelAction must be not null";
-            assert completionFut != null : "completionFut must be not null";
-
-            Cancellation cancellation = new Cancellation(cancelAction, completionFut);
-
-            synchronized (mutex) {
-                if (cancelFut == null) {
+            synchronized (this) {
+                if (!cancelled) {
                     cancellations.add(cancellation);
                     return;
                 }
             }
 
-            // Run cancellation action outside of lock
             cancellation.run();
         }
 
         @SuppressWarnings("rawtypes")
-        private CompletableFuture<Void> cancel() {
-            CompletableFuture<Void> f = cancelFut;
+        CompletableFuture<Void> cancel() {
+            ensureNotCancelled();
 
-            if (f != null) {
-                return f;
-            } else {
-                List<Cancellation> registered;
+            List<Cancellation> cancellationList;
 
-                synchronized (mutex) {
-                    if (cancelFut != null) {
-                        return cancelFut;
-                    }
-
-                    // First assemble all completion futures
-                    registered = new ArrayList<>(cancellations);
-
-                    CompletableFuture[] futures = registered.stream()
-                            .map(c -> c.completionFut)
-                            .toArray(CompletableFuture[]::new);
-
-                    cancelFut = CompletableFuture.allOf(futures);
+            synchronized (this) {
+                if (cancelled) {
+                    return fut;
                 }
 
-                // Run cancellation actions outside of lock
-                for (Cancellation cancellation : registered) {
-                    cancellation.run();
-                }
+                cancelled = true;
 
-                return cancelFut;
+                CompletableFuture[] futures = cancellations.stream()
+                        .map(c -> c.completionFut)
+                        .toArray(CompletableFuture[]::new);
+
+                fut = CompletableFuture.allOf(futures);
+                cancellationList = new ArrayList<>(cancellations);
+
+                fut.whenComplete((r,t) -> {
+                    handle.cancelFut.complete(null);
+                });
             }
+
+            cancellationList.forEach(Cancellation::run);
+
+            return fut;
+        }
+
+        private void ensureNotCancelled() {
+            if (cancelled) {
+                throw new IllegalStateException("Not reenterable yet");
+            }
+        }
+
+        public CompletableFuture<Void> cancelHandleFut() {
+            return handle.cancelFut;
         }
     }
 

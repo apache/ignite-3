@@ -89,7 +89,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
         cancelled.join();
 
-        assertEquals(0, qryProc.runningQueries().size());
+        assertEquals(0, qryProc.runningQueries().size(), cancelled.toString());
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of multiple queries. */
@@ -177,7 +177,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
                 "SELECT 1"
         ).join();
 
-        expectQueryCancelled(run);
+        expectQueryCancelled2(run);
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of queries that use executable plans. */
@@ -215,7 +215,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> f = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelled(run);
+        expectQueryCancelled2(run);
 
         f.join();
 
@@ -226,5 +226,10 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletionException err = assertThrows(CompletionException.class, action::run);
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), sqlErr.toString());
+    }
+
+    private static void expectQueryCancelled2(Runnable action) {
+        CompletionException err = assertThrows(CompletionException.class, action::run);
+        assertInstanceOf(QueryCancelledException.class, err.getCause());
     }
 }

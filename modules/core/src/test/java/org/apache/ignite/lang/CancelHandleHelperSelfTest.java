@@ -35,7 +35,7 @@ import org.mockito.Mockito;
 /**
  * Tests for {@link CancelHandleHelper}.
  */
-public class CancelHandleHelperTest extends BaseIgniteAbstractTest {
+public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testCancelSync() throws InterruptedException {
