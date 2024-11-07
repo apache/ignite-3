@@ -470,11 +470,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testReceiverException(boolean async) {
         CompletableFuture<Void> streamerFut;
 
+        Object key = 0;
+
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
                     t -> t,
-                    t -> 0,
+                    t -> key,
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
@@ -487,6 +489,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(
                 ex.getCause().getMessage(),
                 endsWith("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
+
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+        assertEquals(1, cause.failedItems().size());
+        assertEquals(key, cause.failedItems().iterator().next());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
