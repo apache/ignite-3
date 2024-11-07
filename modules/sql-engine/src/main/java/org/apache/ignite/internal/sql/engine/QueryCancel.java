@@ -59,9 +59,6 @@ public class QueryCancel {
 
         if (token != null) {
             token.addOperation(this::cancel, cancelFut);
-            if (token.isCancelled()) {
-                this.cancel();
-            }
         }
 
         if (state.isDone()) {
