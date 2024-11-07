@@ -387,16 +387,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Assignment.forPeer(node(3).name())
         );
 
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013);
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(newPredicate);
-            } else {
-                node.dropMessages(oldPredicate.or(newPredicate));
-            }
-        });
+        blockRebalanceStableSwitch(partId, assignment013);
 
         CompletableFuture<Void> resetFuture =
                 node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), true);
@@ -480,7 +471,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
-        // check that there is no ongoing or planned rebalance
+        // Check that there is no ongoing or planned rebalance.
         assertNull(getPendingAssignments(node0, partId));
 
         assertRealAssignments(node0, partId, 1);
@@ -516,12 +507,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        // This is needed to be sure that all previous meta storage events are handled.
-        executeSql(format("CREATE ZONE %s with storage_profiles='%s'",
-                "FAKE_ZONE", DEFAULT_STORAGE_PROFILE
-        ));
-
-        // check that there is no ongoing or planned rebalance
+        // Check that there is no ongoing or planned rebalance.
         assertNull(getPendingAssignments(node0, partId));
 
         assertEquals(1, getStableAssignments(node0, partId).nodes().size());
@@ -564,16 +550,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Assignment.forPeer(node(4).name())
         );
 
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment134);
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(newPredicate);
-            } else {
-                node.dropMessages(oldPredicate.or(newPredicate));
-            }
-        });
+        blockRebalanceStableSwitch(partId, assignment134);
 
         stopNode(5);
 
@@ -599,6 +576,22 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Assignment.forPeer(node(3).name())), timestamp);
 
         assertPendingAssignments(node0, partId, assignmentForced13);
+    }
+
+    /**
+     * Block rebalance, so stable won't be switched to specified pending.
+     */
+    private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
+        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
+            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment);
+            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
+
+            if (oldPredicate == null) {
+                node.dropMessages(newPredicate);
+            } else {
+                node.dropMessages(oldPredicate.or(newPredicate));
+            }
+        });
     }
 
     private boolean stableKeySwitchMessage(NetworkMessage msg, int partId, Assignments blockedAssignments) {
