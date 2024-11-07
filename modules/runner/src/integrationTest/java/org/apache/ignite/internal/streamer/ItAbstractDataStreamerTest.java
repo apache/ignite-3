@@ -230,7 +230,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        assertEquals("Missed key column: ID", ex.getCause().getMessage());
+        assertEquals("Missed key column: ID", ex.getCause().getCause().getMessage());
     }
 
     @SuppressWarnings("Convert2MethodRef")

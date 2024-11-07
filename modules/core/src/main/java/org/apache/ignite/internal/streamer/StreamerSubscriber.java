@@ -230,7 +230,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
 
                     // TODO: Error code
-                    DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, err.getMessage(), Set.of(batch));
+                    DataStreamerException streamerErr = new DataStreamerException(INTERNAL_ERR, err.getMessage(), new HashSet<>(batch));
                     close(streamerErr);
 
                     throw streamerErr;
@@ -349,7 +349,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             // 3. Pending buffers.
             buffers.values().forEach(buf -> buf.forEach(failedItems::add));
 
-            throwable = new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), failedItems);
+            if (!failedItems.isEmpty()) {
+                throwable = new DataStreamerException(INTERNAL_ERR, throwable.getMessage(), failedItems);
+            }
+
             completionFut.completeExceptionally(throwable);
 
             if (resultSubscriber != null) {
