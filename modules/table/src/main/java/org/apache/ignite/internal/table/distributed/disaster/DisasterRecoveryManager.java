@@ -246,6 +246,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {

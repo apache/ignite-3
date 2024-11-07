@@ -446,7 +446,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     /**
      * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
      * disaster recovery API, but with manual flag set to false. We expect that in this replica factor won't be restored.
-     * In this test, assignments will be (0, 1, 4), according to {@link RendezvousDistributionFunction}.
+     * In this test, assignments will be (1, 3, 4), according to {@link RendezvousDistributionFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -516,6 +516,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
+        // This is needed to be sure that all pervious meta storage events are handled.
         executeSql(format("CREATE ZONE %s with storage_profiles='%s'",
                 "FAKE_ZONE", DEFAULT_STORAGE_PROFILE
         ));
@@ -535,10 +536,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * <p>It goes like this:
      * <ul>
      *     <li>We have 6 nodes and a partition on nodes 1, 4 and 5.</li>
-     *     <li>We stop nodes 4 and 5, leaving node 1 alone in stable assignments.</li>
-     *     <li>New distribution is 0, 1 and 3. Rebalance is started via raft snapshots. It transfers data to node 0, but not node 3.</li>
-     *     <li>Node 1 is stopped. Data is only present on node 0.</li>
-     *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
+     *     <li>We stop node 5, so rebalance on 1, 3, 4 is triggered, but blocked and cannot be finished.</li>
+     *     <li>Zones scale down is set to infinite value, we stop node 4 and new rebalance is not tirggered and majority is lost.</li>
+     *     <li>We execute "resetPartitions" and expect that pending assignments will be 1, 3, so node 3 from pending is presented.</li>
      * </ul>
      */
     @Test
