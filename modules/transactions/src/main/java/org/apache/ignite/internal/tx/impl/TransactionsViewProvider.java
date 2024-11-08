@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -34,21 +33,17 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A registry for transactions.
+ * {@code TRANSACTIONS} system view provider.
  */
-public class TxRegistry {
-    private final Map<UUID, InternalTransaction> transactions = new ConcurrentHashMap<>();
+class TransactionsViewProvider {
+    private final Map<UUID, InternalTransaction> transactions;
 
-    public void register(InternalTransaction tx) {
-        transactions.put(tx.id(), tx);
+    TransactionsViewProvider(Map<UUID, InternalTransaction> transactions) {
+        this.transactions = transactions;
     }
 
-    public void unregister(UUID txId) {
-        transactions.remove(txId);
-    }
-
-    /** Returns a TRANSACTIONS system view. */
-    SystemView<?> asSystemView() {
+    /** Returns a {@code TRANSACTIONS} system view. */
+    SystemView<?> get() {
         NativeType stringType = stringOf(64);
         NativeType timestampType = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
 

@@ -45,6 +45,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -195,7 +196,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ReplicaService replicaService;
 
-    private final TxRegistry txRegistry = new TxRegistry();
+    /** Registry of locally started active transactions. */
+    private final Map<UUID, InternalTransaction> transactions = new ConcurrentHashMap<>();
+
+    private final TransactionsViewProvider txSystemViewProvider = new TransactionsViewProvider(transactions);
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
@@ -390,9 +394,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
 
-            txRegistry.register(tx);
+            ;
 
-            return tx;
+            return register(tx);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -414,14 +418,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
             txFuture.whenComplete((unused, throwable) -> {
                 lowWatermark.unlock(txId);
-                txRegistry.unregister(txId);
+                unregister(txId);
             });
 
-            ReadOnlyTransactionImpl tx = new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture);
-
-            txRegistry.register(tx);
-
-            return tx;
+            return register(new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture));
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
@@ -937,7 +937,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(txRegistry.asSystemView());
+        return List.of(txSystemViewProvider.get());
     }
 
     static class TransactionFailureHandler {
@@ -989,6 +989,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return null;
         });
 
-        txRegistry.unregister(txId);
+        unregister(txId);
+    }
+
+    /** Puts transaction into the registry. */
+    private InternalTransaction register(InternalTransaction tx) {
+        transactions.put(tx.id(), tx);
+
+        return tx;
+    }
+
+    /** Removes transaction from the registry. */
+    private void unregister(UUID txId) {
+        transactions.remove(txId);
     }
 }
