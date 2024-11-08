@@ -126,7 +126,6 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testCancelAsyncReturnsCopy() {
         CancelHandle cancelHandle = CancelHandle.create();
-        CancellationToken token = cancelHandle.token();
 
         CompletableFuture<Void> f1 = cancelHandle.cancelAsync();
         CompletableFuture<Void> f2 = cancelHandle.cancelAsync();
