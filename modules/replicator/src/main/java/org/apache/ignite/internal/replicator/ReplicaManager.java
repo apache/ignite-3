@@ -223,7 +223,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
     private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
-    private final Map<ReplicationGroupId, ReplicaContext> contexts = new ConcurrentHashMap<>();
+    private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
     /**
      * Constructor for a replica service.
@@ -908,8 +908,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         // No-op.
                     }
 
-                    contexts.remove(replicaGrpId);
-
                     return v;
                 });
     }
@@ -1079,7 +1077,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
+        if (!shouldAdvanceIdleSafeTime()) {
+            // If previous attempt may still be waiting on the Metastorage SafeTime, we should not send the command ourselves as this
+            // might be an indicator that Metastorage SafeTime has stuck for some time; if we send the command, it will have to add its
+            // future, increasing (most probably, uselessly) heap pressure.
+            return;
+        }
+
         HybridTimestamp proposedSafeTime = clockService.now();
+
+        lastIdleSafeTimeProposal = proposedSafeTime;
 
         for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
@@ -1101,15 +1108,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica replica = replicaFuture.join();
 
-        if (!shouldAdvanceIdleSafeTime(replica, proposedSafeTime)) {
-            // If previous attempt might still be waiting on the Metastorage SafeTime, we should not send the command ourselves as this
-            // might be an indicator that Metastorage SafeTime has stuck for some time; if we send the command, it will have to add its
-            // future, increasing (most probably, uselessly) heap pressure.
-            return;
-        }
-
-        getOrCreateContext(replica).lastIdleSafeTimeProposal = proposedSafeTime;
-
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
                 .proposedSafeTime(proposedSafeTime)
@@ -1122,23 +1120,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private boolean shouldAdvanceIdleSafeTime(Replica replica, HybridTimestamp proposedSafeTime) {
-        if (placementDriver.getCurrentPrimaryReplica(replica.groupId(), proposedSafeTime) != null) {
-            // We know a primary is guaranteed to be valid at the proposed safe time, so, when processing the SafeTime propagation request,
-            // we'll not need to wait for Metastorage SafeTime, so processing will be cheap.
-            return true;
-        }
-
-        // Ok, an attempt to advance idle safe time might cause a wait on Metastorage SafeTime.
-        // Let's see: if Metastorage SafeTime is still not enough to avoid waiting on it even for our PREVIOUS attempt to advance
-        // partition SafeTime, then it makes sense to skip the current attempt (as the future from the previous attempt is still there
-        // and takes memory; if we make the current attempt, we are guaranteed to add another future). There will be next attempt
-        // to advance the partition SafeTime.
-
-        ReplicaContext context = getOrCreateContext(replica);
-
-        HybridTimestamp lastIdleSafeTimeProposal = context.lastIdleSafeTimeProposal;
-        if (lastIdleSafeTimeProposal == null) {
+    private boolean shouldAdvanceIdleSafeTime() {
+        HybridTimestamp lastProposal = lastIdleSafeTimeProposal;
+        if (lastProposal == null) {
             // No previous attempt, we have to do it ourselves.
             return true;
         }
@@ -1146,13 +1130,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // This is the actuality time that was needed to be achieved for previous attempt to check that this node is still a primary.
         // If it's already achieved, then previous attempt is unblocked (most probably already finished), so we should proceed.
         // If it's not achieved yet, then the previous attempt is still waiting, so we should skip this round of idle safe time propagation.
-        HybridTimestamp requiredActualityTime = lastIdleSafeTimeProposal.addPhysicalTime(clockService.maxClockSkewMillis());
+        HybridTimestamp requiredLastAttemptActualityTime = lastProposal.addPhysicalTime(clockService.maxClockSkewMillis());
 
-        return placementDriver.isActualAt(requiredActualityTime);
-    }
-
-    private ReplicaContext getOrCreateContext(Replica replica) {
-        return contexts.computeIfAbsent(replica.groupId(), k -> new ReplicaContext());
+        return placementDriver.isActualAt(requiredLastAttemptActualityTime);
     }
 
     /**
