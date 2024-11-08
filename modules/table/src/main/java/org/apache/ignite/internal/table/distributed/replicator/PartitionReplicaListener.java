@@ -1132,7 +1132,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
         applyCmdWithRetryOnSafeTimeReorderException(
-                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(clockService.now()).build(),
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(request.proposedSafeTime()).build(),
                 resultFuture
         );
 
@@ -3570,15 +3570,21 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             return placementDriver.getPrimaryReplica(replicationGroupId, current).thenApply(validateClo);
-        } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, current)
-                    .thenApply(primaryReplica -> new IgniteBiTuple<>(
-                            primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
-                            null
-                    ));
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            return isLocalNodePrimaryReplicaAt(current);
+        } else if (request instanceof ReplicaSafeTimeSyncRequest) {
+            return isLocalNodePrimaryReplicaAt(((ReplicaSafeTimeSyncRequest) request).proposedSafeTime());
         } else {
             return completedFuture(new IgniteBiTuple<>(null, null));
         }
+    }
+
+    private CompletableFuture<IgniteBiTuple<Boolean, Long>> isLocalNodePrimaryReplicaAt(HybridTimestamp timestamp) {
+        return placementDriver.getPrimaryReplica(replicationGroupId, timestamp)
+                .thenApply(primaryReplica -> new IgniteBiTuple<>(
+                        primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
+                        null
+                ));
     }
 
     /**
