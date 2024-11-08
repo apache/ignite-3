@@ -56,6 +56,7 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(":ignite-network-api")
     integrationTestImplementation project(":ignite-system-view")
     integrationTestImplementation project(":ignite-system-view-api")
     integrationTestImplementation project(":ignite-cluster-management")

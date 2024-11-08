@@ -35,7 +35,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@code TRANSACTIONS} system view provider.
  */
-class TransactionsViewProvider {
+public class TransactionsViewProvider {
+    public static final String READ_ONLY = "READ ONLY";
+
+    public static final String READ_WRITE = "READ WRITE";
+
     private final Map<UUID, InternalTransaction> transactions;
 
     TransactionsViewProvider(Map<UUID, InternalTransaction> transactions) {
@@ -53,7 +57,7 @@ class TransactionsViewProvider {
                 .<String>addColumn("STATE", stringType, tx -> deriveState(tx.state()))
                 .<String>addColumn("ID", stringType, tx -> tx.id().toString())
                 .<Instant>addColumn("START_TIME", timestampType, tx -> Instant.ofEpochMilli(tx.startTimestamp().getPhysical()))
-                .<String>addColumn("TYPE", stringType, tx -> tx.isReadOnly() ? "READ ONLY" : "READ WRITE")
+                .<String>addColumn("TYPE", stringType, tx -> tx.isReadOnly() ? READ_ONLY : READ_WRITE)
                 .<String>addColumn("PRIORITY", stringType, tx -> TransactionIds.priority(tx.id()).name())
                 .dataProvider(SubscriptionUtils.fromIterable(transactions.values()))
                 .build();
