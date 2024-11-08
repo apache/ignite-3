@@ -476,6 +476,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         Object key = 0;
+        Tuple item = tupleKey(1);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
@@ -487,7 +488,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
                     async ? "throw-async" : "throw");
 
-            publisher.submit(tupleKey(1));
+            publisher.submit(item);
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
@@ -497,7 +498,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         assertEquals(1, cause.failedItems().size());
-        assertEquals(key, cause.failedItems().iterator().next());
+        assertEquals(item, cause.failedItems().iterator().next());
     }
 
     @Test
