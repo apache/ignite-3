@@ -59,6 +59,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private static final String GLOBAL_PARTITION_STATE_FIELDS = "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState";
 
+    private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
+
     private static Set<String> nodeNames;
 
     @BeforeAll
@@ -125,8 +127,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     @Test
     void testLocalPartitionStatesByNodesIsCaseSensitive() {
         Set<String> nodeNames = Set.of(unwrapIgniteImpl(CLUSTER.node(0)).node().name(), unwrapIgniteImpl(CLUSTER.node(1)).node().name());
-
-        String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, String.join(",", nodeNames).toUpperCase(),
@@ -246,7 +246,10 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\tPUBLIC\t[0-9]+\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
+                "%1$s\\r?\\n%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                GLOBAL_PARTITION_STATE_FIELDS,
+                zoneName
+        ));
     }
 
     @Test
@@ -265,16 +268,16 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS
-                        + "\\r?\\n(%1$s)\t%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "%1$s\\r?\\n(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                LOCAL_PARTITION_STATE_FIELDS,
                 possibleNodeNames,
-                zoneName)
-        );
+                zoneName
+        ));
     }
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        assertOutputStartsWith((global ? "" : "Node name\t") + GLOBAL_PARTITION_STATE_FIELDS);
+        assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
 
         if (!global) {
             if (!nodes.isEmpty()) {
