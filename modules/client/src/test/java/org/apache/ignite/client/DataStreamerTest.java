@@ -636,7 +636,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertInstanceOf(CompletionException.class, subscriberErr.getCause());
         assertInstanceOf(ArithmeticException.class, subscriberErr.getCause().getCause());
 
-        assertEquals(3, ((DataStreamerException)subscriberErr).failedItems().size());
+        assertEquals(3, ((DataStreamerException) subscriberErr).failedItems().size());
     }
 
     @Test
