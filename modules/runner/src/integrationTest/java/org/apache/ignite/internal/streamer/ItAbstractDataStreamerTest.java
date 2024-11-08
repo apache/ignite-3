@@ -502,7 +502,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
+        try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
                     .pageSize(10)
                     .perPartitionParallelOperations(3)
@@ -513,16 +513,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             // Submit good items.
             for (int i = 0; i < 100; i++) {
-                publisher.submit(tuple(i, "foo-" + i));
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
             }
 
             TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
 
             // Submit bad items.
             for (int i = 0; i < 100; i++) {
-                publisher.submit(Tuple.create()
+                publisher.submit(DataStreamerItem.of(Tuple.create()
                         .set("id", i)
-                        .set("name1", "foo-" + i));
+                        .set("name1", "foo-" + i)));
             }
         }
 
