@@ -18,8 +18,6 @@
 package org.apache.ignite.lang;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** Implementation of {@link CancelHandle}. */
@@ -107,27 +105,24 @@ final class CancelHandleImpl implements CancelHandle {
                 return;
             }
 
-            List<Cancellation> registered;
-
             synchronized (mux) {
                 if (cancelFut != null) {
                     return;
                 }
 
                 // First assemble all completion futures
-                registered = new ArrayList<>(cancellations);
-
-                CompletableFuture[] futures = registered.stream()
+                CompletableFuture[] futures = cancellations.stream()
                         .map(c -> c.completionFut)
                         .toArray(CompletableFuture[]::new);
 
+                // handle.cancelFut completes when all cancellation futures complete.
                 cancelFut = CompletableFuture.allOf(futures).whenComplete((r, t) -> {
                     handle.cancelFut.complete(null);
                 });
             }
 
             // Run cancellation actions outside of lock
-            for (Cancellation cancellation : registered) {
+            for (Cancellation cancellation : cancellations) {
                 cancellation.run();
             }
         }

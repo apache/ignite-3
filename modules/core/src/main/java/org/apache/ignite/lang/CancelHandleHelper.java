@@ -57,12 +57,8 @@ public final class CancelHandleHelper {
         Objects.requireNonNull(cancelAction, "cancelAction");
         Objects.requireNonNull(completionFut, "completionFut");
 
-        if (token instanceof CancellationTokenImpl) {
-            CancellationTokenImpl t = (CancellationTokenImpl) token;
-            t.addCancelAction(cancelAction, completionFut);
-        } else {
-            throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
-        }
+        CancellationTokenImpl t = unwrapToken(token);
+        t.addCancelAction(cancelAction, completionFut);
     }
 
     /**
@@ -71,9 +67,15 @@ public final class CancelHandleHelper {
      * @param token Cancellation token.
      */
     public static CompletableFuture<Void> getCancellationFuture(CancellationToken token) {
+        Objects.requireNonNull(token, "token");
+
+        CancellationTokenImpl t = unwrapToken(token);
+        return t.cancelHandleFut();
+    }
+
+    private static CancellationTokenImpl unwrapToken(CancellationToken token) {
         if (token instanceof CancellationTokenImpl) {
-            CancellationTokenImpl t = (CancellationTokenImpl) token;
-            return t.cancelHandleFut();
+            return (CancellationTokenImpl) token;
         } else {
             throw new IllegalArgumentException("Unexpected CancellationToken: " + token.getClass());
         }

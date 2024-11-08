@@ -200,6 +200,14 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
             );
             assertEquals("completionFut", err.getMessage());
         }
+
+        {
+            NullPointerException err = assertThrows(
+                    NullPointerException.class,
+                    () -> CancelHandleHelper.getCancellationFuture(null)
+            );
+            assertEquals("token", err.getMessage());
+        }
     }
 
     @Test
