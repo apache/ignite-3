@@ -169,10 +169,20 @@ public class Catalog {
     /**
      * Returns table descriptor by fully-qualified table name.
      *
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes.
+     * @param qualifiedTableName Fully-qualified table name. Case-sensitive, without quotes.
      * */
-    public @Nullable CatalogTableDescriptor table(String tableName) {
-        return tablesByName.get(tableName);
+    public @Nullable CatalogTableDescriptor table(String qualifiedTableName) {
+        return tablesByName.get(qualifiedTableName);
+    }
+
+    /**
+     * Returns table descriptor by table name and schema name.
+     *
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name without schema. Case-sensitive, without quotes.
+     * */
+    public @Nullable CatalogTableDescriptor table(String schemaName, String tableName) {
+        return tablesByName.get(schemaName + "." + tableName);
     }
 
     public Collection<CatalogTableDescriptor> tables() {
