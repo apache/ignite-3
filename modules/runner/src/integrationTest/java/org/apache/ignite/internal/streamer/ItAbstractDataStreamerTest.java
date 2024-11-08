@@ -553,7 +553,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            @SuppressWarnings("resource")
             var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
 
             try {
@@ -615,7 +614,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    @SuppressWarnings("resource")
     private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
@@ -640,7 +638,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    @SuppressWarnings("resource")
     private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
         public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {
