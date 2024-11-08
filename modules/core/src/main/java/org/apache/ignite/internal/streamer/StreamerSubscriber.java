@@ -33,11 +33,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerException;
-import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
