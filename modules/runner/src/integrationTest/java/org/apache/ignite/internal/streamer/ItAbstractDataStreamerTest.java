@@ -505,6 +505,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder()
                     .pageSize(10)
+                    .perPartitionParallelOperations(3)
                     .autoFlushInterval(100)
                     .build();
 
