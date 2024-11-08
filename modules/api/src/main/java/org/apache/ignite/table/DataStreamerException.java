@@ -20,7 +20,9 @@ package org.apache.ignite.table;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents an exception that is thrown during data streaming. Includes information about failed items.
@@ -40,6 +42,19 @@ public final class DataStreamerException extends IgniteException {
         super(getCode(cause), cause.getMessage(), cause);
 
         this.failedItems = failedItems;
+    }
+
+    /**
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
+     *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public DataStreamerException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+        this.failedItems = Set.of();
     }
 
     /**
