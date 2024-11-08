@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -319,11 +320,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             CompletableFuture.allOf(futs).whenComplete((v, e) -> {
                 if (e != null) {
-                    if (resultSubscriber != null) {
-                        resultSubscriber.onError(e);
-                    }
-
-                    completionFut.completeExceptionally(e);
+                    completeWithError(e);
                 } else {
                     if (resultSubscriber != null) {
                         resultSubscriber.onComplete();
@@ -336,16 +333,18 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             // Collect failed/non-delivered items from failed requests and pending buffers.
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> {
-                buffers.values().forEach(buf -> buf.forEach(failedItems::add));
-                DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> completeWithError(throwable));
+        }
+    }
 
-                completionFut.completeExceptionally(streamerErr);
+    private void completeWithError(@NotNull Throwable throwable) {
+        buffers.values().forEach(buf -> buf.forEach(failedItems::add));
+        DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
 
-                if (resultSubscriber != null) {
-                    resultSubscriber.onError(streamerErr);
-                }
-            });
+        completionFut.completeExceptionally(streamerErr);
+
+        if (resultSubscriber != null) {
+            resultSubscriber.onError(streamerErr);
         }
     }
 
