@@ -30,6 +30,12 @@ public final class DataStreamerException extends IgniteException {
 
     private final Set<?> failedItems;
 
+    /**
+     * Constructor.
+     *
+     * @param failedItems Set of failed items.
+     * @param cause Cause of the exception.
+     */
     public DataStreamerException(Set<?> failedItems, Throwable cause) {
         super(getCode(cause), cause.getMessage(), cause);
 
@@ -37,7 +43,7 @@ public final class DataStreamerException extends IgniteException {
     }
 
     /**
-     * Gets the set of failed items.
+     * Gets the set of items that were not streamed to the cluster.
      *
      * @return Set of failed items.
      */
