@@ -503,7 +503,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = defaultTable().recordView();
 
         CompletableFuture<Void> streamerFut;
-        int badItemsAdded = 0;
+        int invalidItemsAdded = 0;
 
         try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
@@ -514,21 +514,21 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             streamerFut = view.streamData(publisher, options);
 
-            // Submit good items.
+            // Submit valid items.
             for (int i = 0; i < 100; i++) {
                 publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
             }
 
             TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
 
-            // Submit bad items.
+            // Submit invalid items.
             for (int i = 0; i < 100; i++) {
                 try {
                     publisher.submit(DataStreamerItem.of(Tuple.create()
                             .set("id", i)
                             .set("name1", "foo-" + i)));
                 } catch (Exception e) {
-                    badItemsAdded = i;
+                    invalidItemsAdded = i;
                     break;
                 }
             }
@@ -537,8 +537,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
 
-        assertThat(badItemsAdded, is(greaterThan(10)));
-        assertEquals(badItemsAdded, cause.failedItems().size());
+        assertThat(invalidItemsAdded, is(greaterThan(10)));
+        assertEquals(invalidItemsAdded, cause.failedItems().size());
+
+        Set<Integer> failedKeys = cause.failedItems().stream()
+                .map(x -> ((Tuple) x).intValue(0))
+                .collect(Collectors.toSet());
+
+        for (int i = 0; i < invalidItemsAdded; i++) {
+            assertTrue(failedKeys.contains(i), "Failed key: " + i);
+        }
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
