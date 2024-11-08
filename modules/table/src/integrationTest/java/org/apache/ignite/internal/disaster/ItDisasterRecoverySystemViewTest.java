@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.restart.RestartProofIgnite;
@@ -73,9 +76,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
         assertQuery(globalPartitionStatesSystemViewSql())
-                .returns(ZONE_NAME, TABLE_NAME, 0, AVAILABLE.name())
-                .returns(ZONE_NAME, TABLE_NAME, 1, AVAILABLE.name())
+                .returns(ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, AVAILABLE.name())
+                .returns(ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, AVAILABLE.name())
                 .check();
     }
 
@@ -94,11 +99,13 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         String nodeName0 = nodeNames.get(0);
         String nodeName1 = nodeNames.get(1);
 
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
         assertQuery(localPartitionStatesSystemViewSql())
-                .returns(nodeName0, ZONE_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName0, ZONE_NAME, TABLE_NAME, 1, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, TABLE_NAME, 1, HEALTHY.name())
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name())
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name())
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name())
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name())
                 .check();
     }
 
@@ -128,10 +135,16 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static String globalPartitionStatesSystemViewSql() {
-        return "SELECT ZONE_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.GLOBAL_PARTITION_STATES";
+        return "SELECT ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.GLOBAL_PARTITION_STATES";
     }
 
     private static String localPartitionStatesSystemViewSql() {
-        return "SELECT NODE_NAME, ZONE_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.LOCAL_PARTITION_STATES";
+        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.LOCAL_PARTITION_STATES";
+    }
+
+    private static int getTableId(String schemaName, String tableName) {
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
+
+        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
     }
 }

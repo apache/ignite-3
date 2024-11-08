@@ -39,6 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Base test class for Cluster Recovery partition states commands. */
+// TODO IGNITE-23617 refactor to use more flexible output matching.
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -54,6 +55,11 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final Set<String> STATES = Set.of("HEALTHY", "AVAILABLE");
 
     private static final int DONT_CHECK_PARTITIONS = -1;
+
+    private static final String GLOBAL_PARTITION_STATE_FIELDS =
+            "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState" + System.lineSeparator();
+
+    private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
 
     private static Set<String> nodeNames;
 
@@ -121,8 +127,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     @Test
     void testLocalPartitionStatesByNodesIsCaseSensitive() {
         Set<String> nodeNames = Set.of(unwrapIgniteImpl(CLUSTER.node(0)).node().name(), unwrapIgniteImpl(CLUSTER.node(1)).node().name());
-
-        String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, String.join(",", nodeNames).toUpperCase(),
@@ -227,7 +231,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        checkOutput(global, Set.of(), Set.of(), 0);
+        assertOutputIs(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
     }
 
     @Test
@@ -242,8 +246,11 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                "Zone name\tTable name\tPartition ID\tState\\r?\\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
-                zoneName));
+                "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
+                GLOBAL_PARTITION_STATE_FIELDS,
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     @Test
@@ -262,15 +269,17 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "Node name\tZone name\tTable name\tPartition ID\tState\\r?\\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
+                LOCAL_PARTITION_STATE_FIELDS,
                 possibleNodeNames,
-                zoneName)
-        );
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        assertOutputStartsWith((global ? "" : "Node name\t") + "Zone name\tTable name\tPartition ID\tState");
+        assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
 
         if (!global) {
             if (!nodes.isEmpty()) {
@@ -305,10 +314,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         if (partitions != DONT_CHECK_PARTITIONS) {
             for (int i = 0; i < partitions; i++) {
                 assertOutputContains("\t" + i + "\t");
-            }
-
-            for (int i = partitions; i < DEFAULT_PARTITION_COUNT; i++) {
-                assertOutputDoesNotContain("\t" + i + "\t");
             }
         }
     }
