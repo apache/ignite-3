@@ -59,6 +59,10 @@ class Option extends QueryPart {
         return new Option("STORAGE_PROFILES", storageProfiles);
     }
 
+    public static Option consistencyMode(String consistencyMode) {
+        return new Option("CONSISTENCY_MODE", consistencyMode);
+    }
+
     public static Option name(String name) {
         return new Option("NAME", name);
     }

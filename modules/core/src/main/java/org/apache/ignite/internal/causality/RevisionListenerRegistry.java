@@ -15,36 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
+package org.apache.ignite.internal.causality;
 
-/**
- * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
- */
-public enum ZoneOptionEnum {
-    /** Number of partitions. */
-    PARTITIONS,
-
-    /** Number of replicas. */
-    REPLICAS,
-
-    /** Partition distribution algorithm name. */
-    DISTRIBUTION_ALGORITHM,
-
-    /** An expression to filter data nodes. */
-    DATA_NODES_FILTER,
-
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST,
-
-    /** Data nodes scale up auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_UP,
-
-    /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-
-    /** Storage profiles. */
-    STORAGE_PROFILES,
-
-    /** Consistency mode. */
-    CONSISTENCY_MODE
+/** Revision listener registry. */
+@FunctionalInterface
+public interface RevisionListenerRegistry {
+    /** Adds a listener. */
+    void listen(RevisionListener listener);
 }

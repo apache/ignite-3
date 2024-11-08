@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
@@ -42,6 +40,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -71,7 +70,7 @@ public class SchemaManager implements IgniteComponent {
     private final Map<Integer, SchemaRegistryImpl> registriesById = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public SchemaManager(Consumer<LongFunction<CompletableFuture<?>>> registry, CatalogService catalogService) {
+    public SchemaManager(RevisionListenerRegistry registry, CatalogService catalogService) {
         this.registriesVv = new IncrementalVersionedValue<>(registry);
         this.catalogService = catalogService;
     }
