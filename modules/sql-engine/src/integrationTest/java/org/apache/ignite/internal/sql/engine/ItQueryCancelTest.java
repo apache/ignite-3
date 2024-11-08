@@ -86,7 +86,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelledWithSqlException(new DrainCursor(query1));
+        expectQueryCancelled(new DrainCursor(query1));
 
         cancelled.join();
 
@@ -144,8 +144,8 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
 
         // Obverse cancellation errors
-        expectQueryCancelledWithSqlException(new DrainCursor(query1));
-        expectQueryCancelledWithSqlException(new DrainCursor(query2));
+        expectQueryCancelled(new DrainCursor(query1));
+        expectQueryCancelled(new DrainCursor(query2));
 
         cancelled.join();
 
@@ -225,12 +225,13 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         assertEquals(0, qryProc.runningQueries().size());
     }
 
-    private static void expectQueryCancelledWithSqlException(Runnable action) {
+    private static void expectQueryCancelled(Runnable action) {
         CompletionException err = assertThrows(CompletionException.class, action::run);
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), sqlErr.toString());
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-23637 remove this method and use expectQueryCancelled instead.
     private static void expectQueryCancelledWithQueryCancelledException(Runnable action) {
         CompletionException err = assertThrows(CompletionException.class, action::run);
         assertInstanceOf(QueryCancelledException.class, err.getCause());
