@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -57,7 +56,8 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private static final int DONT_CHECK_PARTITIONS = -1;
 
-    private static final String GLOBAL_PARTITION_STATE_FIELDS = "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState";
+    private static final String GLOBAL_PARTITION_STATE_FIELDS =
+            "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState" + System.lineSeparator();
 
     private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
 
@@ -231,7 +231,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        checkOutput(global, Set.of(), Set.of(), 0);
+        assertOutputIs(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
     }
 
     @Test
@@ -246,9 +246,10 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                "%1$s\\r?\\n%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
                 GLOBAL_PARTITION_STATE_FIELDS,
-                zoneName
+                zoneName,
+                System.lineSeparator()
         ));
     }
 
@@ -268,10 +269,11 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "%1$s\\r?\\n(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
                 LOCAL_PARTITION_STATE_FIELDS,
                 possibleNodeNames,
-                zoneName
+                zoneName,
+                System.lineSeparator()
         ));
     }
 
@@ -313,10 +315,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
             for (int i = 0; i < partitions; i++) {
                 assertOutputContains("\t" + i + "\t");
             }
-        }
-
-        if (partitions != 0) {
-            assertOutputContains(DEFAULT_SCHEMA_NAME);
         }
     }
 }
