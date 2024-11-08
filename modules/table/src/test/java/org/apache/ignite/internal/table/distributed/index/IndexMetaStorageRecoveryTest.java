@@ -501,7 +501,10 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
 
         createComponents();
 
-        assertThat(startAsync(componentContext, metastore, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(componentContext, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(componentContext, catalogManager), willCompleteSuccessfully());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 

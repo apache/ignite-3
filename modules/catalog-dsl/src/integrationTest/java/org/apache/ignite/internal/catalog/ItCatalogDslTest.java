@@ -40,6 +40,7 @@ import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.matcher.TableDefinitionMatcher;
 import org.apache.ignite.internal.matcher.ZoneDefinitionMatcher;
 import org.apache.ignite.sql.SqlException;
@@ -300,6 +301,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .dataNodesAutoAdjustScaleUp(1)
                 .filter("$..*")
                 .distributionAlgorithm("distributionAlgorithm")
+                .consistencyMode(ConsistencyMode.HIGH_AVAILABILITY.name())
                 .build();
 
         assertThat(catalog().createZoneAsync(zoneDefinition), willCompleteSuccessfully());
@@ -314,6 +316,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withDataNodesAutoAdjustScaleDown(zoneDefinition.dataNodesAutoAdjustScaleDown())
                         .withDataNodesAutoAdjustScaleUp(zoneDefinition.dataNodesAutoAdjustScaleUp())
                         .withFilter(zoneDefinition.filter())
+                        .withConsistencyMode(zoneDefinition.consistencyMode())
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22162
         // .withDistributionAlgorithm(zoneDefinition.distributionAlgorithm())
         );

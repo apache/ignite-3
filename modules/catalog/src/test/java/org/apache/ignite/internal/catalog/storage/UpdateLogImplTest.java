@@ -83,6 +83,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         keyValueStorage.start();
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
     }
 
     @AfterEach

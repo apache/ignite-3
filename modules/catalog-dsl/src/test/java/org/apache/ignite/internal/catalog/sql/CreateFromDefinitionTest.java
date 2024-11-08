@@ -33,6 +33,7 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsTest.Pojo;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("ThrowableNotThrown")
@@ -56,6 +57,7 @@ class CreateFromDefinitionTest {
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
                 .storageProfiles("default")
+                .consistencyMode("HIGH_AVAILABILITY")
                 .build();
 
         assertThat(
@@ -63,8 +65,26 @@ class CreateFromDefinitionTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter';")
+                        + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")
         );
+    }
+
+    @Test
+    void testDefinitionInvalidConsistencyMode() {
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
+                .ifNotExists()
+                .partitions(1)
+                .replicas(3)
+                .distributionAlgorithm("partitionDistribution")
+                .dataNodesAutoAdjust(1)
+                .dataNodesAutoAdjustScaleDown(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .filter("filter")
+                .storageProfiles("default")
+                .consistencyMode("MY_CONSISTENCY")
+                .build();
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new CreateFromDefinitionImpl(null).from(zoneDefinition));
     }
 
     @Test

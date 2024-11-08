@@ -98,9 +98,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
 
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, catalogManager), willCompleteSuccessfully());
 
         indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join().revision());
 

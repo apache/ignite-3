@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.causality;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
 /**
- * This exception is thrown when {@link CompletableVersionedValue#get(long)} is called with an outdated token
+ * This exception is thrown when {@link VersionedValue#get(long)} is called with an outdated token
  * (this means that the history size of VersionedValue is not enough in order to get a value related to the token).
  *
- * <p>{@link CompletableVersionedValue} stores a value per the causality token.
- * See {@link CompletableVersionedValue#get(long)}.
+ * <p>{@link VersionedValue} stores a value per the causality token.
+ * See {@link VersionedValue#get(long)}.
  */
 public class OutdatedTokenException extends IgniteInternalException {
     /**
@@ -35,8 +36,7 @@ public class OutdatedTokenException extends IgniteInternalException {
      * @param actualToken Token for the actual stored value.
      * @param historySize Size of stored history.
      */
-    public OutdatedTokenException(long outdatedToken, long actualToken, int historySize) {
-        super(IgniteStringFormatter.format("Token expired [token={}, actualToken={}, historySize={}]", outdatedToken,
-                actualToken, historySize));
+    OutdatedTokenException(long outdatedToken, long actualToken, int historySize) {
+        super(INTERNAL_ERR, "Token expired [token={}, actualToken={}, historySize={}]", outdatedToken, actualToken, historySize);
     }
 }

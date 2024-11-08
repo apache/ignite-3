@@ -73,13 +73,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -98,6 +98,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -217,7 +218,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private volatile TxStateTableStorage txStateTableStorage;
 
     /** Revision updater. */
-    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
+    private RevisionListenerRegistry revisionUpdater;
 
     /** Garbage collector configuration. */
     @InjectConfiguration
@@ -278,9 +279,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, catalogMetastore), willCompleteSuccessfully());
+        assertThat(catalogMetastore.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+
+        revisionUpdater = new MetaStorageRevisionListenerRegistry(catalogMetastore);
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
 

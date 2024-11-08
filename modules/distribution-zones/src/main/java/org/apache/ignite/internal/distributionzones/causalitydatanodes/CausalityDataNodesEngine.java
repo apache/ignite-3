@@ -38,13 +38,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -102,7 +101,7 @@ public class CausalityDataNodesEngine {
      */
     public CausalityDataNodesEngine(
             IgniteSpinBusyLock busyLock,
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            RevisionListenerRegistry registry,
             MetaStorageManager msManager,
             Map<Integer, ZoneState> zonesState,
             DistributionZoneManager distributionZoneManager,

@@ -15,6 +15,15 @@ ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=jre-build /javaruntime $JAVA_HOME
 
+# Set default memory and GC configuration
+ENV JVM_MAX_MEM="16g"
+ENV JVM_MIN_MEM="16g"
+
+ENV JVM_GC="G1GC"
+ENV JVM_G1HeapRegionSize="32M"
+
+ENV IGNITE3_EXTRA_JVM_ARGS=""
+
 # Copy and setup DB app
 ENV IGNITE_HOME=/opt/ignite
 

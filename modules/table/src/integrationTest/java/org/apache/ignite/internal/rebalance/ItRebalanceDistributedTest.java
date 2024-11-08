@@ -87,9 +87,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -110,7 +108,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -150,6 +147,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -1300,8 +1298,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-            Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    metaStorageManager.registerRevisionUpdateListener(function::apply);
+            var registry = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
 
@@ -1313,8 +1310,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            LogSyncer logSyncer = logStorageFactory;
-
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
@@ -1322,7 +1317,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            logSyncer,
+                            logStorageFactory,
                             hybridClock
                     ),
                     storageConfiguration
@@ -1437,7 +1432,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logSyncer,
+                    logStorageFactory,
                     new PartitionReplicaLifecycleManager(
                             catalogManager,
                             replicaManager,

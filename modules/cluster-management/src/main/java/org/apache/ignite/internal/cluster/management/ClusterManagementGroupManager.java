@@ -745,7 +745,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CompletableFuture<CmgRaftService> startCmgRaftServiceWithEvents(Set<String> nodeNames, @Nullable String initialClusterConfig) {
         BeforeStartRaftGroupEventParameters params = new BeforeStartRaftGroupEventParameters(nodeNames, initialClusterConfig);
         return fireEvent(ClusterManagerGroupEvent.BEFORE_START_RAFT_GROUP, params)
-                .thenCompose(v -> startCmgRaftService(nodeNames))
+                .thenComposeAsync(v -> startCmgRaftService(nodeNames), scheduledExecutor)
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.warn("Error when initializing the CMG", e);

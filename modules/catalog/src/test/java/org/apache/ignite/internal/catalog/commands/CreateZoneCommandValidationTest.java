@@ -31,6 +31,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -247,6 +248,15 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         // Let's check the success case.
         createZoneBuilder(ZONE_NAME + 0).storageProfilesParams(
                 List.of(StorageProfileParams.builder().storageProfile("lru_rocks").build())).build();
+    }
+
+    @Test
+    void zoneConsistencyMode() {
+        // Let's check the success case.
+        createZoneBuilder(ZONE_NAME).consistencyModeParams(ConsistencyMode.STRONG_CONSISTENCY).build();
+        createZoneBuilder(ZONE_NAME).consistencyModeParams(ConsistencyMode.HIGH_AVAILABILITY).build();
+        // STRONG_CONSISTENCY is used in this case.
+        createZoneBuilder(ZONE_NAME).consistencyModeParams(null).build();
     }
 
     @Test

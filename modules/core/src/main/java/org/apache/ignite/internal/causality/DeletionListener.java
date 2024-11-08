@@ -15,36 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
+package org.apache.ignite.internal.causality;
 
 /**
- * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
+ * Listener that will be notified of every deletion from a Versioned Value.
+ *
+ * @see VersionedValue#whenComplete(CompletionListener)
  */
-public enum ZoneOptionEnum {
-    /** Number of partitions. */
-    PARTITIONS,
-
-    /** Number of replicas. */
-    REPLICAS,
-
-    /** Partition distribution algorithm name. */
-    DISTRIBUTION_ALGORITHM,
-
-    /** An expression to filter data nodes. */
-    DATA_NODES_FILTER,
-
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST,
-
-    /** Data nodes scale up auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_UP,
-
-    /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-
-    /** Storage profiles. */
-    STORAGE_PROFILES,
-
-    /** Consistency mode. */
-    CONSISTENCY_MODE
+@FunctionalInterface
+public interface DeletionListener<T> {
+    /**
+     * Method that will be invoked on every deletion from a Versioned Value.
+     *
+     * @param tokenUpperBound Upper bound of the token up to which the Versioned Value was cleared (inclusive).
+     */
+    void whenDelete(long tokenUpperBound);
 }

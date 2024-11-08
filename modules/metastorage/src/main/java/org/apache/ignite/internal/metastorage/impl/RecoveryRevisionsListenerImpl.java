@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RecoveryRevisionsListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -30,8 +31,6 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
     private final IgniteSpinBusyLock busyLock;
 
     private final CompletableFuture<Revisions> recoveryFinishFuture;
-
-    private final KeyValueStorage storage;
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -43,59 +42,61 @@ class RecoveryRevisionsListenerImpl implements RecoveryRevisionsListener {
 
     RecoveryRevisionsListenerImpl(
             IgniteSpinBusyLock busyLock,
-            CompletableFuture<Revisions> recoveryFinishFuture,
-            KeyValueStorage storage
+            CompletableFuture<Revisions> recoveryFinishFuture
     ) {
         this.busyLock = busyLock;
         this.recoveryFinishFuture = recoveryFinishFuture;
-        this.storage = storage;
     }
 
     @Override
     public void onUpdate(Revisions currentRevisions) {
-        lock.lock();
-
-        try {
-            this.currentRevisions = currentRevisions;
-
-            completeRecoveryFinishFutureIfPossible();
-        } finally {
-            lock.unlock();
-        }
+        completeRecoveryFinishFutureIfPossible(() -> this.currentRevisions = currentRevisions);
     }
 
     void setTargetRevisions(Revisions targetRevisions) {
-        lock.lock();
-
-        try {
-            this.targetRevisions = targetRevisions;
-
-            completeRecoveryFinishFutureIfPossible();
-        } finally {
-            lock.unlock();
-        }
+        completeRecoveryFinishFutureIfPossible(() -> this.targetRevisions = targetRevisions);
     }
 
-    private void completeRecoveryFinishFutureIfPossible() {
+    private void completeRecoveryFinishFutureIfPossible(Runnable updateFieldFunction) {
         if (!busyLock.enterBusy()) {
             recoveryFinishFuture.completeExceptionally(new NodeStoppingException());
+
+            return;
         }
 
+        boolean recoveryAchieved = false;
+        Throwable throwable = null;
+
         try {
-            if (targetRevisions == null
-                    || currentRevisions == null
-                    || currentRevisions.revision() < targetRevisions.revision()
-                    || currentRevisions.compactionRevision() < targetRevisions.compactionRevision()) {
-                return;
+            lock.lock();
+
+            try {
+                updateFieldFunction.run();
+
+                recoveryAchieved = isRecoveryAchieved();
+            } finally {
+                lock.unlock();
             }
-
-            storage.setRecoveryRevisionsListener(null);
-
-            recoveryFinishFuture.complete(currentRevisions);
         } catch (Throwable t) {
-            recoveryFinishFuture.completeExceptionally(t);
+            throwable = t;
         } finally {
             busyLock.leaveBusy();
         }
+
+        if (throwable != null) {
+            recoveryFinishFuture.completeExceptionally(throwable);
+
+            throw sneakyThrow(throwable);
+        } else if (recoveryAchieved) {
+            recoveryFinishFuture.complete(currentRevisions);
+        }
     }
+
+    private boolean isRecoveryAchieved() {
+        return targetRevisions != null
+                && currentRevisions != null
+                && currentRevisions.revision() >= targetRevisions.revision()
+                && currentRevisions.compactionRevision() >= targetRevisions.compactionRevision();
+    }
+
 }

@@ -89,14 +89,17 @@ final class MappingTestRunner {
     /** Test setup. */
     static final class TestSetup {
 
-        private final ExecutionTargetProvider executionTargetProvider;
+        private final ExecutionDistributionProvider executionDistributionProvider;
 
         private final IgniteSchema schema;
 
         private final LogicalTopologySnapshot topologySnapshot;
 
-        TestSetup(ExecutionTargetProvider executionTargetProvider, IgniteSchema schema, LogicalTopologySnapshot topologySnapshot) {
-            this.executionTargetProvider = executionTargetProvider;
+        TestSetup(
+                ExecutionDistributionProvider executionDistributionProvider,
+                IgniteSchema schema, LogicalTopologySnapshot topologySnapshot
+        ) {
+            this.executionDistributionProvider = executionDistributionProvider;
             this.schema = schema;
             this.topologySnapshot = topologySnapshot;
         }
@@ -138,7 +141,7 @@ final class MappingTestRunner {
         Path testFile = location.resolve(fileName);
         List<TestCaseDef> testCases = loadTestCases(testFile);
 
-        runTestCases(testFile, setup.schema, setup.executionTargetProvider, setup.topologySnapshot, parseValidate, testCases);
+        runTestCases(testFile, setup.schema, setup.executionDistributionProvider, setup.topologySnapshot, parseValidate, testCases);
     }
 
     @TestOnly
@@ -153,7 +156,7 @@ final class MappingTestRunner {
 
     private void runTestCases(Path testFile,
             IgniteSchema schema,
-            ExecutionTargetProvider targetProvider,
+            ExecutionDistributionProvider executionDistributionProvider,
             LogicalTopologySnapshot snapshot,
             BiFunction<IgniteSchema, String, IgniteRel> parse,
             List<TestCaseDef> testCases) {
@@ -173,7 +176,7 @@ final class MappingTestRunner {
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
                     resultSetMetadata, parameterMetadata, schema.catalogVersion(), null);
 
-            String actualText = produceMapping(testDef.nodeName, targetProvider, snapshot, multiStepPlan);
+            String actualText = produceMapping(testDef.nodeName, executionDistributionProvider, snapshot, multiStepPlan);
 
             actualResults.add(actualText);
         }
@@ -192,7 +195,7 @@ final class MappingTestRunner {
 
     private String produceMapping(
             String nodeName,
-            ExecutionTargetProvider targetProvider,
+            ExecutionDistributionProvider executionDistributionProvider,
             LogicalTopologySnapshot snapshot,
             MultiStepPlan plan
     ) {
@@ -201,13 +204,12 @@ final class MappingTestRunner {
         MappingServiceImpl mappingService = new MappingServiceImpl(
                 nodeName,
                 new TestClockService(new TestHybridClock(System::currentTimeMillis)),
-                targetProvider,
                 EmptyCacheFactory.INSTANCE,
                 0,
                 partitionPruner,
-                Runnable::run
+                snapshot::version,
+                executionDistributionProvider
         );
-        mappingService.onTopologyLeap(snapshot);
 
         List<MappedFragment> mappedFragments;
 
