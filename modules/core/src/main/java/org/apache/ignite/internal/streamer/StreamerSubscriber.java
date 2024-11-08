@@ -19,6 +19,7 @@ package org.apache.ignite.internal.streamer;
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.table.DataStreamerException;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,6 +79,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private final StreamerMetricSink metrics;
 
     private final ScheduledExecutorService flushExecutor;
+
+    private final Set<V> failedItems = Collections.synchronizedSet(new HashSet<>());
 
     private @Nullable Flow.Subscription subscription;
 
@@ -214,23 +216,27 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
-                (part, fut) -> fut == null ? sendBatch(part, batch, deleted) : fut.thenCompose(v -> sendBatch(part, batch, deleted))
+                (part, fut) -> fut == null
+                        ? sendBatch(part, batch, deleted)
+                        : fut.whenComplete((res, err) -> {
+                            if (err != null) {
+                                failedItems.addAll(batch);
+                            }
+                        }).thenCompose(v -> sendBatch(part, batch, deleted))
         );
     }
 
     private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            return batchSender.sendAsync(partition, batch, deleted).handle((res, err) -> {
+            return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
 
-                    DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), err);
-                    close(streamerErr);
-
-                    throw streamerErr;
+                    failedItems.addAll(batch);
+                    close(err);
                 } else {
                     int batchSize = batch.size();
 
@@ -250,17 +256,15 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     });
 
                     invokeResultSubscriber(res);
-
-                    return res;
                 }
             });
         } catch (Throwable e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
 
-            DataStreamerException streamerErr = new DataStreamerException(new HashSet<>(batch), e);
-            close(streamerErr);
+            failedItems.addAll(batch);
+            close(e);
 
-            return CompletableFuture.failedFuture(streamerErr);
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -325,31 +329,12 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 }
             });
         } else {
-            // Collect failed/non-delivered items.
-            DataStreamerException streamerErr = throwable instanceof DataStreamerException
-                    ? (DataStreamerException) throwable
-                    : new DataStreamerException(new HashSet<>(), throwable);
-
-            Set<V> failedItems = (Set<V>) streamerErr.failedItems();
-
-            // 1. Pending requests.
+            // Collect failed/non-delivered items from failed requests and pending buffers.
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
             CompletableFuture.allOf(futs).whenComplete((v, e) -> {
-                for (var req : futs) {
-                    try {
-                        req.join();
-                    } catch (Throwable t) {
-                        Throwable cause = ExceptionUtils.unwrapCause(t);
-
-                        if (cause instanceof DataStreamerException) {
-                            failedItems.addAll((Set<V>) ((DataStreamerException) cause).failedItems());
-                        }
-                    }
-                }
-
-                // 2. Pending buffers.
                 buffers.values().forEach(buf -> buf.forEach(failedItems::add));
+                DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
 
                 completionFut.completeExceptionally(streamerErr);
 
@@ -358,10 +343,6 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 }
             });
         }
-    }
-
-    private void closeWithError() {
-
     }
 
     private synchronized void requestMore() {
