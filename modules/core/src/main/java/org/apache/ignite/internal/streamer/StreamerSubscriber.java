@@ -33,9 +33,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerException;
+import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -165,7 +168,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     /** {@inheritDoc} */
     @Override
-    public void onNext(E item) {
+    public synchronized void onNext(E item) {
+        if (closed) {
+            throw new IllegalStateException("Streamer is closed, can't add items.");
+        }
+
         pendingItemCount.decrementAndGet();
 
         T key = keyFunc.apply(item);
@@ -212,6 +219,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
+
+        for (V item : batch) {
+            Tuple tuple = (Tuple) item;
+            System.out.println("enlistBatch: " + tuple.value(0));
+        }
 
         pendingRequests.compute(
                 partition,
@@ -333,6 +345,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
             CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+                System.out.println(">>>>>> All futs completed");
                 buffers.values().forEach(buf -> buf.forEach(failedItems::add));
                 DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
 
