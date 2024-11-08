@@ -548,12 +548,15 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     }
 
     /** Returns the number of running queries. */
-    public List<QueryInfo> runningQueries() {
-        if (queryExecutor == null) {
-            return List.of();
-        } else {
-            return queryExecutor.runningQueries();
+    @TestOnly
+    public int runningQueries() {
+        QueryExecutor executor = queryExecutor;
+
+        if (executor == null) {
+            return 0;
         }
+
+        return executor.runningQueries().size();
     }
 
     @Override
