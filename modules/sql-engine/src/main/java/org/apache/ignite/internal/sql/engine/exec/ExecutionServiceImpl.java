@@ -464,9 +464,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert queryCancel != null;
 
         queryCancel.add(timeout -> {
-            String message = timeout ? QueryCancelledException.TIMEOUT_MSG : QueryCancelledException.CANCEL_MSG;
-
-            ret.completeExceptionally(new QueryCancelledException(message));
+            if (timeout) {
+                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+            }
         });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);

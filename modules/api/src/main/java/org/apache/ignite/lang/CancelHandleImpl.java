@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import java.util.ArrayDeque;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /** Implementation of {@link CancelHandle}. */
 final class CancelHandleImpl implements CancelHandle {
@@ -121,9 +122,22 @@ final class CancelHandleImpl implements CancelHandle {
                 });
             }
 
+            IgniteException error = null;
+
             // Run cancellation actions outside of lock
             for (Cancellation cancellation : cancellations) {
-                cancellation.run();
+                try {
+                    cancellation.run();
+                } catch (Throwable t) {
+                    if (error == null) {
+                        error = new IgniteException(Common.INTERNAL_ERR, "Failed to cancel an operation");
+                    }
+                    error.addSuppressed(t);
+                }
+            }
+
+            if (error != null) {
+                throw error;
             }
         }
     }

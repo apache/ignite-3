@@ -320,13 +320,12 @@ public class QueryExecutor implements LifecycleAware {
         assert old == null : "Query with the same id already registered";
 
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
-
-        queryTerminationFut = queryTerminationFut.whenComplete((ignored, ex) -> {
+        CompletableFuture<Void> queryTerminationDoneFut = queryTerminationFut.whenComplete((ignored, ex) -> {
             runningQueries.remove(query.id);
         });
 
         if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationFut);
+            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationDoneFut);
         }
     }
 

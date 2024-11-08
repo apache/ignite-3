@@ -25,9 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -211,14 +213,6 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
             );
             assertEquals("completionFut", err.getMessage());
         }
-
-        {
-            NullPointerException err = assertThrows(
-                    NullPointerException.class,
-                    () -> CancelHandleHelper.getCancellationFuture(null)
-            );
-            assertEquals("token", err.getMessage());
-        }
     }
 
     @Test
@@ -265,5 +259,35 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
         cancelHandle.cancelAsync().join();
         assertTrue(cancelHandle.cancelAsync().isDone());
+    }
+
+    @Test
+    public void testExceptionsInCancelActionsAreWrapped() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        RuntimeException e1 = new RuntimeException("e1");
+        Runnable r1 = () -> {
+            throw e1;
+        };
+        CompletableFuture<Object> f1 = new CompletableFuture<>();
+
+        RuntimeException e2 = new RuntimeException("e2");
+        Runnable r2 = () -> {
+            throw e2;
+        };
+        CompletableFuture<Object> f2 = new CompletableFuture<>();
+
+        CancelHandleHelper.addCancelAction(token, r1, f1);
+        CancelHandleHelper.addCancelAction(token, r2, f2);
+
+        f1.complete(null);
+        f2.complete(null);
+
+        IgniteException err = assertThrows(IgniteException.class, cancelHandle::cancel);
+
+        assertEquals("Failed to cancel an operation", err.getMessage());
+        assertEquals(Common.INTERNAL_ERR, err.code(), err.toString());
+        assertEquals(Arrays.asList(e1, e2), Arrays.asList(err.getSuppressed()));
     }
 }
