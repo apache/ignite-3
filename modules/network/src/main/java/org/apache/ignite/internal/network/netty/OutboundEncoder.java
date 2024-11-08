@@ -98,7 +98,10 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.msg = outObject.networkMessage();
 
             List<ClassDescriptorMessage> outDescriptors = null;
-            for (ClassDescriptorMessage classDescriptorMessage : outObject.descriptors()) {
+            List<ClassDescriptorMessage> outObjectDescriptors = outObject.descriptors();
+            //noinspection ForLoopReplaceableByForEach
+            for (int i = 0, descriptorsedSize = outObjectDescriptors.size(); i < descriptorsedSize; i++) {
+                ClassDescriptorMessage classDescriptorMessage = outObjectDescriptors.get(i);
                 if (!serializationService.isDescriptorSent(classDescriptorMessage.descriptorId())) {
                     if (outDescriptors == null) {
                         outDescriptors = new ArrayList<>(outObject.descriptors().size());
@@ -113,7 +116,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 short messageType = this.descriptors.messageType();
                 descriptorSerializer = serializationService.createMessageSerializer(groupType, messageType);
             } else {
-                descriptors = null;
+                this.descriptors = null;
                 descriptorSerializer = null;
                 descriptorsFinished = true;
             }
