@@ -49,7 +49,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.InfiniteFutureClusterTime;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -137,7 +136,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftManager,
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
-                new InfiniteFutureClusterTime(),
                 ForkJoinPool.commonPool()
         );
 

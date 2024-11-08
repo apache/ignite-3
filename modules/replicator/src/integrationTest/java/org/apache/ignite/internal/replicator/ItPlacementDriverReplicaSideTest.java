@@ -70,7 +70,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.InfiniteFutureClusterTime;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -229,7 +228,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager,
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    new InfiniteFutureClusterTime(),
                     ForkJoinPool.commonPool()
             );
 

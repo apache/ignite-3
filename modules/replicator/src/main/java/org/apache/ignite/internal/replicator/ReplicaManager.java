@@ -76,7 +76,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -172,8 +171,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
     private final RaftManager raftManager;
 
-    private final ClusterTime clusterTime;
-
     /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
@@ -244,7 +241,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
-     *      volatile tables.
+     *         volatile tables.
      * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
@@ -264,7 +261,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            ClusterTime clusterTime,
             Executor replicaStartStopExecutor,
             Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
     ) {
@@ -283,7 +279,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftManager,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                clusterTime,
                 replicaStartStopExecutor
         );
 
@@ -323,7 +318,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            ClusterTime clusterTime,
             Executor replicaStartStopExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -341,7 +335,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
-        this.clusterTime = clusterTime;
         this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -1146,11 +1139,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return true;
         }
 
-        // This is the Metastorage SafeTime that was needed to be achieved for previous attempt to check that this node is still a primary.
+        // This is the actuality time that was needed to be achieved for previous attempt to check that this node is still a primary.
         // If it's already achieved, then previous attempt is unblocked (most probably already finished), so we should proceed.
-        HybridTimestamp requiredMsSafeTime = lastIdleSafeTimeProposal.addPhysicalTime(clockService.maxClockSkewMillis());
+        // If it's not achieved yet, then the previous attempt is still waiting, so we should skip this round of idle safe time propagation.
+        HybridTimestamp requiredActualityTime = lastIdleSafeTimeProposal.addPhysicalTime(clockService.maxClockSkewMillis());
 
-        return clusterTime.currentSafeTime().compareTo(requiredMsSafeTime) >= 0;
+        return placementDriver.isActualAt(requiredActualityTime);
     }
 
     private ReplicaContext getOrCreateContext(Replica replica) {

@@ -152,4 +152,9 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             }
         };
     }
+
+    @Override
+    public boolean isActualAt(HybridTimestamp timestamp) {
+        return true;
+    }
 }

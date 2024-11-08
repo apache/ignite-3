@@ -115,4 +115,9 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
     }
+
+    @Override
+    public boolean isActualAt(HybridTimestamp timestamp) {
+        return true;
+    }
 }
