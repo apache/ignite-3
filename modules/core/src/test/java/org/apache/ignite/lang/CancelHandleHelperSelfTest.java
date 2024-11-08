@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
@@ -118,6 +119,16 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
         assertTrue(cancelHandle.isCancelled());
         assertTrue(cancelHandle.cancelAsync().isDone());
+    }
+
+    @Test
+    public void testCancelAsyncReturnsCopy() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> f1 = cancelHandle.cancelAsync();
+        CompletableFuture<Void> f2 = cancelHandle.cancelAsync();
+        assertNotSame(f1, f2);
     }
 
     @Test

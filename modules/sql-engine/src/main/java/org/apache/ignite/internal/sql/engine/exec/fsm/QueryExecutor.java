@@ -321,18 +321,12 @@ public class QueryExecutor implements LifecycleAware {
 
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
 
-        if (cancellationToken != null) {
-            CompletableFuture<Void> cancellationFuture = CancelHandleHelper.getCancellationFuture(cancellationToken);
-            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationFut);
+        queryTerminationFut = queryTerminationFut.whenComplete((ignored, ex) -> {
+            runningQueries.remove(query.id);
+        });
 
-            queryTerminationFut.whenComplete((ignored, ex) -> {
-                runningQueries.remove(query.id);
-                cancellationFuture.complete(null);
-            });
-        } else {
-            queryTerminationFut.whenComplete((ignored, ex) -> {
-                runningQueries.remove(query.id);
-            });
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationFut);
         }
     }
 

@@ -44,7 +44,8 @@ final class CancelHandleImpl implements CancelHandle {
     public CompletableFuture<Void> cancelAsync() {
         doCancelAsync();
 
-        return cancelFut;
+        // Make a copy of internal future, so that it is not possible to complete it
+        return cancelFut.copy();
     }
 
     /** {@inheritDoc} */
@@ -86,13 +87,12 @@ final class CancelHandleImpl implements CancelHandle {
                 synchronized (mux) {
                     if (cancelFut == null) {
                         cancellations.add(cancellation);
+                        return;
                     }
                 }
-            }
-        }
 
-        CompletableFuture<Void> cancelHandleFut() {
-            return handle.cancelFut;
+                cancellation.run();
+            }
         }
 
         boolean isCancelled() {

@@ -61,18 +61,6 @@ public final class CancelHandleHelper {
         t.addCancelAction(cancelAction, completionFut);
     }
 
-    /**
-     * Returns a future associated with this cancellation token's handle.
-     *
-     * @param token Cancellation token.
-     */
-    public static CompletableFuture<Void> getCancellationFuture(CancellationToken token) {
-        Objects.requireNonNull(token, "token");
-
-        CancellationTokenImpl t = unwrapToken(token);
-        return t.cancelHandleFut();
-    }
-
     private static CancellationTokenImpl unwrapToken(CancellationToken token) {
         if (token instanceof CancellationTokenImpl) {
             return (CancellationTokenImpl) token;

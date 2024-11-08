@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 /**
- * Cancellation token an object is issued by {@link CancelHandle} that can be used by an operation or a resource to observe a signal
+ * Cancellation token is an object that is issued by {@link CancelHandle} and can be used by an operation or a resource to observe a signal
  * to terminate it.
  */
 public interface CancellationToken {
