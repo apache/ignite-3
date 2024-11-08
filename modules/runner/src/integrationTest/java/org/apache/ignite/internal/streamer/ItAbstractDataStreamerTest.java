@@ -529,7 +529,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
 
-        assertEquals(56, cause.failedItems().size());
+        assertEquals(100, cause.failedItems().size());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
