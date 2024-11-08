@@ -31,9 +31,18 @@ public final class CancelHandleHelper {
     }
 
     /**
-     * Attaches a cancellable operation to the given token.
+     * Attaches a cancellable operation to the given token. A cancellation produce started its handle completes
+     * when {@code completionFut} completes.
      *
-     * <p>NOTE: If this token has already been cancelled, this method immediately invokes the {@code cancelAction.run()}.
+     * <p>NOTE: If a handle, this token is associated with, was cancelled or its cancellation was requested,
+     * this method immediately invokes {@code cancelAction.run()} and it this case
+     * <b>it never waits for {@code completionFut} to complete</b>.
+     *
+     * <p>The following methods request cancellation of a handle:
+     * <ul>
+     *     <li>{@link CancelHandle#cancel()}</li>
+     *     <li>{@link CancelHandle#cancelAsync()}</li>
+     * </ul>
      *
      * @param token Cancellation token.
      * @param cancelAction Action that terminates an operation.

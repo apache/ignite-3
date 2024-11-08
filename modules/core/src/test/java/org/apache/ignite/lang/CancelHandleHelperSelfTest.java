@@ -26,9 +26,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -68,6 +66,7 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         });
         thread.start();
 
+        // Make it possible for cancelAction to complete, because cancelHandle calls it in its thread.
         operationLatch.countDown();
 
         // Wait until sync cancel returns.
@@ -77,6 +76,9 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
         assertTrue(cancelHandle.cancelAsync().isDone());
         assertTrue(cancelHandle.isCancelled());
         assertTrue(cancelHandle.cancelAsync().isDone());
+
+        // Should have no affect
+        cancelHandle.cancel();
     }
 
     @Test
@@ -104,100 +106,68 @@ public class CancelHandleHelperSelfTest extends BaseIgniteAbstractTest {
 
         CancelHandleHelper.addCancelAction(token, cancelAction, cancelFut);
 
-        assertFalse(cancelHandle.cancelAsync().isDone());
-        operationLatch.countDown();
-
-        // Await for cancelAsync to complete.
-        cancelHandle.cancelAsync().join();
-
-        assertTrue(cancelHandle.isCancelled());
-        assertTrue(cancelHandle.cancelAsync().isDone());
-    }
-
-    @Test
-    public void testRunCancelActionUseCancelFuture() throws Exception {
-        CancelHandle cancelHandle = CancelHandle.create();
-        CancellationToken token = cancelHandle.token();
-
-        AtomicInteger counter = new AtomicInteger();
-        CompletableFuture<Void> cancelFut = new CompletableFuture<>();
-        Runnable action = counter::incrementAndGet;
-
-        CancelHandleHelper.addCancelAction(token, action, cancelFut);
-        assertFalse(cancelFut.isDone());
-        assertEquals(0, counter.get());
-
         // Request cancellation and keep the future, to call it later.
         CompletableFuture<Void> cancelHandleFut = cancelHandle.cancelAsync();
         assertTrue(cancelHandle.isCancelled());
 
-        // Cancellation is underway
-        assertFalse(cancelHandleFut.isDone(), "cancellation should not have completed");
-
-        // Complete cancellation
-        cancelFut.complete(null);
+        assertFalse(cancelHandleFut.isDone());
+        operationLatch.countDown();
 
         // Await for cancellation to complete
         cancelHandleFut.join();
 
-        boolean done = IgniteTestUtils.waitForCondition(() -> counter.get() == 1, 5000);
-        assertTrue(done, "should have called only once");
+        assertTrue(cancelHandle.isCancelled());
+        assertTrue(cancelHandle.cancelAsync().isDone());
     }
 
     @Test
-    public void testRunCancelActionImmediately() {
-        {
-            CancelHandle cancelHandle = CancelHandle.create();
-            CancellationToken token = cancelHandle.token();
-
-            Runnable action = Mockito.mock(Runnable.class);
-            CompletableFuture<Void> f = new CompletableFuture<>();
-
-            cancelHandle.cancel();
-            assertTrue(cancelHandle.isCancelled());
-
-            // Attach it to some operation hasn't completed yet
-            CancelHandleHelper.addCancelAction(token, action, f);
-            verify(action, times(1)).run();
-
-            cancelHandle.cancelAsync().join();
-            // We do not wait for cancellation to complete because
-            // operation has not started yet.
-            assertFalse(f.isDone());
-        }
-
-        {
-            CancelHandle cancelHandle = CancelHandle.create();
-
-            cancelHandle.cancel();
-            assertTrue(cancelHandle.isCancelled());
-            assertTrue(cancelHandle.cancelAsync().isDone());
-
-            // Attach it to some operation which completed
-            CancellationToken token = cancelHandle.token();
-            Runnable action = Mockito.mock(Runnable.class);
-            CompletableFuture<Void> f = CompletableFuture.completedFuture(null);
-
-            CancelHandleHelper.addCancelAction(token, action, f);
-
-            // Cancel action should run immedia
-            verify(action, times(1)).run();
-        }
-    }
-
-    @Test
-    public void testRunCancelActionIfFutureIsDone() {
+    public void testRunCancelActionImmediatelyIfCancelSyncCalled() {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        Runnable action = Mockito.mock(Runnable.class);
-        CompletableFuture<Void> f = CompletableFuture.completedFuture(null);
-
-        CancelHandleHelper.addCancelAction(token, action, f);
-
         cancelHandle.cancel();
         assertTrue(cancelHandle.isCancelled());
-        assertTrue(cancelHandle.cancelAsync().isDone());
+
+        Runnable action = Mockito.mock(Runnable.class);
+        CompletableFuture<Void> f = new CompletableFuture<>();
+
+        // Attach it to some operation hasn't completed yet
+        CancelHandleHelper.addCancelAction(token, action, f);
+        verify(action, times(1)).run();
+
+        cancelHandle.cancelAsync().join();
+        // We do not wait for cancellation to complete because
+        // operation has not started yet.
+        assertFalse(f.isDone());
+
+        // Action runs immediately
+        CancelHandleHelper.addCancelAction(token, action, f);
+        verify(action, times(2)).run();
+    }
+
+    @Test
+    public void testRunCancelActionImmediatelyIfCancelAsyncCalled() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        cancelHandle.cancelAsync();
+        assertTrue(cancelHandle.isCancelled());
+
+        Runnable action = Mockito.mock(Runnable.class);
+        CompletableFuture<Void> f = new CompletableFuture<>();
+
+        // Attach it to some operation hasn't completed yet
+        CancelHandleHelper.addCancelAction(token, action, f);
+        verify(action, times(1)).run();
+
+        cancelHandle.cancelAsync().join();
+        // We do not wait for cancellation to complete because
+        // operation has not started yet.
+        assertFalse(f.isDone());
+
+        // Action runs immediately
+        CancelHandleHelper.addCancelAction(token, action, f);
+        verify(action, times(2)).run();
     }
 
     @Test

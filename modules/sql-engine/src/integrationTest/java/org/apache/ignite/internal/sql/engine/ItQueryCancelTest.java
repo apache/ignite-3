@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -85,11 +86,11 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelled(() -> query1.requestNextAsync(1).join());
+        expectQueryCancelledWithSqlException(new DrainCursor(query1));
 
         cancelled.join();
 
-        assertEquals(0, qryProc.runningQueries().size(), cancelled.toString());
+        assertEquals(0, qryProc.runningQueries().size());
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of multiple queries. */
@@ -143,8 +144,8 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
 
         // Obverse cancellation errors
-        expectQueryCancelled(() -> query1.requestNextAsync(1).join());
-        expectQueryCancelled(() -> query2.requestNextAsync(1).join());
+        expectQueryCancelledWithSqlException(new DrainCursor(query1));
+        expectQueryCancelledWithSqlException(new DrainCursor(query2));
 
         cancelled.join();
 
@@ -177,7 +178,9 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
                 "SELECT 1"
         ).join();
 
-        expectQueryCancelled2(run);
+        expectQueryCancelledWithQueryCancelledException(run);
+
+        assertEquals(0, qryProc.runningQueries().size());
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of queries that use executable plans. */
@@ -215,21 +218,37 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> f = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelled2(run);
+        expectQueryCancelledWithQueryCancelledException(run);
 
         f.join();
 
         assertEquals(0, qryProc.runningQueries().size());
     }
 
-    private static void expectQueryCancelled(Runnable action) {
+    private static void expectQueryCancelledWithSqlException(Runnable action) {
         CompletionException err = assertThrows(CompletionException.class, action::run);
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), sqlErr.toString());
     }
 
-    private static void expectQueryCancelled2(Runnable action) {
+    private static void expectQueryCancelledWithQueryCancelledException(Runnable action) {
         CompletionException err = assertThrows(CompletionException.class, action::run);
         assertInstanceOf(QueryCancelledException.class, err.getCause());
+    }
+
+    private static class DrainCursor implements Runnable {
+        final AsyncSqlCursor<?> cursor;
+
+        DrainCursor(AsyncSqlCursor<?> cursor) {
+            this.cursor = cursor;
+        }
+
+        @Override
+        public void run() {
+            BatchedResult<?> batch;
+            do {
+                batch = cursor.requestNextAsync(1).join();
+            } while (!batch.items().isEmpty());
+        }
     }
 }

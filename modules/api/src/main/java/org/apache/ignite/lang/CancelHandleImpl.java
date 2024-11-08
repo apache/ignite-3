@@ -52,7 +52,7 @@ final class CancelHandleImpl implements CancelHandle {
     /** {@inheritDoc} */
     @Override
     public boolean isCancelled() {
-        return token.cancelled;
+        return token.isCancelled();
     }
 
     /** {@inheritDoc} */
@@ -71,9 +71,9 @@ final class CancelHandleImpl implements CancelHandle {
 
         private final CancelHandleImpl handle;
 
-        private volatile CompletableFuture<Void> fut;
+        private final Object mux = new Object();
 
-        private volatile boolean cancelled;
+        private volatile CompletableFuture<Void> cancelFut;
 
         CancellationTokenImpl(CancelHandleImpl handle) {
             this.handle = handle;
@@ -82,54 +82,54 @@ final class CancelHandleImpl implements CancelHandle {
         void addCancelAction(Runnable action, CompletableFuture<?> fut) {
             Cancellation cancellation = new Cancellation(action, fut);
 
-            synchronized (this) {
-                if (!cancelled) {
-                    cancellations.add(cancellation);
-                    return;
+            if (cancelFut != null) {
+                cancellation.run();
+            } else {
+                synchronized (mux) {
+                    if (cancelFut == null) {
+                        cancellations.add(cancellation);
+                    }
                 }
             }
+        }
 
-            cancellation.run();
+        CompletableFuture<Void> cancelHandleFut() {
+            return handle.cancelFut;
+        }
+
+        boolean isCancelled() {
+            return cancelFut != null;
         }
 
         @SuppressWarnings("rawtypes")
-        CompletableFuture<Void> cancel() {
-            ensureNotCancelled();
+        void cancel() {
+            if (cancelFut != null) {
+                return;
+            }
 
-            List<Cancellation> cancellationList;
+            List<Cancellation> registered;
 
-            synchronized (this) {
-                if (cancelled) {
-                    return fut;
+            synchronized (mux) {
+                if (cancelFut != null) {
+                    return;
                 }
 
-                cancelled = true;
+                // First assemble all completion futures
+                registered = new ArrayList<>(cancellations);
 
-                CompletableFuture[] futures = cancellations.stream()
+                CompletableFuture[] futures = registered.stream()
                         .map(c -> c.completionFut)
                         .toArray(CompletableFuture[]::new);
 
-                fut = CompletableFuture.allOf(futures);
-                cancellationList = new ArrayList<>(cancellations);
-
-                fut.whenComplete((r,t) -> {
+                cancelFut = CompletableFuture.allOf(futures).whenComplete((r, t) -> {
                     handle.cancelFut.complete(null);
                 });
             }
 
-            cancellationList.forEach(Cancellation::run);
-
-            return fut;
-        }
-
-        private void ensureNotCancelled() {
-            if (cancelled) {
-                throw new IllegalStateException("Not reenterable yet");
+            // Run cancellation actions outside of lock
+            for (Cancellation cancellation : registered) {
+                cancellation.run();
             }
-        }
-
-        public CompletableFuture<Void> cancelHandleFut() {
-            return handle.cancelFut;
         }
     }
 
