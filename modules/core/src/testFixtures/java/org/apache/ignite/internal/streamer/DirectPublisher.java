@@ -20,12 +20,15 @@ package org.apache.ignite.internal.streamer;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Direct publisher that ignores backpressure and sends items directly to the subscribers.
  * @param <T>
  */
 public class DirectPublisher<T> implements Publisher<T>, Subscription, AutoCloseable {
+    private final AtomicLong requested = new AtomicLong();
+
     private Subscriber<? super T> subscriber;
 
     @Override
@@ -44,7 +47,7 @@ public class DirectPublisher<T> implements Publisher<T>, Subscription, AutoClose
 
     @Override
     public void request(long n) {
-        // No-op.
+        requested.addAndGet(n);
     }
 
     @Override
@@ -54,5 +57,9 @@ public class DirectPublisher<T> implements Publisher<T>, Subscription, AutoClose
 
     public void submit(T item) {
         subscriber.onNext(item);
+    }
+
+    public long requested() {
+        return requested.get();
     }
 }
