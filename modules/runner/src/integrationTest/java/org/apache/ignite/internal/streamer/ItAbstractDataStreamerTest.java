@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -52,6 +53,7 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
@@ -503,7 +505,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = defaultTable().recordView();
 
         CompletableFuture<Void> streamerFut;
-        int invalidItemsAdded = 0;
+
+        var invalidItemsAdded = new ArrayList<DataStreamerItem<Tuple>>();
 
         try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
@@ -524,13 +527,15 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
 
             // Submit invalid items.
-            for (int i = 0; i < 100; i++) {
+            for (int i = 200; i < 300; i++) {
+                DataStreamerItem<Tuple> item = DataStreamerItem.of(
+                        Tuple.create().set("id", i).set("name1", "bar-" + i),
+                        i % 2 == 0 ? DataStreamerOperationType.PUT : DataStreamerOperationType.REMOVE);
+
                 try {
-                    publisher.submit(DataStreamerItem.of(Tuple.create()
-                            .set("id", i)
-                            .set("name1", "foo-" + i)));
+                    publisher.submit(item);
+                    invalidItemsAdded.add(item);
                 } catch (Exception e) {
-                    invalidItemsAdded = i;
                     break;
                 }
             }
@@ -538,16 +543,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
+        Set<?> failedItems = cause.failedItems();
 
-        assertThat(invalidItemsAdded, is(greaterThan(10)));
-        assertEquals(invalidItemsAdded, cause.failedItems().size());
+        assertThat(invalidItemsAdded.size(), is(greaterThan(10)));
+        assertEquals(invalidItemsAdded.size(), failedItems.size());
 
-        Set<Integer> failedKeys = cause.failedItems().stream()
-                .map(x -> ((DataStreamerItem<Tuple>) x).get().intValue(0))
-                .collect(Collectors.toSet());
-
-        for (int i = 0; i < invalidItemsAdded; i++) {
-            assertTrue(failedKeys.contains(i), "Failed key: " + i);
+        for (DataStreamerItem<Tuple> item : invalidItemsAdded) {
+            assertTrue(failedItems.contains(item), "Failed item not found: " + item.get());
         }
     }
 
