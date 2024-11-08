@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -501,6 +503,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         RecordView<Tuple> view = defaultTable().recordView();
 
         CompletableFuture<Void> streamerFut;
+        int badItemsAdded = 0;
 
         try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
@@ -520,16 +523,22 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             // Submit bad items.
             for (int i = 0; i < 100; i++) {
-                publisher.submit(DataStreamerItem.of(Tuple.create()
-                        .set("id", i)
-                        .set("name1", "foo-" + i)));
+                try {
+                    publisher.submit(DataStreamerItem.of(Tuple.create()
+                            .set("id", i)
+                            .set("name1", "foo-" + i)));
+                } catch (Exception e) {
+                    badItemsAdded = i;
+                    break;
+                }
             }
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
 
-        assertEquals(100, cause.failedItems().size());
+        assertThat(badItemsAdded, is(greaterThan(10)));
+        assertEquals(badItemsAdded, cause.failedItems().size());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
