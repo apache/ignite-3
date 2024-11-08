@@ -21,13 +21,16 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
@@ -42,6 +45,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -159,18 +163,12 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         resultSetFut.whenComplete((r, t) -> firstResultSetLatch.countDown());
         firstResultSetLatch.await();
 
+        System.err.println("cancelHandle.cancelAsync()");
         cancelHandle.cancelAsync();
 
-        /*
         CompletionException err = assertThrows(CompletionException.class, new DrainResultSet(resultSetFut));
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
-         */
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                "The query was cancelled while executing.",
-                new DrainResultSet(resultSetFut)
-        );
 
         cancelHandle.cancelAsync().join();
     }
@@ -184,7 +182,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public void execute() {
-            /*
+            System.err.println("DrainResultSet.execute() started");
             AsyncResultSet<SqlRow> current;
             do {
                 current = rs.join();
@@ -193,14 +191,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
                 } else {
                     return;
                 }
-
             } while (current.hasMorePages());
-             */
-            try (ResultSet<SqlRow> rs = new SyncResultSetAdapter<>(await(this.rs))) {
-                while (rs.hasNext()) {
-                    rs.next();
-                }
-            }
         }
     }
 

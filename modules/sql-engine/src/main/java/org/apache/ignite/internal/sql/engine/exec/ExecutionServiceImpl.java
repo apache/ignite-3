@@ -308,6 +308,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         // This call immediately triggers a cancellation exception if operation has timed out or it has already been cancelled.
         cancelHandler.add(timeout -> {
             QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
+            System.err.println("queryManager.close(reason): " + reason);
+            StackWalker.getInstance().forEach(System.err::println);
             queryManager.close(reason);
         });
 
