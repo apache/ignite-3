@@ -31,7 +31,7 @@ public final class CancelHandleHelper {
     }
 
     /**
-     * Attaches a cancellable operation to the given token. A cancellation produce started its handle completes
+     * Attaches a cancellable operation to the given token. A cancellation procedure started its handle completes
      * when {@code completionFut} completes.
      *
      * <p>NOTE: If a handle, this token is associated with, was cancelled or its cancellation was requested,

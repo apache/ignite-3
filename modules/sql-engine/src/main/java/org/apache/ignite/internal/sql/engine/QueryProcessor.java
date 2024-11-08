@@ -58,7 +58,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param observableTime Tracker of the latest time observed by client.
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
-     * @param cancellationToken A cancellation token.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param qry SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
