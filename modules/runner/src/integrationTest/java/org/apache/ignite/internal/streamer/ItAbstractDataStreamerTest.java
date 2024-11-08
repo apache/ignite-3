@@ -502,8 +502,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         CompletableFuture<Void> streamerFut;
 
-        // TODO: SubmissionPublisher discards buffered items on close.
-        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder()
                     .pageSize(10)
                     .autoFlushInterval(100)
@@ -513,23 +512,23 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             // Submit good items.
             for (int i = 0; i < 100; i++) {
-                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+                publisher.submit(tuple(i, "foo-" + i));
             }
 
             TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
 
             // Submit bad items.
             for (int i = 0; i < 100; i++) {
-                publisher.submit(DataStreamerItem.of(Tuple.create()
-                        .set("id1", i)
-                        .set("name1", "foo-" + i)));
+                publisher.submit(Tuple.create()
+                        .set("id", i)
+                        .set("name1", "foo-" + i));
             }
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
 
-        assertEquals(100, cause.failedItems().size());
+        assertEquals(56, cause.failedItems().size());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
