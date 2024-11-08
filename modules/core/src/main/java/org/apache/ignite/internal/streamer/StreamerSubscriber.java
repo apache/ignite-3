@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -337,7 +336,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
     }
 
-    private void completeWithError(@NotNull Throwable throwable) {
+    private void completeWithError(Throwable throwable) {
         buffers.values().forEach(buf -> buf.forEach(failedItems::add));
         DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
 
