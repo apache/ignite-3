@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -636,6 +635,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertInstanceOf(DataStreamerException.class, subscriberErr);
         assertInstanceOf(CompletionException.class, subscriberErr.getCause());
         assertInstanceOf(ArithmeticException.class, subscriberErr.getCause().getCause());
+
+        assertEquals(3, ((DataStreamerException)subscriberErr).failedItems().size());
     }
 
     @Test
