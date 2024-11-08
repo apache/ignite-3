@@ -279,6 +279,11 @@ public class PlacementDriverManager implements IgniteComponent {
     private PlacementDriver createPlacementDriver() {
         return new PlacementDriver() {
             @Override
+            public boolean isActualAt(HybridTimestamp timestamp) {
+                return metastore.clusterTime().currentSafeTime().compareTo(timestamp) >= 0;
+            }
+
+            @Override
             public CompletableFuture<List<TokenizedAssignments>> getAssignments(
                     List<? extends ReplicationGroupId> replicationGroupIds,
                     HybridTimestamp timestamp
