@@ -430,6 +430,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         LocalState localState = localStateStorage.getLocalState();
 
         if (localState == null) {
+            LOG.info("No local CMG state exists, going to wait for cluster state or init command");
+
             return null;
         }
 
