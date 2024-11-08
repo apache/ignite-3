@@ -225,14 +225,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testMissingKeyColumn() {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var tuple = Tuple.create();
+        DataStreamerItem<Tuple> item = DataStreamerItem.of(Tuple.create());
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple);
+            publisher.submit(item);
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
@@ -240,7 +240,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         assertEquals(1, cause.failedItems().size());
-        assertEquals(tuple, cause.failedItems().iterator().next());
+        assertEquals(item, cause.failedItems().iterator().next());
     }
 
     @SuppressWarnings("Convert2MethodRef")
