@@ -267,7 +267,6 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             failedItems.addAll(batch);
             close(e);
-
             return CompletableFuture.failedFuture(e);
         }
     }

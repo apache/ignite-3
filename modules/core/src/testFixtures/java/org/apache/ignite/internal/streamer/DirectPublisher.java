@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Direct publisher that ignores backpressure and sends items directly to the subscribers.
- * @param <T>
  */
 public class DirectPublisher<T> implements Publisher<T>, Subscription, AutoCloseable {
     private final AtomicLong requested = new AtomicLong();
