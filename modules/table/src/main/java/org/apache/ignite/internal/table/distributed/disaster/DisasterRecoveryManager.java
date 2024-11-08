@@ -102,7 +102,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
- * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(String, String, Set)}.
+ * As a reaction to these updates, manager performs actual recovery operations,
+ * such as {@link #resetPartitions(String, String, Set, boolean)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
@@ -247,9 +248,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
         try {
             Catalog catalog = catalogLatestVersion();
 
@@ -259,7 +261,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds));
+            return processNewRequest(
+                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds, manualUpdate)
+            );
         } catch (Throwable t) {
             return failedFuture(t);
         }
