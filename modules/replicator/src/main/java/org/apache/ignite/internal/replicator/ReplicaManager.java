@@ -907,6 +907,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     } catch (NodeStoppingException ignored) {
                         // No-op.
                     }
+
+                    contexts.remove(replicaGrpId);
+
                     return v;
                 });
     }
