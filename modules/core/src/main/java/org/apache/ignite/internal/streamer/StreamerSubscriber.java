@@ -318,7 +318,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> {
                 if (e != null) {
                     completeWithError(e);
                 } else {
