@@ -333,12 +333,12 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
                     completionFut.complete(null);
                 }
-            });
+            }, flushExecutor);
         } else {
             // Collect failed/non-delivered items from failed requests and pending buffers.
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> completeWithError(throwable));
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> completeWithError(throwable), flushExecutor);
         }
     }
 
