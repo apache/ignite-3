@@ -57,7 +57,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private static final int DONT_CHECK_PARTITIONS = -1;
 
-    private static final String GLOBAL_PARTITION_STATE_FIELDS = "Zone name\tTable ID\tSchema name\tTable name\tPartition ID\tState";
+    private static final String GLOBAL_PARTITION_STATE_FIELDS = "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState";
 
     private static Set<String> nodeNames;
 
@@ -246,7 +246,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\t[0-9]+\tPUBLIC\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
+                GLOBAL_PARTITION_STATE_FIELDS + "\\r?\\n%1$s\tPUBLIC\t[0-9]+\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n", zoneName));
     }
 
     @Test
@@ -266,7 +266,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertOutputMatches(String.format(
                 "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS
-                        + "\\r?\\n(%1$s)\t%2$s\t[0-9]+\tPUBLIC\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                        + "\\r?\\n(%1$s)\t%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
                 possibleNodeNames,
                 zoneName)
         );

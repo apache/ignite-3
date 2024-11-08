@@ -650,11 +650,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         String schemaName = catalog.schema(tableDescriptor.schemaId()).name();
 
         return new LocalPartitionState(
-                tablePartitionId.partitionId(),
                 zoneName,
-                tableDescriptor.id(),
                 schemaName,
+                tableDescriptor.id(),
                 tableDescriptor.name(),
+                tablePartitionId.partitionId(),
                 stateEnum
         );
     }
@@ -714,11 +714,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         states.computeIfAbsent(tablePartitionId, key ->
                 new GlobalPartitionState(
-                        key.partitionId(),
                         zoneDescriptor.name(),
-                        key.tableId(),
                         schemaDescriptor.name(),
+                        key.tableId(),
                         catalog.table(key.tableId()).name(),
+                        key.partitionId(),
                         GlobalPartitionStateEnum.UNAVAILABLE
                 )
         );
@@ -757,11 +757,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         LocalPartitionState anyLocalState = map.values().iterator().next();
         return new GlobalPartitionState(
-                tablePartitionId.partitionId(),
                 zoneDescriptor.name(),
-                anyLocalState.tableId,
                 schemaDescriptor.name(),
+                anyLocalState.tableId,
                 anyLocalState.tableName,
+                tablePartitionId.partitionId(),
                 globalStateEnum
         );
     }

@@ -110,12 +110,12 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 LocalPartitionState state = entry.getValue();
 
                 states.add(new LocalPartitionStateResponse(
-                        state.partitionId,
                         nodeName,
                         state.zoneName,
-                        state.tableId,
                         state.schemaName,
+                        state.tableId,
                         state.tableName,
+                        state.partitionId,
                         state.state.name()
                 ));
             }
@@ -135,11 +135,11 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
         for (GlobalPartitionState state : globalStates.values()) {
             states.add(new GlobalPartitionStateResponse(
-                    state.partitionId,
                     state.zoneName,
-                    state.tableId,
                     state.schemaName,
+                    state.tableId,
                     state.tableName,
+                    state.partitionId,
                     state.state.name()
             ));
         }

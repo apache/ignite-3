@@ -39,11 +39,11 @@ public class GlobalPartitionStateResponse {
      */
     @JsonCreator
     public GlobalPartitionStateResponse(
-            @JsonProperty("partitionId") int partitionId,
             @JsonProperty("zoneName") String zoneName,
-            @JsonProperty("tableId") int tableId,
             @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableId") int tableId,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("partitionId") int partitionId,
             @JsonProperty("state") String state
     ) {
         this.partitionId = partitionId;

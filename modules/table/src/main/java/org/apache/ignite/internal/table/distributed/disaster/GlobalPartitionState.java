@@ -43,11 +43,11 @@ public class GlobalPartitionState {
     public final GlobalPartitionStateEnum state;
 
     GlobalPartitionState(
-            int partitionId,
             String zoneName,
-            int tableId,
             String schemaName,
+            int tableId,
             String tableName,
+            int partitionId,
             GlobalPartitionStateEnum state
     ) {
         this.tableId = tableId;

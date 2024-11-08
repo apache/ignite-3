@@ -44,11 +44,11 @@ public class LocalPartitionState {
     public final LocalPartitionStateEnum state;
 
     LocalPartitionState(
-            int partitionId,
             String zoneName,
-            int tableId,
             String schemaName,
+            int tableId,
             String tableName,
+            int partitionId,
             LocalPartitionStateEnum state
     ) {
         this.tableId = tableId;
