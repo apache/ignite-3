@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.streamer;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,7 +72,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
     // We don't expect thousands of node failures, so it should be fine.
-    private final ConcurrentHashMap<P, StreamerBuffer<V>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<P, StreamerBuffer<E>> buffers = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<P, CompletableFuture<Collection<R>>> pendingRequests = new ConcurrentHashMap<>();
 
@@ -80,7 +82,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     private final ScheduledExecutorService flushExecutor;
 
-    private final Set<V> failedItems = Collections.synchronizedSet(new HashSet<>());
+    private final Set<E> failedItems = Collections.synchronizedSet(new HashSet<>());
 
     private @Nullable Flow.Subscription subscription;
 
@@ -175,14 +177,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         T key = keyFunc.apply(item);
         P partition = partitionAwarenessProvider.partition(key);
 
-        StreamerBuffer<V> buf = buffers.computeIfAbsent(
+        StreamerBuffer<E> buf = buffers.computeIfAbsent(
                 partition,
-                p -> new StreamerBuffer<>(options.pageSize(), (items, deleted) -> enlistBatch(p, items, deleted)));
+                p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
-        V payload = payloadFunc.apply(item);
-        boolean delete = deleteFunc.apply(item);
-
-        buf.add(payload, delete);
+        buf.add(item);
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
@@ -209,7 +208,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return completionFut;
     }
 
-    private void enlistBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private void enlistBatch(P partition, List<E> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -221,19 +220,27 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 partition,
                 // Chain existing futures to preserve request order.
                 (part, fut) -> fut == null
-                        ? sendBatch(part, batch, deleted)
+                        ? sendBatch(part, batch)
                         : fut.whenComplete((res, err) -> {
                             if (err != null) {
                                 failedItems.addAll(batch);
                             }
-                        }).thenCompose(v -> sendBatch(part, batch, deleted))
+                        }).thenCompose(v -> sendBatch(part, batch))
         );
     }
 
-    private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private CompletableFuture<Collection<R>> sendBatch(P partition, List<E> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
+            var items = new ArrayList<V>();
+            var deleted = new BitSet(batch.size());
+
+            for (E e : batch) {
+                items.add(payloadFunc.apply(e));
+                deleted.set(items.size() - 1, deleteFunc.apply(e));
+            }
+
+            return batchSender.sendAsync(partition, items, deleted).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.

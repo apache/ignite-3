@@ -543,7 +543,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals(invalidItemsAdded, cause.failedItems().size());
 
         Set<Integer> failedKeys = cause.failedItems().stream()
-                .map(x -> ((Tuple) x).intValue(0))
+                .map(x -> ((DataStreamerItem<Tuple>) x).get().intValue(0))
                 .collect(Collectors.toSet());
 
         for (int i = 0; i < invalidItemsAdded; i++) {
