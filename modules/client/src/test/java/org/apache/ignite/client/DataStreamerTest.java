@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -61,6 +62,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
+import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -627,10 +629,13 @@ public class DataStreamerTest extends AbstractClientTableTest {
             }
         }
 
-        assertThat(streamerFut, willThrow(ArithmeticException.class, "Result subscriber exception"));
+        assertThat(streamerFut, willThrowWithCauseOrSuppressed(ArithmeticException.class, "Result subscriber exception"));
         assertFalse(resultSubscriber.completed.get());
-        assertInstanceOf(CompletionException.class, resultSubscriber.error.get());
-        assertInstanceOf(ArithmeticException.class, resultSubscriber.error.get().getCause());
+
+        Throwable subscriberErr = resultSubscriber.error.get();
+        assertInstanceOf(DataStreamerException.class, subscriberErr);
+        assertInstanceOf(CompletionException.class, subscriberErr.getCause());
+        assertInstanceOf(ArithmeticException.class, subscriberErr.getCause().getCause());
     }
 
     @Test
