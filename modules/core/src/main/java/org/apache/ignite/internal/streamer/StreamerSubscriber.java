@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerException;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -218,11 +217,6 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
 
-        for (V item : batch) {
-            Tuple tuple = (Tuple) item;
-            System.out.println("enlistBatch: " + tuple.value(0));
-        }
-
         pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
@@ -342,8 +336,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             // Collect failed/non-delivered items from failed requests and pending buffers.
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
-                System.out.println(">>>>>> All futs completed");
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> {
                 buffers.values().forEach(buf -> buf.forEach(failedItems::add));
                 DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
 
