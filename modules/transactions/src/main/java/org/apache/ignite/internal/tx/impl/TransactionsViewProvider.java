@@ -36,9 +36,9 @@ import org.jetbrains.annotations.Nullable;
  * {@code TRANSACTIONS} system view provider.
  */
 public class TransactionsViewProvider {
-    public static final String READ_ONLY = "READ ONLY";
+    public static final String READ_ONLY = "READ_ONLY";
 
-    public static final String READ_WRITE = "READ WRITE";
+    public static final String READ_WRITE = "READ_WRITE";
 
     private final Map<UUID, InternalTransaction> transactions;
 
