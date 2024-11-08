@@ -51,8 +51,6 @@ class StreamerBuffer<T> {
 
         if (buf.size() >= capacity) {
             flusher.accept(buf);
-
-            // TODO: Reuse?
             buf = new ArrayList<>(capacity);
         }
     }
@@ -75,8 +73,6 @@ class StreamerBuffer<T> {
         }
 
         flusher.accept(buf);
-
-        // TODO: Reuse?
         buf = new ArrayList<>(capacity);
     }
 
