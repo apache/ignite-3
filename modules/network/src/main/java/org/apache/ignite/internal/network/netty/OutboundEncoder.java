@@ -57,7 +57,6 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         this.serializationService = serializationService;
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
         out.add(new NetworkMessageChunkedInput(msg, serializationService));
@@ -123,26 +122,22 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
 
-        /** {@inheritDoc} */
         @Override
         public boolean isEndOfInput() {
             return finished;
         }
 
-        /** {@inheritDoc} */
         @Override
         public void close() {
-
+            // No-op.
         }
 
-        /** {@inheritDoc} */
         @Deprecated
         @Override
         public ByteBuf readChunk(ChannelHandlerContext ctx) {
             return readChunk(ctx.alloc());
         }
 
-        /** {@inheritDoc} */
         @Override
         public ByteBuf readChunk(ByteBufAllocator allocator) {
             ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
@@ -176,14 +171,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             return buffer;
         }
 
-        /** {@inheritDoc} */
         @Override
         public long length() {
             // Return negative values, because object's size is unknown.
             return -1;
         }
 
-        /** {@inheritDoc} */
         @Override
         public long progress() {
             // Not really needed, as there won't be listeners for the write operation's progress.
