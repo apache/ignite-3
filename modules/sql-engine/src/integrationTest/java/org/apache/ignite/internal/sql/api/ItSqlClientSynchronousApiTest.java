@@ -41,13 +41,13 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
         client.close();
     }
 
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
     public void cancelQueryString() throws InterruptedException {
         super.cancelQueryString();
     }
 
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
     public void cancelStatement() throws InterruptedException {
         super.cancelStatement();
