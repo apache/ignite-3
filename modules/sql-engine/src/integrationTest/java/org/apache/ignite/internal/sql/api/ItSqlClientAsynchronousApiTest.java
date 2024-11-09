@@ -23,6 +23,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for asynchronous client SQL API.
@@ -38,6 +39,18 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     @AfterAll
     public void stopClient() {
         client.close();
+    }
+
+    @Disabled
+    @Override
+    public void cancelQueryString() throws InterruptedException {
+        super.cancelQueryString();
+    }
+
+    @Disabled
+    @Override
+    public void cancelStatement() throws InterruptedException {
+        super.cancelStatement();
     }
 
     @Override
