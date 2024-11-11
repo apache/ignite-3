@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
@@ -383,6 +384,10 @@ public class DistributionZoneManager implements IgniteComponent {
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
+            if (zoneStateEntry.getValue().consistencyMode != HIGH_AVAILABILITY) {
+                continue;
+            }
+
             int zoneId = zoneStateEntry.getKey();
 
             if (partitionDistributionReset == IMMEDIATE_TIMER_VALUE) {
@@ -486,7 +491,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 topologyAugmentationMap = TopologyAugmentationMapSerializer.deserialize(topologyAugmentationMapLocalMetaStorage.value());
             }
 
-            ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
+            ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap, zone.consistencyMode());
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
@@ -501,7 +506,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = new ConcurrentSkipListMap<>();
 
-        ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
+        ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap, zone.consistencyMode());
 
         ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
@@ -963,7 +968,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (nodesRemoved) {
-                if (zone.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
+                if (zone.consistencyMode() == HIGH_AVAILABILITY) {
                     if (partitionReset == IMMEDIATE_TIMER_VALUE) {
                         futures.add(
                                 // TODO: IGNITE-23599 Implement valid behaviour here.
@@ -1246,6 +1251,9 @@ public class DistributionZoneManager implements IgniteComponent {
         /** The delay for the partition distribution reset task. */
         private long partitionDistributionResetTaskDelay;
 
+        /** The consistency mode of the zone. */
+        private final ConsistencyMode consistencyMode;
+
         /**
          * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
          * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
@@ -1263,6 +1271,7 @@ public class DistributionZoneManager implements IgniteComponent {
          */
         ZoneState(StripedScheduledThreadPoolExecutor executor) {
             this.executor = executor;
+            this.consistencyMode = ConsistencyMode.STRONG_CONSISTENCY;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
         }
 
@@ -1274,10 +1283,15 @@ public class DistributionZoneManager implements IgniteComponent {
          *         track which nodes should be added or removed in the processes of scale up or scale down. Revision helps to track
          *         visibility of the events of adding or removing nodes because any process of scale up or scale down has a revision that
          *         triggered this process.
+         * @param consistencyMode The consistency mode of the zone.
          */
-        ZoneState(StripedScheduledThreadPoolExecutor executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
+        ZoneState(
+                StripedScheduledThreadPoolExecutor executor,
+                ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap,
+                ConsistencyMode consistencyMode) {
             this.executor = executor;
             this.topologyAugmentationMap = topologyAugmentationMap;
+            this.consistencyMode = consistencyMode;
         }
 
         /**
@@ -1287,6 +1301,11 @@ public class DistributionZoneManager implements IgniteComponent {
          */
         public ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
             return topologyAugmentationMap;
+        }
+
+        /** Returns the consistency mode of the zone. */
+        public ConsistencyMode consistencyMode() {
+            return consistencyMode;
         }
 
         /**
