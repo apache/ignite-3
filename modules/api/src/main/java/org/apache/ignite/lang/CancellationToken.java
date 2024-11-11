@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.lang;
 
 /**
- * A {@code Cancellable} represents a process or an operation that can be canceled.
+ * Cancellation token is an object that is issued by {@link CancelHandle} and can be used by an operation or a resource to observe a signal
+ * to terminate it.
  */
-@FunctionalInterface
-public interface Cancellable {
-    /**
-     * Cancels the ongoing operation or process or do nothing if it has been already cancelled.
-     *
-     * @param timeout If process was cancelled due to timeout.
-     */
-    void cancel(boolean timeout);
+public interface CancellationToken {
 }

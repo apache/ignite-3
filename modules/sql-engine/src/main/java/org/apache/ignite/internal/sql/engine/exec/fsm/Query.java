@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a query initiated on current node.
- * 
+ *
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
 class Query implements Runnable {
@@ -170,7 +170,7 @@ class Query implements Runnable {
         return onPhaseStartedCallback.computeIfAbsent(phase, k -> new CompletableFuture<>());
     }
 
-    /** Moves the query to a given state. */ 
+    /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         synchronized (mux) {
             assert currentPhase.transitionAllowed(newPhase) : "currentPhase=" + currentPhase + ", newPhase=" + newPhase;

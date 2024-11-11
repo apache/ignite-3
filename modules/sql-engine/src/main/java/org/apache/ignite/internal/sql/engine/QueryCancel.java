@@ -88,14 +88,14 @@ public class QueryCancel {
     }
 
     /** Returns {@code true} if the cancellation procedure has already been started. */
-    public synchronized boolean isCancelled() {
+    public boolean isCancelled() {
         return state.isDone();
     }
 
     private static void throwException(Reason reason) {
         throw new QueryCancelledException(
                 reason == Reason.TIMEOUT
-                        ? QueryCancelledException.TIMEOUT_MSG 
+                        ? QueryCancelledException.TIMEOUT_MSG
                         : QueryCancelledException.CANCEL_MSG
         );
     }
