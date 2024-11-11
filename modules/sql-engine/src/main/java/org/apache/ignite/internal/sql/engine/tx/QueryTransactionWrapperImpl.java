@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
  */
 public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     /**
-     * This flag does not match with the implicit transact.
+     * This flag does not signify the type of transaction.
      * It means that the transaction was started in the SQL engine and was not passed from outside.
      */
     private final boolean queryImplicit;

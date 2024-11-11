@@ -43,8 +43,8 @@ public class TransactionIdGenerator {
      * @param beginTimestamp Transaction begin timestamp.
      * @return Transaction ID.
      */
-    public UUID transactionIdFor(HybridTimestamp beginTimestamp, boolean implicit) {
-        return transactionIdFor(beginTimestamp, implicit, TxPriority.NORMAL);
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp) {
+        return transactionIdFor(beginTimestamp, TxPriority.NORMAL);
     }
 
     /**
@@ -54,7 +54,7 @@ public class TransactionIdGenerator {
      * @param priority Transaction priority.
      * @return Transaction ID.
      */
-    public UUID transactionIdFor(HybridTimestamp beginTimestamp, boolean implicit, TxPriority priority) {
-        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), implicit, priority);
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp, TxPriority priority) {
+        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), priority);
     }
 }

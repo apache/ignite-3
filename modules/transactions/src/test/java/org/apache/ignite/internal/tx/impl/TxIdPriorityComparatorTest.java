@@ -33,8 +33,8 @@ class TxIdPriorityComparatorTest {
 
     @Test
     public void compareEqualPriorities() {
-        var tx1 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.NORMAL);
-        var tx2 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.NORMAL);
+        var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
+        var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
 
         assertTrue(comparator.compare(tx1, tx2) < 0);
         assertTrue(comparator.compare(tx2, tx1) > 0);
@@ -43,8 +43,8 @@ class TxIdPriorityComparatorTest {
 
     @Test
     public void compareOldNormalTxVsNewLowTx() {
-        var tx1 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.NORMAL);
-        var tx2 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.LOW);
+        var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
+        var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.LOW);
 
         assertTrue(comparator.compare(tx1, tx2) < 0);
         assertTrue(comparator.compare(tx2, tx1) > 0);
@@ -52,8 +52,8 @@ class TxIdPriorityComparatorTest {
 
     @Test
     public void compareOldLowTxVsNewNormalTx() {
-        var tx1 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.LOW);
-        var tx2 = TransactionIds.transactionId(clock.now(), 1, false, TxPriority.NORMAL);
+        var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.LOW);
+        var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
 
         assertTrue(comparator.compare(tx1, tx2) > 0);
         assertTrue(comparator.compare(tx2, tx1) < 0);

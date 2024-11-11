@@ -217,7 +217,7 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
     }
 
     private static UUID txId(long beginTs) {
-        return transactionId(hybridTimestamp(beginTs), 1, false);
+        return transactionId(hybridTimestamp(beginTs), 1);
     }
 
     private static BinaryRow binaryRow(int key, int val) {

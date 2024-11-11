@@ -201,7 +201,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRowV0 = binaryRow(SCHEMA_V0, 1, 2);
         BinaryRow binaryRowV1 = binaryRow(SCHEMA_V1, 1, 2, 100500L);
-        UUID txId = transactionId(hybridTimestamp(System.currentTimeMillis()), 1, false);
+        UUID txId = transactionId(hybridTimestamp(System.currentTimeMillis()), 1);
         int commitTableId = 999;
         int snapshotCatalogVersion = 666;
         HybridTimestamp beginTs = beginTimestamp(txId);

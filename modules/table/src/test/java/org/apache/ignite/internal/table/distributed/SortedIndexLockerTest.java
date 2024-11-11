@@ -65,7 +65,7 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
 
         SortedIndexLocker locker = new SortedIndexLocker(1, PARTITION_ID, lockManager(), indexStorage, row -> binaryTuple, false);
 
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(clock.now(), false);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(clock.now());
         CompletableFuture<@Nullable Lock> lockFuture = locker.locksForInsert(txId, mock(BinaryRow.class), new RowId(PARTITION_ID));
 
         assertThat(lockFuture, willBe(nullValue()));

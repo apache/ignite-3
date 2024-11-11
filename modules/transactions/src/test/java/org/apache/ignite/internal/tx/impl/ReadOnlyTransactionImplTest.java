@@ -40,13 +40,14 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
     @Test
     void effectiveSchemaTimestampIsReadTimestamp() {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp, false);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
 
         var tx = new ReadOnlyTransactionImpl(
                 txManager,
                 new HybridTimestampTracker(),
                 txId,
                 new UUID(1, 2),
+                false,
                 readTimestamp,
                 new CompletableFuture<>()
         );

@@ -143,7 +143,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 tablePartitionId3, LOCAL_NODE.name());
 
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = idGenerator.transactionIdFor(beginTimestamp, false);
+        UUID txId = idGenerator.transactionIdFor(beginTimestamp);
 
         HybridTimestamp commitTimestamp = clock.now();
 
@@ -179,7 +179,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = idGenerator.transactionIdFor(beginTimestamp, false);
+        UUID txId = idGenerator.transactionIdFor(beginTimestamp);
 
         HybridTimestamp commitTimestamp = clock.now();
 
@@ -213,7 +213,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = idGenerator.transactionIdFor(beginTimestamp, false);
+        UUID txId = idGenerator.transactionIdFor(beginTimestamp);
 
         HybridTimestamp commitTimestamp = clock.now();
 

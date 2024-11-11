@@ -41,7 +41,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
-     * @param implicit Either the transaction is implicit or not.
+     * @param implicit Whether the transaction is implicit or not.
      * @return The transaction.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit);
@@ -53,7 +53,7 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param implicit Either the transaction is implicit or not.
+     * @param implicit Whether the transaction is implicit or not.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
@@ -68,7 +68,7 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param implicit Either the transaction is implicit or not.
+     * @param implicit Whether the transaction is implicit or not.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @param priority Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is

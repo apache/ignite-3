@@ -48,17 +48,22 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      */
     private final UUID coordinatorId;
 
+    /** Implicit transaction flag. */
+    private final boolean implicit;
+
     /**
      * The constructor.
      *
      * @param txManager The tx manager.
      * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
+     * @param implicit True for an implicit transaction, false for an ordinary one.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, UUID coordinatorId) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, UUID coordinatorId, boolean implicit) {
         this.txManager = txManager;
         this.id = id;
         this.coordinatorId = coordinatorId;
+        this.implicit = implicit;
     }
 
     /** {@inheritDoc} */
@@ -75,6 +80,11 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public UUID coordinatorId() {
         return coordinatorId;
+    }
+
+    @Override
+    public boolean implicit() {
+        return implicit;
     }
 
     /** {@inheritDoc} */

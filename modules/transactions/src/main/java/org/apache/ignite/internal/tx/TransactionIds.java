@@ -27,8 +27,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  */
 public class TransactionIds {
 
-    public static final int IMPLICIT_TX_FLAG = 0x00000001;
-
     /**
      * Creates a transaction ID from the given begin timestamp and nodeId.
      *
@@ -37,8 +35,8 @@ public class TransactionIds {
      * @param priority Transaction priority.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, boolean implicit, TxPriority priority) {
-        return transactionId(beginTimestamp.longValue(), nodeId, implicit, priority);
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, TxPriority priority) {
+        return transactionId(beginTimestamp.longValue(), nodeId, priority);
     }
 
     /**
@@ -48,8 +46,8 @@ public class TransactionIds {
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, boolean implicit) {
-        return transactionId(beginTimestamp.longValue(), nodeId, implicit, TxPriority.NORMAL);
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId) {
+        return transactionId(beginTimestamp.longValue(), nodeId, TxPriority.NORMAL);
     }
 
     /**
@@ -58,11 +56,10 @@ public class TransactionIds {
      * @param beginTimestamp Transaction begin timestamp.
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
      * @param priority Transaction priority.
-     * @param implicit Transaction is implicitly started or not.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(long beginTimestamp, int nodeId, boolean implicit, TxPriority priority) {
-        return new UUID(beginTimestamp, combine(nodeId, priority, implicit));
+    public static UUID transactionId(long beginTimestamp, int nodeId, TxPriority priority) {
+        return new UUID(beginTimestamp, combine(nodeId, priority));
     }
 
     /**
@@ -84,18 +81,10 @@ public class TransactionIds {
         return TxPriority.values()[ordinal];
     }
 
-    public static boolean implicit(UUID txId) {
-        return (txId.getLeastSignificantBits() & IMPLICIT_TX_FLAG) == 1;
-    }
-
-    private static long combine(int nodeId, TxPriority priority, boolean implicit) {
-        int priorityAndFlagsAsInt = priority.ordinal() << 16;
-
-        if (implicit) {
-            priorityAndFlagsAsInt |= IMPLICIT_TX_FLAG;
-        }
+    private static long combine(int nodeId, TxPriority priority) {
+        int priorityAsInt = priority.ordinal();
 
         // Shift the int 32 bits and combine with the boolean
-        return ((long) nodeId << 32) | (priorityAndFlagsAsInt);
+        return ((long) nodeId << 32) | priorityAsInt;
     }
 }

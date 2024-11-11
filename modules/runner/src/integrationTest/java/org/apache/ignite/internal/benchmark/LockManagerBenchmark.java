@@ -94,7 +94,7 @@ public class LockManagerBenchmark {
         int c = 0;
 
         for (int i = 0; i < concTxns; i++) {
-            UUID txId = generator.transactionIdFor(clock.now(), false);
+            UUID txId = generator.transactionIdFor(clock.now());
             ids.add(txId);
             lockManager.acquire(txId, new LockKey(0, new RowId(0, new UUID(0, c++))), LockMode.X).join();
         }

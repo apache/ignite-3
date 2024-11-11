@@ -30,12 +30,15 @@ import org.junit.jupiter.api.Test;
  */
 public class ItThinClientObservationTsTest extends ItAbstractThinClientTest {
 
+    @Override
+    protected long idleSafeTimePropagationDuration() {
+        return 10_000L;
+    }
+
     @Test
     public void test() {
         Table srvTable = server().tables().table(TABLE_NAME);
         Table clientTable = client().tables().table(TABLE_NAME);
-
-        log.info("Tables [client={}, srv={}]", clientTable.getClass().getSimpleName(), srvTable.getClass().getSimpleName());
 
         srvTable.keyValueView().put(null, Tuple.create().set(COLUMN_KEY, 42), Tuple.create().set(COLUMN_VAL, "srv value"));
 

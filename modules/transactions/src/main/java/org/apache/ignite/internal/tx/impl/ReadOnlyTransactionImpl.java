@@ -28,7 +28,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -54,6 +53,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
+     * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param readTimestamp The read timestamp.
      */
     ReadOnlyTransactionImpl(
@@ -61,10 +61,11 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
+            boolean implicit,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, id, txCoordinatorId);
+        super(txManager, id, txCoordinatorId, implicit);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
@@ -84,11 +85,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return readTimestamp;
-    }
-
-    @Override
-    public boolean implicit() {
-        return TransactionIds.implicit(id());
     }
 
     @Override

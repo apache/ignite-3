@@ -376,14 +376,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, implicit, priority);
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
         startedTxs.add(1);
 
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -405,7 +405,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
             txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(txId));
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;

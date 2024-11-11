@@ -52,6 +52,6 @@ public class TestTransactionIds {
      * @return New transaction ID.
      */
     public static UUID newTransactionId(TxPriority priority) {
-        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now(), false, priority);
+        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now(), priority);
     }
 }

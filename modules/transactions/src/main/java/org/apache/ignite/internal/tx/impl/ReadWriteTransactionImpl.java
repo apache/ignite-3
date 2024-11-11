@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -70,14 +68,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
+     * @param implicit True for an implicit transaction, false for an ordinary one.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
-            UUID txCoordinatorId
+            UUID txCoordinatorId,
+            boolean implicit
     ) {
-        super(txManager, id, txCoordinatorId);
+        super(txManager, id, txCoordinatorId, implicit);
 
         this.observableTsTracker = observableTsTracker;
     }
@@ -143,7 +143,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false),
+                finish(true, null, false),
                 TX_COMMIT_ERR
         );
     }
@@ -151,7 +151,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false),
+                finish(false, null, false),
                 TX_ROLLBACK_ERR
         );
     }
@@ -211,10 +211,5 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
-    }
-
-    @Override
-    public boolean implicit() {
-        return TransactionIds.implicit(id());
     }
 }
