@@ -154,6 +154,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 properties,
                 igniteTransactions.observableTimestampTracker(),
                 tx,
+                null,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         );
@@ -280,6 +281,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 properties,
                 igniteTransactions.observableTimestampTracker(),
                 tx,
+                null,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         );

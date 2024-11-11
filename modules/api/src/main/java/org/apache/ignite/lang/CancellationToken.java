@@ -15,16 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.Transferable;
+package org.apache.ignite.lang;
 
 /**
- * Request that initiates safe time synchronization.
+ * Cancellation token is an object that is issued by {@link CancelHandle} and can be used by an operation or a resource to observe a signal
+ * to terminate it.
  */
-@Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
-public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
-    /** Safe time this request proposes. */
-    HybridTimestamp proposedSafeTime();
+public interface CancellationToken {
 }

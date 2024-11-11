@@ -55,6 +55,8 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -128,6 +130,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param txContext Transactional context to use.
      * @param sql Query string.
+     * @param cancellationToken Cancellation token.
      * @param params Query parameters.
      * @return Future which will be completed with cursor.
      */
@@ -135,7 +138,8 @@ public class QueryExecutor implements LifecycleAware {
             SqlProperties properties,
             QueryTransactionContext txContext,
             String sql,
-            Object... params
+            @Nullable CancellationToken cancellationToken,
+            Object[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
 
@@ -155,7 +159,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query);
+            trackQuery(query, cancellationToken);
         } finally {
             busyLock.leaveBusy();
         }
@@ -199,7 +203,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query);
+            trackQuery(query, null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -310,13 +314,19 @@ public class QueryExecutor implements LifecycleAware {
         );
     }
 
-    private void trackQuery(Query query) {
+    private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
         assert old == null : "Query with the same id already registered";
 
-        query.onPhaseStarted(ExecutionPhase.TERMINATED)
-                .whenComplete((ignored, ex) -> runningQueries.remove(query.id));
+        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+        CompletableFuture<Void> queryTerminationDoneFut = queryTerminationFut.whenComplete((ignored, ex) -> {
+            runningQueries.remove(query.id);
+        });
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, query.cancel::cancel, queryTerminationDoneFut);
+        }
     }
 
     /** Returns list of queries registered on server at the moment. */

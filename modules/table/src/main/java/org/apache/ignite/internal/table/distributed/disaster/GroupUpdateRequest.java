@@ -73,7 +73,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
-class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
+class GroupUpdateRequest implements DisasterRecoveryRequest {
     private final UUID operationId;
 
     /**
@@ -87,12 +87,15 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final Set<Integer> partitionIds;
 
-    ManualGroupUpdateRequest(UUID operationId, int catalogVersion, int zoneId, int tableId, Set<Integer> partitionIds) {
+    private final boolean manualUpdate;
+
+    GroupUpdateRequest(UUID operationId, int catalogVersion, int zoneId, int tableId, Set<Integer> partitionIds, boolean manualUpdate) {
         this.operationId = operationId;
         this.catalogVersion = catalogVersion;
         this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionIds = Set.copyOf(partitionIds);
+        this.manualUpdate = manualUpdate;
     }
 
     @Override
@@ -120,6 +123,10 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     public Set<Integer> partitionIds() {
         return partitionIds;
+    }
+
+    public boolean manualUpdate() {
+        return manualUpdate;
     }
 
     @Override
@@ -206,7 +213,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIdsArray[partitionId]);
 
             futures[partitionId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
+                    tableAssignments.isEmpty() ? nullCompletedFuture() : partitionUpdate(
                             replicaGrpId,
                             aliveDataNodes,
                             aliveNodesConsistentIds,
@@ -215,7 +222,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes(),
                             localStatesMap.get(replicaGrpId),
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            this.manualUpdate
                     )).thenAccept(res -> {
                         DisasterRecoveryManager.LOG.info(
                                 "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
@@ -227,7 +235,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         return futures;
     }
 
-    private static CompletableFuture<Integer> manualPartitionUpdate(
+    private static CompletableFuture<Integer> partitionUpdate(
             TablePartitionId partId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
@@ -236,7 +244,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            boolean manualUpdate
     ) {
         Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
@@ -248,6 +257,10 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         Iif invokeClosure;
 
         if (aliveStableNodes.isEmpty()) {
+            if (!manualUpdate) {
+                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            }
+
             enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
 
             // There are no known nodes with data, which means that we can just put new assignments into pending assignments with "forced"
@@ -260,10 +273,14 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             );
         } else {
             Set<Assignment> stableAssignments = Set.copyOf(partAssignments);
-            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+
+            if (manualUpdate) {
+                enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+            }
 
             // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
-            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments.
+            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
+            // for the case of the manual update, that was triggered by a user.
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
