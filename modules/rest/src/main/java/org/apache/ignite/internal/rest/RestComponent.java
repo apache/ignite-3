@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.context.env.Environment.BARE_METAL;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.DefaultApplicationContext;
 import io.micronaut.core.convert.ConversionService;
@@ -226,6 +227,9 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
         result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
+
+        // If deserialized as doubles, Instant objects can lose precision, see InstantDeserializationTest
+        result.put("jackson.deserialization", Map.of(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true));
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
