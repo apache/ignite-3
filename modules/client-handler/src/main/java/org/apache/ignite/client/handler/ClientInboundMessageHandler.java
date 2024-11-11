@@ -819,7 +819,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private boolean isPartitionOperation(int opCode) {
+    private static boolean isPartitionOperation(int opCode) {
         return opCode == ClientOp.TABLES_GET
                 || opCode == ClientOp.TUPLE_UPSERT
                 || opCode == ClientOp.TUPLE_GET
