@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 
@@ -41,53 +42,51 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
         assert plan != null;
         assert context != null;
 
-        AsyncDataCursor<InternalSqlRow> dataCursor = query.executor.executePlan(context, plan);
-
         SqlQueryType queryType = plan.type();
-
         PrefetchCallback prefetchCallback = context.prefetchCallback();
 
         assert prefetchCallback != null;
 
-        AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
-                queryType,
-                plan.metadata(),
-                dataCursor,
-                query.nextCursorFuture
-        );
+        CompletableFuture<Void> awaitFuture = query.executor.executePlan(context, plan)
+                .thenCompose(dataCursor -> {
+                    AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
+                            queryType,
+                            plan.metadata(),
+                            dataCursor,
+                            query.nextCursorFuture
+                    );
 
-        query.cursor = cursor;
+                    query.cursor = cursor;
 
-        QueryTransactionContext txContext = query.txContext;
+                    QueryTransactionContext txContext = query.txContext;
 
-        assert txContext != null;
+                    assert txContext != null;
 
-        if (queryType == SqlQueryType.QUERY) {
-            if (txContext.explicitTx() == null) {
-                // TODO: IGNITE-23604
-                // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                // let's update tracker explicitly to preserve consistency
-                txContext.updateObservableTime(query.executor.clockNow());
-            }
+                    if (queryType == SqlQueryType.QUERY) {
+                        if (txContext.explicitTx() == null) {
+                            // TODO: IGNITE-23604
+                            // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
+                            // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
+                            // let's update tracker explicitly to preserve consistency
+                            txContext.updateObservableTime(query.executor.clockNow());
+                        }
 
-            // preserve lazy execution for statements that only reads
-            return Result.completed();
-        }
-
-        // for other types let's wait for the first page to make sure premature
-        // close of the cursor won't cancel an entire operation
-        CompletableFuture<Void> awaitFuture = cursor.onFirstPageReady()
-                .thenApply(none -> {
-                    if (txContext.explicitTx() == null) {
-                        // TODO: IGNITE-23604
-                        // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                        // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                        // let's update tracker explicitly to preserve consistency
-                        txContext.updateObservableTime(query.executor.clockNow());
+                        // preserve lazy execution for statements that only reads
+                        return nullCompletedFuture();
                     }
 
-                    return null;
+                    // for other types let's wait for the first page to make sure premature
+                    // close of the cursor won't cancel an entire operation
+                    return cursor.onFirstPageReady()
+                            .thenRun(() -> {
+                                if (txContext.explicitTx() == null) {
+                                    // TODO: IGNITE-23604
+                                    // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
+                                    // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
+                                    // let's update tracker explicitly to preserve consistency
+                                    txContext.updateObservableTime(query.executor.clockNow());
+                                }
+                            });
                 });
 
         return Result.proceedAfter(awaitFuture);

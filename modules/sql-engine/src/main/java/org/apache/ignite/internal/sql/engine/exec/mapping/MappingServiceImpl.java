@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link MappingService}.
@@ -125,36 +127,44 @@ public class MappingServiceImpl implements MappingService {
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan);
 
         boolean mapOnBackups = parameters.mapOnBackups();
+        Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
 
-        MappingsCacheValue cacheValue = mappingsCache.compute(
-                new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
-                (key, val) -> {
-                    if (val == null) {
-                        IntSet tableIds = new IntOpenHashSet();
-                        boolean topologyAware = false;
+        CompletableFuture<MappedFragments> mappedFragments;
+        if (nodeExclusionFilter != null) {
+            mappedFragments = mapFragments(template, mapOnBackups, nodeExclusionFilter);
+        } else {
+            mappedFragments = mappingsCache.compute(
+                    new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
+                    (key, val) -> {
+                        if (val == null) {
+                            IntSet tableIds = new IntOpenHashSet();
+                            boolean topologyAware = false;
 
-                        for (Fragment fragment : template.fragments) {
-                            topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                            for (IgniteDataSource source : fragment.tables().values()) {
-                                tableIds.add(source.id());
+                            for (Fragment fragment : template.fragments) {
+                                topologyAware = topologyAware || !fragment.systemViews().isEmpty();
+                                for (IgniteDataSource source : fragment.tables().values()) {
+                                    tableIds.add(source.id());
+                                }
                             }
+
+                            long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
+
+                            assert nodeExclusionFilter == null;
+
+                            return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups, null));
                         }
 
-                        long topVer = topologyAware ? logicalTopologyVerSupplier.get() : Long.MAX_VALUE;
+                        long topologyVer = logicalTopologyVerSupplier.get();
 
-                        return new MappingsCacheValue(topVer, tableIds, mapFragments(template, mapOnBackups));
-                    }
+                        if (val.topologyVersion < topologyVer) {
+                            return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups, null));
+                        }
 
-                    long topologyVer = logicalTopologyVerSupplier.get();
+                        return val;
+                    }).mappedFragments;
+        }
 
-                    if (val.topologyVersion < topologyVer) {
-                        return new MappingsCacheValue(topologyVer, val.tableIds, mapFragments(template, mapOnBackups));
-                    }
-
-                    return val;
-                });
-
-        return cacheValue.mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
 
     CompletableFuture<DistributionHolder> composeDistributions(
@@ -207,7 +217,8 @@ public class MappingServiceImpl implements MappingService {
 
     private CompletableFuture<MappedFragments> mapFragments(
             FragmentsTemplate template,
-            boolean mapOnBackups
+            boolean mapOnBackups,
+            @Nullable Predicate<String> nodeExclusionFilter
     ) {
         Set<IgniteSystemView> views = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream())
                 .collect(Collectors.toSet());
@@ -220,7 +231,9 @@ public class MappingServiceImpl implements MappingService {
         return res.thenApply(assignments -> {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
-            MappingContext context = new MappingContext(localNodeName, new ArrayList<>(assignments.nodes()), template.cluster);
+            MappingContext context = new MappingContext(
+                    localNodeName, new ArrayList<>(assignments.nodes(nodeExclusionFilter)), template.cluster
+            );
 
             ExecutionTargetFactory targetFactory = context.targetFactory();
 
@@ -429,8 +442,14 @@ public class MappingServiceImpl implements MappingService {
             this.nodesPerView = nodesPerView;
         }
 
-        Set<String> nodes() {
-            return nodes;
+        Set<String> nodes(@Nullable Predicate<String> nodeExclusionFilter) {
+            if (nodeExclusionFilter == null) {
+                return nodes;
+            }
+
+            return nodes.stream()
+                    .filter(nodeExclusionFilter.negate())
+                    .collect(Collectors.toSet());
         }
 
         List<TokenizedAssignments> tableAssignments(int tableId) {
