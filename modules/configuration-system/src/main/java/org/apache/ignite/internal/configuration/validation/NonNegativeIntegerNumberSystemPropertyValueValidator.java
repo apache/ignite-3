@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 
-/** Validator for system property values that are expected to be non-negative {@code long} number. */
+/** Validator for system property values that are expected to be non-negative {@code int} number. */
 public class NonNegativeIntegerNumberSystemPropertyValueValidator implements
         Validator<NamedConfigValue, NamedListView<SystemPropertyView>> {
     /** Returns the names of the properties that need to be checked. */

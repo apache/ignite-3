@@ -401,7 +401,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         highestRevision.orElse(null), causalityToken
                 );
 
-
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionReset,
                         // TODO: IGNITE-23599 Implement valid behaviour here.
