@@ -36,11 +36,11 @@ public class ClientTupleReplaceExactRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param igniteTransactions Ignite transactions.
+     * @param transactions Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -48,10 +48,10 @@ public class ClientTupleReplaceExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, igniteTransactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
 
             return readSchema(in, table).thenCompose(schema -> {
                 var oldTuple = readTuple(in, false, schema);
@@ -60,6 +60,7 @@ public class ClientTupleReplaceExactRequest {
                 return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                     out.packBoolean(res);
+                    out.meta(transactions.observableTimestamp());
                 });
             });
         });

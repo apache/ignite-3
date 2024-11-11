@@ -26,7 +26,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Collection of utils to generate and pick apart transaction IDs.
  */
 public class TransactionIds {
-
     /**
      * Creates a transaction ID from the given begin timestamp and nodeId.
      *
@@ -77,7 +76,7 @@ public class TransactionIds {
     }
 
     public static TxPriority priority(UUID txId) {
-        int ordinal = (int) ((txId.getLeastSignificantBits() >> 16) & 1);
+        int ordinal = (int) (txId.getLeastSignificantBits() & 1);
         return TxPriority.values()[ordinal];
     }
 

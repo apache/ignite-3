@@ -664,7 +664,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_UPSERT_ALL:
                 return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, igniteTransactions);

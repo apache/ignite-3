@@ -40,7 +40,7 @@ public class ClientTupleDeleteAllExactRequest {
      * @param out Packer.
      * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param igniteTransactions Ignite transactions.
+     * @param transactions Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -48,13 +48,16 @@ public class ClientTupleDeleteAllExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, igniteTransactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().deleteAllExactAsync(tx, tuples)
-                        .thenAccept(skippedTuples -> writeTuples(out, skippedTuples, table.schemaView()));
+                        .thenAccept(skippedTuples -> {
+                            writeTuples(out, skippedTuples, table.schemaView());
+                            out.meta(transactions.observableTimestamp());
+                        });
             });
         });
     }

@@ -37,11 +37,11 @@ public class ClientTupleDeleteAllRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param igniteTransactions Ignite transactions.
+     * @param transactions Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -49,13 +49,15 @@ public class ClientTupleDeleteAllRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, igniteTransactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
             return readTuples(in, table, true).thenCompose(tuples -> {
-                return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
-                        writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+                return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples -> {
+                    writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView());
+                    out.meta(transactions.observableTimestamp());
+                });
             });
         });
     }

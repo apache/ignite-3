@@ -17,15 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -35,9 +36,9 @@ public class ClientTupleGetRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
      * @return Future.
      */
@@ -45,14 +46,17 @@ public class ClientTupleGetRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-            var tx = readTx(in, out, resources);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, true);
             return readTuple(in, table, true).thenCompose(keyTuple -> {
                 return table.recordView().getAsync(tx, keyTuple)
-                        .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+                        .thenAccept(t -> {
+                            ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());
+                            out.meta(transactions.observableTimestamp());
+                        });
             });
         });
     }

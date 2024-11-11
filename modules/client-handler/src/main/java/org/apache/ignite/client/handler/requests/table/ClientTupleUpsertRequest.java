@@ -35,11 +35,11 @@ public class ClientTupleUpsertRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param igniteTransactions Ignite transactions.
+     * @param transactions Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -47,12 +47,16 @@ public class ClientTupleUpsertRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, igniteTransactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
-                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.meta(transactions.observableTimestamp());
+
+                });
             });
         });
     }
