@@ -275,9 +275,11 @@ public class ExecutionContext<RowT> implements DataContext {
 
         Object param = params.get(name);
 
-        assert param != null || params.containsKey(name) : "Missing dynamic parameter: " + name;
-
         if (param == null) {
+            if (!params.containsKey(name)) {
+                throw new IllegalStateException("Missing dynamic parameter: " + name);
+            }
+
             return null;
         }
 

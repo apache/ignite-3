@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -382,5 +383,23 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertThat(res.items().get(0).fieldCount(), is(2));
         assertThat(res.items().get(0).get(0), is(1));
         assertThat(res.items().get(0).get(1), nullValue());
+    }
+
+    @Test
+    public void testExecutionWithMissingDynamicParam() {
+        cluster.start();
+
+        TestNode node = cluster.node("N1");
+
+        QueryPlan plan = node.prepare("SELECT ?/?", 1, 0);
+
+        AsyncDataCursor<InternalSqlRow> cursor = node.executePlan(plan, 1);
+
+        //noinspection ThrowableNotThrown
+        assertThrowsWithCause(
+                () -> await(cursor.requestNextAsync(1)),
+                IllegalStateException.class,
+                "Missing dynamic parameter: ?1"
+        );
     }
 }
