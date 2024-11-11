@@ -390,7 +390,7 @@ public class DistributionZoneManager implements IgniteComponent {
             int zoneId = zoneStateEntry.getKey();
 
             CatalogZoneDescriptor zoneDescriptor =
-                    catalogManager.zone(zoneId, metaStorageManager.timestampByRevisionLocally(causalityToken).longValue());
+                    catalogManager.zone(zoneId, metaStorageManager.timestampByRevisionLocally(causalityToken - 1).longValue());
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
