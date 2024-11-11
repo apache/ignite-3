@@ -78,4 +78,9 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     ) {
         return delegate.getAssignments(replicationGroupIds, clusterTimeToAwait);
     }
+
+    @Override
+    public boolean isActualAt(HybridTimestamp timestamp) {
+        return delegate.isActualAt(timestamp);
+    }
 }

@@ -138,7 +138,7 @@ public class MappingTestRunnerSelfTest extends BaseIgniteAbstractTest {
 
         IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> runner.runTest(() -> {
-                    ExecutionTargetProvider targetProvider = Mockito.mock(ExecutionTargetProvider.class);
+                    ExecutionDistributionProvider targetProvider = Mockito.mock(ExecutionDistributionProvider.class);
                     IgniteSchema schema = new IgniteSchema("T", 1, List.of());
                     LogicalNode node = new LogicalNode(randomUUID(), "N1", new NetworkAddress("addr", 1000));
                     LogicalTopologySnapshot topologySnapshot = new LogicalTopologySnapshot(1, List.of(node));

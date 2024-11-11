@@ -129,4 +129,9 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         );
 
     }
+
+    @Override
+    public boolean isActualAt(HybridTimestamp timestamp) {
+        return true;
+    }
 }

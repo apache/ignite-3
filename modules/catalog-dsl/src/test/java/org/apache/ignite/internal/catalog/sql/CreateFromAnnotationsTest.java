@@ -24,6 +24,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.UUID;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
@@ -69,6 +75,7 @@ class CreateFromAnnotationsTest {
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
                 .storageProfiles("default")
+                .consistencyMode("HIGH_AVAILABILITY")
                 .build();
         Query query2 = new CreateFromDefinitionImpl(null).from(zoneDefinition);
         String sqlZoneFromDefinition = query2.toString();
@@ -98,10 +105,10 @@ class CreateFromAnnotationsTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter';"
+                        + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
-                        + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
@@ -116,10 +123,10 @@ class CreateFromAnnotationsTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter';"
+                        + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
-                        + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_value_test (f_name, l_name desc);")
         );
@@ -133,15 +140,20 @@ class CreateFromAnnotationsTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter';"
+                        + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='STRONG_CONSISTENCY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test"
                         + " (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON PUBLIC.pojo_test (f_name, l_name desc);")
         );
+    }
+
+    @Test
+    void createFromKeyValueClassesInvalid() {
+        assertThrows(IllegalArgumentException.class, () -> createTable().processKeyValueClasses(Integer.class, PojoValueInvalid.class));
     }
 
     @Test
@@ -175,6 +187,19 @@ class CreateFromAnnotationsTest {
         assertThrows(IllegalArgumentException.class, () -> createTable().processRecordClass(NoAnnotations.class));
     }
 
+    @Test
+    void allColumnTypes() {
+        CreateFromAnnotationsImpl query = createTable().processRecordClass(AllColumnsPojo.class);
+        assertThat(
+                query.toString(),
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.AllColumnsPojo ("
+                        + "str varchar, byteCol tinyint, shortCol smallint, intCol int, longCol bigint, floatCol real, "
+                        + "doubleCol double, decimalCol decimal, boolCol boolean, bytesCol varbinary, uuidCol uuid, "
+                        + "dateCol date, timeCol time, datetimeCol timestamp, instantCol timestamp with local time zone, "
+                        + "PRIMARY KEY (str));")
+        );
+    }
+
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -197,7 +222,8 @@ class CreateFromAnnotationsTest {
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
-                    storageProfiles = "default"
+                    storageProfiles = "default",
+                    consistencyMode = "HIGH_AVAILABILITY"
             ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
@@ -227,7 +253,8 @@ class CreateFromAnnotationsTest {
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
-                    storageProfiles = "default"
+                    storageProfiles = "default",
+                    consistencyMode = "STRONG_CONSISTENCY"
             ),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_pojo", columns = {
@@ -252,6 +279,37 @@ class CreateFromAnnotationsTest {
         String str;
     }
 
+    @SuppressWarnings("unused")
+    @Table(
+            value = "pojo_invalid_test",
+            zone = @Zone(
+                    value = "zone_test",
+                    partitions = 1,
+                    replicas = 3,
+                    distributionAlgorithm = "partitionDistribution",
+                    dataNodesAutoAdjust = 1,
+                    dataNodesAutoAdjustScaleDown = 2,
+                    dataNodesAutoAdjustScaleUp = 3,
+                    filter = "filter",
+                    storageProfiles = "default",
+                    consistencyMode = "MY_CONSISTENCY"
+            ),
+            colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+            indexes = @Index(value = "ix_pojo", columns = {
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
+            })
+    )
+    private static class PojoValueInvalid {
+        @Column("f_name")
+        String firstName;
+
+        @Column("l_name")
+        String lastName;
+
+        String str;
+    }
+
     @Table(indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")}))
     private static class NameGeneration {
         Integer col1;
@@ -263,6 +321,26 @@ class CreateFromAnnotationsTest {
     private static class PkSort {
         @Id(SortOrder.DESC)
         Integer id;
+    }
+
+    @Table
+    private static class AllColumnsPojo {
+        @Id
+        String str;
+        Byte byteCol;
+        Short shortCol;
+        Integer intCol;
+        Long longCol;
+        Float floatCol;
+        Double doubleCol;
+        BigDecimal decimalCol;
+        Boolean boolCol;
+        byte[] bytesCol;
+        UUID uuidCol;
+        LocalDate dateCol;
+        LocalTime timeCol;
+        LocalDateTime datetimeCol;
+        Instant instantCol;
     }
 
     private static class NoAnnotations {

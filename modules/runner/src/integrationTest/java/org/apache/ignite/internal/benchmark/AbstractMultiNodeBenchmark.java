@@ -90,7 +90,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
                     ))
             );
 
@@ -132,11 +132,11 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nZONE " + ZONE_NAME;
 
         getAllFromCursor(
                 await(igniteImpl.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createTableStatement
                 ))
         );
     }

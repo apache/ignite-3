@@ -77,18 +77,6 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should display readable error when wrong option is given on CREATE TABLE")
-    void incorrectEngineOnCreate() {
-        execute("sql", "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch'", "--jdbc-url", JDBC_URL);
-
-        assertAll(
-                () -> assertExitCodeIs(1),
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Unexpected table option [option=NOTEXIST")
-        );
-    }
-
-    @Test
     @DisplayName("Should display readable error when not SQL expression given")
     void notSqlExpression() {
         execute("sql", "asdf", "--jdbc-url", JDBC_URL);

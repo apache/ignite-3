@@ -49,6 +49,8 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
 
     private Matcher<String> storageProfiles = AnythingMatcher.anything();
 
+    private Matcher<String> consistencyMode = AnythingMatcher.anything();
+
     public ZoneDefinitionMatcher withZoneNameMatcher(Matcher<String> zoneNameMatcher) {
         this.zoneNameMatcher = zoneNameMatcher;
         return this;
@@ -141,6 +143,15 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
         return withStorageProfilesMatcher(equalTo(storageProfiles));
     }
 
+    public ZoneDefinitionMatcher withConsistencyModeMatcher(Matcher<String> consistenyMode) {
+        this.consistencyMode = consistenyMode;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withConsistencyMode(String consistencyMode) {
+        return withConsistencyModeMatcher(equalTo(consistencyMode));
+    }
+
     public static ZoneDefinitionMatcher isZoneDefinition() {
         return new ZoneDefinitionMatcher();
     }
@@ -157,7 +168,8 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 && dataNodesAutoAdjustScaleUpMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleUp())
                 && dataNodesAutoAdjustScaleDownMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleDown())
                 && filterMatcher.matches(zoneDefinition.filter())
-                && storageProfiles.matches(zoneDefinition.storageProfiles());
+                && storageProfiles.matches(zoneDefinition.storageProfiles())
+                && consistencyMode.matches(zoneDefinition.consistencyMode());
     }
 
     @Override
@@ -181,6 +193,8 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 .appendText(System.lineSeparator())
                 .appendText("filter ").appendDescriptionOf(filterMatcher)
                 .appendText(System.lineSeparator())
-                .appendText("storage profiles ").appendDescriptionOf(storageProfiles);
+                .appendText("storage profiles ").appendDescriptionOf(storageProfiles)
+                .appendText(System.lineSeparator())
+                .appendText("consistency mode ").appendDescriptionOf(consistencyMode);
     }
 }

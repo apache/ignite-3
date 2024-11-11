@@ -24,40 +24,6 @@ boolean IfNotExistsOpt() :
     { return false; }
 }
 
-SqlNodeList CreateTableOptionList() :
-{
-    List<SqlNode> list = new ArrayList<SqlNode>();
-    final Span s = Span.of();
-}
-{
-    CreateTableOption(list)
-    (
-        <COMMA> { s.add(this); } CreateTableOption(list)
-    )*
-    {
-        return new SqlNodeList(list, s.end(this));
-    }
-}
-
-void CreateTableOption(List<SqlNode> list) :
-{
-    final Span s;
-    final SqlIdentifier key;
-    final SqlNode val;
-}
-{
-    key = SimpleIdentifier() { s = span(); }
-    <EQ>
-    (
-        val = Literal()
-    |
-        val = SimpleIdentifier()
-    )
-    {
-        list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
-    }
-}
-
 SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
 {
     final SqlDataTypeSpec dt;
@@ -206,7 +172,8 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     final SqlNodeList columnList;
-    SqlNodeList optionList = null;
+    SqlIdentifier zoneName = null;
+    SqlNode storageProfile = null;
     SqlNodeList colocationColumns = null;
 }
 {
@@ -219,10 +186,13 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
-        <WITH> { s.add(this); } optionList = CreateTableOptionList()
+        <ZONE> {s.add(this);} zoneName = SimpleIdentifier()
+    ]
+    [
+        <STORAGE> <PROFILE> {s.add(this);} storageProfile = StringLiteral()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, zoneName, storageProfile);
     }
 }
 

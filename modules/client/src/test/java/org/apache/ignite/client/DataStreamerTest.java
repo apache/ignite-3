@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -61,6 +61,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
+import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -227,10 +228,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
 
-        // Streamer has it's own retry policy, so we can disable retries on the client.
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                .retryPolicy(new RetryLimitPolicy().retryLimit(8))
                 .reconnectThrottlingPeriod(0)
                 .loggerFactory(new ConsoleLoggerFactory("client-2"));
 
@@ -308,7 +308,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .loggerFactory(logger)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1));
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0));
 
         client2 = builder.build();
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
@@ -628,10 +628,15 @@ public class DataStreamerTest extends AbstractClientTableTest {
             }
         }
 
-        assertThat(streamerFut, willThrow(ArithmeticException.class, "Result subscriber exception"));
+        assertThat(streamerFut, willThrowWithCauseOrSuppressed(ArithmeticException.class, "Result subscriber exception"));
         assertFalse(resultSubscriber.completed.get());
-        assertInstanceOf(CompletionException.class, resultSubscriber.error.get());
-        assertInstanceOf(ArithmeticException.class, resultSubscriber.error.get().getCause());
+
+        Throwable subscriberErr = resultSubscriber.error.get();
+        assertInstanceOf(DataStreamerException.class, subscriberErr);
+        assertInstanceOf(CompletionException.class, subscriberErr.getCause());
+        assertInstanceOf(ArithmeticException.class, subscriberErr.getCause().getCause());
+
+        assertEquals(3, ((DataStreamerException) subscriberErr).failedItems().size());
     }
 
     @Test

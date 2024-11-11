@@ -90,4 +90,11 @@ public @interface Zone {
      * @return Nodes filter.
      */
     String filter() default "";
+
+    /**
+     * Consistency mode.
+     *
+     * @return Consistency mode.
+     */
+    String consistencyMode() default "";
 }

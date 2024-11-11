@@ -39,13 +39,4 @@ public interface WatchEventHandlingCallback {
     default void onRevisionApplied(long revision) {
         // No-op.
     }
-
-    /**
-     * Invokes when the metastorage compaction revision has been updated in the WatchEvent queue.
-     *
-     * @param compactionRevision New metastorage compaction revision.
-     */
-    default void onCompactionRevisionUpdated(long compactionRevision) {
-        // No-op.
-    }
 }

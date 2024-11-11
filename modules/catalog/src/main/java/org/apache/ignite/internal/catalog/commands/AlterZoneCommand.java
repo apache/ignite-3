@@ -139,7 +139,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                 Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
                 Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
                 Objects.requireNonNullElse(filter, previous.filter()),
-                storageProfiles
+                storageProfiles,
+                previous.consistencyMode()
         );
     }
 

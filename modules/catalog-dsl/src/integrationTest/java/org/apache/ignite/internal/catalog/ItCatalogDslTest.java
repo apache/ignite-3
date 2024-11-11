@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +40,7 @@ import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.matcher.TableDefinitionMatcher;
 import org.apache.ignite.internal.matcher.ZoneDefinitionMatcher;
 import org.apache.ignite.sql.SqlException;
@@ -299,6 +301,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .dataNodesAutoAdjustScaleUp(1)
                 .filter("$..*")
                 .distributionAlgorithm("distributionAlgorithm")
+                .consistencyMode(ConsistencyMode.HIGH_AVAILABILITY.name())
                 .build();
 
         assertThat(catalog().createZoneAsync(zoneDefinition), willCompleteSuccessfully());
@@ -313,6 +316,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withDataNodesAutoAdjustScaleDown(zoneDefinition.dataNodesAutoAdjustScaleDown())
                         .withDataNodesAutoAdjustScaleUp(zoneDefinition.dataNodesAutoAdjustScaleUp())
                         .withFilter(zoneDefinition.filter())
+                        .withConsistencyMode(zoneDefinition.consistencyMode())
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22162
         // .withDistributionAlgorithm(zoneDefinition.distributionAlgorithm())
         );
@@ -346,6 +350,64 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withIndexes(definition.indexes())
                         .withColocationColumns(definition.colocationColumns())
         );
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    public void createAllColumnTypesFromPojo() {
+        Table table = catalog().createTable(AllColumnTypesPojo.class);
+        assertEquals("ALLCOLUMNTYPESPOJO", table.name());
+
+        TableDefinition tableDef = catalog().tableDefinition(table.name());
+        assertEquals(tableDef.tableName(), tableDef.tableName());
+
+        List<ColumnDefinition> columns = tableDef.columns();
+        assertEquals(15, columns.size());
+
+        assertEquals("STR", columns.get(0).name());
+        assertEquals("varchar", columns.get(0).type().typeName());
+
+        assertEquals("BYTECOL", columns.get(1).name());
+        assertEquals("tinyint", columns.get(1).type().typeName());
+
+        assertEquals("SHORTCOL", columns.get(2).name());
+        assertEquals("smallint", columns.get(2).type().typeName());
+
+        assertEquals("INTCOL", columns.get(3).name());
+        assertEquals("int", columns.get(3).type().typeName());
+
+        assertEquals("LONGCOL", columns.get(4).name());
+        assertEquals("bigint", columns.get(4).type().typeName());
+
+        assertEquals("FLOATCOL", columns.get(5).name());
+        assertEquals("real", columns.get(5).type().typeName());
+
+        assertEquals("DOUBLECOL", columns.get(6).name());
+        assertEquals("double", columns.get(6).type().typeName());
+
+        assertEquals("DECIMALCOL", columns.get(7).name());
+        assertEquals("decimal", columns.get(7).type().typeName());
+
+        assertEquals("BOOLCOL", columns.get(8).name());
+        assertEquals("boolean", columns.get(8).type().typeName());
+
+        assertEquals("BYTESCOL", columns.get(9).name());
+        assertEquals("varbinary", columns.get(9).type().typeName());
+
+        assertEquals("UUIDCOL", columns.get(10).name());
+        assertEquals("uuid", columns.get(10).type().typeName());
+
+        assertEquals("DATECOL", columns.get(11).name());
+        assertEquals("date", columns.get(11).type().typeName());
+
+        assertEquals("TIMECOL", columns.get(12).name());
+        assertEquals("time", columns.get(12).type().typeName());
+
+        assertEquals("DATETIMECOL", columns.get(13).name());
+        assertEquals("timestamp", columns.get(13).type().typeName());
+
+        assertEquals("INSTANTCOL", columns.get(14).name());
+        assertEquals("timestamp with local time zone", columns.get(14).type().typeName());
     }
 
     private static IgniteCatalog catalog() {

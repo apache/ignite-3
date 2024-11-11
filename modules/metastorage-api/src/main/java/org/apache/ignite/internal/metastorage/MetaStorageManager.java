@@ -414,15 +414,21 @@ public interface MetaStorageManager extends IgniteComponent {
 
     /**
      * Returns a future which completes when MetaStorage manager finished local recovery.
-     * The value of the future is the revision which must be used for state recovery by other components.
+     * The value of the future is the revisions which must be used for state recovery by other components.
      */
-    CompletableFuture<Long> recoveryFinishedFuture();
+    CompletableFuture<Revisions> recoveryFinishedFuture();
 
     /** Registers a Meta Storage revision update listener. */
     void registerRevisionUpdateListener(RevisionUpdateListener listener);
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Registers a Meta Storage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
     /**
      * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if it has never been updated.

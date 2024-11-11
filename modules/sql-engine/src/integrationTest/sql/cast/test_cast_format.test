@@ -170,7 +170,7 @@ SELECT cast('JUN 30, 2018' as date format 'MON DD, YYYY')
 query T
 SELECT cast('17:30' as time format 'HH12:MI')
 ----
-17:30
+17:30:00
 
 query T
 SELECT cast('01:05:07.161' as time format 'HH24:MI:SS.FF4')
@@ -180,12 +180,12 @@ SELECT cast('01:05:07.161' as time format 'HH24:MI:SS.FF4')
 query T
 SELECT cast('2017-05-12' as timestamp format 'YYYY-MM-DD')
 ----
-2017-05-12T00:00
+2017-05-12 00:00:00
 
 query T
 SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH:MI:SS')
 ----
-2020-06-03T12:42:53
+2020-06-03 12:42:53
 
 # Seems will be supported after resolve CALCITE_6367
 statement error: Invalid format: 'YYYY.MM.DD HH24:MI:SSTZH:TZM' for datetime string: '2020.06.03 00:00:53+06:30'

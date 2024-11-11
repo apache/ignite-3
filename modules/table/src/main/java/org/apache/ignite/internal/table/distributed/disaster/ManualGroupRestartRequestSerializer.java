@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.readVarIntSet;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntSet;
 
 import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
@@ -41,8 +43,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         out.writeVarInt(request.tableId());
         writeVarIntSet(request.partitionIds(), out);
         writeStringSet(request.nodeNames(), out);
-        // Writing long and not a varlong as the latter requires 9 bytes for hybrid timestamps.
-        out.writeLong(request.assignmentsTimestamp());
+        hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
     }
 
     @Override
@@ -52,8 +53,8 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         int tableId = in.readVarIntAsInt();
         Set<Integer> partitionIds = readVarIntSet(in);
         Set<String> nodeNames = readStringSet(in);
-        long assignmentsTimestamp = in.readLong();
+        HybridTimestamp assignmentsTimestamp = HybridTimestamp.readFrom(in);
 
-        return new ManualGroupRestartRequest(operationId, zoneId, tableId, partitionIds, nodeNames, assignmentsTimestamp);
+        return new ManualGroupRestartRequest(operationId, zoneId, tableId, partitionIds, nodeNames, assignmentsTimestamp.longValue());
     }
 }

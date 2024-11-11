@@ -430,6 +430,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         LocalState localState = localStateStorage.getLocalState();
 
         if (localState == null) {
+            LOG.info("No local CMG state exists, going to wait for the cluster state or the init command");
+
             return null;
         }
 
@@ -437,7 +439,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         // Since we recovered state we do not supply a new initialClusterConfig.
         return startCmgRaftServiceWithEvents(localState.cmgNodeNames(), null)
-                .thenCompose(service -> joinCluster(service, localState.clusterTag()));
+                .thenCompose(service -> validateAgainstCluster(service, localState.clusterTag()));
     }
 
     /**
@@ -526,7 +528,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
-                    return joinCluster(service, state.clusterTag());
+                    return validateAgainstCluster(service, state.clusterTag());
                 });
     }
 
@@ -721,12 +723,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         }
     }
 
-    private CompletableFuture<CmgRaftService> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
+    private CompletableFuture<CmgRaftService> validateAgainstCluster(CmgRaftService service, ClusterTag clusterTag) {
         return service.startJoinCluster(clusterTag, nodeAttributes)
                 .thenApply(v -> service)
                 .whenComplete((v, e) -> {
                     if (e == null) {
-                        LOG.info("Successfully joined the cluster [name={}]", clusterTag.clusterName());
+                        LOG.info("Successfully validated against the cluster [name={}]", clusterTag.clusterName());
 
                         joinFuture.complete(null);
                     } else {
@@ -745,7 +747,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CompletableFuture<CmgRaftService> startCmgRaftServiceWithEvents(Set<String> nodeNames, @Nullable String initialClusterConfig) {
         BeforeStartRaftGroupEventParameters params = new BeforeStartRaftGroupEventParameters(nodeNames, initialClusterConfig);
         return fireEvent(ClusterManagerGroupEvent.BEFORE_START_RAFT_GROUP, params)
-                .thenCompose(v -> startCmgRaftService(nodeNames))
+                .thenComposeAsync(v -> startCmgRaftService(nodeNames), scheduledExecutor)
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.warn("Error when initializing the CMG", e);
@@ -826,7 +828,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
-                    return joinCluster(service, state.clusterTag());
+                    return validateAgainstCluster(service, state.clusterTag());
                 });
     }
 

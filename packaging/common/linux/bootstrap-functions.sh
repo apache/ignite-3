@@ -34,9 +34,15 @@ export LOGGING_JAVA_OPTS="
 
 export CLASSPATH="-classpath @INSTALL_DIR@/lib/@APP_JAR@:@INSTALL_DIR@/lib/* @MAIN_CLASS@"
 
+export JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
+
+export JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
+
 export JAVA_CMD_WITH_ARGS="${JAVACMD} \
   ${COMMON_JAVA_OPTS} \
   ${LOGGING_JAVA_OPTS} \
+  ${JAVA_MEMORY_OPTIONS} \
+  ${JAVA_GC_OPTIONS} \
   ${IGNITE3_EXTRA_JVM_ARGS} \
   ${CLASSPATH}"
 

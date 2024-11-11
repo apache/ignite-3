@@ -22,6 +22,8 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * REST representation of MetricSource.
@@ -70,5 +72,30 @@ public class MetricSource {
     @JsonGetter("enabled")
     public boolean enabled() {
         return enabled;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        MetricSource that = (MetricSource) o;
+        return enabled == that.enabled && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(name);
+        result = 31 * result + Boolean.hashCode(enabled);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

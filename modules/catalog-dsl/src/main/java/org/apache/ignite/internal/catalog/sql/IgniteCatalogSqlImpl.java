@@ -123,7 +123,8 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 "REPLICAS",
                 "DATA_NODES_AUTO_ADJUST_SCALE_UP",
                 "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
-                "DATA_NODES_FILTER"
+                "DATA_NODES_FILTER",
+                "CONSISTENCY_MODE"
         );
         return new SelectFromView<>(sql, zoneViewColumns, "ZONES", name(zoneName), row -> toZoneDefinitionBuilder(zoneName, row))
                 .executeAsync()
@@ -217,13 +218,15 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
         int dataNodesAutoAdjustScaleUp = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_UP");
         int dataNodesAutoAdjustScaleDown = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
         String filter = row.stringValue("DATA_NODES_FILTER");
+        String consistencyMode = row.stringValue("CONSISTENCY_MODE");
 
         return ZoneDefinition.builder(zoneName)
                 .partitions(partitions)
                 .replicas(replicas)
                 .dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp)
                 .dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown)
-                .filter(filter);
+                .filter(filter)
+                .consistencyMode(consistencyMode);
     }
 
     private static <R> R join(CompletableFuture<R> future) {

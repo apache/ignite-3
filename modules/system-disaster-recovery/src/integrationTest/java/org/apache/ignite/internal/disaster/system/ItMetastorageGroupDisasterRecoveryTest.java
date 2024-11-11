@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -208,13 +209,12 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(0);
 
-        // This makes the MG majority go away.
-        cluster.stopNode(1);
+        // Copy Metastorage state from old leader (1) to future leader (0) to make sure that 1 is not ahead of 0 and there will be
+        // no Metastorage divergence when we make 0 new leader and migrate 1 to cluster again.
+        // This stops both nodes.
+        makeSure2NodesHaveSameMetastorageState(1, 0);
 
-        IgniteImpl igniteImpl0BeforeRestart = igniteImpl(0);
-
-        assertThatMgHasNoMajority(igniteImpl0BeforeRestart);
-
+        cluster.startEmbeddedNode(0);
         initiateMgRepairVia(0, 1, 0);
 
         IgniteImpl restartedIgniteImpl0 = waitTillNodeRestartsInternally(0);
@@ -224,7 +224,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         ((MetaStorageManagerImpl) restartedIgniteImpl0.metaStorageManager()).disableLearnersAddition();
 
         initiateMigration(1, 0);
-        CompletableFuture<Void> ignite1RestartFuture = waitForRestartOrShutdownFuture(1);
+        CompletableFuture<Void> ignite1RestartFuture = waitForRestartFuture(1);
 
         // It should not be able to start: it should abstain from becoming a leader and node 1 (the new leader) does not add it as
         // a learner.
@@ -256,14 +256,10 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(0);
 
-        ComponentWorkingDir msWorkDir0 = igniteImpl(0).metastorageWorkDir();
-        ComponentWorkingDir msWorkDir1 = igniteImpl(1).metastorageWorkDir();
-
-        IntStream.of(0, 1).parallel().forEach(cluster::stopNode);
-
         // Copy Metastorage state from old leader (1) to future leader (0) to make sure that 1 is not ahead of 0 and there will be
         // no Metastorage divergence when we make 0 new leader and migrate 1 to cluster again.
-        copyMetastorageState(msWorkDir1, msWorkDir0);
+        // This stops both nodes.
+        makeSure2NodesHaveSameMetastorageState(1, 0);
 
         // Repair MG with just node 0 in CMG.
         cluster.startEmbeddedNode(0);
@@ -276,6 +272,15 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         LogicalTopologySnapshot topologySnapshot = restartedIgniteImpl0.logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
         assertTopologyContainsNode(1, topologySnapshot);
+    }
+
+    private void makeSure2NodesHaveSameMetastorageState(int leaderIndex, int followerIndex) throws IOException {
+        ComponentWorkingDir followerMsWorkDir = igniteImpl(followerIndex).metastorageWorkDir();
+        ComponentWorkingDir leaderMsWorkDir = igniteImpl(leaderIndex).metastorageWorkDir();
+
+        IntStream.of(followerIndex, leaderIndex).parallel().forEach(cluster::stopNode);
+
+        copyMetastorageState(leaderMsWorkDir, followerMsWorkDir);
     }
 
     private static void copyMetastorageState(ComponentWorkingDir source, ComponentWorkingDir dest) throws IOException {
@@ -333,7 +338,7 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         // Starting the node that did not see the repair.
         initiateMigration(1, 0);
 
-        assertThat(waitForRestartOrShutdownFuture(1), willCompleteSuccessfully());
+        assertThat(waitForRestartFuture(1), willThrowWithCauseOrSuppressed(MetastorageDivergedException.class, "Metastorage has diverged"));
 
         // Attempt to migrate should fail.
         assertThrowsWithCause(() -> cluster.server(1).api(), MetastorageDivergedException.class, "Metastorage has diverged");

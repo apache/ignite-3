@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.concurrent.CompletableFuture;
@@ -32,17 +35,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -63,26 +68,28 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Metastorage leader locally gets notification of the completion of the local compaction for the new revision.</li>
  *     <li>Metastorage leader locally schedules a new start of compaction.</li>
  * </ol>
+ *
+ * <p>About recovery:</p>
+ * <ul>
+ *     <li>At the start of the component, we will start a local compaction for the compaction revision from
+ *     {@link MetaStorageManager#recoveryFinishedFuture}.</li>
+ *     <li>{@link CompactionCommand}s that were received before the {@link MetaStorageManager#deployWatches} will start a local compaction
+ *     in the {@link MetaStorageManager#deployWatches}.</li>
+ * </ul>
  */
 // TODO: IGNITE-23280 Turn on compaction
-class MetaStorageCompactionTrigger implements ManuallyCloseable {
+public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
-
-    /** System property that defines compaction start interval (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
-    public static final String COMPACTION_INTERVAL_PROPERTY = "IGNITE_COMPACTION_INTERVAL";
-
-    /** System property that defines data availability time (in milliseconds). Default value is {@link Long#MAX_VALUE}. */
-    public static final String COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY = "IGNITE_COMPACTION_DATA_AVAILABILITY_TIME";
 
     private final String localNodeName;
 
     private final KeyValueStorage storage;
 
-    private final CompletableFuture<MetaStorageServiceImpl> metastorageServiceFuture;
-
-    private final ClusterTime clusterTime;
+    private final MetaStorageManagerImpl metaStorageManager;
 
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker;
+
+    private final MetaStorageCompactionTriggerConfiguration config;
 
     private final ScheduledExecutorService compactionExecutor;
 
@@ -92,15 +99,15 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
     /** Guarded by {@link #lock}. */
     private boolean isLocalNodeLeader;
 
+    /**
+     * Whether that the component has started. It is expected that the component will be started after the distributed configuration has
+     * started, so that we can get the configuration value correctly and make a compaction with predictable behavior.
+     *
+     * <p>Guarded by {@link #lock}.</p>
+     */
+    private boolean started;
+
     private final Lock lock = new ReentrantLock();
-
-    /** Compaction start interval (in milliseconds). */
-    // TODO: IGNITE-23279 Change configuration
-    private final long startInterval = IgniteSystemProperties.getLong(COMPACTION_INTERVAL_PROPERTY, Long.MAX_VALUE);
-
-    /** Data availability time (in milliseconds). */
-    // TODO: IGNITE-23279 Change configuration
-    private final long dataAvailabilityTime = IgniteSystemProperties.getLong(COMPACTION_DATA_AVAILABILITY_TIME_PROPERTY, Long.MAX_VALUE);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -111,32 +118,58 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
      *
      * @param localNodeName Local node name.
      * @param storage Storage.
-     * @param metastorageServiceFuture Metastorage service future.
-     * @param clusterTime Cluster time.
+     * @param metaStorageManager Metastorage manager.
      * @param readOperationForCompactionTracker Tracker of read operations, both local and from the leader.
+     * @param systemDistributedConfig Distributed system configuration.
      */
-    MetaStorageCompactionTrigger(
+    public MetaStorageCompactionTrigger(
             String localNodeName,
             KeyValueStorage storage,
-            CompletableFuture<MetaStorageServiceImpl> metastorageServiceFuture,
-            ClusterTime clusterTime,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker
+            MetaStorageManagerImpl metaStorageManager,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            SystemDistributedConfiguration systemDistributedConfig
     ) {
         this.localNodeName = localNodeName;
         this.storage = storage;
-        this.metastorageServiceFuture = metastorageServiceFuture;
-        this.clusterTime = clusterTime;
+        this.metaStorageManager = metaStorageManager;
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
+
+        config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
 
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
+
+        storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);
+
+        metaStorageManager.addElectionListener(this::onLeaderElected);
     }
 
     @Override
-    public void close() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return inBusyLockAsync(busyLock, () -> {
+            lock.lock();
+
+            try {
+                config.init();
+
+                startCompactionOnRecoveryInBackground();
+
+                started = true;
+
+                scheduleNextCompactionBusy();
+
+                return nullCompletedFuture();
+            } finally {
+                lock.unlock();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -144,6 +177,8 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
         cancelLastScheduledFutureBusy();
 
         IgniteUtils.shutdownAndAwaitTermination(compactionExecutor, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     private void doCompactionBusy() {
@@ -161,7 +196,7 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
             if (newCompactionRevision == null) {
                 scheduleNextCompactionBusy();
             } else {
-                metastorageServiceFuture.thenCompose(svc -> svc.sendCompactionCommand(newCompactionRevision))
+                metaStorageManager.sendCompactionCommand(newCompactionRevision)
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
                                 Throwable cause = unwrapCause(throwable);
@@ -189,7 +224,9 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
     }
 
     private HybridTimestamp createCandidateCompactionRevisionTimestampBusy() {
-        HybridTimestamp safeTime = clusterTime.currentSafeTime();
+        HybridTimestamp safeTime = metaStorageManager.clusterTime().currentSafeTime();
+
+        long dataAvailabilityTime = config.dataAvailabilityTime();
 
         return safeTime.getPhysical() <= dataAvailabilityTime
                 ? HybridTimestamp.MIN_VALUE
@@ -217,10 +254,10 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
         lock.lock();
 
         try {
-            if (isLocalNodeLeader) {
+            if (started && isLocalNodeLeader) {
                 lastScheduledFuture = compactionExecutor.schedule(
                         () -> inBusyLock(busyLock, this::doCompactionBusy),
-                        startInterval,
+                        config.interval(),
                         MILLISECONDS
                 );
             }
@@ -229,8 +266,32 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
         }
     }
 
-    /** Invokes when the metastorage compaction revision is updated. */
-    void onCompactionRevisionUpdate(long compactionRevision) {
+    /**
+     * It should be used precisely at the complete of the compaction, so as not to schedule a new update together with the event of
+     * electing a local node as a new leader.
+     */
+    private void scheduleNextCompactionIfNotScheduleBusy() {
+        lock.lock();
+
+        try {
+            if (started && isLocalNodeLeader) {
+                ScheduledFuture<?> lastScheduledFuture = this.lastScheduledFuture;
+
+                if (lastScheduledFuture == null || lastScheduledFuture.isDone()) {
+                    this.lastScheduledFuture = compactionExecutor.schedule(
+                            () -> inBusyLock(busyLock, this::doCompactionBusy),
+                            config.interval(),
+                            MILLISECONDS
+                    );
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Invoked when the metastorage compaction revision is updated. */
+    private void onCompactionRevisionUpdate(long compactionRevision) {
         inBusyLockSafe(busyLock, () -> onCompactionRevisionUpdateBusy(compactionRevision));
     }
 
@@ -253,12 +314,12 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
                         }
                     }
 
-                    inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
+                    inBusyLockSafe(busyLock, this::scheduleNextCompactionIfNotScheduleBusy);
                 });
     }
 
-    /** Invokes when a new leader is elected. */
-    void onLeaderElected(ClusterNode newLeader) {
+    /** Invoked when a new leader is elected. */
+    private void onLeaderElected(ClusterNode newLeader) {
         inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
 
@@ -293,6 +354,37 @@ class MetaStorageCompactionTrigger implements ManuallyCloseable {
             this.lastScheduledFuture = null;
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void startCompactionOnRecoveryInBackground() {
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
+
+        assert recoveryFuture.isDone();
+
+        long recoveredCompactionRevision = recoveryFuture.join().compactionRevision();
+
+        if (recoveredCompactionRevision != -1) {
+            runAsync(() -> inBusyLockSafe(busyLock, () -> storage.compact(recoveredCompactionRevision)), compactionExecutor)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable cause = unwrapCause(throwable);
+
+                            if (!(cause instanceof NodeStoppingException)) {
+                                LOG.error(
+                                        "Unknown error during metastore compaction launched on node recovery: [compactionRevision={}]",
+                                        cause,
+                                        recoveredCompactionRevision
+                                );
+                            }
+                        } else {
+                            LOG.info(
+                                    "Metastorage compaction launched during node recovery has been successfully completed: "
+                                            + "[compactionRevision={}]",
+                                    recoveredCompactionRevision
+                            );
+                        }
+                    });
         }
     }
 }

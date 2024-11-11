@@ -156,9 +156,7 @@ tasks.register('allSrcZip', Exec) {
 }
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
-    dependsOn allDistZip, allSrcZip
-
-    inputFiles.from allDistZip.outputs.files, allSrcZip.outputs.files
+    inputFiles.from allDistZip, allSrcZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

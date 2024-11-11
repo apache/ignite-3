@@ -33,6 +33,7 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsTest.Pojo;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("ThrowableNotThrown")
@@ -56,6 +57,7 @@ class CreateFromDefinitionTest {
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
                 .storageProfiles("default")
+                .consistencyMode("HIGH_AVAILABILITY")
                 .build();
 
         assertThat(
@@ -63,8 +65,26 @@ class CreateFromDefinitionTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter';")
+                        + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")
         );
+    }
+
+    @Test
+    void testDefinitionInvalidConsistencyMode() {
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
+                .ifNotExists()
+                .partitions(1)
+                .replicas(3)
+                .distributionAlgorithm("partitionDistribution")
+                .dataNodesAutoAdjust(1)
+                .dataNodesAutoAdjustScaleDown(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .filter("filter")
+                .storageProfiles("default")
+                .consistencyMode("MY_CONSISTENCY")
+                .build();
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> new CreateFromDefinitionImpl(null).from(zoneDefinition));
     }
 
     @Test
@@ -103,7 +123,7 @@ class CreateFromDefinitionTest {
                 createTable(table),
                 is("CREATE TABLE IF NOT EXISTS PUBLIC.builder_test"
                         + " (id int, id_str varchar, f_name varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
+                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON PUBLIC.builder_test (id_str, f_name);"
                         + System.lineSeparator()
@@ -153,7 +173,7 @@ class CreateFromDefinitionTest {
                 createTable(tableDefinition),
                 is("CREATE TABLE PUBLIC.pojo_value_test"
                         + " (id int, id_str varchar(20), f_name varchar, l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';")
+                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;")
         );
     }
 
@@ -170,7 +190,7 @@ class CreateFromDefinitionTest {
                 createTable(tableDefinition),
                 is("CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test (id int, id_str varchar(20),"
                         + " f_name varchar(20) not null default 'a', l_name varchar, str varchar,"
-                        + " PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';")
+                        + " PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;")
         );
     }
 

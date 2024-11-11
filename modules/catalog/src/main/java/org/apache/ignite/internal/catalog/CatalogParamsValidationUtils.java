@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -117,6 +118,18 @@ public class CatalogParamsValidationUtils {
             throw new CatalogValidationException(
                     "Storage profile cannot be empty"
             );
+        }
+    }
+
+    /**
+     * Validates that given consistency mode is has only the expected values.
+     *
+     * @param consistencyMode Consistency mode to validate.
+     */
+    public static void validateConsistencyMode(@Nullable ConsistencyMode consistencyMode) {
+        if (consistencyMode != null
+                && !(consistencyMode == ConsistencyMode.HIGH_AVAILABILITY || consistencyMode == ConsistencyMode.STRONG_CONSISTENCY)) {
+            throw new CatalogValidationException("Consistency mode is not supported: [mode={}]", consistencyMode);
         }
     }
 
