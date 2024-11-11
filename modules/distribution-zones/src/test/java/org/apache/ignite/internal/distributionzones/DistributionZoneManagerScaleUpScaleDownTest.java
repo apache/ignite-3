@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -466,6 +468,38 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         assertZoneScaleUpChangeTriggerKey(revisionOfScaleUp + 100L, zoneId, keyValueStorage);
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, Set.of(), keyValueStorage);
+    }
+
+    @Test
+    void testPartitionDistributionResetTaskScheduling() throws Exception {
+        startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
+        topology.putNode(NODE_2);
+
+        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
+
+        String haZoneName = "haZone";
+        String scZoneName = "scZone";
+
+        createZone(haZoneName, ConsistencyMode.HIGH_AVAILABILITY);
+        createZone(scZoneName, ConsistencyMode.STRONG_CONSISTENCY);
+
+        int haZoneId = getZoneId(haZoneName);
+        int scZoneId = getZoneId(scZoneName);
+
+        topology.removeNodes(Set.of(NODE_2));
+
+        assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+
+        long topologyRevision = metaStorageManager.get(
+                zonesLogicalTopologyKey()).get(1, TimeUnit.SECONDS).revision();
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, 1000));
+
+        assertNull(distributionZoneManager.zonesState().get(scZoneId).partitionDistributionResetTask());
+
+        assertNotNull(distributionZoneManager.zonesState().get(haZoneId).partitionDistributionResetTask());
     }
 
     @Test
@@ -1066,5 +1100,16 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertEquals(scaleUpChangeTriggerKey, scaleDownChangeTriggerKey,
                 "zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey are not equal");
+    }
+
+    protected void createZone(
+            String zoneName,
+            ConsistencyMode consistencyMode
+    ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                consistencyMode
+        );
     }
 }

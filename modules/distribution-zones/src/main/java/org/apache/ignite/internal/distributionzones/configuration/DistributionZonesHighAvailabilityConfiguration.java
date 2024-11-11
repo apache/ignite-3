@@ -33,7 +33,7 @@ public class DistributionZonesHighAvailabilityConfiguration {
      *
      * <p>Default value is {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE}.</p>
      */
-    static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
+    public static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
 
     /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT}. */
     private static final int PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
