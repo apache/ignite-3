@@ -380,14 +380,14 @@ public class DistributionZoneManager implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(
+    private void onUpdatePartitionDistributionResetBusy(
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
-            if (zoneStateEntry.getValue().consistencyMode != HIGH_AVAILABILITY) {
+            if (zoneStateEntry.getValue().consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
             }
 
@@ -395,7 +395,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
                 // TODO: IGNITE-23599 Implement valid behaviour here.
-                return nullCompletedFuture();
+                return;
             }
 
             ZoneState zoneState = zoneStateEntry.getValue();
@@ -419,8 +419,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.stopPartitionDistributionReset();
             }
         }
-
-        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
