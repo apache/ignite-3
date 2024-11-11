@@ -54,8 +54,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(8)
-@Warmup(iterations = 3, time = 10)
-@Measurement(iterations = 2, time = 30)
+@Warmup(iterations = 10, time = 5)
+@Measurement(iterations = 20, time = 5)
 @BenchmarkMode({Mode.AverageTime, Mode.Throughput})
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark {
@@ -77,7 +77,7 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
     @Override
     protected String clusterConfiguration() {
         if (txRetryMode.equals("waitTimeout")) {
-            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 1000, txIdComparator: NATURAL } },"
+            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 30, txIdComparator: NATURAL } },"
                     + "replication: { replicaOperationRetryInterval: 0 }";
         } else {
             assert txRetryMode.equals("replicaOperationRetry");
