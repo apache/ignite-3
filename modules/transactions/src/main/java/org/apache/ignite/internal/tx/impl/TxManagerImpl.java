@@ -441,7 +441,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         finishedTxs.add(1);
 
         if (commit) {
-            timestampTracker.update(clockService.now());
+            timestampTracker.update(clockService.current());
 
             finalState = COMMITTED;
         } else {
