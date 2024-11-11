@@ -94,7 +94,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
-        return txManager.begin(observableTimestampTracker, options != null && options.readOnly());
+        return txManager.begin(observableTimestampTracker, false, options != null && options.readOnly());
     }
 
     /** {@inheritDoc} */
@@ -103,8 +103,18 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
         return CompletableFuture.completedFuture(begin(options));
     }
 
+    /**
+     * Begins a transaction.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @return The started transaction.
+     */
+    public InternalTransaction beginImplicit(boolean readOnly) {
+        return txManager.begin(observableTimestampTracker, true, readOnly);
+    }
+
     @TestOnly
     public Transaction beginWithPriority(boolean readOnly, TxPriority priority) {
-        return txManager.begin(observableTimestampTracker, readOnly, priority);
+        return txManager.begin(observableTimestampTracker, false, readOnly, priority);
     }
 }

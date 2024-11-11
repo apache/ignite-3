@@ -242,6 +242,6 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
      * Creates a new transaction id.
      */
     public final UUID newTransactionId() {
-        return TransactionIds.transactionId(clock.now(), 0);
+        return TransactionIds.transactionId(clock.now(), 0, false);
     }
 }

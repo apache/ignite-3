@@ -28,7 +28,11 @@ import org.apache.ignite.internal.tx.InternalTransaction;
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
 public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
-    private final boolean implicit;
+    /**
+     * This flag does not match with the implicit transact.
+     * It means that the transaction was started in the SQL engine and was not passed from outside.
+     */
+    private final boolean queryImplicit;
 
     private final InternalTransaction transaction;
 
@@ -45,7 +49,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
      */
     public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionTracker txTracker) {
         this.transaction = transaction;
-        this.implicit = implicit;
+        this.queryImplicit = implicit;
         this.txTracker = txTracker;
     }
 
@@ -60,7 +64,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
             txTracker.unregister(transaction.id());
         }
 
-        if (implicit) {
+        if (queryImplicit) {
             return transaction.commitAsync();
         }
 
@@ -74,6 +78,6 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public boolean implicit() {
-        return implicit;
+        return queryImplicit;
     }
 }

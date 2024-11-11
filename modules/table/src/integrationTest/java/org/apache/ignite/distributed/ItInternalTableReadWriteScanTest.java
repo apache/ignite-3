@@ -71,7 +71,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
     @Override
     protected InternalTransaction startTx() {
-        InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
+        InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, false);
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
 

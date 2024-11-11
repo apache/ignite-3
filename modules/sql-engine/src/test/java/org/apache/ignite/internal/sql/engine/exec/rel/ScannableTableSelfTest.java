@@ -245,8 +245,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         for (Bound leftBound : Bound.values()) {
             for (Bound rightBound : Bound.values()) {
-                params.add(Arguments.of(NoOpTransaction.readOnly("RO"), leftBound, rightBound));
-                params.add(Arguments.of(NoOpTransaction.readWrite("RW"), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readOnly("RO", false), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readWrite("RW", false), leftBound, rightBound));
             }
         }
 
@@ -573,8 +573,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> transactions() {
         return Stream.of(
-                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW")))
+                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO", false))),
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW", false)))
         );
     }
 

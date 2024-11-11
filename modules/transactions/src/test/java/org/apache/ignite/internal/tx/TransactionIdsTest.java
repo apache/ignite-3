@@ -31,7 +31,7 @@ class TransactionIdsTest {
     void transactionIdIsBuiltCorrectly(TxPriority priority) {
         HybridTimestamp beginTs = new HybridTimestamp(123L, 456);
 
-        UUID txId = TransactionIds.transactionId(beginTs, 1, priority);
+        UUID txId = TransactionIds.transactionId(beginTs, 1, false, priority);
 
         HybridTimestamp extractedTs = TransactionIds.beginTimestamp(txId);
         int extractedNodeId = TransactionIds.nodeId(txId);

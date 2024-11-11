@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -84,6 +87,11 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
+    public boolean implicit() {
+        return TransactionIds.implicit(id());
+    }
+
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(
             TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
@@ -107,12 +115,25 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    protected CompletableFuture<Void> finish(boolean commit) {
-        return finish(commit, readTimestamp);
+    public CompletableFuture<Void> commitAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(true, readTimestamp, false),
+                TX_COMMIT_ERR
+        );
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
+    public CompletableFuture<Void> rollbackAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, readTimestamp, false),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+        assert !full : "Read-only transactions cannot be full.";
+
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

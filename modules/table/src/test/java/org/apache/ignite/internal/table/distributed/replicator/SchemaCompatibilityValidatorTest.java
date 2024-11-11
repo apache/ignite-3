@@ -92,7 +92,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private final HybridTimestamp commitTimestamp = new HybridTimestamp(2, 2);
 
-    private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0);
+    private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0, false);
 
     private static final int TABLE_ID = 1;
     private static final String TABLE_NAME = "test";

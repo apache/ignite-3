@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.net.InetSocketAddress;
 import java.util.UUID;
@@ -45,6 +47,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
+    private final boolean implicit;
+
     private final boolean readOnly;
 
     private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
@@ -52,13 +56,13 @@ public final class NoOpTransaction implements InternalTransaction {
     private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
 
     /** Creates a read-write transaction. */
-    public static NoOpTransaction readWrite(String name) {
-        return new NoOpTransaction(name, false);
+    public static NoOpTransaction readWrite(String name, boolean implicit) {
+        return new NoOpTransaction(name, implicit, false);
     }
 
     /** Creates a read only transaction. */
-    public static NoOpTransaction readOnly(String name) {
-        return new NoOpTransaction(name, true);
+    public static NoOpTransaction readOnly(String name, boolean implicit) {
+        return new NoOpTransaction(name, implicit, true);
     }
 
     /**
@@ -66,19 +70,21 @@ public final class NoOpTransaction implements InternalTransaction {
      *
      * @param name Name of the node.
      */
-    public NoOpTransaction(String name) {
-        this(name, true);
+    public NoOpTransaction(String name, boolean implicit) {
+        this(name, implicit, true);
     }
 
     /**
      * Constructs a transaction.
      *
      * @param name Name of the node.
+     * @param implicit Implicit transaction flag.
      * @param readOnly Read-only or not.
      */
-    private NoOpTransaction(String name, boolean readOnly) {
+    public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
         this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(randomUUID(), name, networkAddress), 1L);
+        this.implicit = implicit;
         this.readOnly = readOnly;
     }
 
@@ -94,8 +100,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        commitFut.complete(null);
-        return commitFut;
+        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
     }
 
     @Override
@@ -105,8 +110,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        rollbackFut.complete(null);
-        return rollbackFut;
+        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false);
     }
 
     @Override
@@ -155,6 +159,20 @@ public final class NoOpTransaction implements InternalTransaction {
     @Override
     public TablePartitionId commitPartition() {
         return groupId;
+    }
+
+    @Override
+    public boolean implicit() {
+        return implicit;
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+        CompletableFuture<Void> fut = commit ? commitFut : rollbackFut;
+
+        fut.complete(null);
+
+        return fut;
     }
 
     @Override

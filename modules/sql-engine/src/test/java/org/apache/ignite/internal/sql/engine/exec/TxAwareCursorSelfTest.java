@@ -119,6 +119,6 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit, Mockito.mock(TransactionTracker.class));
+        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX", false), implicit, Mockito.mock(TransactionTracker.class));
     }
 }

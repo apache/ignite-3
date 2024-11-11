@@ -61,7 +61,7 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
     void testBeginRwTxTs() {
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = transactionId(beginTs, 10);
+        UUID txId = transactionId(beginTs, 10, false);
 
         assertEquals(beginTs, beginRwTxTs(readWriteReplicaRequest(txId)));
     }
@@ -70,7 +70,7 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
     void testRwTxActiveCatalogVersion() {
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = transactionId(beginTs, 10);
+        UUID txId = transactionId(beginTs, 10, false);
 
         CatalogService catalogService = mock(CatalogService.class);
 

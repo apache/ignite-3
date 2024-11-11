@@ -364,19 +364,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
-        return begin(timestampTracker, false, TxPriority.NORMAL);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit) {
+        return begin(timestampTracker, implicit, false);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, readOnly, TxPriority.NORMAL);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
+        return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, implicit, priority);
 
         startedTxs.add(1);
 

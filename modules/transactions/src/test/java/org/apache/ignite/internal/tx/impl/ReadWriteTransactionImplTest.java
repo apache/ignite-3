@@ -79,7 +79,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     public void effectiveSchemaTimestampIsBeginTimestamp() {
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs, false);
 
         var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id());
 
@@ -110,7 +110,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs, false);
 
         var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, CLUSTER_NODE.id());
 

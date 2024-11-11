@@ -99,13 +99,19 @@ public interface InternalTransaction extends Transaction {
     UUID coordinatorId();
 
     /**
+     * Gets the transaction implicit flag.
+     *
+     * @return True if the transaction is implicit, false if it is started explicitly.
+     */
+    boolean implicit();
+
+    /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @param full Full state transaction marker.
      * @return The future.
      */
-    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
-        return commit ? commitAsync() : rollbackAsync();
-    }
+    CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full);
 }

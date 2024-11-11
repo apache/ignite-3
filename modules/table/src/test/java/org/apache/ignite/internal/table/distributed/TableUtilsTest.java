@@ -119,7 +119,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
         int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
 
         assertThat(
-                indexIdsAtRwTxBeginTs(spy, transactionId(beginTs, 1), tableId),
+                indexIdsAtRwTxBeginTs(spy, transactionId(beginTs, 1, false), tableId),
                 contains(
                         indexId(pkIndexName(TABLE_NAME)),
                         indexId0,

@@ -1968,7 +1968,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = clientTxManager().begin(timestampTracker);
+                        InternalTransaction tx = clientTxManager().begin(timestampTracker, false, false);
 
                         var table = accounts.recordView();
 

@@ -48,7 +48,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
     @Override
     protected UUID beginTx(TxPriority priority) {
         counter++;
-        return TransactionIds.transactionId(Long.MAX_VALUE - counter, 1, priority);
+        return TransactionIds.transactionId(Long.MAX_VALUE - counter, 1, false, priority);
     }
 
     @Override

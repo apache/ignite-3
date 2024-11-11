@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -390,7 +391,10 @@ public class ClientTableCommon {
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
-            ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            ClientResourceRegistry resources
+    ) {
         if (in.tryUnpackNil()) {
             return null;
         }
@@ -408,6 +412,33 @@ public class ClientTableCommon {
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
+    }
+
+    /**
+     * Reads transaction or start implicit one.
+     *
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param resources Resource registry.
+     * @param igniteTransactions Ignite transactions.
+     * @param readOnly Read only flag.
+     * @return Transaction.
+     */
+    public static @Nullable InternalTransaction readOrStartImplicitTx(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            ClientResourceRegistry resources,
+            IgniteTransactionsImpl igniteTransactions,
+            boolean readOnly
+    ) {
+
+        var tx = readTx(in, out, resources);
+
+        if (tx == null) {
+            tx = igniteTransactions.beginImplicit(readOnly);
+        }
+
+        return tx;
     }
 
     /**

@@ -25,7 +25,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -102,12 +101,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> commitAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(finish(true), TX_COMMIT_ERR);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void rollback() throws TransactionException {
         try {
             rollbackAsync().get();
@@ -119,21 +112,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
             throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
         }
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> rollbackAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(finish(false), TX_ROLLBACK_ERR);
-    }
-
-    /**
-     * Finishes a transaction. A finish of a completed or ending transaction has no effect
-     * and always succeeds when the transaction is completed.
-     *
-     * @param commit {@code true} to commit, false to rollback.
-     * @return The future.
-     */
-    protected abstract CompletableFuture<Void> finish(boolean commit);
 
     // TODO: remove after IGNITE-22721 gets resolved.
     private static Throwable tryToCopyExceptionWithCause(ExecutionException exception) {
