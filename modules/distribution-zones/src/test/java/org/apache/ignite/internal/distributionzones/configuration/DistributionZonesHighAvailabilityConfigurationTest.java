@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -86,6 +87,9 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
         );
         config.startAndInit();
 
+        assertNotEquals(10, partitionDistributionResetTimeoutValue.get());
+        assertNotEquals(1, revisionValue.get());
+
         changeSystemConfig(systemConfig, "10");
 
         assertTrue(waitForCondition(() ->
@@ -96,10 +100,10 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
     private static void changeSystemConfig(
             SystemDistributedConfiguration systemConfig,
-            String partitionDistributionResetScaleDown
+            String partitionDistributionReset
     ) {
         CompletableFuture<Void> changeFuture = systemConfig.change(c0 -> c0.changeProperties()
-                .create(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(partitionDistributionResetScaleDown))
+                .create(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(partitionDistributionReset))
         );
 
         assertThat(changeFuture, willCompleteSuccessfully());

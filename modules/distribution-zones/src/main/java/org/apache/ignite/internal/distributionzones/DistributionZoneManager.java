@@ -1350,6 +1350,10 @@ public class DistributionZoneManager implements IgniteComponent {
             if (scaleDownTask != null) {
                 scaleDownTask.cancel(false);
             }
+
+            if (partitionDistributionResetTask != null) {
+                partitionDistributionResetTask.cancel(false);
+            }
         }
 
         /**
@@ -1477,6 +1481,11 @@ public class DistributionZoneManager implements IgniteComponent {
         @TestOnly
         public synchronized ScheduledFuture<?> scaleDownTask() {
             return scaleDownTask;
+        }
+
+        @TestOnly
+        public synchronized ScheduledFuture<?> partitionDistributionResetTask() {
+            return partitionDistributionResetTask;
         }
     }
 

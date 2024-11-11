@@ -68,7 +68,7 @@ public class DistributionZonesHighAvailabilityConfiguration {
     void startAndInit() {
         start();
 
-        updateSystemProperties(systemDistributedConfig.value(), 1);
+        updateSystemProperties(systemDistributedConfig.value(), 0);
     }
 
     /** Returns partition group reset timeout after a partition group majority loss. */
