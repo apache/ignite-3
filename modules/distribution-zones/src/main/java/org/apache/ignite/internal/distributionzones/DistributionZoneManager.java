@@ -380,7 +380,10 @@ public class DistributionZoneManager implements IgniteComponent {
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(int partitionDistributionReset, long causalityToken) {
+    private CompletableFuture<Void> onUpdatePartitionDistributionResetBusy(
+            int partitionDistributionResetTimeoutSeconds,
+            long causalityToken
+    ) {
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
@@ -390,14 +393,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
             int zoneId = zoneStateEntry.getKey();
 
-            if (partitionDistributionReset == IMMEDIATE_TIMER_VALUE) {
+            if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
                 // TODO: IGNITE-23599 Implement valid behaviour here.
                 return nullCompletedFuture();
             }
 
             ZoneState zoneState = zoneStateEntry.getValue();
 
-            if (partitionDistributionReset != INFINITE_TIMER_VALUE) {
+            if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
                 Optional<Long> highestRevision = zoneState.highestRevision(true);
 
                 assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
@@ -407,7 +410,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 );
 
                 zoneState.reschedulePartitionDistributionReset(
-                        partitionDistributionReset,
+                        partitionDistributionResetTimeoutSeconds,
                         // TODO: IGNITE-23599 Implement valid behaviour here.
                         () -> {},
                         zoneId
@@ -943,7 +946,7 @@ public class DistributionZoneManager implements IgniteComponent {
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
-        int partitionReset = configuration.partitionDistributionResetTimeout();
+        int partitionReset = configuration.partitionDistributionResetTimeoutSeconds();
 
         int zoneId = zone.id();
 

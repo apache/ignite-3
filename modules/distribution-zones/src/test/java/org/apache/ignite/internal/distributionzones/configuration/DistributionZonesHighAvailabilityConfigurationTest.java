@@ -48,7 +48,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
         var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
-        assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeout());
+        assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeoutSeconds());
     }
 
     @Test
@@ -60,7 +60,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
         var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
-        assertEquals(5, config.partitionDistributionResetTimeout());
+        assertEquals(5, config.partitionDistributionResetTimeoutSeconds());
     }
 
     @Test
@@ -70,7 +70,7 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
         changeSystemConfig(systemConfig, "10");
 
-        assertEquals(10, config.partitionDistributionResetTimeout());
+        assertEquals(10, config.partitionDistributionResetTimeoutSeconds());
     }
 
     @Test

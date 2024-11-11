@@ -41,7 +41,7 @@ public class DistributionZonesHighAvailabilityConfiguration {
     private final SystemDistributedConfiguration systemDistributedConfig;
 
     /** Determines partition group reset timeout after a partition group majority loss. */
-    private volatile int partitionDistributionResetTimeout;
+    private volatile int partitionDistributionResetTimeoutSeconds;
 
     /** Listener, which receives (timeout, revision) on every configuration update. */
     private final BiConsumer<Integer, Long> partitionDistributionResetListener;
@@ -72,17 +72,17 @@ public class DistributionZonesHighAvailabilityConfiguration {
     }
 
     /** Returns partition group reset timeout. */
-    public int partitionDistributionResetTimeout() {
-        return partitionDistributionResetTimeout;
+    public int partitionDistributionResetTimeoutSeconds() {
+        return partitionDistributionResetTimeoutSeconds;
     }
 
     private void updateSystemProperties(SystemDistributedView view, long revision) {
-        partitionDistributionResetTimeout = intValue(
+        partitionDistributionResetTimeoutSeconds = intValue(
                 view,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE
         );
-        partitionDistributionResetListener.accept(partitionDistributionResetTimeout, revision);
+        partitionDistributionResetListener.accept(partitionDistributionResetTimeoutSeconds, revision);
     }
 
     private static int intValue(SystemDistributedView systemDistributedView, String systemPropertyName, int defaultValue) {
