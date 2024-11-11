@@ -598,6 +598,14 @@ public class DistributionZonesUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Map<UUID, NodeWithAttributes> nodesAttributes
     ) {
+        assert dataNodes != null : "Data nodes are null.";
+        assert zoneDescriptor.filter() != null : "Filter is null.";
+        assert zoneDescriptor.storageProfiles().profiles() != null : "Profiles are null";
+        for (Node node : dataNodes) {
+            assert nodesAttributes.get(node.nodeId()) != null : "Node attributes are null [nodeId = " + node.nodeId() + ']';
+            assert nodesAttributes.get(node.nodeId()).userAttributes() != null :
+                    "User attributes are null [nodeId = " + node.nodeId() + ']';
+        }
 
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
