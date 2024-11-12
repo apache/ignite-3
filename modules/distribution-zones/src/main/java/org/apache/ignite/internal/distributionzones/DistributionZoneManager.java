@@ -294,10 +294,11 @@ public class DistributionZoneManager implements IgniteComponent {
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            return allOf(
-                    createOrRestoreZonesStates(recoveryRevision, catalogVersion),
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
-            ).thenComposeAsync((notUsed) -> {
+            return catalogManager.catalogReadyFuture(catalogVersion).thenCompose(unused ->
+                    allOf(
+                            createOrRestoreZonesStates(recoveryRevision, catalogVersion),
+                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
+                    )).thenComposeAsync((notUsed) -> {
                 configuration.start();
                 return rebalanceEngine.startAsync(catalogVersion);
             }, componentContext.executor());
