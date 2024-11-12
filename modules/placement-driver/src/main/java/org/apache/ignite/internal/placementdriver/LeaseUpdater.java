@@ -445,6 +445,7 @@ public class LeaseUpdater {
 
                     ClusterNode candidate = nextLeaseHolder(stableAssignments, grpId, proposedLeaseholder);
 
+                    // if there wasn't a candidate among stable assignments set then make attempt to select a candidate among pending set
                     if (candidate == null) {
                         Map<ReplicationGroupId, TokenizedAssignments> pendingMap = assignmentsTracker.pendingAssignments();
 
@@ -454,6 +455,7 @@ public class LeaseUpdater {
                         }
                     }
 
+                    // if we couldn't find a candidate neither stable nor pending assignments set, so update stats and skip iteration
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();
 
