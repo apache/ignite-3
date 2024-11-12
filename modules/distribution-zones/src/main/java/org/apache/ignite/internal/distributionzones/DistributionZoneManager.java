@@ -392,7 +392,7 @@ public class DistributionZoneManager implements IgniteComponent {
             if (causalityToken > 1) {
                 LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
             }
-            // logging.
+
             return;
         }
 
