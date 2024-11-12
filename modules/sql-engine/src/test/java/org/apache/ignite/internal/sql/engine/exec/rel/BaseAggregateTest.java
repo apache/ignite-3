@@ -807,7 +807,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             AggregateType type,
             RelDataType rowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), rowType);
+        return ctx.expressionFactory().accumulatorsFactory(ctx, type, asList(call), rowType);
     }
 
     enum TestAggregateType {

@@ -146,11 +146,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                     RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
                     Supplier<RowT> keySupplier = ctx.expressionFactory()
-                            .rowSource(keyExpressions);
+                            .rowSource(ctx, keyExpressions);
                     Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
-                            .predicate(filterExpr, rowType);
+                            .predicate(ctx, filterExpr, rowType);
                     Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
-                            .project(projectionExpr, rowType);
+                            .project(ctx, projectionExpr, rowType);
 
                     RowHandler<RowT> rowHandler = ctx.rowHandler();
                     RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));

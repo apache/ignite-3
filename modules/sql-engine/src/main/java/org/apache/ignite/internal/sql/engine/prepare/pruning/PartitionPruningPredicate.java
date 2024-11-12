@@ -40,6 +40,7 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -132,7 +133,7 @@ public final class PartitionPruningPredicate {
      *
      * @param pruningColumns Partition pruning metadata.
      * @param table Table.
-     * @param expressionFactory Expression factory.
+     * @param ctx Execution context.
      * @param assignments Assignments.
      * @param nodeName Node name.
      *
@@ -141,13 +142,14 @@ public final class PartitionPruningPredicate {
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
-            ExpressionFactory<RowT> expressionFactory,
+            ExecutionContext<RowT> ctx,
             Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {
         ImmutableIntList keys = table.distribution().getKeys();
         PartitionCalculator partitionCalculator = table.partitionCalculator().get();
         List<PartitionWithConsistencyToken> result = new ArrayList<>();
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
 
         for (Int2ObjectMap<RexNode> columns : pruningColumns.columns()) {
             for (int key : keys) {
@@ -155,7 +157,7 @@ public final class PartitionPruningPredicate {
                 ColumnDescriptor descriptor = table.descriptor().columnDescriptor(key);
                 NativeType physicalType = descriptor.physicalType();
 
-                Object valueInInternalForm = expressionFactory.execute(node).get();
+                Object valueInInternalForm = expressionFactory.execute(ctx, node).get();
                 Class<?> storageType = NativeTypeSpec.toClass(physicalType.spec(), descriptor.nullable());
                 Object value = TypeUtils.fromInternal(valueInInternalForm, storageType);
 

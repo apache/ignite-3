@@ -100,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
@@ -1134,6 +1135,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var mappingService = createMappingService(nodeName, clockService, mappingCacheFactory, nodeNames);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
+        var expressionFactory = new ExpressionFactoryImpl();
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
@@ -1145,6 +1147,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 ArrayRowHandler.INSTANCE,
                 executableTableRegistry,
                 dependencyResolver,
+                expressionFactory,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
                 SHUTDOWN_TIMEOUT

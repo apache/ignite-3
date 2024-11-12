@@ -52,6 +52,8 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -69,6 +71,8 @@ import org.junit.jupiter.api.BeforeEach;
  */
 public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
+
+    private final ExpressionFactory expressionFactory = new ExpressionFactoryImpl();
 
     private QueryTaskExecutorImpl taskExecutor;
 
@@ -118,6 +122,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         return new ExecutionContext<>(
                 taskExecutor,
+                expressionFactory,
                 randomUUID(),
                 new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 "fake-test-node",

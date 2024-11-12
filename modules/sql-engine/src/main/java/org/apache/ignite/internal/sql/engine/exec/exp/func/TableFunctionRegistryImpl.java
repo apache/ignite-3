@@ -32,12 +32,12 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
     @Override
     public <RowT> TableFunction<RowT> getTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall) {
         if (rexCall.getOperator() == IgniteSqlOperatorTable.SYSTEM_RANGE) {
-            Supplier<Long> start = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(0));
-            Supplier<Long> end = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(1));
+            Supplier<Long> start = implementGetLongExpr(ctx, rexCall.operands.get(0));
+            Supplier<Long> end = implementGetLongExpr(ctx, rexCall.operands.get(1));
             Supplier<Long> increment;
 
             if (rexCall.operands.size() > 2) {
-                increment = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(2));
+                increment = implementGetLongExpr(ctx, rexCall.operands.get(2));
             } else {
                 increment = null;
             }
@@ -48,12 +48,16 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
         }
     }
 
-    private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(ExpressionFactory<RowT> expressionFactory, RexNode expr) {
+    private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(
+            ExecutionContext<RowT> ctx,
+            RexNode expr
+    ) {
         if (expr == null) {
             return null;
         }
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
 
-        Supplier<Object> value = expressionFactory.execute(expr);
+        Supplier<Object> value = expressionFactory.execute(ctx, expr);
         return () -> {
             Number num = (Number) value.get();
             if (num == null) {

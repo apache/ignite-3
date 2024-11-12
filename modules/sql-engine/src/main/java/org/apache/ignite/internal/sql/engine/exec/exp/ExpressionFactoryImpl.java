@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -98,10 +99,10 @@ import org.jetbrains.annotations.Nullable;
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
  * wrapper over it is returned.
  */
-public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
+public class ExpressionFactoryImpl implements ExpressionFactory {
     private static final int CACHE_SIZE = 1024;
 
-    private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
+    private final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, Scalar>build()
             .asMap();
@@ -113,23 +114,26 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private final SqlConformance conformance;
 
-    private final ExecutionContext<RowT> ctx;
-
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param sqlConformance Sql conformance.
      */
-    public ExpressionFactoryImpl(
-            ExecutionContext<RowT> ctx,
-            SqlConformance conformance
-    ) {
-        this.ctx = ctx;
-        this.conformance = conformance;
+    public ExpressionFactoryImpl(SqlConformance sqlConformance) {
+        this.conformance = sqlConformance;
+    }
+
+    /**
+     * Constructor with ignite specific {@link SqlConformance}.
+     */
+    public ExpressionFactoryImpl() {
+        this(FRAMEWORK_CONFIG.getParserConfig().conformance());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
+    public <RowT> Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
+            ExecutionContext<RowT> ctx,
             AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
@@ -143,7 +147,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public Comparator<RowT> comparator(RelCollation collation) {
+    public <RowT> Comparator<RowT> comparator(ExecutionContext<RowT> ctx, RelCollation collation) {
         if (collation == null || collation.getFieldCollations().isEmpty()) {
             return null;
         }
@@ -194,7 +198,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
+    public <RowT> Comparator<RowT> comparator(
+            ExecutionContext<RowT> ctx,
+            List<RelFieldCollation> left,
+            List<RelFieldCollation> right,
+            ImmutableBitSet equalNulls
+    ) {
         if (nullOrEmpty(left) || nullOrEmpty(right) || left.size() != right.size()) {
             throw new IllegalArgumentException("Both inputs should be non-empty and have the same size: left="
                     + (left != null ? left.size() : "null") + ", right=" + (right != null ? right.size() : "null"));
@@ -256,27 +265,27 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public Predicate<RowT> predicate(RexNode filter, RelDataType rowType) {
-        return new PredicateImpl(scalar(filter, rowType));
+    public <RowT> Predicate<RowT> predicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType) {
+        return new PredicateImpl<>(ctx, scalar(filter, rowType));
     }
 
     /** {@inheritDoc} */
     @Override
-    public BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType) {
-        return new BiPredicateImpl(biScalar(filter, rowType));
+    public <RowT> BiPredicate<RowT, RowT> biPredicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType) {
+        return new BiPredicateImpl<>(ctx, biScalar(filter, rowType));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType) {
+    public <RowT> Function<RowT, RowT> project(ExecutionContext<RowT> ctx, List<RexNode> projects, RelDataType rowType) {
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projects));
 
-        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(rowSchema));
+        return new ProjectImpl<>(ctx, scalar(projects, rowType), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Supplier<RowT> rowSource(List<RexNode> values) {
+    public <RowT> Supplier<RowT> rowSource(ExecutionContext<RowT> ctx, List<RexNode> values) {
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
         List<RexLiteral> literalValues = new ArrayList<>(values.size());
@@ -284,18 +293,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         // Avoiding compilation when all expressions are constants.
         for (int i = 0; i < values.size(); i++) {
             if (!(values.get(i) instanceof RexLiteral)) {
-                return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+                return new ValuesImpl<>(ctx, scalar(values, null), ctx.rowHandler().factory(rowSchema));
             }
 
             literalValues.add((RexLiteral) values.get(i));
         }
 
-        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
+        return new ConstantValuesImpl<>(ctx, literalValues, typeList, ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> Supplier<T> execute(RexNode node) {
+    public <T, RowT> Supplier<T> execute(ExecutionContext<RowT> ctx, RexNode node) {
         RelDataType exprType = node.getType();
         List<RelDataType> typesList;
 
@@ -310,12 +319,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
 
-        return new ValueImpl<>(scalar(node, null), factory);
+        return new ValueImpl<>(ctx, scalar(node, null), factory);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType) {
+    public <RowT> Iterable<RowT> values(ExecutionContext<RowT> ctx, List<RexLiteral> values, RelDataType rowType) {
         RowHandler<RowT> handler = ctx.rowHandler();
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> factory = handler.factory(rowSchema);
@@ -340,7 +349,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     rows.add(rowBuilder.buildAndReset());
                 }
 
-                rowBuilder.addField(literalValue(values.get(i), types.get(field)));
+                rowBuilder.addField(literalValue(ctx, values.get(i), types.get(field)));
             }
 
             rows.add(rowBuilder.buildAndReset());
@@ -349,7 +358,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return rows;
     }
 
-    private @Nullable Object literalValue(RexLiteral literal, Class<?> type) {
+    private static <RowT> @Nullable Object literalValue(ExecutionContext<RowT> ctx, RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
         if (SqlTypeUtil.isNumeric(dataType)) {
@@ -373,7 +382,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public RangeIterable<RowT> ranges(
+    public <RowT> RangeIterable<RowT> ranges(
+            ExecutionContext<RowT> ctx,
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator
@@ -384,6 +394,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
         expandBounds(
+                ctx,
                 ranges,
                 searchBounds,
                 rowType,
@@ -395,7 +406,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 true
         );
 
-        return new RangeIterableImpl(ranges, comparator);
+        return new RangeIterableImpl<>(ctx, ranges, comparator);
     }
 
     /**
@@ -435,7 +446,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * @param lowerInclude Include current lower row.
      * @param upperInclude Include current upper row.
      */
-    private void expandBounds(
+    private <RowT> void expandBounds(
+            ExecutionContext<RowT> ctx,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
             RelDataType rowType,
@@ -472,6 +484,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
 
             ranges.add(new RangeConditionImpl(
+                    ctx,
                     nullOrEmpty(curLower) ? null : scalar(curLower, lowerType),
                     nullOrEmpty(curUpper) ? null : scalar(curUpper, upperType),
                     lowerInclude,
@@ -518,6 +531,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }
 
             expandBounds(
+                    ctx,
                     ranges,
                     searchBounds,
                     rowType,
@@ -690,7 +704,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return b.toString();
     }
 
-    private abstract class AbstractScalarPredicate<T extends Scalar> {
+    private abstract static class AbstractScalarPredicate<RowT, T extends Scalar> {
+        protected final ExecutionContext<RowT> ctx;
+
         protected final T scalar;
 
         protected final RowHandler<RowT> hnd;
@@ -702,7 +718,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
          *
          * @param scalar Scalar.
          */
-        private AbstractScalarPredicate(T scalar) {
+        private AbstractScalarPredicate(ExecutionContext<RowT> ctx, T scalar) {
+            this.ctx = ctx;
             this.scalar = scalar;
             hnd = ctx.rowHandler();
 
@@ -717,9 +734,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Predicate implementation.
      */
-    private class PredicateImpl extends AbstractScalarPredicate<SingleScalar> implements Predicate<RowT> {
-        private PredicateImpl(SingleScalar scalar) {
-            super(scalar);
+    private static class PredicateImpl<RowT> extends AbstractScalarPredicate<RowT, SingleScalar> implements Predicate<RowT> {
+        private PredicateImpl(ExecutionContext<RowT> ctx, SingleScalar scalar) {
+            super(ctx, scalar);
         }
 
         /** {@inheritDoc} */
@@ -735,9 +752,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Binary predicate implementation: check on two rows (used for join: left and right rows).
      */
-    private class BiPredicateImpl extends AbstractScalarPredicate<BiScalar> implements BiPredicate<RowT, RowT> {
-        private BiPredicateImpl(BiScalar scalar) {
-            super(scalar);
+    private static class BiPredicateImpl<RowT> extends AbstractScalarPredicate<RowT, BiScalar> implements BiPredicate<RowT, RowT> {
+        private BiPredicateImpl(ExecutionContext<RowT> ctx, BiScalar scalar) {
+            super(ctx, scalar);
         }
 
         /** {@inheritDoc} */
@@ -750,7 +767,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class ProjectImpl implements Function<RowT, RowT> {
+    private static class ProjectImpl<RowT> implements Function<RowT, RowT> {
+        private final ExecutionContext<RowT> ctx;
+
         private final SingleScalar scalar;
 
         private final RowBuilder<RowT> rowBuilder;
@@ -761,7 +780,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
          * @param scalar Scalar.
          * @param factory Row factory.
          */
-        private ProjectImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ProjectImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
+            this.ctx = ctx;
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
         }
@@ -775,7 +795,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class ValuesImpl implements Supplier<RowT> {
+    private static class ValuesImpl<RowT> implements Supplier<RowT> {
+        private final ExecutionContext<RowT> ctx;
+
         private final SingleScalar scalar;
 
         private final RowBuilder<RowT> rowBuilder;
@@ -783,7 +805,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /**
          * Constructor.
          */
-        private ValuesImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ValuesImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
+            this.ctx = ctx;
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
         }
@@ -797,7 +820,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class ValueImpl<T> implements Supplier<T> {
+    private static class ValueImpl<T, RowT> implements Supplier<T> {
+        private final ExecutionContext<RowT> ctx;
+
         private final SingleScalar scalar;
 
         private final RowBuilder<RowT> rowBuilder;
@@ -805,7 +830,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /**
          * Constructor.
          */
-        private ValueImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ValueImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
+            this.ctx = ctx;
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
         }
@@ -820,7 +846,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class ConstantValuesImpl implements Supplier<RowT> {
+    private static class ConstantValuesImpl<RowT> implements Supplier<RowT> {
+        private final ExecutionContext<RowT> ctx;
+
         private final List<RexLiteral> values;
 
         private final RowBuilder<RowT> rowBuilder;
@@ -830,7 +858,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /**
          * Constructor.
          */
-        private ConstantValuesImpl(List<RexLiteral> values, List<RelDataType> types, RowFactory<RowT> factory) {
+        private ConstantValuesImpl(
+                ExecutionContext<RowT> ctx,
+                List<RexLiteral> values,
+                List<RelDataType> types,
+                RowFactory<RowT> factory
+        ) {
+            this.ctx = ctx;
             this.values = values;
             this.rowBuilder = factory.rowBuilder();
             this.types = types;
@@ -842,14 +876,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             for (int field = 0; field < values.size(); field++) {
                 Class<?> javaType = Primitives.wrap((Class<?>) TYPE_FACTORY.getJavaClass(types.get(field)));
 
-                rowBuilder.addField(literalValue(values.get(field), javaType));
+                rowBuilder.addField(literalValue(ctx, values.get(field), javaType));
             }
 
             return rowBuilder.buildAndReset();
         }
     }
 
-    private class RangeConditionImpl implements RangeCondition<RowT> {
+    private static class RangeConditionImpl<RowT> implements RangeCondition<RowT> {
+        private final ExecutionContext<RowT> ctx;
+
         /** Lower bound expression. */
         private final @Nullable SingleScalar lowerBound;
 
@@ -875,6 +911,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final RowBuilder<RowT> upperRowBuilder;
 
         private RangeConditionImpl(
+                ExecutionContext<RowT> ctx,
                 @Nullable SingleScalar lowerScalar,
                 @Nullable SingleScalar upperScalar,
                 boolean lowerInclude,
@@ -882,6 +919,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RowBuilder<RowT> lowerRowBuilder,
                 RowBuilder<RowT> upperRowBuilder
         ) {
+            this.ctx = ctx;
             this.lowerBound = lowerScalar;
             this.upperBound = upperScalar;
             this.lowerInclude = lowerInclude;
@@ -937,7 +975,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class RangeIterableImpl implements RangeIterable<RowT> {
+    private static class RangeIterableImpl<RowT> implements RangeIterable<RowT> {
+        private final ExecutionContext<RowT> ctx;
+
         private List<RangeCondition<RowT>> ranges;
 
         private final @Nullable Comparator<RowT> comparator;
@@ -945,9 +985,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private boolean sorted;
 
         RangeIterableImpl(
+                ExecutionContext<RowT> ctx,
                 List<RangeCondition<RowT>> ranges,
                 @Nullable Comparator<RowT> comparator
         ) {
+            this.ctx = ctx;
             this.ranges = ranges;
             this.comparator = comparator;
         }
@@ -960,7 +1002,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public Iterator<RangeCondition<RowT>> iterator() {
-            ranges.forEach(b -> ((RangeConditionImpl) b).clearCache());
+            ranges.forEach(b -> ((RangeConditionImpl<RowT>) b).clearCache());
 
             if (ranges.size() == 1) {
                 return ranges.iterator();
@@ -975,10 +1017,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                 List<RangeCondition<RowT>> ranges0 = new ArrayList<>(ranges.size());
 
-                RangeConditionImpl prevRange = null;
+                RangeConditionImpl<RowT> prevRange = null;
 
                 for (RangeCondition<RowT> range0 : ranges) {
-                    RangeConditionImpl range = (RangeConditionImpl) range0;
+                    RangeConditionImpl<RowT> range = (RangeConditionImpl<RowT>) range0;
 
                     if (compareLowerAndUpperBounds(range.lower(), range.upper()) > 0) {
                         // Invalid range (low > up).
@@ -986,7 +1028,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     }
 
                     if (prevRange != null) {
-                        RangeConditionImpl merged = tryMerge(prevRange, range);
+                        RangeConditionImpl<RowT> merged = tryMerge(prevRange, range);
 
                         if (merged == null) {
                             ranges0.add(prevRange);
@@ -1052,7 +1094,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Returns combined range if the provided ranges intersect, {@code null} otherwise. */
-        @Nullable RangeConditionImpl tryMerge(RangeConditionImpl first, RangeConditionImpl second) {
+        @Nullable RangeConditionImpl<RowT> tryMerge(RangeConditionImpl<RowT> first, RangeConditionImpl<RowT> second) {
             if (compareLowerAndUpperBounds(first.lower(), second.upper()) > 0
                     || compareLowerAndUpperBounds(second.lower(), first.upper()) > 0) {
                 // Ranges are not intersect.
@@ -1091,7 +1133,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 newUpperInclude = second.upperInclude();
             }
 
-            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
+            RangeConditionImpl<RowT> newRangeCondition = new RangeConditionImpl<>(ctx, newLowerBound, newUpperBound,
                     newLowerInclude, newUpperInclude, first.lowerRowBuilder, first.upperRowBuilder);
 
             newRangeCondition.lowerRow = newLowerRow;
@@ -1101,7 +1143,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class BiFieldGetter extends CommonFieldGetter {
+    private static class BiFieldGetter extends CommonFieldGetter {
         private final Expression row2;
 
         private BiFieldGetter(Expression hnd, Expression row1, Expression row2, RelDataType rowType) {
@@ -1123,7 +1165,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private class FieldGetter extends CommonFieldGetter {
+    private static class FieldGetter extends CommonFieldGetter {
         private FieldGetter(Expression hnd, Expression row, RelDataType rowType) {
             super(hnd, row, rowType);
         }
@@ -1141,7 +1183,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private abstract class CommonFieldGetter implements InputGetter {
+    private abstract static class CommonFieldGetter implements InputGetter {
         protected final Expression hnd;
 
         protected final Expression row;
@@ -1177,7 +1219,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
 
-    private class CorrelatesBuilder extends RexShuttle {
+    private static class CorrelatesBuilder extends RexShuttle {
         private final BlockBuilder builder;
 
         private final Expression ctx;

@@ -35,6 +35,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -70,7 +71,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         if (group) {
             RelCollation collation = createOutCollation(grpSets);
 
-            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(ctx, collation);
 
             // Create sort node on the top to check sorted results
             SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
@@ -145,8 +146,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         aggRdc.register(aggMap);
 
         RelCollation collation = createOutCollation(grpSets);
-
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
+        Comparator<Object[]> cmp = expressionFactory.comparator(ctx, collation);
 
         if (group) {
             // Create sort node on the top to check sorted results

@@ -409,7 +409,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             AggregateType type,
             RelDataType rowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), rowType);
+        return ctx.expressionFactory().accumulatorsFactory(ctx, type, asList(call), rowType);
     }
 
     private HashAggregateNode<Object[]> newHashAggNode(ExecutionContext<Object[]> ctx,

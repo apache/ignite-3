@@ -100,6 +100,8 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -531,6 +533,7 @@ public class TestBuilders {
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private QueryCancel queryCancel = null;
+        private ExpressionFactory expressionFactory = new ExpressionFactoryImpl();
 
         /** {@inheritDoc} */
         @Override
@@ -583,6 +586,7 @@ public class TestBuilders {
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
                     Objects.requireNonNull(executor, "executor"),
+                    expressionFactory,
                     queryId,
                     Objects.requireNonNull(node, "node"),
                     node.name(),

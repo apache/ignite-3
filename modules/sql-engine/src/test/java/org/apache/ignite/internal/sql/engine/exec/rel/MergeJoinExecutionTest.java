@@ -43,6 +43,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -483,12 +484,13 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
+        ExpressionFactory expressionFactory = new ExpressionFactoryImpl();
 
         ExecutionContext<Object[]> ectx =
-                new ExecutionContext<>(null, null, null, null, null,
+                new ExecutionContext<>(null, expressionFactory, null, null, null, null,
                         ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID, null);
 
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
+        ExpressionFactoryImpl expFactory = new ExpressionFactoryImpl();
 
         RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
         RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
@@ -499,7 +501,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
             nullComparison.set(0, left[0].length);
         }
 
-        Comparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nullComparison.build());
+        Comparator<Object[]> comp = expFactory.comparator(ectx, List.of(colLeft), List.of(colRight), nullComparison.build());
 
         MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
 

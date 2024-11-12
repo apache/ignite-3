@@ -159,7 +159,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
                 .build();
 
         RelDataType resultType = selectCountNode.getRowType();
-        Function<RowT, RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
+        Function<RowT, RowT> projection = ctx.expressionFactory().project(ctx, expressions, getCountType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
         BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);

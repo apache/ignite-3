@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
@@ -80,7 +78,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final RowHandler<RowT> handler;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final ExpressionFactory expressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -102,6 +100,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * Constructor.
      *
      * @param executor Task executor.
+     * @param expressionFactory Expression factory.
      * @param qryId Query ID.
      * @param localNode Local node.
      * @param originatingNodeName Name of the node that initiated the query.
@@ -115,6 +114,7 @@ public class ExecutionContext<RowT> implements DataContext {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             QueryTaskExecutor executor,
+            ExpressionFactory expressionFactory,
             UUID qryId,
             ClusterNode localNode,
             String originatingNodeName,
@@ -129,17 +129,13 @@ public class ExecutionContext<RowT> implements DataContext {
         this.qryId = qryId;
         this.description = description;
         this.handler = handler;
+        this.expressionFactory = expressionFactory;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.cancel = cancel;
-
-        expressionFactory = new ExpressionFactoryImpl<>(
-                this,
-                FRAMEWORK_CONFIG.getParserConfig().conformance()
-        );
 
         Instant nowUtc = Instant.now();
         startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
@@ -205,7 +201,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Get expression factory.
      */
-    public ExpressionFactory<RowT> expressionFactory() {
+    public ExpressionFactory expressionFactory() {
         return expressionFactory;
     }
 

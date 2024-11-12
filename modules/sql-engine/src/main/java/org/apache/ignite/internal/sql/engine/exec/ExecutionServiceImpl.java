@@ -80,6 +80,7 @@ import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -166,6 +167,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final ExecutableTableRegistry tableRegistry;
 
+    private final ExpressionFactory expressionFactory;
+
     private final ImplementorFactory<RowT> implementorFactory;
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
@@ -184,6 +187,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param ddlCmdHnd Handler of the DDL commands.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
+     * @param tableRegistry Table registry.
+     * @param dependencyResolver Dependency resolver.
+     * @param expressionFactory Expression factory.
      * @param implementorFactory Relational node implementor factory.
      * @param clockService Clock service.
      */
@@ -197,6 +203,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             RowHandler<RowT> handler,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
+            ExpressionFactory expressionFactory,
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
             long shutdownTimeout
@@ -211,6 +218,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.ddlCmdHnd = ddlCmdHnd;
         this.tableRegistry = tableRegistry;
         this.dependencyResolver = dependencyResolver;
+        this.expressionFactory = expressionFactory;
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
         this.shutdownTimeout = shutdownTimeout;
@@ -230,6 +238,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param exchangeSrvc Exchange service.
      * @param mappingService Nodes mapping calculation service.
      * @param tableRegistry Table registry.
+     * @param expressionFactory  Expression factory.
      * @param dependencyResolver Dependency resolver.
      * @param tableFunctionRegistry Table function registry.
      * @return An execution service.
@@ -246,6 +255,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
+            ExpressionFactory expressionFactory,
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             long shutdownTimeout
@@ -260,6 +270,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 handler,
                 tableRegistry,
                 dependencyResolver,
+                expressionFactory,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
                         mailboxRegistry,
@@ -410,6 +421,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 taskExecutor,
+                expressionFactory,
                 operationContext.queryId(),
                 localNode,
                 localNode.name(),
@@ -914,6 +926,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
             return new ExecutionContext<>(
                     taskExecutor,
+                    expressionFactory,
                     ctx.queryId(),
                     localNode,
                     initiatorNodeName,

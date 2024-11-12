@@ -35,6 +35,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -60,8 +61,9 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         ImmutableBitSet grpSet = first(grpSets);
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        Comparator<Object[]> cmp = expressionFactory.comparator(ctx, collation);
 
         if (grpSet.isEmpty() && cmp == null) {
             cmp = (k1, k2) -> 0;
@@ -107,7 +109,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        ExpressionFactory expressionFactory = ctx.expressionFactory();
+        Comparator<Object[]> cmp = expressionFactory.comparator(ctx, collation);
 
         if (grpSet.isEmpty() && cmp == null) {
             cmp = (k1, k2) -> 0;
@@ -140,7 +143,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
 
-        Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
+        Comparator<Object[]> rdcCmp = expressionFactory.comparator(ctx, rdcCollation);
 
         if (grpSet.isEmpty() && rdcCmp == null) {
             rdcCmp = (k1, k2) -> 0;

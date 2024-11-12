@@ -36,6 +36,8 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -111,10 +113,13 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
         }
     }
 
-    private RuntimeSortedIndex<Object[]> generate(RelDataType rowType, final List<Integer> idxCols, int notUnique) {
+    private RuntimeSortedIndex<Object[]> generate(RelDataType rowType, List<Integer> idxCols, int notUnique) {
+        ExpressionFactory expressionFactory = new ExpressionFactoryImpl();
+
         RuntimeSortedIndex<Object[]> idx = new RuntimeSortedIndex<>(
                 new ExecutionContext<>(
                         null,
+                        expressionFactory,
                         randomUUID(),
                         new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                         "fake-test-node",

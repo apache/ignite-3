@@ -126,7 +126,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
                     List<RexNode> expressions = modifyNode.expressions();
 
                     Supplier<RowT> rowSupplier = ctx.expressionFactory()
-                            .rowSource(expressions);
+                            .rowSource(ctx, expressions);
 
                     UpdatableTable updatableTable = execTable.updatableTable();
 
