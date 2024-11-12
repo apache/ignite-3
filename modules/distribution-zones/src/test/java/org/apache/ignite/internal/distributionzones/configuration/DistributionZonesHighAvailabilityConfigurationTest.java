@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -36,12 +41,14 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
 
     private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
+    private static final BiConsumer<Integer, Long> noOpConsumer = (partitionDistributionResetTimeout, revision) -> {};
+
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
-        assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeout());
+        assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeoutSeconds());
     }
 
     @Test
@@ -50,28 +57,53 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
                     + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"5\"}")
             SystemDistributedConfiguration systemConfig
     ) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
-        assertEquals(5, config.partitionDistributionResetTimeout());
+        assertEquals(5, config.partitionDistributionResetTimeoutSeconds());
     }
 
     @Test
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig);
+        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
         config.startAndInit();
 
         changeSystemConfig(systemConfig, "10");
 
-        assertEquals(10, config.partitionDistributionResetTimeout());
+        assertEquals(10, config.partitionDistributionResetTimeoutSeconds());
+    }
+
+    @Test
+    void testUpdateConfigListener(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
+        AtomicReference<Integer> partitionDistributionResetTimeoutValue = new AtomicReference<>();
+        AtomicReference<Long> revisionValue = new AtomicReference<>();
+
+        var config = new DistributionZonesHighAvailabilityConfiguration(
+                systemConfig,
+                (partitionDistributionResetTimeout, revision) -> {
+                    partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout);
+                    revisionValue.set(revision);
+                }
+        );
+        config.startAndInit();
+
+        assertNotEquals(10, partitionDistributionResetTimeoutValue.get());
+        assertNotEquals(1, revisionValue.get());
+
+        changeSystemConfig(systemConfig, "10");
+
+        assertTrue(waitForCondition(() ->
+                partitionDistributionResetTimeoutValue.get() != null
+                        && partitionDistributionResetTimeoutValue.get() == 10, 1_000));
+        assertEquals(1, revisionValue.get());
     }
 
     private static void changeSystemConfig(
             SystemDistributedConfiguration systemConfig,
-            String partitionDistributionResetScaleDown
+            String partitionDistributionReset
     ) {
         CompletableFuture<Void> changeFuture = systemConfig.change(c0 -> c0.changeProperties()
-                .create(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(partitionDistributionResetScaleDown))
+                .create(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(partitionDistributionReset))
         );
 
         assertThat(changeFuture, willCompleteSuccessfully());
