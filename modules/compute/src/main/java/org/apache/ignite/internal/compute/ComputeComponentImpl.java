@@ -57,6 +57,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -67,7 +68,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link ComputeComponent}.
  */
-public class ComputeComponentImpl implements ComputeComponent {
+public class ComputeComponentImpl implements ComputeComponent, SystemViewProvider {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeComponentImpl.class);
 
     /** Busy lock to stop synchronously. */
