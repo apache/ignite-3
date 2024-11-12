@@ -300,15 +300,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
-
-//            return catalogManager.catalogReadyFuture(catalogVersion).thenCompose(unused ->
-//                    allOf(
-//                            createOrRestoreZonesStates(recoveryRevision, catalogVersion),
-//                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
-//                    )).thenComposeAsync((notUsed) -> {
-//                configuration.start();
-//                return rebalanceEngine.startAsync(catalogVersion);
-//            }, componentContext.executor());
         });
     }
 
