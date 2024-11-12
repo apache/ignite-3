@@ -19,25 +19,28 @@ package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Provider that creates system view exposes information about currently running compute tasks hosted by a node. */
 public class ComputeViewProvider {
-    private final CompletableFuture<ExecutionManager> startFuture = new CompletableFuture<>();
+    private final DelegatingPublisher publisher = new DelegatingPublisher();
 
     /** Initializes with compute aware manager. */
     public void init(ExecutionManager executionManager) {
-        startFuture.complete(executionManager);
+        publisher.executionManager = executionManager;
+    }
+
+    public void stop() {
+        publisher.executionManager = null;
     }
 
     /** Returns system view exposes information about currently running tasks. */
@@ -54,52 +57,22 @@ public class ComputeViewProvider {
                 .addColumn("CREATE_TIME", timestampType, JobState::createTime)
                 .addColumn("START_TIME", timestampType, JobState::startTime)
                 .addColumn("FINISH_TIME", timestampType, JobState::finishTime)
-                .dataProvider(buildDataProvider())
+                .dataProvider(publisher)
                 .build();
     }
 
-    private Publisher<JobState> buildDataProvider() {
-        return subscriber -> {
-            CompletableFuture<List<JobState>> localStates = startFuture.thenCompose(ExecutionManager::localStatesAsync);
+    private static class DelegatingPublisher implements Publisher<JobState> {
+        @Nullable private volatile ExecutionManager executionManager;
 
-            Subscription subscription = new Subscription() {
-                @Nullable Iterator<JobState> it;
-                private boolean isDone;
-                private int processed = 0;
-                private final long threadId = Thread.currentThread().getId();
+        @Override
+        public void subscribe(Subscriber<? super JobState> subscriber) {
+            ExecutionManager execManager = executionManager;
 
-                @Override
-                public void request(long n) {
-                    assert threadId == Thread.currentThread().getId();
+            Publisher<JobState> jobStatePublisher = execManager != null
+                    ? SubscriptionUtils.fromIterable(execManager.localStatesAsync())
+                    : SubscriptionUtils.fromIterable(List.of());
 
-                    if (isDone) {
-                        return;
-                    }
-
-                    localStates.whenComplete((results, ex) -> {
-                        if (it == null) {
-                            it = results.iterator();
-                        }
-
-                        while (it.hasNext() && processed != n) {
-                            processed++;
-                            subscriber.onNext(it.next());
-                        }
-                    });
-
-                    processed = 0;
-
-                    subscriber.onComplete();
-                }
-
-                @Override
-                public void cancel() {
-                    isDone = true;
-                    it = null;
-                }
-            };
-
-            subscriber.onSubscribe(subscription);
-        };
+            jobStatePublisher.subscribe(subscriber);
+        }
     }
 }

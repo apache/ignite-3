@@ -292,6 +292,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         executionManager.stop();
         messaging.stop();
         executor.stop();
+        computeViewProvider.stop();
         IgniteUtils.shutdownAndAwaitTermination(failoverExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
