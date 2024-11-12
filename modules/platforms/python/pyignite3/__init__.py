@@ -405,7 +405,7 @@ class Cursor:
             # noinspection PyProtectedMember
             self._conn._cursor_closed(self._cur_id)
 
-    def execute(self, query: str, params: Optional[Union[List[Any], Tuple[Any]]] = None):
+    def execute(self, query: str, params: Optional[Sequence[Any]] = None):
         """
         Execute a database operation (query or command).
 
@@ -439,12 +439,16 @@ class Cursor:
                 null_ok=self._py_cursor.column_null_ok(column_id)
             ))
 
-    def executemany(self, *_args):
+    def executemany(self, query: str, params_list: List[Sequence[Any]]):
         if self._py_cursor is None:
             raise InterfaceError('Cursor is already closed')
 
-        # TODO: IGNITE-22742 Implement execution with a batch of parameters
-        raise NotSupportedError('Operation is not supported')
+        # TODO: IGNITE-22742 Implement execution with a batch of parameters properly
+        # self._py_cursor.executemany(query, params_list)
+        # self._update_description()
+        # self._rownumber = 0
+        for params in params_list:
+            self.execute(query, params)
 
     def fetchone(self) -> Optional[Sequence[Optional[Any]]]:
         """
@@ -525,13 +529,12 @@ class Cursor:
         raise NotSupportedError('Operation is not supported')
 
     def setinputsizes(self, *_args):
-        if self._py_cursor is None:
-            raise InterfaceError('Cursor is already closed')
+        """
+        This operation does nothing currently.
+        """
+        pass
 
-        # TODO: IGNITE-22742 Implement execution with a batch of parameters
-        raise NotSupportedError('Operation is not supported')
-
-    def setoutputsize(self, *args):
+    def setoutputsize(self, *_args):
         """
         This operation does nothing currently.
         """
