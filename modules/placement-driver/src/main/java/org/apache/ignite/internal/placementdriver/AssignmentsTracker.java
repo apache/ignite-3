@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -69,7 +70,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Stable assignment Meta storage watch listener. */
     private final WatchListener stableAssignmentsListener;
 
-    /** Map replication group id to stable assignment nodes. */
+    /** Map replication group id to pending assignment nodes. */
     private final Map<ReplicationGroupId, TokenizedAssignments> groupPendingAssignments;
 
     /** Pending assignment Meta storage watch listener. */
@@ -95,34 +96,12 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
+        msManager.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsListener);
         msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
-                    ByteArray.fromString(incrementLastChar(STABLE_ASSIGNMENTS_PREFIX)), recoveryRevisions.revision());
-            ) {
-                for (Entry entry : cursor) {
-                    if (entry.tombstone()) {
-                        continue;
-                    }
-
-                    byte[] key = entry.key();
-                    byte[] value = entry.value();
-
-                    // MetaStorage iterator should not return nulls as values.
-                    assert value != null;
-
-                    String strKey = new String(key, StandardCharsets.UTF_8);
-
-                    strKey = strKey.replace(STABLE_ASSIGNMENTS_PREFIX, "");
-
-                    TablePartitionId grpId = TablePartitionId.fromString(strKey);
-
-                    Set<Assignment> assignmentNodes = Assignments.fromBytes(entry.value()).nodes();
-
-                    groupStableAssignments.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
-                }
-            }
+            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
+            handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Cannot do recovery", ex);
@@ -136,6 +115,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Stops the tracker.
      */
     public void stopTrack() {
+        msManager.unregisterWatch(pendingAssignmentsListener);
         msManager.unregisterWatch(stableAssignmentsListener);
     }
 
@@ -184,7 +164,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
 
-                saveReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
+                handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
 
                 return nullCompletedFuture();
             }
@@ -205,7 +185,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
 
-                saveReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
+                handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
 
                 return nullCompletedFuture();
             }
@@ -220,24 +200,61 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return event.entryEvents().stream().noneMatch(e -> e.newEntry().empty());
     }
 
-    private static void saveReceivedAssignments(
+    private static void handleReceivedAssignments(
             WatchEvent event,
             String assignmentsMetastoreKeyPrefix,
-            Map<ReplicationGroupId, TokenizedAssignments> mapToSave
+            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
     ) {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
 
-            var replicationGrpId = TablePartitionId.fromString(
-                    new String(entry.key(), StandardCharsets.UTF_8).replace(assignmentsMetastoreKeyPrefix, ""));
+            var replicationGrpId = extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(assignmentsMetastoreKeyPrefix, entry.key());
 
             if (entry.tombstone()) {
-                mapToSave.remove(replicationGrpId);
+                groupIdToAssignmentsMap.remove(replicationGrpId);
             } else {
                 Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
-                mapToSave.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
+
+                groupIdToAssignmentsMap.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
             }
         }
+    }
+
+    private void handleRecoveryAssignments(
+            Revisions recoveryRevisions,
+            String assignmentsMetastoreKeyPrefix,
+            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
+    ) {
+        try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(assignmentsMetastoreKeyPrefix),
+                ByteArray.fromString(incrementLastChar(assignmentsMetastoreKeyPrefix)), recoveryRevisions.revision());
+        ) {
+            for (Entry entry : cursor) {
+                if (entry.tombstone()) {
+                    continue;
+                }
+
+                byte[] value = entry.value();
+
+                // MetaStorage iterator should not return nulls as values.
+                assert value != null;
+
+                TablePartitionId grpId = extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(assignmentsMetastoreKeyPrefix, entry.key());
+
+                Set<Assignment> assignmentNodes = Assignments.fromBytes(value).nodes();
+
+                groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
+            }
+        }
+    }
+
+    private static TablePartitionId extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(
+            String assignmentsMetastoreKeyPrefix,
+            byte[] metastoreKeyBytes
+    ) {
+        var replicationGroupIdString = new String(metastoreKeyBytes, StandardCharsets.UTF_8)
+                .replace(assignmentsMetastoreKeyPrefix, "");
+
+        return TablePartitionId.fromString(replicationGroupIdString);
     }
 
     private static String collectKeysFromEventAsString(WatchEvent event) {
