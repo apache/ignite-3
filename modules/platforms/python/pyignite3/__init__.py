@@ -443,12 +443,9 @@ class Cursor:
         if self._py_cursor is None:
             raise InterfaceError('Cursor is already closed')
 
-        # TODO: IGNITE-22742 Implement execution with a batch of parameters properly
-        # self._py_cursor.executemany(query, params_list)
-        # self._update_description()
-        # self._rownumber = 0
-        for params in params_list:
-            self.execute(query, params)
+        self._py_cursor.executemany(query, params_list)
+        self._update_description()
+        self._rownumber = 0
 
     def fetchone(self) -> Optional[Sequence[Optional[Any]]]:
         """
