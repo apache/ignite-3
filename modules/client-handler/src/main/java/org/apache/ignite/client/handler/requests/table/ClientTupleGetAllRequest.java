@@ -49,6 +49,7 @@ public class ClientTupleGetAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
+            // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
             var tx = readTx(in, out, resources);
             return readTuples(in, table, true).thenCompose(keyTuples -> {
                 return table.recordView().getAllAsync(tx, keyTuples).thenAccept(tuples ->

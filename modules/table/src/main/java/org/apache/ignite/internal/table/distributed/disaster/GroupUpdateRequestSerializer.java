@@ -28,29 +28,31 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
 /**
- * {@link VersionedSerializer} for {@link ManualGroupUpdateRequest} instances.
+ * {@link VersionedSerializer} for {@link GroupUpdateRequest} instances.
  */
-class ManualGroupUpdateRequestSerializer extends VersionedSerializer<ManualGroupUpdateRequest> {
+class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateRequest> {
     /** Serializer instance. */
-    static final ManualGroupUpdateRequestSerializer INSTANCE = new ManualGroupUpdateRequestSerializer();
+    static final GroupUpdateRequestSerializer INSTANCE = new GroupUpdateRequestSerializer();
 
     @Override
-    protected void writeExternalData(ManualGroupUpdateRequest request, IgniteDataOutput out) throws IOException {
+    protected void writeExternalData(GroupUpdateRequest request, IgniteDataOutput out) throws IOException {
         out.writeUuid(request.operationId());
         out.writeVarInt(request.catalogVersion());
         out.writeVarInt(request.zoneId());
         out.writeVarInt(request.tableId());
         writeVarIntSet(request.partitionIds(), out);
+        out.writeBoolean(request.manualUpdate());
     }
 
     @Override
-    protected ManualGroupUpdateRequest readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+    protected GroupUpdateRequest readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         UUID operationId = in.readUuid();
         int catalogVersion = in.readVarIntAsInt();
         int zoneId = in.readVarIntAsInt();
         int tableId = in.readVarIntAsInt();
         Set<Integer> partitionIds = readVarIntSet(in);
+        boolean manualUpdate = in.readBoolean();
 
-        return new ManualGroupUpdateRequest(operationId, catalogVersion, zoneId, tableId, partitionIds);
+        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, tableId, partitionIds, manualUpdate);
     }
 }

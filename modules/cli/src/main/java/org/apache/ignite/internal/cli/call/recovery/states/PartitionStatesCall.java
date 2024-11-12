@@ -37,7 +37,8 @@ import org.apache.ignite.rest.client.model.LocalPartitionStatesResponse;
 public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table> {
     private final ApiClientFactory clientFactory;
 
-    private static final List<String> GLOBAL_HEADERS = List.of("Zone name", "Table name", "Partition ID", "State");
+    private static final List<String> GLOBAL_HEADERS = List.of("Zone name", "Schema name", "Table ID", "Table name", "Partition ID",
+            "State");
 
     private static final List<String> LOCAL_HEADERS = Stream
             .concat(Stream.of("Node name"), GLOBAL_HEADERS.stream())
@@ -75,6 +76,8 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         List<String> content = globalStates.getStates().stream()
                 .flatMap(state -> Stream.of(
                                 state.getZoneName(),
+                                state.getSchemaName(),
+                                String.valueOf(state.getTableId()),
                                 state.getTableName(),
                                 String.valueOf(state.getPartitionId()),
                                 state.getState()
@@ -101,6 +104,8 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
                 .flatMap(state -> Stream.of(
                                 state.getNodeName(),
                                 state.getZoneName(),
+                                state.getSchemaName(),
+                                String.valueOf(state.getTableId()),
                                 state.getTableName(),
                                 String.valueOf(state.getPartitionId()),
                                 state.getState()
