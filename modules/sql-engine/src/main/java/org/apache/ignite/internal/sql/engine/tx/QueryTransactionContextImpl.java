@@ -62,7 +62,8 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            transaction = txManager.begin(observableTimeTracker, readOnly);
+            // TODO: IGNITE-23604 SQL implicit transaction support. Coordinate the transaction implicit flag with the SQL one.
+            transaction = txManager.begin(observableTimeTracker, false, readOnly);
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();
