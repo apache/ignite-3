@@ -15,14 +15,12 @@
 import pytest
 
 
-@pytest.mark.parametrize("batch_size", [(1,), (2,), (10,), (300,)])
-def test_executemany_const_sql_success(table_name, cursor, drop_table_cleanup, batch_size):
-    cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
-
+@pytest.mark.parametrize("batch_size", [1, 2, 10, 300])
+def test_executemany_success(table_name, cursor, drop_table_cleanup, batch_size):
     test_data = [(i, f'data_{i}') for i in range(batch_size)]
 
+    cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
     cursor.executemany(f"insert into {table_name} values(?, ?)", test_data)
-
     cursor.execute(f"select id, data from {table_name} order by id")
 
     for i in range(batch_size):
