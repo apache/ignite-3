@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -62,11 +63,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
-    /** Map replication group id to assignment nodes. */
-    private final Map<ReplicationGroupId, TokenizedAssignments> groupAssignments;
+    /** Map replication group id to stable assignment nodes. */
+    private final Map<ReplicationGroupId, TokenizedAssignments> groupStableAssignments;
 
-    /** Assignment Meta storage watch listener. */
-    private final AssignmentsListener assignmentsListener;
+    /** Stable assignment Meta storage watch listener. */
+    private final WatchListener stableAssignmentsListener;
+
+    /** Map replication group id to stable assignment nodes. */
+    private final Map<ReplicationGroupId, TokenizedAssignments> groupPendingAssignments;
+
+    /** Pending assignment Meta storage watch listener. */
+    private final WatchListener pendingAssignmentsListener;
 
 
     /**
@@ -77,15 +84,18 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     public AssignmentsTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
 
-        this.groupAssignments = new ConcurrentHashMap<>();
-        this.assignmentsListener = new AssignmentsListener();
+        this.groupStableAssignments = new ConcurrentHashMap<>();
+        this.stableAssignmentsListener = createStableAssignmentsListener();
+
+        this.groupPendingAssignments = new ConcurrentHashMap<>();
+        this.pendingAssignmentsListener = createPendingAssignmentsListener();
     }
 
     /**
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentsListener);
+        msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
             try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
@@ -110,7 +120,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
                     Set<Assignment> assignmentNodes = Assignments.fromBytes(entry.value()).nodes();
 
-                    groupAssignments.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
+                    groupStableAssignments.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
                 }
             }
         }).whenComplete((res, ex) -> {
@@ -119,14 +129,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             }
         });
 
-        LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupAssignments);
+        LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupStableAssignments);
     }
 
     /**
      * Stops the tracker.
      */
     public void stopTrack() {
-        msManager.unregisterWatch(assignmentsListener);
+        msManager.unregisterWatch(stableAssignmentsListener);
     }
 
     @Override
@@ -138,7 +148,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
                 .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                    Map<ReplicationGroupId, TokenizedAssignments> assignments = assignments();
+                    Map<ReplicationGroupId, TokenizedAssignments> assignments = stableAssignments();
 
                     return replicationGroupIds.stream()
                             .map(assignments::get)
@@ -147,48 +157,93 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     /**
-     * Gets assignments.
+     * Gets stable assignments.
      *
-     * @return Map replication group id to its assignment.
+     * @return Map replication group id to its stable assignment.
      */
-    public Map<ReplicationGroupId, TokenizedAssignments> assignments() {
-        return groupAssignments;
+    public Map<ReplicationGroupId, TokenizedAssignments> stableAssignments() {
+        return groupStableAssignments;
     }
 
     /**
-     * Meta storage assignments watch.
+     * Gets pending assignments.
+     *
+     * @return Map replication group id to its pending assignment.
      */
-    private class AssignmentsListener implements WatchListener {
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            assert !event.entryEvents().stream().anyMatch(e -> e.newEntry().empty()) : "New assignments are empty";
+    public Map<ReplicationGroupId, TokenizedAssignments> pendingAssignments() {
+        return groupStableAssignments;
+    }
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Assignment update [revision={}, keys={}]", event.revision(),
-                        event.entryEvents().stream()
-                                .map(e -> new ByteArray(e.newEntry().key()).toString())
-                                .collect(Collectors.joining(",")));
-            }
+    private WatchListener createStableAssignmentsListener() {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                assert areAssignmentsPresentedInEvent(event) : "New assignments are empty";
 
-            for (EntryEvent evt : event.entryEvents()) {
-                Entry entry = evt.newEntry();
-
-                var replicationGrpId = TablePartitionId.fromString(
-                        new String(entry.key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
-
-                if (entry.tombstone()) {
-                    groupAssignments.remove(replicationGrpId);
-                } else {
-                    Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
-                    groupAssignments.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
+
+                saveReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
+
+                return nullCompletedFuture();
             }
 
-            return nullCompletedFuture();
-        }
+            @Override
+            public void onError(Throwable e) {
+            }
+        };
+    }
 
-        @Override
-        public void onError(Throwable e) {
+    private WatchListener createPendingAssignmentsListener() {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                assert areAssignmentsPresentedInEvent(event) : "New assignments are empty";
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
+                }
+
+                saveReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
+
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+            }
+        };
+    }
+
+    private static boolean areAssignmentsPresentedInEvent(WatchEvent event) {
+        return event.entryEvents().stream().noneMatch(e -> e.newEntry().empty());
+    }
+
+    private static void saveReceivedAssignments(
+            WatchEvent event,
+            String assignmentsMetastoreKeyPrefix,
+            Map<ReplicationGroupId, TokenizedAssignments> mapToSave
+    ) {
+        for (EntryEvent evt : event.entryEvents()) {
+            Entry entry = evt.newEntry();
+
+            var replicationGrpId = TablePartitionId.fromString(
+                    new String(entry.key(), StandardCharsets.UTF_8).replace(assignmentsMetastoreKeyPrefix, ""));
+
+            if (entry.tombstone()) {
+                mapToSave.remove(replicationGrpId);
+            } else {
+                Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
+                mapToSave.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
+            }
         }
     }
+
+    private static String collectKeysFromEventAsString(WatchEvent event) {
+        return event.entryEvents().stream()
+                .map(e -> new ByteArray(e.newEntry().key()).toString())
+                .collect(Collectors.joining(","));
+    }
+
 }

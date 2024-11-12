@@ -389,19 +389,19 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            Map<ReplicationGroupId, TokenizedAssignments> currentAssignments = assignmentsTracker.assignments();
-            Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
+            Map<ReplicationGroupId, TokenizedAssignments> currentStableAssignments = assignmentsTracker.stableAssignments();
+            Set<ReplicationGroupId> currentStableAssignmentsReplicationGroupIds = currentStableAssignments.keySet();
 
             // Remove all expired leases that are no longer present in assignments.
             renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
-                    && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+                    && !currentStableAssignmentsReplicationGroupIds.contains(e.getKey()));
 
-            int currentAssignmentsSize = currentAssignments.size();
+            int currentStableAssignmentsSize = currentStableAssignments.size();
             int activeLeasesCount = 0;
 
-            for (Map.Entry<ReplicationGroupId, TokenizedAssignments> entry : currentAssignments.entrySet()) {
+            for (Map.Entry<ReplicationGroupId, TokenizedAssignments> entry : currentStableAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
-                Set<Assignment> assignments = entry.getValue().nodes();
+                Set<Assignment> stableAssignments = entry.getValue().nodes();
 
                 Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
 
@@ -412,7 +412,7 @@ public class LeaseUpdater {
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
 
-                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
+                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), stableAssignments);
 
                     if (lease.isProlongable() && agreement.isAccepted()) {
                         Lease negotiatedLease = agreement.getLease();
@@ -431,7 +431,7 @@ public class LeaseUpdater {
                     } else if (!lease.isProlongable() || agreement.isDeclined()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
                         // Also, if the lease was denied, we create the new one.
-                        chooseCandidateAndCreateNewLease(grpId, lease, agreement, assignments, renewedLeases, toBeNegotiated);
+                        chooseCandidateAndCreateNewLease(grpId, lease, agreement, stableAssignments, renewedLeases, toBeNegotiated);
 
                         continue;
                     }
@@ -443,7 +443,16 @@ public class LeaseUpdater {
                             ? lease.getLeaseholder()
                             : lease.proposedCandidate();
 
-                    ClusterNode candidate = nextLeaseHolder(assignments, grpId, proposedLeaseholder);
+                    ClusterNode candidate = nextLeaseHolder(stableAssignments, grpId, proposedLeaseholder);
+
+                    if (candidate == null) {
+                        Map<ReplicationGroupId, TokenizedAssignments> pendingMap = assignmentsTracker.pendingAssignments();
+
+                        if (pendingMap.containsKey(grpId)) {
+                            Set<Assignment> pendingAssignments = pendingMap.get(grpId).nodes();
+                            candidate = nextLeaseHolder(pendingAssignments, grpId, proposedLeaseholder);
+                        }
+                    }
 
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -475,11 +484,11 @@ public class LeaseUpdater {
             if (shouldLogLeaseStatistics()) {
                 LOG.info(
                         "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
-                                + "currentAssignmentsSize={}].",
+                                + "currentStableAssignmentsSize={}].",
                         LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
                         leaseUpdateStatistics,
                         activeLeasesCount,
-                        currentAssignmentsSize
+                        currentStableAssignmentsSize
                 );
             }
 
