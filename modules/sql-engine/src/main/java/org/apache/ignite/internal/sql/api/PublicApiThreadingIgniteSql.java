@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -61,71 +62,87 @@ public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return execUserSyncOperation(() -> sql.execute(transaction, query, arguments));
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    ) {
+        return execUserSyncOperation(() -> sql.execute(transaction, cancellationToken, query, arguments));
     }
 
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return execUserSyncOperation(() -> sql.execute(transaction, statement, arguments));
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        return execUserSyncOperation(() -> sql.execute(transaction, cancellationToken, statement, arguments));
     }
 
     @Override
     public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments
     ) {
-        return execUserSyncOperation(() -> sql.execute(transaction, mapper, query, arguments));
+        return execUserSyncOperation(() -> sql.execute(transaction, mapper, cancellationToken, query, arguments));
     }
 
     @Override
     public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return execUserSyncOperation(() -> sql.execute(transaction, mapper, statement, arguments));
+        return execUserSyncOperation(() -> sql.execute(transaction, mapper, cancellationToken, statement, arguments));
     }
 
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments
     ) {
-        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, query, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, cancellationToken, query, arguments));
     }
 
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, statement, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, cancellationToken, statement, arguments));
     }
 
     @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments
     ) {
-        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, query, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, cancellationToken, query, arguments));
     }
 
     @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, statement, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, cancellationToken, statement, arguments));
     }
 
     @Override

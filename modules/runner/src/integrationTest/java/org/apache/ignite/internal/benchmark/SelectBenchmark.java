@@ -236,11 +236,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         private Iterator<InternalSqlRow> query(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(properties, igniteImpl.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(properties, igniteImpl.observableTimeTracker(), null, null, sql, args));
         }
 
         private Iterator<InternalSqlRow> script(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(scriptProperties, igniteImpl.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(scriptProperties, igniteImpl.observableTimeTracker(), null, null, sql, args));
         }
 
         private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {

@@ -62,6 +62,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -304,7 +305,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert cancelHandler != null;
 
-        // This call triggers a timeout exception, if operation has timed out.
+        // This call immediately triggers a cancellation exception if operation has timed out or it has already been cancelled.
         cancelHandler.add(timeout -> {
             QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
             queryManager.close(reason);
@@ -463,11 +464,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert queryCancel != null;
 
         queryCancel.add(timeout -> {
-            if (!timeout) {
-                return;
+            if (timeout) {
+                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
             }
-
-            ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
         });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
@@ -975,6 +974,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
+
+            // Query has already been cancelled, return immediately.
+            if (cancelled.get()) {
+                return new AsyncCursor<>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
+                        Throwable t = SqlExceptionMapperUtil.mapToPublicSqlException(new QueryCancelledException());
+                        return CompletableFuture.failedFuture(t);
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        return DistributedQueryManager.this.cancelFut;
+                    }
+                };
+            }
 
             boolean mapOnBackups = tx.isReadOnly();
             MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups);
