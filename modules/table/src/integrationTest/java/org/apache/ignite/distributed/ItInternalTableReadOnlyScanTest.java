@@ -48,7 +48,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
 
     @Override
     protected InternalTransaction startTx() {
-        return internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, true);
+        return internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, false, true);
     }
 
     @Override

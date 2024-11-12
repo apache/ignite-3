@@ -84,7 +84,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void commitImplicitTxNotAffectExternalTransaction() {
-        NoOpTransaction externalTx = new NoOpTransaction("test");
+        NoOpTransaction externalTx = new NoOpTransaction("test", false);
 
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(externalTx, false, transactionTracker);
         wrapper.commitImplicit();
@@ -93,7 +93,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testCommitImplicit() {
-        NoOpTransaction tx = new NoOpTransaction("test");
+        NoOpTransaction tx = new NoOpTransaction("test", false);
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true, transactionTracker);
 
         wrapper.commitImplicit();
@@ -104,7 +104,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testRollbackImplicit() {
-        NoOpTransaction tx = new NoOpTransaction("test");
+        NoOpTransaction tx = new NoOpTransaction("test", false);
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true, transactionTracker);
 
         wrapper.rollback(null);
@@ -116,7 +116,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
-                new QueryTransactionContextImpl(txManager, observableTimeTracker, new NoOpTransaction("test"), transactionTracker),
+                new QueryTransactionContextImpl(txManager, observableTimeTracker, new NoOpTransaction("test", false), transactionTracker),
                 transactionTracker
         );
 
@@ -131,7 +131,11 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         );
         IgniteSqlStartTransaction txStartStmt = mock(IgniteSqlStartTransaction.class);
 
-        when(txManager.begin(any(), anyBoolean())).thenReturn(NoOpTransaction.readWrite("test"));
+        when(txManager.begin(any(), anyBoolean(), anyBoolean())).thenAnswer(inv -> {
+            boolean implicit = inv.getArgument(1, Boolean.class);
+
+            return NoOpTransaction.readWrite("test", implicit);
+        });
 
         txCtx.handleControlStatement(txStartStmt);
 
@@ -155,6 +159,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 transactionTracker);
         implicitDmlTxCtx.getOrStartImplicit(false);
         // Check that RW txns do not create tx inflights.
+        log.info("inflights={}", inflights);
         assertTrue(inflights.isEmpty());
 
         QueryTransactionContext implicitQueryTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, null,
@@ -164,14 +169,14 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         implicitQueryTxWrapper.commitImplicit();
         assertTrue(inflights.isEmpty());
 
-        NoOpTransaction rwTx = NoOpTransaction.readWrite("test-rw");
+        NoOpTransaction rwTx = NoOpTransaction.readWrite("test-rw", false);
         QueryTransactionContext explicitRwTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, rwTx,
                 transactionTracker);
         explicitRwTxCtx.getOrStartImplicit(true);
         // Check that RW txns do not create tx inflights.
         assertTrue(inflights.isEmpty());
 
-        NoOpTransaction roTx = NoOpTransaction.readOnly("test-ro");
+        NoOpTransaction roTx = NoOpTransaction.readOnly("test-ro", false);
         QueryTransactionContext explicitRoTxCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, roTx,
                 transactionTracker);
         QueryTransactionWrapper explicitRoTxWrapper = explicitRoTxCtx.getOrStartImplicit(true);
@@ -217,11 +222,12 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareTransactionsMocks() {
-        when(txManager.begin(any(), anyBoolean())).thenAnswer(
+        when(txManager.begin(any(), anyBoolean(), anyBoolean())).thenAnswer(
                 inv -> {
-                    boolean readOnly = inv.getArgument(1, Boolean.class);
+                    boolean implicit = inv.getArgument(1, Boolean.class);
+                    boolean readOnly = inv.getArgument(2, Boolean.class);
 
-                    return readOnly ? NoOpTransaction.readOnly("test-ro") : NoOpTransaction.readWrite("test-rw");
+                    return readOnly ? NoOpTransaction.readOnly("test-ro", implicit) : NoOpTransaction.readWrite("test-rw", implicit);
                 }
         );
     }

@@ -45,12 +45,19 @@ struct mpi {
      * Support class for the mpi magnitude.
      */
     struct mag_view {
-        mag_view(mpi::word *ptr, const unsigned short sz)
+        mag_view(mpi::word *ptr, const unsigned short sz, std::size_t sz_nz)
             : m_ptr{ptr}
-            , m_size{sz} {}
+            , m_size{sz}
+            , m_size_non_zero{sz_nz} {}
 
-        /** Returns size of the magnitude. */
-        [[nodiscard]] std::size_t size() const noexcept { return m_size; }
+        /** Returns allocated size of the magnitude array in words. */
+        [[nodiscard]] std::size_t size_words() const noexcept { return m_size; }
+
+        /** Returns allocated size of the magnitude array in bytes. */
+        [[nodiscard]] std::size_t size_bytes() const noexcept { return size_words() * sizeof(mpi::word); }
+
+        /** Returns number of the significant bytes of the magnitude, leading zeros not counted. */
+        [[nodiscard]] std::size_t size_bytes_non_zero() const noexcept { return m_size_non_zero; }
 
         /** Subscript operator. */
         [[nodiscard]] const mpi::word &operator[](const std::size_t n) const { return m_ptr[n]; }
@@ -59,7 +66,7 @@ struct mpi {
         [[nodiscard]] mpi::word &operator[](const std::size_t n) { return m_ptr[n]; }
 
         /** Checks if the magnitude is empty. */
-        [[nodiscard]] bool empty() const noexcept { return size() == 0; }
+        [[nodiscard]] bool empty() const noexcept { return size_words() == 0; }
 
         /** Returns pointer to the magnitude beginning. */
         [[nodiscard]] mpi::word *begin() { return m_ptr; }
@@ -88,8 +95,10 @@ struct mpi {
     private:
         /** Pointer to the magnitude array. */
         mpi::word *const m_ptr;
-        /** Size of the array. */
+        /** Size of the array in words. */
         unsigned short m_size;
+        /** Bytes number of the array. Leading zeros not counted. */
+        std::size_t m_size_non_zero;
     };
 
     /** Default constructor. */
