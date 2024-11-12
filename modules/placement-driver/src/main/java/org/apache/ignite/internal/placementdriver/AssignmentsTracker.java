@@ -108,7 +108,11 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             }
         });
 
-        LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupStableAssignments);
+        LOG.info(
+                "Assignment cache initialized for placement driver [groupStableAssignments={}, groupPendingAssignments={}]",
+                groupStableAssignments,
+                groupPendingAssignments
+        );
     }
 
     /**
@@ -139,18 +143,18 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /**
      * Gets stable assignments.
      *
-     * @return Map replication group id to its stable assignment.
+     * @return Map replication group id to its stable assignments.
      */
-    public Map<ReplicationGroupId, TokenizedAssignments> stableAssignments() {
+    Map<ReplicationGroupId, TokenizedAssignments> stableAssignments() {
         return groupStableAssignments;
     }
 
     /**
      * Gets pending assignments.
      *
-     * @return Map replication group id to its pending assignment.
+     * @return Map replication group id to its pending assignments.
      */
-    public Map<ReplicationGroupId, TokenizedAssignments> pendingAssignments() {
+    Map<ReplicationGroupId, TokenizedAssignments> pendingAssignments() {
         return groupStableAssignments;
     }
 
@@ -208,14 +212,12 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
 
-            var replicationGrpId = extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(assignmentsMetastoreKeyPrefix, entry.key());
+            ReplicationGroupId grpId = extractGroupFromEventEntryByPrefix(entry, assignmentsMetastoreKeyPrefix);
 
             if (entry.tombstone()) {
-                groupIdToAssignmentsMap.remove(replicationGrpId);
+                groupIdToAssignmentsMap.remove(grpId);
             } else {
-                Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
-
-                groupIdToAssignmentsMap.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
             }
         }
     }
@@ -225,33 +227,42 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             String assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
     ) {
-        try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(assignmentsMetastoreKeyPrefix),
-                ByteArray.fromString(incrementLastChar(assignmentsMetastoreKeyPrefix)), recoveryRevisions.revision());
-        ) {
+        ByteArray startKey = ByteArray.fromString(assignmentsMetastoreKeyPrefix);
+        ByteArray endKey = ByteArray.fromString(incrementLastChar(assignmentsMetastoreKeyPrefix));
+        long revision = recoveryRevisions.revision();
+
+        try (Cursor<Entry> cursor = msManager.getLocally(startKey, endKey, revision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;
                 }
 
-                byte[] value = entry.value();
+                ReplicationGroupId grpId = extractGroupFromEventEntryByPrefix(entry, assignmentsMetastoreKeyPrefix);
 
-                // MetaStorage iterator should not return nulls as values.
-                assert value != null;
-
-                TablePartitionId grpId = extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(assignmentsMetastoreKeyPrefix, entry.key());
-
-                Set<Assignment> assignmentNodes = Assignments.fromBytes(value).nodes();
-
-                groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
+                updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
             }
         }
     }
 
-    private static TablePartitionId extractReplicationGroupIdFromMetastoreKeyBytesByPrefix(
-            String assignmentsMetastoreKeyPrefix,
-            byte[] metastoreKeyBytes
+    private static void updateGroupAssignments(
+            Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
+            ReplicationGroupId grpId,
+            Entry entry
     ) {
-        var replicationGroupIdString = new String(metastoreKeyBytes, StandardCharsets.UTF_8)
+        byte[] value = entry.value();
+
+        // MetaStorage iterator should not return nulls as values.
+        assert value != null;
+
+        Set<Assignment> assignmentNodes = Assignments.fromBytes(value).nodes();
+
+        groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
+    }
+
+    private static ReplicationGroupId extractGroupFromEventEntryByPrefix(
+            Entry entry, String assignmentsMetastoreKeyPrefix
+    ) {
+        var replicationGroupIdString = new String(entry.key(), StandardCharsets.UTF_8)
                 .replace(assignmentsMetastoreKeyPrefix, "");
 
         return TablePartitionId.fromString(replicationGroupIdString);
