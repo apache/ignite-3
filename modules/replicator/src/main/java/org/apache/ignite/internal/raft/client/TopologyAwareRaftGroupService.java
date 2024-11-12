@@ -344,6 +344,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                     leaderHost,
                                     leaderWithTerm.term()
                             );
+                        } else {
+                            LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                         }
                     }
                 }, executor);
@@ -583,6 +585,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                 leaderHost,
                                 leaderWithTerm.term()
                         );
+                    } else {
+                        LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                     }
                 }, executor);
             }
