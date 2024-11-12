@@ -294,12 +294,13 @@ public class DistributionZoneManager implements IgniteComponent {
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            configuration.start();
-
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
-            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
+            ).thenComposeAsync((notUsed) -> {
+                configuration.start();
+                return rebalanceEngine.startAsync(catalogVersion);
+            }, componentContext.executor());
         });
     }
 
@@ -395,8 +396,8 @@ public class DistributionZoneManager implements IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
 
             assert zoneDescriptor != null : "Zone descriptor is null causalityToken = " + causalityToken +
-                    ", updateTimestamp = " + updateTimestamp + ", catalog.latestVersion" + catalogManager.latestCatalogVersion() +
-                    ", catalogManager.activeCatalogVersion(updateTimestamp) " + catalogManager.activeCatalogVersion(updateTimestamp);
+                    ", updateTimestamp = " + updateTimestamp + ", catalog.latestVersion = " + catalogManager.latestCatalogVersion() +
+                    ", catalogManager.activeCatalogVersion(updateTimestamp) = " + catalogManager.activeCatalogVersion(updateTimestamp);
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
