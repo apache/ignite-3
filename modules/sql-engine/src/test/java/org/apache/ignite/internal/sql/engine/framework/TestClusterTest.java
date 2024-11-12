@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -360,5 +365,41 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         List<List<Object>> rows = convertSqlRows(results.items());
         assertEquals(List.of(List.of("hello", 42L)), rows);
+    }
+
+    @Test
+    public void testExecutionWithDynamicParam() {
+        cluster.start();
+
+        TestNode node = cluster.node("N1");
+        Object[] params = {1, null};
+
+        QueryPlan plan = node.prepare("SELECT ?, ?", params);
+        AsyncDataCursor<InternalSqlRow> cursor = node.executePlan(plan, params);
+        BatchedResult<InternalSqlRow> res = await(cursor.requestNextAsync(1));
+
+        assertThat(res.hasMore(), is(false));
+        assertThat(res.items(), hasSize(1));
+        assertThat(res.items().get(0).fieldCount(), is(2));
+        assertThat(res.items().get(0).get(0), is(1));
+        assertThat(res.items().get(0).get(1), nullValue());
+    }
+
+    @Test
+    public void testExecutionWithMissingDynamicParam() {
+        cluster.start();
+
+        TestNode node = cluster.node("N1");
+
+        QueryPlan plan = node.prepare("SELECT ?/?", 1, 0);
+
+        AsyncDataCursor<InternalSqlRow> cursor = node.executePlan(plan, 1);
+
+        //noinspection ThrowableNotThrown
+        assertThrowsWithCause(
+                () -> await(cursor.requestNextAsync(1)),
+                IllegalStateException.class,
+                "Missing dynamic parameter: ?1"
+        );
     }
 }

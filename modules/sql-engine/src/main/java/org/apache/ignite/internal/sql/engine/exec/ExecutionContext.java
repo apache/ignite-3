@@ -243,7 +243,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     /** {@inheritDoc} */
     @Override
-    public Object get(String name) {
+    public @Nullable Object get(String name) {
         if (Variable.CANCEL_FLAG.camelName.equals(name)) {
             return cancelFlag;
         }
@@ -263,19 +263,27 @@ public class ExecutionContext<RowT> implements DataContext {
         }
 
         if (name.startsWith("?")) {
-            Object val = params.get(name);
-            return val != null ? TypeUtils.toInternal(val, val.getClass()) : null;
+            return getParameter(name, null);
         } else {
             return params.get(name);
         }
-
     }
 
     /** Gets dynamic parameters by name. */
-    public Object getParameter(String name, Type storageType) {
+    public @Nullable Object getParameter(String name, @Nullable Type storageType) {
         assert name.startsWith("?") : name;
 
-        return TypeUtils.toInternal(params.get(name), storageType);
+        Object param = params.get(name);
+
+        if (param == null) {
+            if (!params.containsKey(name)) {
+                throw new IllegalStateException("Missing dynamic parameter: " + name);
+            }
+
+            return null;
+        }
+
+        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
     }
 
     /**
