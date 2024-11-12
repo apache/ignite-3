@@ -104,6 +104,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -389,7 +390,13 @@ public class DistributionZoneManager implements IgniteComponent {
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
 
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion());
+            long updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
+
+            assert zoneDescriptor != null : "Zone descriptor is null causalityToken = " + causalityToken +
+                    ", updateTimestamp = " + updateTimestamp + ", catalog.latestVersion" + catalogManager.latestCatalogVersion() +
+                    ", catalogManager.activeCatalogVersion(updateTimestamp) " + catalogManager.activeCatalogVersion(updateTimestamp);
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;

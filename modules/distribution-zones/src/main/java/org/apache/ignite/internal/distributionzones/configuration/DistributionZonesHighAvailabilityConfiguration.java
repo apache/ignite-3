@@ -23,6 +23,7 @@ import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -77,6 +78,8 @@ public class DistributionZonesHighAvailabilityConfiguration {
     }
 
     private void updateSystemProperties(SystemDistributedView view, long revision) {
+        Loggers.forClass(DistributionZonesHighAvailabilityConfiguration.class).info("System properties updated [revision ={}].", revision);
+
         partitionDistributionResetTimeoutSeconds = intValue(
                 view,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT,
