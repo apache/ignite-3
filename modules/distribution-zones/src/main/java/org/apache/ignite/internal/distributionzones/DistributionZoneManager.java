@@ -125,6 +125,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -384,26 +385,25 @@ public class DistributionZoneManager implements IgniteComponent {
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
-        // partitionDistributionReset configuration is a part of the distributed configuration that will also fire an update event
-        // on an initial configuration load that should be skipped.
-        if (causalityToken <= 1) {
+        long updateTimestamp;
+
+        try {
+            updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
+        } catch (CompactedException e) {
+            if (causalityToken > 1) {
+                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
+            }
+            // logging.
             return;
         }
-
-        long updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
 
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
-
             CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
 
-            assert zoneDescriptor != null : "Zone descriptor is null causalityToken = " + causalityToken +
-                    ", updateTimestamp = " + updateTimestamp + ", catalog.latestVersion = " + catalogManager.latestCatalogVersion() +
-                    ", catalogManager.activeCatalogVersion(updateTimestamp) = " + catalogManager.activeCatalogVersion(updateTimestamp);
-
-            if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
+            if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
             }
 
