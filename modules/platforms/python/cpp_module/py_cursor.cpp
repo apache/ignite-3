@@ -168,6 +168,12 @@ public:
      */
     virtual void write(ignite::protocol::writer &writer) const override {
         PyObject *row = PySequence_GetItem(m_params, 0);
+        if (!m_row_size) {
+            writer.write_nil();
+            return;
+        }
+
+        writer.write(m_row_size);
         write_row(writer, row, m_row_size);
     }
 
