@@ -294,14 +294,21 @@ public class DistributionZoneManager implements IgniteComponent {
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            return catalogManager.catalogReadyFuture(catalogVersion).thenCompose(unused ->
-                    allOf(
-                            createOrRestoreZonesStates(recoveryRevision, catalogVersion),
-                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
-                    )).thenComposeAsync((notUsed) -> {
-                configuration.start();
-                return rebalanceEngine.startAsync(catalogVersion);
-            }, componentContext.executor());
+            configuration.start();
+
+            return allOf(
+                    createOrRestoreZonesStates(recoveryRevision, catalogVersion),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
+
+//            return catalogManager.catalogReadyFuture(catalogVersion).thenCompose(unused ->
+//                    allOf(
+//                            createOrRestoreZonesStates(recoveryRevision, catalogVersion),
+//                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
+//                    )).thenComposeAsync((notUsed) -> {
+//                configuration.start();
+//                return rebalanceEngine.startAsync(catalogVersion);
+//            }, componentContext.executor());
         });
     }
 
@@ -387,12 +394,18 @@ public class DistributionZoneManager implements IgniteComponent {
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
+        // partitionDistributionReset configuration is a part of the distributed configuration that will also fire an update event
+        // on an initial configuration load that should be skipped.
+        if (causalityToken <= 1) {
+            return;
+        }
+
+        long updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
+
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
-
-            long updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
 
             CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
 
