@@ -46,7 +46,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -196,9 +195,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final TransactionInflights transactionInflights;
 
     private final ReplicaService replicaService;
-
-    /** Registry of locally started active transactions. */
-    private final Map<UUID, InternalTransaction> transactions = new ConcurrentHashMap<>();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
@@ -391,7 +387,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
 
-            return register(new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit));
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -413,10 +409,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
             txFuture.whenComplete((unused, throwable) -> {
                 lowWatermark.unlock(txId);
-                unregister(txId);
             });
 
-            return register(new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture));
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
@@ -467,7 +462,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.commitTimestamp()
                 ));
 
-        onFinishRwTx(txId);
+        decrementRwTxCount(txId);
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
@@ -494,7 +489,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     commitIntent ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commitIntent)
             ));
 
-            onFinishRwTx(txId);
+            decrementRwTxCount(txId);
 
             return nullCompletedFuture();
         }
@@ -542,7 +537,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 )
         ).thenAccept(unused -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
-                onFinishRwTx(txId);
+                decrementRwTxCount(txId);
             }
         }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
     }
@@ -990,37 +985,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         });
     }
 
-    /** Called when a read-write transaction is finished. */
-    private void onFinishRwTx(UUID txId) {
-        decrementRwTxCount(txId);
-
-        unregister(txId);
-    }
-
     private void decrementRwTxCount(UUID txId) {
         localRwTxCounter.inUpdateRwTxCountLock(() -> {
             localRwTxCounter.decrementRwTxCount(beginTimestamp(txId));
 
             return null;
         });
-    }
-
-    /**
-     * Puts a transaction into the registry.
-     *
-     * @param tx Transaction.
-     * @return Registered transaction.
-     */
-    private InternalTransaction register(InternalTransaction tx) {
-        InternalTransaction prevTx = transactions.put(tx.id(), tx);
-
-        assert prevTx == null : "Duplicate registration: " + tx.id();
-
-        return tx;
-    }
-
-    /** Removes a transaction from the registry. */
-    private void unregister(UUID txId) {
-        transactions.remove(txId);
     }
 }
