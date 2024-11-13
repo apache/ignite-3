@@ -79,12 +79,6 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
         String query = "SELECT * FROM COMPUTE_TASKS";
 
         Ignite entryNode = isClient ? IgniteClient.builder().addresses("localhost").build() : CLUSTER.node(0);
-        Ignite targetNode = CLUSTER.node(0);
-
-        JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(targetNode)), job, null);
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         try {
             // Verify metadata.
@@ -100,10 +94,6 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
                     )
                     .check();
         } finally {
-            execution.cancelAsync();
-
-            await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-
             closeQuiet(entryNode);
         }
     }

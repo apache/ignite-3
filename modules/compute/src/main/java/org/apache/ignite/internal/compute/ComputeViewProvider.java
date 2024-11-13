@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -52,11 +53,11 @@ public class ComputeViewProvider {
         return SystemViews.<JobState>nodeViewBuilder()
                 .name("COMPUTE_TASKS")
                 .nodeNameColumnAlias("COORDINATOR_NODE_ID")
-                .addColumn("ID", idType, info -> info.id().toString())
-                .addColumn("STATUS", stringOf(10), info -> info.status().name())
-                .addColumn("CREATE_TIME", timestampType, JobState::createTime)
-                .addColumn("START_TIME", timestampType, JobState::startTime)
-                .addColumn("FINISH_TIME", timestampType, JobState::finishTime)
+                .<String>addColumn("ID", idType, info -> info.id().toString())
+                .<String>addColumn("STATUS", stringOf(10), info -> info.status().name())
+                .<Instant>addColumn("CREATE_TIME", timestampType, JobState::createTime)
+                .<Instant>addColumn("START_TIME", timestampType, JobState::startTime)
+                .<Instant>addColumn("FINISH_TIME", timestampType, JobState::finishTime)
                 .dataProvider(publisher)
                 .build();
     }
