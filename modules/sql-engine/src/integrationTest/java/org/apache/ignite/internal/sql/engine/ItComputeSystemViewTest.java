@@ -76,7 +76,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void checkMeta(boolean isClient) {
-        String query = "SELECT * FROM SYSTEM.COMPUTE_TASKS";
+        String query = "SELECT * FROM COMPUTE_TASKS";
 
         Ignite entryNode = isClient ? IgniteClient.builder().addresses("localhost").build() : CLUSTER.node(0);
         Ignite targetNode = CLUSTER.node(0);
@@ -130,7 +130,9 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             List<List<Object>> res = sql(0, query, EXECUTING.name());
 
-            verifyQueryInfo(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
+            assertThat(res, Matchers.hasSize(1));
+
+            verifyComputeJobState(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
 
             IgniteTestUtils.await(execution.cancelAsync());
 
@@ -153,7 +155,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             res = sql(0, query, targetNode.name(), EXECUTING.name());
 
-            verifyQueryInfo(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
+            verifyComputeJobState(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
 
             IgniteTestUtils.await(execution.cancelAsync());
 
@@ -188,8 +190,8 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             assertThat(res.size(), is(2));
             List<String> execNodes = List.of(CLUSTER.node(0).name(), CLUSTER.node(1).name());
 
-            verifyQueryInfo(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
-            verifyQueryInfo(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
+            verifyComputeJobState(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
+            verifyComputeJobState(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
 
             execution.forEach((k, exec) -> IgniteTestUtils.await(exec.cancelAsync()));
         } finally {
@@ -222,8 +224,8 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             assertThat(res.size(), is(2));
             List<String> execNodes = List.of(CLUSTER.node(0).name(), CLUSTER.node(1).name());
 
-            verifyQueryInfo(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
-            verifyQueryInfo(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
+            verifyComputeJobState(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
+            verifyComputeJobState(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
 
             IgniteTestUtils.await(execution.cancelAsync());
         } finally {
@@ -275,7 +277,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static void verifyQueryInfo(
+    private static void verifyComputeJobState(
             List<Object> row,
             List<String> nodeName,
             String phase,
