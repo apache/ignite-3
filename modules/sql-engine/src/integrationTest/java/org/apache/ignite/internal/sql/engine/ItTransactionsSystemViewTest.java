@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -62,7 +63,7 @@ public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
     public void testMetadata() {
         assertQuery("SELECT * FROM SYSTEM.TRANSACTIONS")
                 .columnMetadata(
-                        new MetadataMatcher().name("COORDINATOR_NODE").type(ColumnType.STRING).nullable(false),
+                        new MetadataMatcher().name("COORDINATOR_NODE_ID").type(ColumnType.STRING).nullable(false),
                         new MetadataMatcher().name("STATE").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("ID").type(ColumnType.STRING).nullable(true),
                         new MetadataMatcher().name("START_TIME").type(ColumnType.TIMESTAMP).nullable(true),
@@ -123,11 +124,13 @@ public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static Object[] makeExpectedRow(InternalTransaction tx, Map<UUID, String> nodeIdToName) {
+        HybridTimestamp startTime = tx.isReadOnly() ? TransactionIds.beginTimestamp(tx.id()) : tx.startTimestamp();
+
         return new Object[]{
                 nodeIdToName.get(tx.coordinatorId()),
                 tx.state() == null ? null : tx.state().name(),
                 tx.id().toString(),
-                Instant.ofEpochMilli(tx.startTimestamp().getPhysical()),
+                Instant.ofEpochMilli(startTime.getPhysical()),
                 tx.isReadOnly() ? TransactionsViewProvider.READ_ONLY : TransactionsViewProvider.READ_WRITE,
                 TransactionIds.priority(tx.id()).name()
         };

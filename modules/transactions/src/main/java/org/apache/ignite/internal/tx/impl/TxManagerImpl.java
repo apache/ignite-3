@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import it.unimi.dsi.fastutil.Pair;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -931,7 +932,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(new TransactionsViewProvider(transactions).get());
+        TransactionsViewProvider provider = new TransactionsViewProvider(
+                () -> lowWatermark.lockIds().iterator(),
+                () -> txStateVolatileStorage.statesMap().entrySet().stream()
+                        .filter(e -> {
+                            TxStateMeta txStateMeta = e.getValue();
+
+                            return localNodeId.equals(txStateMeta.txCoordinatorId())
+                                    && txStateMeta.txState() != ABORTED && txStateMeta.txState() != COMMITTED;
+                        })
+                        .map(e -> Pair.of(e.getKey(), e.getValue().txState()))
+                        .collect(Collectors.toList()).iterator()
+        );
+
+        return List.of(provider.get());
     }
 
     static class TransactionFailureHandler {

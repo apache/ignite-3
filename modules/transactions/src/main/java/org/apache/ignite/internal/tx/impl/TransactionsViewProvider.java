@@ -19,17 +19,19 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
+import it.unimi.dsi.fastutil.Pair;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,10 +42,16 @@ public class TransactionsViewProvider {
 
     public static final String READ_WRITE = "READ_WRITE";
 
-    private final Map<UUID, InternalTransaction> transactions;
+    private final Iterable<UUID> roTxDatasource;
 
-    TransactionsViewProvider(Map<UUID, InternalTransaction> transactions) {
-        this.transactions = transactions;
+    private final Iterable<Pair<UUID, TxState>> rwTxDatasource;
+
+    TransactionsViewProvider(
+            Iterable<UUID> roTxDatasource,
+            Iterable<Pair<UUID, TxState>> rwTxDatasource
+    ) {
+        this.roTxDatasource = roTxDatasource;
+        this.rwTxDatasource = rwTxDatasource;
     }
 
     /** Returns a {@code TRANSACTIONS} system view. */
@@ -51,19 +59,44 @@ public class TransactionsViewProvider {
         NativeType stringType = stringOf(64);
         NativeType timestampType = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
 
-        return SystemViews.<InternalTransaction>nodeViewBuilder()
+        Publisher<TxInfo> publisher = SubscriptionUtils.fromIterable(CollectionUtils.concat(
+                () -> new TransformingIterator<>(roTxDatasource.iterator(), TxInfo::forReadOnly),
+                () -> new TransformingIterator<>(rwTxDatasource.iterator(), pair -> TxInfo.forReadWrite(pair.first(), pair.second()))
+        ));
+
+        return SystemViews.<TxInfo>nodeViewBuilder()
                 .name("TRANSACTIONS")
-                .nodeNameColumnAlias("COORDINATOR_NODE")
-                .<String>addColumn("STATE", stringType, tx -> deriveState(tx.state()))
-                .<String>addColumn("ID", stringType, tx -> tx.id().toString())
-                .<Instant>addColumn("START_TIME", timestampType, tx -> Instant.ofEpochMilli(tx.startTimestamp().getPhysical()))
-                .<String>addColumn("TYPE", stringType, tx -> tx.isReadOnly() ? READ_ONLY : READ_WRITE)
-                .<String>addColumn("PRIORITY", stringType, tx -> TransactionIds.priority(tx.id()).name())
-                .dataProvider(SubscriptionUtils.fromIterable(transactions.values()))
+                .nodeNameColumnAlias("COORDINATOR_NODE_ID")
+                .<String>addColumn("STATE", stringType, tx -> tx.state)
+                .<String>addColumn("ID", stringType, tx -> tx.id)
+                .<Instant>addColumn("START_TIME", timestampType, tx -> tx.startTime)
+                .<String>addColumn("TYPE", stringType, tx -> tx.type)
+                .<String>addColumn("PRIORITY", stringType, tx -> tx.priority)
+                .dataProvider(publisher)
                 .build();
     }
 
-    private static @Nullable String deriveState(@Nullable TxState state) {
-        return state == null ? null : state.name();
+    static class TxInfo {
+        private final String id;
+        private final @Nullable String state;
+        private final Instant startTime;
+        private final String type;
+        private final String priority;
+
+        static TxInfo forReadOnly(UUID id) {
+            return new TxInfo(id, null, true);
+        }
+
+        static TxInfo forReadWrite(UUID id, TxState txState) {
+            return new TxInfo(id, txState, false);
+        }
+
+        private TxInfo(UUID id, @Nullable TxState state, boolean readOnly) {
+            this.id = id.toString();
+            this.state = state == null ? null : state.name();
+            this.startTime = Instant.ofEpochMilli(TransactionIds.beginTimestamp(id).getPhysical());
+            this.type = readOnly ? READ_ONLY : READ_WRITE;
+            this.priority = TransactionIds.priority(id).name();
+        }
     }
 }

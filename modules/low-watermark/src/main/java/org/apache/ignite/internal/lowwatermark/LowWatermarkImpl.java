@@ -25,7 +25,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -120,7 +123,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             new LowWatermarkCandidate(MIN_VALUE, nullCompletedFuture())
     );
 
-    private final Map<Object, LowWatermarkLock> locks = new ConcurrentHashMap<>();
+    /** Locks acquired by read-only transactions. */
+    private final Map<UUID, LowWatermarkLock> roTxLocks = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -301,7 +305,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public boolean tryLock(Object lockId, HybridTimestamp ts) {
+    public boolean tryLock(UUID txId, HybridTimestamp ts) {
         return inBusyLock(busyLock, () -> {
             updateLowWatermarkLock.readLock().lock();
 
@@ -311,7 +315,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                     return false;
                 }
 
-                locks.put(lockId, new LowWatermarkLock(ts));
+                roTxLocks.put(txId, new LowWatermarkLock(ts));
 
                 return true;
             } finally {
@@ -321,8 +325,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void unlock(Object lockId) {
-        LowWatermarkLock lock = locks.remove(lockId);
+    public void unlock(UUID txId) {
+        LowWatermarkLock lock = roTxLocks.remove(txId);
 
         if (lock == null) {
             // Already released.
@@ -330,6 +334,11 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         }
 
         lock.future().complete(null);
+    }
+
+    @Override
+    public Set<UUID> lockIds() {
+        return Collections.unmodifiableSet(roTxLocks.keySet());
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
@@ -365,7 +374,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             updateLowWatermarkLock.writeLock().lock();
 
             try {
-                for (LowWatermarkLock lock : locks.values()) {
+                for (LowWatermarkLock lock : roTxLocks.values()) {
                     if (lock.timestamp().compareTo(newLowWatermark) < 0) {
                         return lock.future().thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark));
                     }

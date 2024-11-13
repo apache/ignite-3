@@ -236,6 +236,10 @@ public class VolatileTxStateMetaStorage {
                 });
     }
 
+    Map<UUID, TxStateMeta> statesMap() {
+        return txStateMap;
+    }
+
     private static TxStateMeta markInitialVacuumObservationTimestamp(TxStateMeta meta, long vacuumObservationTimestamp) {
         return new TxStateMeta(
                 meta.txState(),
