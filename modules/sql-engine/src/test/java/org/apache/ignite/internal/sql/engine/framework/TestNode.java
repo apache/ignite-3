@@ -216,10 +216,11 @@ public class TestNode implements LifecycleAware {
      *
      * @param plan A plan to execute.
      * @param transaction External transaction.
+     * @param params Query parameters.
      * @return A cursor representing the result.
      */
-    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
-        SqlOperationContext ctx = createContext(transaction).build();
+    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction, Object... params) {
+        SqlOperationContext ctx = createContext(transaction, params).build();
 
         return executionService.executePlan(plan, ctx);
     }
@@ -229,10 +230,11 @@ public class TestNode implements LifecycleAware {
      * and returns an async cursor representing the result.
      *
      * @param plan A plan to execute.
+     * @param params Query parameters.
      * @return A cursor representing the result.
      */
-    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan) {
-        return executePlan(plan, null);
+    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan, Object... params) {
+        return executePlan(plan, null, params);
     }
 
     /**
@@ -312,8 +314,8 @@ public class TestNode implements LifecycleAware {
         return createContext(ImplicitTxContext.INSTANCE);
     }
 
-    private SqlOperationContext.Builder createContext(@Nullable InternalTransaction tx) {
-        return createContext(tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx));
+    private SqlOperationContext.Builder createContext(@Nullable InternalTransaction tx, Object... params) {
+        return createContext(tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx), params);
     }
 
     private SqlOperationContext.Builder createContext(QueryTransactionContext txContext, Object... params) {

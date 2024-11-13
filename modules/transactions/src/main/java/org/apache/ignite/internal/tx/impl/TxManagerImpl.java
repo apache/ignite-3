@@ -364,17 +364,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
-        return begin(timestampTracker, false, TxPriority.NORMAL);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit) {
+        return begin(timestampTracker, implicit, false);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, readOnly, TxPriority.NORMAL);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
+        return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
@@ -383,7 +383,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -405,7 +405,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
             txFuture.whenComplete((unused, throwable) -> lowWatermark.unlock(txId));
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, txFuture);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
@@ -441,7 +441,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         finishedTxs.add(1);
 
         if (commit) {
-            timestampTracker.update(clockService.now());
+            timestampTracker.update(clockService.current());
 
             finalState = COMMITTED;
         } else {

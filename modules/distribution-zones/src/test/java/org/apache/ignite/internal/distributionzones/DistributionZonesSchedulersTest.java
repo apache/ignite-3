@@ -72,6 +72,13 @@ public class DistributionZonesSchedulersTest {
         testSchedule(state::rescheduleScaleDown);
     }
 
+    @Test
+    void testPartitionDistributionResetSchedule() throws InterruptedException {
+        ZoneState state = new ZoneState(executor);
+
+        testSchedule(state::reschedulePartitionDistributionReset);
+    }
+
     private static void testSchedule(IgniteTriConsumer<Long, Runnable, Integer> fn) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -98,9 +105,16 @@ public class DistributionZonesSchedulersTest {
         testReScheduling(state::rescheduleScaleDown);
     }
 
+    @Test
+    void testPartitionDistributionResetScheduling() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testReScheduling(state::reschedulePartitionDistributionReset);
+    }
+
     /**
-     * Tests that scaleUp/scaleDown tasks with a zero delay will not be canceled by other tasks.
-     * Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by other tasks.
+     * Tests that scaleUp/scaleDown/partitionDistributionReset tasks with a zero delay will not be canceled by other tasks.
+     * Tests that scaleUp/scaleDown/partitionDistributionReset tasks with a delay grater then zero will be canceled by other tasks.
      */
     private static void testReScheduling(IgniteTriConsumer<Long, Runnable, Integer> fn) throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
@@ -166,6 +180,13 @@ public class DistributionZonesSchedulersTest {
         testOrdering(state::rescheduleScaleDown);
     }
 
+    @Test
+    void testPartitionDistributionResetOrdering() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testOrdering(state::reschedulePartitionDistributionReset);
+    }
+
     private static void testOrdering(IgniteTriConsumer<Long, Runnable, Integer> fn) throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
 
@@ -229,6 +250,13 @@ public class DistributionZonesSchedulersTest {
         testReScheduleWhenTaskIsEnded(state::rescheduleScaleUp);
     }
 
+    @Test
+    void testPartitionDistributionResetReScheduleWhenTaskIsEnded() throws InterruptedException {
+        ZoneState state = new ZoneState(executor);
+
+        testReScheduleWhenTaskIsEnded(state::reschedulePartitionDistributionReset);
+    }
+
     private static void testReScheduleWhenTaskIsEnded(IgniteTriConsumer<Long, Runnable, Integer> fn) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -261,6 +289,17 @@ public class DistributionZonesSchedulersTest {
     }
 
     @Test
+    void testCancelPartitionDistributionResetTaskOnStopScaleDown() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(
+                state::reschedulePartitionDistributionReset,
+                state::stopPartitionDistributionReset,
+                () -> state.partitionDistributionResetTask().isCancelled()
+        );
+    }
+
+    @Test
     void testCancelScaleUpTasksOnStopTimers() {
         ZoneState state = new ZoneState(executor);
 
@@ -274,8 +313,20 @@ public class DistributionZonesSchedulersTest {
         testCancelTask(state::rescheduleScaleDown, state::stopTimers, () -> state.scaleDownTask().isCancelled());
     }
 
+    @Test
+    void testCancelPartitionDistributionResetTasksOnStopTimers() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(
+                state::reschedulePartitionDistributionReset,
+                state::stopTimers,
+                () -> state.partitionDistributionResetTask().isCancelled()
+        );
+    }
+
     /**
-     * {@link ZoneState#stopScaleUp()}, {@link ZoneState#stopScaleDown()} and {@link ZoneState#stopTimers()} cancel task
+     * {@link ZoneState#stopScaleUp()}, {@link ZoneState#stopScaleDown()}, {@link ZoneState#stopPartitionDistributionReset()}
+     * and {@link ZoneState#stopTimers()} cancel task
      * if it is not started and has a delay greater than zero.
      */
     private static void testCancelTask(
@@ -323,8 +374,21 @@ public class DistributionZonesSchedulersTest {
 
     }
 
+    @Test
+    void testNotCancelPartitionDistributionResetTaskOnStopPartitionDistributionReset() {
+        ZoneState state = new ZoneState(executor);
+
+        testNotCancelTask(
+                state::reschedulePartitionDistributionReset,
+                state::stopPartitionDistributionReset,
+                () -> state.partitionDistributionResetTask().isCancelled()
+        );
+
+    }
+
     /**
-     * {@link ZoneState#stopScaleUp()} and {@link ZoneState#stopScaleDown()} doesn't cancel task
+     * {@link ZoneState#stopScaleUp()}, {@link ZoneState#stopScaleDown()} and {@link ZoneState#stopPartitionDistributionReset()}
+     * doesn't cancel task
      * if it is not started and has a delay equal to zero.
      */
     private static void testNotCancelTask(
@@ -400,13 +464,33 @@ public class DistributionZonesSchedulersTest {
 
         assertFalse(state.scaleDownTask().isCancelled());
 
+        CountDownLatch partitionDistributionResetTaskLatch = new CountDownLatch(1);
+
+        state.reschedulePartitionDistributionReset(
+                0L,
+                () -> {
+                    try {
+                        assertTrue(partitionDistributionResetTaskLatch.await(3, TimeUnit.SECONDS));
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                STRIPE_0
+        );
+
+        state.reschedulePartitionDistributionReset(0L, () -> {}, STRIPE_0);
+
+        assertFalse(state.partitionDistributionResetTask().isCancelled());
+
         state.stopTimers();
 
         assertTrue(state.scaleUpTask().isCancelled());
         assertTrue(state.scaleDownTask().isCancelled());
+        assertTrue(state.partitionDistributionResetTask().isCancelled());
 
         scaleUpTaskLatch.countDown();
         scaleDownTaskLatch.countDown();
+        partitionDistributionResetTaskLatch.countDown();
     }
 
     /**

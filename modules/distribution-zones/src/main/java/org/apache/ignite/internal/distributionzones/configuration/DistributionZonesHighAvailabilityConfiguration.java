@@ -19,9 +19,11 @@ package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -32,25 +34,31 @@ public class DistributionZonesHighAvailabilityConfiguration {
      *
      * <p>Default value is {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE}.</p>
      */
-    static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
+    public static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
 
     /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT}. */
-    private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
+    private static final int PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
 
     private final SystemDistributedConfiguration systemDistributedConfig;
 
     /** Determines partition group reset timeout after a partition group majority loss. */
-    private volatile long partitionDistributionResetTimeout;
+    private volatile int partitionDistributionResetTimeoutSeconds;
+
+    /** Listener, which receives (timeout, revision) on every configuration update. */
+    private final BiConsumer<Integer, Long> partitionDistributionResetListener;
 
     /** Constructor. */
-    public DistributionZonesHighAvailabilityConfiguration(SystemDistributedConfiguration systemDistributedConfig) {
+    public DistributionZonesHighAvailabilityConfiguration(
+            SystemDistributedConfiguration systemDistributedConfig,
+            BiConsumer<Integer, Long> partitionDistributionResetListener) {
         this.systemDistributedConfig = systemDistributedConfig;
+        this.partitionDistributionResetListener = partitionDistributionResetListener;
     }
 
     /** Starts component. */
     public void start() {
         systemDistributedConfig.listen(ctx -> {
-            updateSystemProperties(ctx.newValue());
+            updateSystemProperties(ctx.newValue(), ctx.storageRevision());
 
             return nullCompletedFuture();
         });
@@ -61,32 +69,35 @@ public class DistributionZonesHighAvailabilityConfiguration {
     void startAndInit() {
         start();
 
-        updateSystemProperties(systemDistributedConfig.value());
+        updateSystemProperties(systemDistributedConfig.value(), 0);
     }
 
-    /** Returns partition group reset timeout after a partition group majority loss. */
-    long partitionDistributionResetTimeout() {
-        return partitionDistributionResetTimeout;
+    /** Returns partition group reset timeout. */
+    public int partitionDistributionResetTimeoutSeconds() {
+        return partitionDistributionResetTimeoutSeconds;
     }
 
-    private void updateSystemProperties(SystemDistributedView view) {
-        partitionDistributionResetTimeout = longValue(
+    private void updateSystemProperties(SystemDistributedView view, long revision) {
+        Loggers.forClass(DistributionZonesHighAvailabilityConfiguration.class).info("System properties updated [revision ={}].", revision);
+
+        partitionDistributionResetTimeoutSeconds = intValue(
                 view,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE
         );
+        partitionDistributionResetListener.accept(partitionDistributionResetTimeoutSeconds, revision);
     }
 
-    private static long longValue(SystemDistributedView systemDistributedView, String systemPropertyName, long defaultValue) {
-        return longValue(systemDistributedView.properties().get(systemPropertyName), defaultValue);
+    private static int intValue(SystemDistributedView systemDistributedView, String systemPropertyName, int defaultValue) {
+        return intValue(systemDistributedView.properties().get(systemPropertyName), defaultValue);
     }
 
-    private static long longValue(@Nullable SystemPropertyView systemPropertyView, long defaultValue) {
+    private static int intValue(@Nullable SystemPropertyView systemPropertyView, int defaultValue) {
         if (systemPropertyView == null) {
             return defaultValue;
         }
 
         // There should be no errors, the {@code NonNegativeLongNumberSystemPropertyValueValidator} should work.
-        return Long.parseLong(systemPropertyView.propertyValue());
+        return Integer.parseInt(systemPropertyView.propertyValue());
     }
 }
