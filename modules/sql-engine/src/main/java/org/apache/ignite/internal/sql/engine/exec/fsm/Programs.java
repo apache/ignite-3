@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-/** Handler that kick starts query processing. */
-class RegisteredPhaseHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new RegisteredPhaseHandler();
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 
-    private RegisteredPhaseHandler() { }
+/** Enumerates all programs available for execution. */
+class Programs {
+    /** General execution program. Accepts query string as input and returns cursor as result of execution. */
+    static final Program<AsyncSqlCursor<InternalSqlRow>> QUERY_EXECUTION = QueryExecutionProgram.INSTANCE;
 
-    @Override
-    public Result handle(Query query) {
-        return Result.completed();
-    }
+    /** A program to execute child query within a script. As input expects already parsed AST and returns cursor as result. */
+    static final Program<AsyncSqlCursor<InternalSqlRow>> SCRIPT_ITEM_EXECUTION = ScriptItemExecutionProgram.INSTANCE;
 }

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-/** Handler that kick starts query processing. */
-class RegisteredPhaseHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new RegisteredPhaseHandler();
+/** No-op handler that causes fsm to stop after current phase. */
+class NoOpHandler implements ExecutionPhaseHandler {
+    static final ExecutionPhaseHandler INSTANCE = new NoOpHandler();
 
-    private RegisteredPhaseHandler() { }
+    private NoOpHandler() { }
 
     @Override
     public Result handle(Query query) {

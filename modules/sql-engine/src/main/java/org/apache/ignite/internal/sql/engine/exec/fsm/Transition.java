@@ -17,14 +17,33 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-/** No-op handler that causes fsm to stop after current phase. */
-class StopHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new StopHandler();
+import java.util.function.Function;
 
-    private StopHandler() { }
+/**
+ * Describes a transition in query FSM.
+ * 
+ * <p>This class encapsulates logic of choosing particular destination by considering current state of the {@link Query}.
+ */
+class Transition {
+    private final ExecutionPhase from;
+    private final Function<Query, ExecutionPhase> to;
 
-    @Override
-    public Result handle(Query query) {
-        return Result.stop();
+    Transition(ExecutionPhase from, Function<Query, ExecutionPhase> to) {
+        this.from = from;
+        this.to = to;
+    }
+
+    ExecutionPhase from() {
+        return from;
+    }
+
+    void move(Query query) {
+        ExecutionPhase newPhase = to.apply(query);
+
+        ExecutionPhase current = query.currentPhase();
+
+        assert current == from : current;
+
+        query.moveTo(newPhase);
     }
 }
