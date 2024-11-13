@@ -382,7 +382,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
     }
 
-    private @NotNull CompletableFuture<Void> sendUnsubscribeLeaderMessageAndClearSubscribersMap() {
+    private CompletableFuture<Void> sendUnsubscribeLeaderMessageAndClearSubscribersMap() {
         var peers = peers();
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
