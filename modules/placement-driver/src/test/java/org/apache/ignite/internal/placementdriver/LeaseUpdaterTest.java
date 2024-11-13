@@ -21,6 +21,9 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -31,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -103,7 +107,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     @Mock
     private LeaseTracker leaseTracker;
     @Mock
-    private Cursor<Entry> mcEntriesCursor;
+    private Cursor<Entry> msStableAssignmentsEntriesCursor;
+    @Mock
+    private Cursor<Entry> msPendingAssignmentsEntriesCursor;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -117,19 +123,30 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp() {
         HybridClockImpl clock = new HybridClockImpl();
 
-        Entry entry = new EntryImpl(
+        Entry stableEntry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
                 Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(node.name())).toBytes(),
                 1,
                 clock.now()
         );
 
-        when(mcEntriesCursor.iterator()).thenReturn(List.of(entry).iterator());
+        Entry pendingEntry = new EntryImpl(
+                pendingPartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
+                Assignments.of(HybridTimestamp.MIN_VALUE.longValue(), Assignment.forPeer(node.name())).toBytes(),
+                1,
+                clock.now()
+        );
+
+        when(msStableAssignmentsEntriesCursor.iterator()).thenReturn(List.of(stableEntry).iterator());
+        when(msPendingAssignmentsEntriesCursor.iterator()).thenReturn(List.of(pendingEntry).iterator());
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
-        when(metaStorageManager.getLocally(any(ByteArray.class), any(ByteArray.class), anyLong())).thenReturn(mcEntriesCursor);
+        when(metaStorageManager.getLocally(eq(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
+                .thenReturn(msStableAssignmentsEntriesCursor);
+        when(metaStorageManager.getLocally(eq(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
+                .thenReturn(msPendingAssignmentsEntriesCursor);
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(node))));
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
