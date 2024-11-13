@@ -173,9 +173,19 @@ class Query implements Runnable {
     /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         synchronized (mux) {
+            ExecutionPhase currentPhase = this.currentPhase;
+
+            // Transition from TERMINATED to TERMINATED is possible, when query is completed successfully 
+            // just moment before the node starts to shut down. In this case, all running queries are terminated
+            // with NodeStoppingException, and completed query may still be presented in the list of running queries.
+            if (currentPhase == newPhase && currentPhase == ExecutionPhase.TERMINATED) {
+                // ignore such transition
+                return;
+            }
+
             assert currentPhase.transitionAllowed(newPhase) : "currentPhase=" + currentPhase + ", newPhase=" + newPhase;
 
-            currentPhase = newPhase;
+            this.currentPhase = newPhase;
         }
 
         onPhaseStartedCallback.computeIfAbsent(newPhase, k -> new CompletableFuture<>()).complete(null);

@@ -23,8 +23,8 @@ import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 /**
  * Dummy no-op tracker.
  */
-final class NoOpTransactionTracker implements TransactionTracker {
-    static final TransactionTracker INSTANCE = new NoOpTransactionTracker();
+public final class NoOpTransactionTracker implements TransactionTracker {
+    public static final TransactionTracker INSTANCE = new NoOpTransactionTracker();
 
     @Override
     public boolean register(UUID txId, boolean readOnly) {
