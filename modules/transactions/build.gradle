@@ -56,10 +56,6 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
-    integrationTestImplementation project(":ignite-network-api")
-    integrationTestImplementation project(":ignite-system-view")
-    integrationTestImplementation project(":ignite-system-view-api")
-    integrationTestImplementation project(":ignite-cluster-management")
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
