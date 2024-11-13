@@ -41,7 +41,8 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final UUID id = randomUUID();
 
-    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
+    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
+            .addPhysicalTime(System.currentTimeMillis());
 
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
