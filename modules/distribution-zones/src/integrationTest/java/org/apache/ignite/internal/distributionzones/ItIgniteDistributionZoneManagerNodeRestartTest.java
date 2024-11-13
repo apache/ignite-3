@@ -123,6 +123,8 @@ import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigur
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -139,6 +141,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
             new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
@@ -170,6 +173,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     private volatile boolean startScaleDownBlocking;
 
     private volatile boolean startGlobalStateUpdateBlocking;
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonScheduledExecutorService;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -244,7 +250,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 name,
                 workDir.resolve("metastorage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                commonScheduledExecutorService
         );
 
         var clock = new HybridClockImpl();

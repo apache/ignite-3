@@ -691,7 +691,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 metastorageWorkDir.dbPath(),
                 failureManager,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                threadPoolsManager.commonScheduler()
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
