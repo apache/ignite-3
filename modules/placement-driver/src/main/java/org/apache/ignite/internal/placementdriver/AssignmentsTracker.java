@@ -162,8 +162,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assert areAssignmentsPresentedInEvent(event) : "New assignments are empty";
-
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
@@ -183,8 +181,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assert areAssignmentsPresentedInEvent(event) : "New assignments are empty";
-
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
@@ -198,10 +194,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             public void onError(Throwable e) {
             }
         };
-    }
-
-    private static boolean areAssignmentsPresentedInEvent(WatchEvent event) {
-        return event.entryEvents().stream().noneMatch(e -> e.newEntry().empty());
     }
 
     private static void handleReceivedAssignments(
