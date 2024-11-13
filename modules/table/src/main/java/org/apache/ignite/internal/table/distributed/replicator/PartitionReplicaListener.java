@@ -630,7 +630,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
                 })
                 .thenCompose(leaderWithTerm -> {
-                    if (leaderWithTerm.isEmpty()) {
+                    if (leaderWithTerm.isEmpty() || !isTokenStillValidPrimary(request.enlistmentConsistencyToken())) {
                         return nullCompletedFuture();
                     }
 
@@ -645,6 +645,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
                 });
+    }
+
+    private boolean isTokenStillValidPrimary(long suspectedEnlistmentConsistencyToken) {
+        HybridTimestamp currentTime = clockService.current();
+
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, currentTime);
+
+        return meta != null
+                && isLocalPeer(meta.getLeaseholderId())
+                && clockService.before(currentTime, meta.getExpirationTime())
+                && suspectedEnlistmentConsistencyToken == meta.getStartTime().longValue();
     }
 
     private static PeersAndLearners peersConfigurationFromMessage(ChangePeersAndLearnersReplicaRequest request) {

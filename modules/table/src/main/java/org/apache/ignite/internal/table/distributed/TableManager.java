@@ -2076,7 +2076,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             boolean isRecovery
     ) {
-        LOG.info("?!?!?!");
         if (pendingAssignmentsEntry.value() == null) {
             return nullCompletedFuture();
         }
@@ -2129,9 +2128,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 isRecovery,
                                 assignmentsTimestamp
                         ).thenAccept(v -> executeIfLocalNodeIsPrimaryForGroup(
-                                stableAssignments,
-                                pendingAssignments,
-                                isRecovery,
                                 replicaGrpId,
                                 replicaMeta -> sendChangePeersAndLearnersRequest(
                                         replicaMeta,
@@ -2273,42 +2269,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void executeIfLocalNodeIsPrimaryForGroup(
-            Assignments stableAssignments,
-            Assignments pendingAssignments,
-            boolean isRecovery,
             ReplicationGroupId groupId,
             Consumer<ReplicaMeta> toExecute
     ) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = getPrimaryReplica(groupId);
 
-        boolean primaryReplicaCantBeElected = stableAssignments
-                .nodes()
-                .stream()
-                .allMatch(assignment -> topologyService.getByConsistentId(assignment.consistentId()) == null);
-
-        LOG.info("!!! primaryReplicaCantBeElected={}", primaryReplicaCantBeElected);
-
         isLocalNodeIsPrimary(primaryReplicaFuture).thenAccept(isPrimary -> {
-            if (!isPrimary) {
-                if (primaryReplicaCantBeElected) {
-                    toExecute.accept(null);
-                }
-
-                LOG.info("!!! not a primary grpId={}", groupId);
-                return;
+            if (isPrimary) {
+                primaryReplicaFuture.thenAccept(toExecute);
             }
-
-            primaryReplicaFuture.thenAccept(toExecute);
         });
     }
 
     private void sendChangePeersAndLearnersRequest(
             ReplicaMeta replicaMeta,
             TablePartitionId replicationGroupId,
-            Assignments newConfiguration,
+            Assignments pendingAssignments,
             long currentRevision
     ) {
-        LOG.info("!!! sending grpId={}", replicationGroupId);
         metaStorageMgr.get(pendingPartAssignmentsKey(replicationGroupId)).thenAccept(latestPendingAssignmentsEntry -> {
             // Do not change peers of the raft group if this is a stale event.
             // Note that we start raft node before for the sake of the consistency in a
@@ -2320,18 +2298,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
                     .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
 
-            ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(newConfiguration.toBytes())
+            ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(pendingAssignments.toBytes())
                     .order(BinaryTuple.ORDER);
 
             BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                    .elementCount(newConfiguration.nodes().size())
+                    .elementCount(pendingAssignments.nodes().size())
                     .tuple(pendingAssignmentsBytes)
                     .build();
 
             ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersReplicaRequest()
                     .groupId(partitionIdMessage)
-                    .pendingAssignments(pendingAssignmentsMessage) // TODO: remove?
-                    //.enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    .pendingAssignments(pendingAssignmentsMessage)
+                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 
             replicaSvc.invoke(localNode(), request);
