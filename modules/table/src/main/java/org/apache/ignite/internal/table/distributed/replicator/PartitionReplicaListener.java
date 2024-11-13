@@ -217,7 +217,6 @@ import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -815,16 +814,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     .thenApply(ignored -> rows);
                         }
                     })
-                    .handle((rows, err) -> {
+                    .whenComplete((rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
                             releaseTxLocks(req.transactionId());
                         }
-
-                        if (err != null) {
-                            ExceptionUtils.sneakyThrow(err);
-                        }
-
-                        return rows;
                     });
         } else if (request instanceof ScanCloseReplicaRequest) {
             processScanCloseAction((ScanCloseReplicaRequest) request);

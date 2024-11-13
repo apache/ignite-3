@@ -589,7 +589,7 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
+                    TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                     queryCancel
             );

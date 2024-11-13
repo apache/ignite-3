@@ -58,7 +58,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyListComple
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -811,16 +811,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
-                .handle((v, th) -> {
+                .whenComplete((v, th) -> {
                     partitionReplicaLifecycleManager.unlockZoneForRead(zoneDescriptor.id(), stamp);
 
-                    if (th != null) {
-                        sneakyThrow(th);
+                    if (th == null) {
+                        addTableToZone(zoneDescriptor.id(), table);
                     }
-
-                    addTableToZone(zoneDescriptor.id(), table);
-
-                    return v;
                 })
                 .thenApply(unused -> false);
     }
@@ -985,18 +981,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
-                    .handle((invokeResult, e) -> {
+                    .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
                                     "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
                                     e,
                                     Assignments.assignmentListToString(newAssignments)
                             );
-
-                            throw sneakyThrow(e);
                         }
-
-                        return invokeResult;
                     })
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
@@ -1040,14 +1032,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             });
                         }
                     })
-                    .handle((realAssignments, e) -> {
+                    .whenComplete((realAssignments, e) -> {
                         if (e != null) {
                             LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
-
-                            throw sneakyThrow(e);
                         }
-
-                        return realAssignments;
                     });
         });
     }

@@ -74,9 +74,9 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         ReliableChannel ch = ((TcpIgniteClient) client).channel();
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
 
-        // +2 because logical time is incremented on every call to nowLong - for replica tracker and for handshake.
+        // +1 because logical time is incremented on every call to nowLong - on client handler start.
         assertEquals(
-                (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 2,
+                (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 1,
                 ch.observableTimestamp(),
                 "Handshake should initialize observable timestamp");
 

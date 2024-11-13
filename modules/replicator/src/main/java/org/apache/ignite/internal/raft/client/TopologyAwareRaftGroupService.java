@@ -55,7 +55,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -340,11 +339,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                     if (!leaderWithTerm.isEmpty()) {
-                        eventsClientListener.onLeaderElected(
-                                groupId(),
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
-                                leaderWithTerm.term()
-                        );
+                        ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                        if (leaderHost != null) {
+                            eventsClientListener.onLeaderElected(
+                                    groupId(),
+                                    leaderHost,
+                                    leaderWithTerm.term()
+                            );
+                        } else {
+                            LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
+                        }
                     }
                 }, executor);
             }, executor);
@@ -592,11 +597,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         allOf(futures.toArray(CompletableFuture[]::new)).thenAcceptAsync(unused -> {
             if (notifyOnSubscription) {
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    if (!leaderWithTerm.isEmpty()) {
+                    ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                    if (leaderHost != null) {
                         serverEventHandler.onLeaderElected(
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
+                                leaderHost,
                                 leaderWithTerm.term()
                         );
+                    } else {
+                        LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                     }
                 }, executor);
             }
