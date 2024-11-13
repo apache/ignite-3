@@ -56,6 +56,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -66,7 +68,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link ComputeComponent}.
  */
-public class ComputeComponentImpl implements ComputeComponent {
+public class ComputeComponentImpl implements ComputeComponent, SystemViewProvider {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeComponentImpl.class);
 
     /** Busy lock to stop synchronously. */
@@ -90,6 +92,8 @@ public class ComputeComponentImpl implements ComputeComponent {
     private final ExecutionManager executionManager;
 
     private final ExecutorService failoverExecutor;
+
+    private final ComputeViewProvider computeViewProvider = new ComputeViewProvider();
 
     /**
      * Creates a new instance.
@@ -271,6 +275,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         executor.start();
         messaging.start(this::executeLocally);
         executionManager.start();
+        computeViewProvider.init(executionManager);
 
         return nullCompletedFuture();
     }
@@ -288,6 +293,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         executionManager.stop();
         messaging.stop();
         executor.stop();
+        computeViewProvider.stop();
         IgniteUtils.shutdownAndAwaitTermination(failoverExecutor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
@@ -320,5 +326,10 @@ public class ComputeComponentImpl implements ComputeComponent {
     @TestOnly
     ExecutionManager executionManager() {
         return executionManager;
+    }
+
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(computeViewProvider.get());
     }
 }
