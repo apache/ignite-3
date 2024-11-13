@@ -1187,7 +1187,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
-                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0))));
+                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0), false)));
     }
 
     private QueryPlan prepare(String query, SqlOperationContext ctx) {

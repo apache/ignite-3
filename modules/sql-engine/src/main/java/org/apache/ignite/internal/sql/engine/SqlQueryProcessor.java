@@ -101,6 +101,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -407,6 +408,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             SqlProperties properties,
             HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     ) {
@@ -418,7 +420,13 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             QueryTransactionContext txContext = new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction,
                     txTracker);
 
-            return queryExecutor.executeQuery(properties, txContext, qry, params);
+            return queryExecutor.executeQuery(
+                    properties,
+                    txContext,
+                    qry,
+                    cancellationToken,
+                    params
+            );
         } finally {
             busyLock.leaveBusy();
         }

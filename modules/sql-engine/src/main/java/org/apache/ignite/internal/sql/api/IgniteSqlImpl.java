@@ -62,6 +62,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
@@ -201,11 +202,16 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(query);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, query, arguments).join());
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -213,11 +219,16 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(statement);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, cancellationToken, statement, arguments).join());
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -225,15 +236,16 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public  <T> ResultSet<T> execute(
+    public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, cancellationToken, query, arguments).join());
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -241,9 +253,10 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public  <T> ResultSet<T> execute(
+    public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
@@ -291,26 +304,32 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, createStatement(query), arguments);
+        return executeAsyncInternal(transaction, cancellationToken, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, statement, arguments);
+        return executeAsyncInternal(transaction, cancellationToken, statement, arguments);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
-            String query, @Nullable Object... arguments) {
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            String query, @Nullable Object... arguments
+    ) {
         // TODO: IGNITE-18695.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -320,14 +339,17 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
         // TODO: IGNITE-18695.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
@@ -347,7 +369,12 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     .build();
 
             result = queryProcessor.queryAsync(
-                    properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
+                    properties,
+                    observableTimestampTracker,
+                    (InternalTransaction) transaction,
+                    cancellationToken,
+                    statement.query(),
+                    arguments
             ).thenCompose(cur -> {
                 if (!busyLock.enterBusy()) {
                     cur.closeAsync();
@@ -459,7 +486,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, null, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -578,8 +605,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build());
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryAsync(properties0, observableTimestampTracker, null, query, arguments);
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
+                properties0,
+                observableTimestampTracker,
+                null,
+                null,
+                query,
+                arguments
+        );
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
