@@ -143,7 +143,7 @@ public class ExecutorServiceExtensionTest {
     void testErrorStaticFieldInjection() {
         assertExecutesWithFailure(
                 ErrorFieldInjectionTest.class,
-                instanceOf(AssertionError.class),
+                instanceOf(IllegalStateException.class),
                 message(m -> m.contains("Unsupported field type"))
         );
     }

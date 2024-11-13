@@ -168,7 +168,7 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
 
     private static void checkFieldTypeIsSupported(Field field) {
         if (!isFieldTypeIsSupported(field.getType())) {
-            throw new AssertionError(
+            throw new IllegalStateException(
                     String.format("Unsupported field type: [field=%s, supportedFieldTypes=%s]", field, SUPPORTED_FIELD_TYPES)
             );
         }
