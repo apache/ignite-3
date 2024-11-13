@@ -23,6 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.thread.ThreadOperation;
 
 /**
  * Annotation for injecting {@link ExecutorService} instances into tests.
@@ -57,4 +58,7 @@ public @interface InjectExecutorService {
      * <p>By default the prefix will be in the format "test-field_type-field_name", for example "test-ExecutorService-commonExecutor".</p>
      */
     String threadPrefix() default "";
+
+    /** Operations that are allowed to be executed on threads. By default, nothing is available. */
+    ThreadOperation[] allowedOperations() default {};
 }

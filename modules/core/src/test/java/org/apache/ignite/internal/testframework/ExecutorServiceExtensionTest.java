@@ -21,7 +21,13 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesSuccessfully;
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesWithFailure;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.thread.ThreadOperation.WAIT;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +39,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -45,36 +53,40 @@ public class ExecutorServiceExtensionTest {
         @InjectExecutorService
         private static ExecutorService staticExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 2, threadPrefix = "test-foo-static-executor")
+        @InjectExecutorService(threadCount = 2, threadPrefix = "test-foo-static-executor", allowedOperations = TX_STATE_STORAGE_ACCESS)
         private static ExecutorService staticExecutorService;
 
         @InjectExecutorService
         private static ScheduledExecutorService staticScheduledExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 3, threadPrefix = "test-bar-static-executor")
+        @InjectExecutorService(
+                threadCount = 3,
+                threadPrefix = "test-bar-static-executor",
+                allowedOperations = {STORAGE_READ, STORAGE_WRITE}
+        )
         private static ScheduledExecutorService staticScheduledExecutorService;
 
         @InjectExecutorService
         private ExecutorService fieldExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 4, threadPrefix = "test-foo-field-executor")
+        @InjectExecutorService(threadCount = 4, threadPrefix = "test-foo-field-executor", allowedOperations = STORAGE_WRITE)
         private ExecutorService fieldExecutorService;
 
         @InjectExecutorService
         private ScheduledExecutorService fieldScheduledExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 5, threadPrefix = "test-bar-field-executor")
+        @InjectExecutorService(threadCount = 5, threadPrefix = "test-bar-field-executor", allowedOperations = PROCESS_RAFT_REQ)
         private ScheduledExecutorService fieldScheduledExecutorService;
 
         @Test
         void test(
                 @InjectExecutorService
                 ExecutorService parameterExecutorServiceWithDefaults,
-                @InjectExecutorService(threadCount = 6, threadPrefix = "test-foo-param-executor")
+                @InjectExecutorService(threadCount = 6, threadPrefix = "test-foo-param-executor", allowedOperations = WAIT)
                 ExecutorService parameterExecutorService,
                 @InjectExecutorService
                 ScheduledExecutorService parameterScheduledExecutorServiceWithDefaults,
-                @InjectExecutorService(threadCount = 7, threadPrefix = "test-bar-param-executor")
+                @InjectExecutorService(threadCount = 7, threadPrefix = "test-bar-param-executor", allowedOperations = WAIT)
                 ScheduledExecutorService parameterScheduledExecutorService
         ) {
             checkExecutorService(
@@ -108,12 +120,12 @@ public class ExecutorServiceExtensionTest {
                     "test-ScheduledExecutorService-arg"
             );
 
-            checkExecutorService(staticExecutorService, 2, "test-foo-static-executor");
-            checkScheduledExecutorService(staticScheduledExecutorService, 3, "test-bar-static-executor");
-            checkExecutorService(fieldExecutorService, 4, "test-foo-field-executor");
-            checkScheduledExecutorService(fieldScheduledExecutorService, 5, "test-bar-field-executor");
-            checkExecutorService(parameterExecutorService, 6, "test-foo-param-executor");
-            checkScheduledExecutorService(parameterScheduledExecutorService, 7, "test-bar-param-executor");
+            checkExecutorService(staticExecutorService, 2, "test-foo-static-executor", TX_STATE_STORAGE_ACCESS);
+            checkScheduledExecutorService(staticScheduledExecutorService, 3, "test-bar-static-executor", STORAGE_READ, STORAGE_WRITE);
+            checkExecutorService(fieldExecutorService, 4, "test-foo-field-executor", STORAGE_WRITE);
+            checkScheduledExecutorService(fieldScheduledExecutorService, 5, "test-bar-field-executor", PROCESS_RAFT_REQ);
+            checkExecutorService(parameterExecutorService, 6, "test-foo-param-executor", WAIT);
+            checkScheduledExecutorService(parameterScheduledExecutorService, 7, "test-bar-param-executor", WAIT);
         }
     }
 
@@ -148,23 +160,47 @@ public class ExecutorServiceExtensionTest {
         );
     }
 
-    private static void checkExecutorService(ExecutorService service, int expCorePoolSize, String expThreadPrefix) {
+    private static void checkExecutorService(
+            ExecutorService service,
+            int expCorePoolSize,
+            String expThreadPrefix,
+            ThreadOperation... expThreadOperations
+    ) {
         assertThat(service, instanceOf(ThreadPoolExecutor.class));
 
-        checkThreadPoolExecutor((ThreadPoolExecutor) service, expCorePoolSize, expThreadPrefix);
+        checkThreadPoolExecutor((ThreadPoolExecutor) service, expCorePoolSize, expThreadPrefix, expThreadOperations);
     }
 
-    private static void checkScheduledExecutorService(ScheduledExecutorService service, int expCorePoolSize, String expThreadPrefix) {
+    private static void checkScheduledExecutorService(
+            ScheduledExecutorService service,
+            int expCorePoolSize,
+            String expThreadPrefix,
+            ThreadOperation... expThreadOperations
+    ) {
         assertThat(service, instanceOf(ScheduledThreadPoolExecutor.class));
 
-        checkThreadPoolExecutor((ScheduledThreadPoolExecutor) service, expCorePoolSize, expThreadPrefix);
+        checkThreadPoolExecutor((ScheduledThreadPoolExecutor) service, expCorePoolSize, expThreadPrefix, expThreadOperations);
     }
 
-    private static void checkThreadPoolExecutor(ThreadPoolExecutor executor, int expCorePoolSize, String expThreadPrefix) {
+    private static void checkThreadPoolExecutor(
+            ThreadPoolExecutor executor,
+            int expCorePoolSize,
+            String expThreadPrefix,
+            ThreadOperation... expThreadOperations
+    ) {
         assertEquals(executor.getCorePoolSize(), expCorePoolSize);
 
         assertThat(
-                runAsync(() -> assertThat(Thread.currentThread().getName(), containsString(expThreadPrefix)), executor),
+                runAsync(() -> {
+                    Thread thread = Thread.currentThread();
+
+                    assertThat(thread, instanceOf(IgniteThread.class));
+
+                    IgniteThread thread1 = (IgniteThread) thread;
+
+                    assertThat(thread1.getName(), containsString(expThreadPrefix));
+                    assertThat(thread1.allowedOperations(), containsInAnyOrder(expThreadOperations));
+                }, executor),
                 willCompleteSuccessfully()
         );
     }

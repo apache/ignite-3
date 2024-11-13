@@ -27,10 +27,12 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -200,8 +202,9 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
     ) {
         int threadCount = injectExecutorService.threadCount();
         String threadPrefix = threadPrefix(injectExecutorService, fieldName, fieldType);
+        ThreadOperation[] allowedOperations = injectExecutorService.allowedOperations();
 
-        var threadFactory = new NamedThreadFactory(threadPrefix, Loggers.forClass(testClass));
+        ThreadFactory threadFactory = IgniteThreadFactory.withPrefix(threadPrefix, Loggers.forClass(testClass), allowedOperations);
 
         if (fieldType.equals(ScheduledExecutorService.class)) {
             return newScheduledThreadPool(threadCount == 0 ? 1 : threadCount, threadFactory);

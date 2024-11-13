@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -308,7 +309,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
-    @InjectExecutorService(threadCount = 1, threadPrefix = "storage-test-pool-iinrt")
+    @InjectExecutorService(threadCount = 1, threadPrefix = "storage-test-pool-iinrt", allowedOperations = STORAGE_READ)
     private ExecutorService storageExecutor;
 
     @InjectExecutorService
