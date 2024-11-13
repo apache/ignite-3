@@ -55,24 +55,24 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     /**
      * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).
      *
-     * @param txId ID of transaction that locks the low watermark.
+     * @param lockId ID of the transaction for which the low watermark should be locked.
      * @param ts Timestamp to lock.
      * @return True if the lock was acquired,
      *     false if the lock was not acquired due to the low watermark being higher than the provided timestamp.
      */
-    boolean tryLock(UUID txId, HybridTimestamp ts);
+    boolean tryLock(UUID lockId, HybridTimestamp ts);
 
     /**
      * Releases the lock created by {@link #tryLock(UUID, HybridTimestamp)}.
      *
-     * @param txId ID of the transaction That locked the low watermark.
+     * @param lockId ID of the transaction that locks the low watermark.
      */
-    void unlock(UUID txId);
+    void unlock(UUID lockId);
 
     /**
-     * Returns a set of all transaction IDs that locked the low watermark.
+     * Returns a set of all transaction IDs that lock the low watermark.
      *
-     * @return Set of all transaction IDs that locked the low watermark.
+     * @return Set of all transaction IDs that lock the low watermark.
      */
     Set<UUID> lockIds();
 }

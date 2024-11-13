@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import it.unimi.dsi.fastutil.Pair;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -195,6 +194,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final TransactionInflights transactionInflights;
 
     private final ReplicaService replicaService;
+
+    private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
@@ -760,6 +761,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txStateVolatileStorage.start();
 
+            txViewProvider.init(localNodeId, lowWatermark.lockIds(), txStateVolatileStorage.statesMap());
+
             orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
             txCleanupRequestSender.start();
@@ -927,20 +930,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        TransactionsViewProvider provider = new TransactionsViewProvider(
-                () -> lowWatermark.lockIds().iterator(),
-                () -> txStateVolatileStorage.statesMap().entrySet().stream()
-                        .filter(e -> {
-                            TxStateMeta txStateMeta = e.getValue();
-
-                            return localNodeId.equals(txStateMeta.txCoordinatorId())
-                                    && txStateMeta.txState() != ABORTED && txStateMeta.txState() != COMMITTED;
-                        })
-                        .map(e -> Pair.of(e.getKey(), e.getValue().txState()))
-                        .collect(Collectors.toList()).iterator()
-        );
-
-        return List.of(provider.get());
+        return List.of(txViewProvider.get());
     }
 
     static class TransactionFailureHandler {

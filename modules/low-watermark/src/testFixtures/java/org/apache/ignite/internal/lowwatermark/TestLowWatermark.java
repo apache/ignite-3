@@ -88,7 +88,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public boolean tryLock(UUID txId, HybridTimestamp lockTs) {
+    public boolean tryLock(UUID lockId, HybridTimestamp lockTs) {
         updateLowWatermarkLock.readLock().lock();
 
         try {
@@ -97,7 +97,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
                 return false;
             }
 
-            locks.put(txId, new LowWatermarkLock(lockTs));
+            locks.put(lockId, new LowWatermarkLock(lockTs));
 
             return true;
         } finally {
@@ -106,8 +106,8 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void unlock(UUID txId) {
-        LowWatermarkLock lock = locks.remove(txId);
+    public void unlock(UUID lockId) {
+        LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {
             // Already released.

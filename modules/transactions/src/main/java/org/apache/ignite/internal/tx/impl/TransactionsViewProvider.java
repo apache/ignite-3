@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
-import it.unimi.dsi.fastutil.Pair;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -42,27 +47,35 @@ public class TransactionsViewProvider {
 
     public static final String READ_WRITE = "READ_WRITE";
 
-    private final Iterable<UUID> roTxDatasource;
+    private volatile Iterable<TxInfo> dataSource;
 
-    private final Iterable<Pair<UUID, TxState>> rwTxDatasource;
-
-    TransactionsViewProvider(
-            Iterable<UUID> roTxDatasource,
-            Iterable<Pair<UUID, TxState>> rwTxDatasource
+    /** Initializes provider with data sources. */
+    void init(
+            UUID localNodeId,
+            Collection<UUID> roTxIds,
+            Map<UUID, TxStateMeta> rwTxStates
     ) {
-        this.roTxDatasource = roTxDatasource;
-        this.rwTxDatasource = rwTxDatasource;
+        this.dataSource = new TxInfoDataSource(
+                localNodeId,
+                roTxIds,
+                rwTxStates
+        );
     }
 
     /** Returns a {@code TRANSACTIONS} system view. */
     SystemView<?> get() {
+        Publisher<TxInfo> dataProvider = SubscriptionUtils.fromIterable(
+                () -> {
+                    Iterable<TxInfo> dataSource0 = dataSource;
+
+                    return dataSource0 == null
+                            ? Collections.emptyIterator()
+                            : dataSource0.iterator();
+                }
+        );
+
         NativeType stringType = stringOf(64);
         NativeType timestampType = NativeTypes.timestamp(NativeTypes.MAX_TIME_PRECISION);
-
-        Publisher<TxInfo> publisher = SubscriptionUtils.fromIterable(CollectionUtils.concat(
-                () -> new TransformingIterator<>(roTxDatasource.iterator(), TxInfo::forReadOnly),
-                () -> new TransformingIterator<>(rwTxDatasource.iterator(), pair -> TxInfo.forReadWrite(pair.first(), pair.second()))
-        ));
 
         return SystemViews.<TxInfo>nodeViewBuilder()
                 .name("TRANSACTIONS")
@@ -72,8 +85,34 @@ public class TransactionsViewProvider {
                 .<Instant>addColumn("START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("PRIORITY", stringType, tx -> tx.priority)
-                .dataProvider(publisher)
+                .dataProvider(dataProvider)
                 .build();
+    }
+
+    static class TxInfoDataSource implements Iterable<TxInfo> {
+        private final UUID localNodeId;
+
+        private final Iterable<UUID> roTxIds;
+
+        private final Map<UUID, TxStateMeta> rwTxStates;
+
+        TxInfoDataSource(UUID localNodeId, Iterable<UUID> roTxIds, Map<UUID, TxStateMeta> rwTxStates) {
+            this.localNodeId = localNodeId;
+            this.roTxIds = roTxIds;
+            this.rwTxStates = rwTxStates;
+        }
+
+        @Override
+        public Iterator<TxInfo> iterator() {
+            return CollectionUtils.concat(
+                    new TransformingIterator<>(roTxIds.iterator(), TxInfo::readOnly),
+                    rwTxStates.entrySet().stream()
+                            .filter(e -> localNodeId.equals(e.getValue().txCoordinatorId())
+                                    && !isFinalState(e.getValue().txState()))
+                            .map(e -> TxInfo.readWrite(e.getKey(), e.getValue().txState()))
+                            .iterator()
+            );
+        }
     }
 
     static class TxInfo {
@@ -83,11 +122,11 @@ public class TransactionsViewProvider {
         private final String type;
         private final String priority;
 
-        static TxInfo forReadOnly(UUID id) {
+        static TxInfo readOnly(UUID id) {
             return new TxInfo(id, null, true);
         }
 
-        static TxInfo forReadWrite(UUID id, TxState txState) {
+        static TxInfo readWrite(UUID id, TxState txState) {
             return new TxInfo(id, txState, false);
         }
 
