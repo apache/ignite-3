@@ -434,6 +434,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23661")
     public void testLogicalTopologyRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
 
