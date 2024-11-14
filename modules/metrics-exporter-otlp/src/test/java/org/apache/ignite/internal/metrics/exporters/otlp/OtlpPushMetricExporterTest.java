@@ -65,7 +65,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
-class OtlpExporterTest extends BaseIgniteAbstractTest {
+class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, period = 10000000, endpoint = \"http://localhost:4317\"}}")
     private MetricConfiguration metricConfiguration;
 
