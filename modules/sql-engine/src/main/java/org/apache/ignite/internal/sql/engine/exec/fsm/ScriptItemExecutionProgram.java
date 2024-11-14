@@ -49,11 +49,7 @@ class ScriptItemExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>>
                 TRANSITIONS,
                 phase -> phase == ExecutionPhase.EXECUTING,
                 query -> query.cursor,
-                (query, throwable) -> {
-                    query.onError(throwable);
-
-                    return false;
-                }
+                QueryExecutionProgram::errorHandler
         );
     }
 }
