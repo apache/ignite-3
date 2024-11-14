@@ -69,8 +69,6 @@ class OtlpExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, period = 10000000, endpoint = \"http://localhost:4317\"}}")
     private MetricConfiguration metricConfiguration;
 
-    private OtlpExporterView exporterConf;
-
     private static final UUID CLUSTER_ID = UUID.randomUUID();
 
     private static final String SRC_NAME = "testSource";
@@ -97,39 +95,37 @@ class OtlpExporterTest extends BaseIgniteAbstractTest {
 
     private MetricExporter metricsExporter;
 
-    private OtlpExporter exporter;
+    private OtlpPushMetricExporter exporter;
 
     @Captor
     private ArgumentCaptor<Collection<MetricData>> metricsCaptor;
 
     @BeforeEach
     void setUp() {
-        exporterConf = (OtlpExporterView) metricConfiguration.exporters().get("otlp").value();
+        OtlpExporterView exporterConf = (OtlpExporterView) metricConfiguration.exporters().get("otlp").value();
         metricsProvider = mock(MetricProvider.class);
+        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
+        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        exporter = new OtlpExporter();
+        exporter = new OtlpPushMetricExporter();
         exporter.start(metricsProvider, exporterConf, () -> CLUSTER_ID, "nodeName");
 
         metricsExporter = mock(MetricExporter.class);
-        exporter.exporter(metricsExporter);
+        exporter.reporter().exporter(metricsExporter);
     }
 
     @Test
     public void testExport() {
-        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
-
         when(metricsExporter.export(metricsCaptor.capture())).thenReturn(CompletableResultCode.ofSuccess());
         exporter.report();
 
         assertThatExportedMetricsAndMetricValuesAreTheSame(metricsCaptor.getValue());
     }
 
-
     /**
      * Check, that all exported has the same values as original metric values.
      */
-    private void assertThatExportedMetricsAndMetricValuesAreTheSame(Collection<MetricData> metrics) {
+    private static void assertThatExportedMetricsAndMetricValuesAreTheSame(Collection<MetricData> metrics) {
         for (Metric metric : metricSet) {
             MetricData otlpMetric = metrics.stream().filter(m -> m.getName().equals(metric.name())).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Failed to find metric with name " + metric.name()));

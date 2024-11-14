@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metrics.exporters.otlp;
 
 import static io.opentelemetry.exporter.otlp.internal.OtlpConfigUtil.PROTOCOL_GRPC;
 import static io.opentelemetry.exporter.otlp.internal.OtlpConfigUtil.PROTOCOL_HTTP_PROTOBUF;
+import static io.opentelemetry.sdk.common.export.MemoryMode.REUSABLE_DATA;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import com.google.auto.service.AutoService;
@@ -26,7 +27,6 @@ import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporterBuilder;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporterBuilder;
-import io.opentelemetry.sdk.metrics.export.MetricExporter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,6 +43,8 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.HeadersView;
 import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterView;
@@ -51,24 +53,28 @@ import org.apache.ignite.internal.network.ssl.KeystoreLoader;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Otlp(OpenTelemetry) metrics exporter.
  */
-@AutoService(org.apache.ignite.internal.metrics.exporters.MetricExporter.class)
-public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
+@AutoService(MetricExporter.class)
+public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView> {
     public static final String EXPORTER_NAME = "otlp";
 
-    private volatile MetricExporter exporter;
-
-    private volatile MetricProducer producer;
+    private volatile @Nullable MetricReporter reporter;
 
     @Override
     public synchronized void start(MetricProvider metricsProvider, OtlpExporterView view, Supplier<UUID> clusterIdSupplier,
             String nodeName) {
-        producer = new MetricProducer(metricsProvider, clusterIdSupplier, nodeName);
-        exporter = createExporter(view);
+        MetricReporter reporter0 = new MetricReporter(createExporter(view), clusterIdSupplier.get().toString(), nodeName);
+
+        for (MetricSet metricSet : metricsProvider.metrics().getKey().values()) {
+            reporter0.addMetricSet(metricSet);
+        }
+
+        reporter = reporter0;
 
         super.start(metricsProvider, view, clusterIdSupplier, nodeName);
     }
@@ -78,17 +84,37 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
         super.stop();
 
         try {
-            IgniteUtils.closeAll(exporter);
+            IgniteUtils.closeAll(reporter);
         } catch (Exception e) {
             log.error("Failed to stop metric exporter: " + name(), e);
         }
+
+        reporter = null;
     }
 
     @Override
     public synchronized void reconfigure(OtlpExporterView newVal) {
         super.reconfigure(newVal);
 
-        exporter = createExporter(newVal);
+        reporter = new MetricReporter(createExporter(newVal), clusterId().toString(), nodeName());
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+        MetricReporter reporter0 = reporter;
+
+        assert reporter0 != null;
+
+        reporter0.addMetricSet(metricSet);
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
+        MetricReporter reporter0 = reporter;
+
+        assert reporter0 != null;
+
+        reporter0.removeMetricSet(metricSetName);
     }
 
     @Override
@@ -98,7 +124,11 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
 
     @Override
     public void report() {
-        exporter.export(producer.collectAllMetrics());
+        MetricReporter reporter0 = reporter;
+
+        assert reporter0 != null;
+
+        reporter0.report();
     }
 
     @Override
@@ -107,8 +137,8 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
     }
 
     @TestOnly
-    void exporter(MetricExporter exporter) {
-        this.exporter = exporter;
+    MetricReporter reporter() {
+        return reporter;
     }
 
     private static Supplier<Map<String, String>> headers(NamedListView<? extends HeadersView> headers) {
@@ -173,12 +203,13 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
         }
     }
 
-    private static MetricExporter createExporter(OtlpExporterView view) {
+    private static io.opentelemetry.sdk.metrics.export.MetricExporter createExporter(OtlpExporterView view) {
         if (view.protocol().equals(PROTOCOL_GRPC)) {
             OtlpGrpcMetricExporterBuilder builder = OtlpGrpcMetricExporter.builder()
                     .setEndpoint(createEndpoint(view))
                     .setHeaders(headers(view.headers()))
-                    .setCompression(view.compression());
+                    .setCompression(view.compression())
+                    .setMemoryMode(REUSABLE_DATA);
 
             SslView sslView = view.ssl();
 
@@ -195,7 +226,8 @@ public class OtlpExporter extends PushMetricExporter<OtlpExporterView> {
         OtlpHttpMetricExporterBuilder builder = OtlpHttpMetricExporter.builder()
                 .setEndpoint(createEndpoint(view))
                 .setHeaders(headers(view.headers()))
-                .setCompression(view.compression());
+                .setCompression(view.compression())
+                .setMemoryMode(REUSABLE_DATA);
 
         SslView sslView = view.ssl();
 

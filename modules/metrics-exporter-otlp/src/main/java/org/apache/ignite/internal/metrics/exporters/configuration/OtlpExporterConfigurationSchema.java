@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
-import org.apache.ignite.internal.metrics.exporters.otlp.OtlpExporter;
+import org.apache.ignite.internal.metrics.exporters.otlp.OtlpPushMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.validator.EndpointValidator;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.network.configuration.SslConfigurationValidato
 /**
  * Configuration for OTLP push exporter.
  */
-@PolymorphicConfigInstance(OtlpExporter.EXPORTER_NAME)
+@PolymorphicConfigInstance(OtlpPushMetricExporter.EXPORTER_NAME)
 public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
     @Value(hasDefault = true)
