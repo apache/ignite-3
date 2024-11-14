@@ -123,8 +123,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             new LowWatermarkCandidate(MIN_VALUE, nullCompletedFuture())
     );
 
-    /** Locks acquired by read-only transactions. */
-    private final Map<UUID, LowWatermarkLock> roTxLocks = new ConcurrentHashMap<>();
+    private final Map<UUID, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -315,7 +314,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                     return false;
                 }
 
-                roTxLocks.put(lockId, new LowWatermarkLock(ts));
+                locks.put(lockId, new LowWatermarkLock(ts));
 
                 return true;
             } finally {
@@ -326,7 +325,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public void unlock(UUID lockId) {
-        LowWatermarkLock lock = roTxLocks.remove(lockId);
+        LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {
             // Already released.
@@ -338,7 +337,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     @Override
     public Set<UUID> lockIds() {
-        return Collections.unmodifiableSet(roTxLocks.keySet());
+        return Collections.unmodifiableSet(locks.keySet());
     }
 
     CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
@@ -374,7 +373,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             updateLowWatermarkLock.writeLock().lock();
 
             try {
-                for (LowWatermarkLock lock : roTxLocks.values()) {
+                for (LowWatermarkLock lock : locks.values()) {
                     if (lock.timestamp().compareTo(newLowWatermark) < 0) {
                         return lock.future().thenCompose(unused -> waitForLocksAndSetLowWatermark(newLowWatermark));
                     }

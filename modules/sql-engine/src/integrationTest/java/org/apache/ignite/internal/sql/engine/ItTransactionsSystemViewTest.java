@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -124,13 +123,14 @@ public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static Object[] makeExpectedRow(InternalTransaction tx, Map<UUID, String> nodeIdToName) {
-        HybridTimestamp startTime = tx.isReadOnly() ? TransactionIds.beginTimestamp(tx.id()) : tx.startTimestamp();
-
         return new Object[]{
                 nodeIdToName.get(tx.coordinatorId()),
                 tx.state() == null ? null : tx.state().name(),
                 tx.id().toString(),
-                Instant.ofEpochMilli(startTime.getPhysical()),
+                // We do not use startTimestamp(), because this method actually has a misname and
+                // it returns the so-called "schema synchronization timestamp", and this timestamp
+                // may not be exactly the same that is the actual time when the transaction was created.
+                Instant.ofEpochMilli(TransactionIds.beginTimestamp(tx.id()).getPhysical()),
                 tx.isReadOnly() ? TransactionsViewProvider.READ_ONLY : TransactionsViewProvider.READ_WRITE,
                 TransactionIds.priority(tx.id()).name()
         };
