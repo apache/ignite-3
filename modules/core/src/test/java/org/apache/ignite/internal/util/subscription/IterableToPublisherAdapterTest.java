@@ -76,4 +76,18 @@ class IterableToPublisherAdapterTest {
         assertThat(done, willSucceedFast());
         assertThat(accumulator, equalTo(list));
     }
+
+    @Test
+    void emptySource() {
+        List<Integer> list = List.of();
+
+        List<Integer> accumulator = new ArrayList<>();
+        Publisher<Integer> publisher = SubscriptionUtils.fromIterable(list);
+        CompletableFuture<Void> done = new CompletableFuture<>();
+
+        Subscription subscription = TestFlowUtils.subscribeToPublisher(accumulator, publisher, done);
+        subscription.request(Long.MAX_VALUE);
+        assertThat(done, willSucceedFast());
+        assertThat(accumulator, equalTo(list));
+    }
 }
