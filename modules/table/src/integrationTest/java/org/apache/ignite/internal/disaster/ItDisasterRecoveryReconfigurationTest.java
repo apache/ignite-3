@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -54,6 +55,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +66,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -97,6 +101,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -236,10 +241,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(),
                 true
         );
 
@@ -323,10 +327,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(),
                 true
         );
 
@@ -374,7 +377,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Second snapshot causes log truncation.
         triggerRaftSnapshot(1, partId);
 
-        unwrapIgniteImpl(node(1)).dropMessages((nodeName, msg) -> node(3).name().equals(nodeName) && msg instanceof SnapshotMvDataResponse);
+        unwrapIgniteImpl(node(1)).dropMessages((nodeName, msg) -> {
+            Ignite node = nullableNode(3);
+
+            return node != null && node.name().equals(nodeName) && msg instanceof SnapshotMvDataResponse;
+        });
 
         stopNodesInParallel(4, 5);
         waitForScale(node0, 4);
@@ -389,8 +396,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         blockRebalanceStableSwitch(partId, assignment013);
 
-        CompletableFuture<Void> resetFuture =
-                node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), true);
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
@@ -407,7 +413,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), true);
+        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
@@ -455,10 +461,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(),
                 false
         );
 
@@ -498,10 +503,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         stopNodesInParallel(1);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(),
                 false
         );
 
@@ -569,29 +573,180 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNode(4);
 
         CompletableFuture<Void> resetFuture =
-                node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), false);
+                node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false);
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        Assignments assignmentForced13 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(3).name())), timestamp);
+        Assignments assignmentForced1 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name())), timestamp);
 
-        assertPendingAssignments(node0, partId, assignmentForced13);
+        assertPendingAssignments(node0, partId, assignmentForced1);
+
+        Assignments assignments13 = Assignments.of(Set.of(
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        ), timestamp);
+
+        assertPlannedAssignments(node0, partId, assignments13);
+    }
+
+    /**
+     * The test creates a group of 7 nodes, and performs writes in three steps:
+     * <ol>
+     * <li>Write data to all nodes.</li>
+     * <li>Block raft updates on one of the nodes. Write second portion of data to the group.</li>
+     * <li>Additionally block updates on another node. Write third portion of data to the group.</li>
+     * </ol>
+     *
+     * <p>As a result, we'll have one node having only data(1), one node having data(2) and the other 5 nodes having
+     * data(3).
+     * Then we stop 4 out of 5 nodes with data(3) - effectively the majority of 7 nodes, and call resetPartitions.
+     * The two phase reset should pick the node with the highest raft log index as the single node for the pending assignments.
+     */
+    @Test
+    @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
+    void testThoPhaseReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        Set<String> clusterNodeNames = Set.of(
+                node(0).name(),
+                node(1).name(),
+                node(2).name(),
+                node(3).name(),
+                node(4).name(),
+                node(5).name(),
+                node(6).name());
+        assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
+
+        // Write data(1) to all seven nodes.
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+
+        // We filter out the leader to be able to reliably block raft state transfer.
+        String leaderName = findLeader(1, partId);
+        logger().info("Raft group leader is [id={}]", leaderName);
+
+        // All the nodes except the leader - 6 nodes.
+        List<String> followerNodes = new ArrayList<>(clusterNodeNames);
+        followerNodes.remove(leaderName);
+
+        // The nodes that we block AppendEntriesRequest to.
+        Set<String> blockedNodes = new HashSet<>();
+
+        // Exclude one of the nodes from data(2).
+        int node0IndexInFollowers = followerNodes.indexOf(node0.name());
+        // Make sure node 0 is not stopped. If node0IndexInFollowers==-1, then node0 is the leader.
+        blockedNodes.add(followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers));
+        logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
+
+        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, tablePartitionId, blockedNodes));
+
+        // Write data(2) to 6 nodes.
+        errors = insertValues(table, partId, 10);
+        assertThat(errors, is(empty()));
+
+        // Exclude one more node from data replication.
+        blockedNodes.add(followerNodes.remove(0));
+        logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
+
+        // Write data(3) to 5 nodes.
+        errors = insertValues(table, partId, 20);
+        assertThat(errors, is(empty()));
+
+        // Now followerNodes has 4 elements - without the leader and two blocked nodes. Stop them all.
+        int[] nodesToStop = followerNodes.stream()
+                .mapToInt(this::nodeIndex)
+                .toArray();
+        logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
+        stopNodesInParallel(nodesToStop);
+
+        // Only 3 nodes left.
+        waitForScale(node0, 3);
+
+        // One of them has the most up to date data, the others fall behind.
+        waitForPartitionState(node0, GlobalPartitionStateEnum.READ_ONLY);
+
+        // Collect nodes that will be the part of the planned assignments.
+        // These are the leader and two blocked nodes.
+        List<String> nodesNamesForFinalAssignments = new ArrayList<>(blockedNodes);
+        nodesNamesForFinalAssignments.add(leaderName);
+
+        // Unblock raft.
+        blockedNodes.clear();
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                false
+        );
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        // Pending is the one with the most up to date log index.
+        Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(leaderName)), timestamp);
+
+        assertPendingAssignments(node0, partId, assignmentPending);
+
+        Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
+                .map(Assignment::forPeer)
+                .collect(Collectors.toSet());
+
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+
+        assertPlannedAssignments(node0, partId, assignmentsPlanned);
+
+        // Wait for the new stable assignments to take effect.
+        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+
+        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+
+        // Make sure the data is present.
+        IntStream.range(0, ENTRIES).forEach(i -> {
+            CompletableFuture<Tuple> fut = table.keyValueView().getAsync(null, Tuple.create(of("id", i)));
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertEquals(Tuple.create(of("val", i + 20)), fut.join());
+        });
+    }
+
+    private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
+        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
+            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
+
+            if (oldPredicate == null) {
+                node.dropMessages(predicate);
+            } else {
+                node.dropMessages(oldPredicate.or(predicate));
+            }
+        });
+    }
+
+    private static boolean dataReplicateMessage(
+            String nodeName,
+            NetworkMessage msg,
+            TablePartitionId tablePartitionId,
+            Set<String> blockedNodes
+    ) {
+        if (msg instanceof AppendEntriesRequest) {
+            var appendEntriesRequest = (AppendEntriesRequest) msg;
+            if (tablePartitionId.toString().equals(appendEntriesRequest.groupId())) {
+                return blockedNodes.contains(nodeName);
+            }
+        }
+        return false;
     }
 
     /**
      * Block rebalance, so stable won't be switched to specified pending.
      */
     private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment);
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(newPredicate);
-            } else {
-                node.dropMessages(oldPredicate.or(newPredicate));
-            }
-        });
+        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment));
     }
 
     private boolean stableKeySwitchMessage(NetworkMessage msg, int partId, Assignments blockedAssignments) {
@@ -642,6 +797,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         );
     }
 
+    private String findLeader(int nodeIdx, int partId) {
+        IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
+
+        var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
+        var jraftServer = (JraftServerImpl) node.raftManager().server();
+
+        RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
+        assertNotNull(raftGroupService);
+        return raftGroupService.getRaftNode().getLeaderId().getConsistentId();
+    }
+
     private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
         //noinspection resource
         IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
@@ -677,6 +843,20 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(
                 waitForCondition(() -> expected.equals(getPendingAssignments(node0, partId)), 2000),
                 () -> "Expected: " + expected + ", actual: " + getPendingAssignments(node0, partId)
+        );
+    }
+
+    private void assertPlannedAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> expected.equals(getPlannedAssignments(node0, partId)), 2000),
+                () -> "Expected: " + expected + ", actual: " + getPlannedAssignments(node0, partId)
+        );
+    }
+
+    private void assertStableAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> expected.equals(getStableAssignments(node0, partId)), 2000),
+                () -> "Expected: " + expected + ", actual: " + getStableAssignments(node0, partId)
         );
     }
 
@@ -776,8 +956,19 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .collect(Collectors.toList());
     }
 
-    private @Nullable Assignments getPendingAssignments(IgniteImpl node0, int partId) {
-        CompletableFuture<Entry> pendingFut = node0.metaStorageManager()
+    private @Nullable Assignments getPlannedAssignments(IgniteImpl node, int partId) {
+        CompletableFuture<Entry> plannedFut = node.metaStorageManager()
+                .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+
+        assertThat(plannedFut, willCompleteSuccessfully());
+
+        Entry planned = plannedFut.join();
+
+        return planned.empty() ? null : Assignments.fromBytes(planned.value());
+    }
+
+    private @Nullable Assignments getPendingAssignments(IgniteImpl node, int partId) {
+        CompletableFuture<Entry> pendingFut = node.metaStorageManager()
                 .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partId)));
 
         assertThat(pendingFut, willCompleteSuccessfully());
@@ -787,8 +978,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return pending.empty() ? null : Assignments.fromBytes(pending.value());
     }
 
-    private @Nullable Assignments getStableAssignments(IgniteImpl node0, int partId) {
-        CompletableFuture<Entry> stableFut = node0.metaStorageManager()
+    private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {
+        CompletableFuture<Entry> stableFut = node.metaStorageManager()
                 .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)));
 
         assertThat(stableFut, willCompleteSuccessfully());

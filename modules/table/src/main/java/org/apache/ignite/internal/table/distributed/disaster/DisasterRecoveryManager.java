@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
@@ -237,6 +238,21 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 createGlobalPartitionStatesSystemView(this),
                 createLocalPartitionStatesSystemView(this)
         );
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @return Future that completes when partitions are reset.
+     */
+    public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate) {
+        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate);
     }
 
     /**

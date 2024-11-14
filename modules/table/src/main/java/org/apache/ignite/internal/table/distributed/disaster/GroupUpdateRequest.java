@@ -233,16 +233,16 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             MetaStorageManager metaStorageManager,
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
-            int[] partitionIdsArray,
+            int[] partitionIds,
             Map<Integer, Assignments> tableAssignments,
             boolean manualUpdate
     ) {
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        CompletableFuture<?>[] futures = new CompletableFuture[partitionIdsArray.length];
+        CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
 
-        for (int i = 0; i < partitionIdsArray.length; i++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIdsArray[i]);
+        for (int i = 0; i < partitionIds.length; i++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partitionIds[i]);
 
             futures[i] = partitionUpdate(
                     replicaGrpId,
@@ -304,9 +304,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         } else {
             assert !partAssignments.isEmpty() : "Alive nodes with data should not be empty";
 
-            List<Assignment> stableAssignments = new ArrayList<>(partAssignments);
+            List<Assignment> nextAssignments = new ArrayList<>(partAssignments);
 
-            stableAssignments.sort(
+            nextAssignments.sort(
                     Comparator.<Assignment>comparingLong(
                                     node -> localPartitionStateMessageByNode.partitionState(node.consistentId()).logIndex()
                             )
@@ -323,7 +323,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(Set.of(stableAssignments.get(0)), assignmentsTimestamp).toBytes(),
+                    Assignments.forced(Set.of(nextAssignments.get(0)), assignmentsTimestamp).toBytes(),
                     Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
