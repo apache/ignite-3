@@ -18,27 +18,37 @@
 package org.apache.ignite.internal.client;
 
 import java.util.ArrayList;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.client.TcpClientChannel.TimeoutObjectImpl;
+import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 
 final class ClientTimeoutWorker {
     public static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
 
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
-    private final ArrayList<TcpClientChannel> channels = new ArrayList<>();
+    private final Set<TcpClientChannel> channels = new ConcurrentHashMap<TcpClientChannel, Object>().keySet();
 
     void registerClientChannel(TcpClientChannel ch) {
         // TODO: Register channels
         // Loop in worker body, remove closed channels
+        channels.add(ch);
+    }
 
-        rwLock.writeLock().lock();
+    private void body() {
+        for (TcpClientChannel ch : channels) {
+            if (ch.closed()) {
+                channels.remove(ch);
+            }
 
-        try {
-            channels.add(ch);
-        } finally {
-            rwLock.writeLock().unlock();
+            for (Entry<Long, TimeoutObject> req : ch.pendingReqs.entrySet()) {
+                // Check timeout.
+                req.getValue().endTime();
+            }
         }
     }
 }
