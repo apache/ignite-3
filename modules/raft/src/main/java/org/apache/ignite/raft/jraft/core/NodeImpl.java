@@ -585,8 +585,8 @@ public class NodeImpl implements Node, RaftServerService {
         return clock.now();
     }
 
-    public HybridTimestamp clockUpdate(HybridTimestamp timestamp) {
-        return clock.update(timestamp);
+    public void clockUpdate(HybridTimestamp timestamp) {
+        clock.update(timestamp);
     }
 
     private boolean initSnapshotStorage() {
@@ -2244,7 +2244,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestamp(clock.updateAndGetNow(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2265,7 +2265,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(request.term() + 1);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestamp(clock.updateAndGetNow(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2298,7 +2298,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .lastLogIndex(lastLogIndex);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestamp(clock.updateAndGetNow(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2312,7 +2312,7 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 if (request.timestamp() != null) {
-                    respBuilder.timestamp(clock.update(request.timestamp()));
+                    respBuilder.timestamp(clock.updateAndGetNow(request.timestamp()));
                 }
                 doUnlock = false;
                 this.writeLock.unlock();
@@ -2333,7 +2333,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestamp(clock.updateAndGetNow(request.timestamp()));
                 }
 
                 return rb.build();

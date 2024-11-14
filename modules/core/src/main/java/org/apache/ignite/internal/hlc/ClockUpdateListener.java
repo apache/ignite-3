@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.hlc;
 
 /**
- * Used to track updates of a {@link HybridClock}: it gets notified each time {@link HybridClock#update(HybridTimestamp)},
+ * Used to track updates of a {@link HybridClock}: it gets notified each time {@link HybridClock#updateAndGetNow(HybridTimestamp)},
  * is invoked.
  */
 @FunctionalInterface
 public interface ClockUpdateListener {
     /**
-     * Called when the clock's current time advances due to a call to {@link HybridClock#update(HybridTimestamp)}.
+     * Called when the clock's current time advances due to a call to {@link HybridClock#updateAndGetNow(HybridTimestamp)}.
      *
      * <p>This does NOT get called when the clock current time gets advanced by a call to
      * {@link HybridClock#now()}/{@link HybridClock#nowLong()}.

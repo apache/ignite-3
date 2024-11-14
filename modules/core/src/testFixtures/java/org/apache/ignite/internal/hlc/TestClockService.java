@@ -66,8 +66,13 @@ public class TestClockService implements ClockService {
     }
 
     @Override
-    public HybridTimestamp updateClock(HybridTimestamp requestTime) {
-        return clock.update(requestTime);
+    public HybridTimestamp updateAndGetClock(HybridTimestamp requestTime) {
+        return clock.updateAndGetNow(requestTime);
+    }
+
+    @Override
+    public void updateClock(HybridTimestamp requestTime) {
+        clock.update(requestTime);
     }
 
     @Override

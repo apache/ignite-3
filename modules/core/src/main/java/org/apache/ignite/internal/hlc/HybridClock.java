@@ -59,7 +59,14 @@ public interface HybridClock {
      * @param requestTime Timestamp from request.
      * @return New local hybrid timestamp that is on the clock (it is ahead of both the old clock time and the request time).
      */
-    HybridTimestamp update(HybridTimestamp requestTime);
+    HybridTimestamp updateAndGetNow(HybridTimestamp requestTime);
+
+    /**
+     * Update the local timestamp in case a timestamp from the request is bigger than the current value of the hybrid clock.
+     *
+     * @param requestTime Timestamp from request.
+     */
+    void update(HybridTimestamp requestTime);
 
     /**
      * Adds an update listener to self.

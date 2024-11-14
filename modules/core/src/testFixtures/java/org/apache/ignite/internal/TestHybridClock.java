@@ -109,7 +109,7 @@ public class TestHybridClock implements HybridClock {
      * @return The hybrid timestamp.
      */
     @Override
-    public HybridTimestamp update(HybridTimestamp requestTime) {
+    public HybridTimestamp updateAndGetNow(HybridTimestamp requestTime) {
         while (true) {
             long now = currentTime();
 
@@ -122,6 +122,32 @@ public class TestHybridClock implements HybridClock {
                 notifyUpdateListeners(newLatestTime);
 
                 return hybridTimestamp(newLatestTime);
+            }
+        }
+    }
+
+    @Override
+    public void update(HybridTimestamp requestTime) {
+        long requestTimeLong = requestTime.longValue();
+
+        while (true) {
+            long now = currentTime();
+
+            if (requestTimeLong < now) {
+                return;
+            }
+
+            // Read the latest time after accessing UTC time to reduce contention.
+            long oldLatestTime = this.latestTime;
+
+            if (requestTimeLong <= oldLatestTime) {
+                return;
+            }
+
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, requestTimeLong)) {
+                notifyUpdateListeners(requestTimeLong);
+
+                return;
             }
         }
     }
