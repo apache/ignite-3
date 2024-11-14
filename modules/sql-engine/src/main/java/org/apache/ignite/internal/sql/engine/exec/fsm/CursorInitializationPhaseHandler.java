@@ -71,15 +71,8 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                 txContext.updateObservableTime(query.executor.clockNow());
             }
 
-            query.moveTo(ExecutionPhase.EXECUTING);
-
-            // Postpone scheduling for TERMINATED phase to not to miss EXECUTING phase,
-            // because cursor may be already closed at this point.
-            cursor.onClose()
-                    .whenComplete((ignored, ex) -> query.moveTo(ExecutionPhase.TERMINATED));
-
             // preserve lazy execution for statements that only reads
-            return Result.proceedImmediately();
+            return Result.completed();
         }
 
         // for other types let's wait for the first page to make sure premature
@@ -93,13 +86,6 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                         // let's update tracker explicitly to preserve consistency
                         txContext.updateObservableTime(query.executor.clockNow());
                     }
-
-                    query.moveTo(ExecutionPhase.EXECUTING);
-
-                    // Postpone scheduling for TERMINATED phase to not to miss EXECUTING phase,
-                    // because cursor may be already closed at this point.
-                    cursor.onClose()
-                            .whenComplete((ignored, ex) -> query.moveTo(ExecutionPhase.TERMINATED));
 
                     return null;
                 });
