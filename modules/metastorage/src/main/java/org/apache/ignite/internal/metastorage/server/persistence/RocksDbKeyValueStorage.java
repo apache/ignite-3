@@ -191,7 +191,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Executor for storage operations. */
     private final ExecutorService executor;
 
-    /** Scheduled executor for storage operations. */
+    /**
+     * Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking, long or IO operations.
+     */
     private final ScheduledExecutorService scheduledExecutor;
 
     /** Path to the rocksdb database. */
@@ -285,7 +287,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
-     * @param scheduledExecutor Scheduled executor for storage operations.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
+     *      long or IO operations.
      */
     public RocksDbKeyValueStorage(
             String nodeName,
