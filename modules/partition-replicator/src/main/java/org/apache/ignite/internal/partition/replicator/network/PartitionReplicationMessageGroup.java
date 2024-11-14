@@ -32,6 +32,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
@@ -200,9 +201,14 @@ public interface PartitionReplicationMessageGroup {
     short UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST = 26;
 
     /**
+     * Message type for {@link PartitionSnapshotMeta}.
+     */
+    short PARTITION_SNAPSHOT_META = 27;
+
+    /**
      * Message type for {@link ChangePeersAndLearnersReplicaRequest}.
      */
-    short CHANGE_PEERS_AND_LEARNERS_REPLICA_REQUEST = 27;
+    short CHANGE_PEERS_AND_LEARNERS_REPLICA_REQUEST = 28;
 
     /**
      * Message types for partition replicator module RAFT commands.

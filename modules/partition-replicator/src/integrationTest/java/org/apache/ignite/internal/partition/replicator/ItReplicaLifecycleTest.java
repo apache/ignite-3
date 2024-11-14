@@ -102,6 +102,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -191,6 +192,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -230,7 +233,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Replica lifecycle test.
  */
-@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
@@ -293,6 +296,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private TestPlacementDriver placementDriver;
 
     private static String featureFlagOldValue = System.getProperty(FEATURE_FLAG_NAME);
+
+    @InjectExecutorService
+    private static ScheduledExecutorService scheduledExecutorService;
 
     @BeforeAll
     static void beforeAll() {
@@ -1088,7 +1094,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     name,
                     resolveDir(dir, "metaStorageTestKeyValue"),
                     failureManager,
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    scheduledExecutorService
             );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -1169,7 +1176,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     List.of(ClusterConfiguration.KEY),
                     List.of(
                             GcExtensionConfigurationSchema.class,
-                            StorageUpdateExtensionConfigurationSchema.class
+                            StorageUpdateExtensionConfigurationSchema.class,
+                            SystemDistributedExtensionConfigurationSchema.class
                     ),
                     List.of()
             );

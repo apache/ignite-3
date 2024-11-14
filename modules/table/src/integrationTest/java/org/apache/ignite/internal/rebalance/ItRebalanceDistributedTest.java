@@ -217,6 +217,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -257,7 +259,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test suite for rebalance process, when replicas' number changed.
  */
-@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(120)
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -315,6 +317,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
     private Path workDir;
+
+    @InjectExecutorService
+    private static ScheduledExecutorService commonScheduledExecutorService;
 
     private StaticNodeFinder finder;
 
@@ -1236,7 +1241,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             name,
                             resolveDir(dir, "metaStorage"),
                             failureManager,
-                            readOperationForCompactionTracker
+                            readOperationForCompactionTracker,
+                            commonScheduledExecutorService
                     );
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

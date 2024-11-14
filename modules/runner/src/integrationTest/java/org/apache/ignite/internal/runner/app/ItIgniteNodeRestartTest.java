@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -69,7 +70,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -210,10 +210,10 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
@@ -257,6 +257,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * These tests check node restart scenarios.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 @Timeout(120)
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
@@ -309,9 +310,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
-    private final ExecutorService storageExecutor = Executors.newSingleThreadExecutor(
-            IgniteThreadFactory.create("test", "storage-test-pool-iinrt", log, ThreadOperation.STORAGE_READ)
-    );
+    @InjectExecutorService(threadCount = 1, threadPrefix = "storage-test-pool-iinrt", allowedOperations = STORAGE_READ)
+    private ExecutorService storageExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     @BeforeEach
     public void beforeTest() {
@@ -483,7 +486,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 dir.resolve("metastorage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                scheduledExecutorService
         );
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);

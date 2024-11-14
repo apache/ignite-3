@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /** Result of evaluation of particular {@link ExecutionPhase}. */
 class Result {
     enum Status {
-        PROCEED_IMMEDIATELY, SCHEDULE, STOP
+        COMPLETED, WAITING_FOR_COMPLETION
     }
 
     private final Status status;
@@ -33,18 +33,14 @@ class Result {
     @IgniteToStringExclude
     private final @Nullable CompletableFuture<Void> await;
 
-    static Result proceedImmediately() {
-        return new Result(Status.PROCEED_IMMEDIATELY, null);
+    static Result completed() {
+        return new Result(Status.COMPLETED, null);
     }
 
     static Result proceedAfter(CompletableFuture<Void> stage) {
         assert stage != null;
 
-        return new Result(Status.SCHEDULE, stage);
-    }
-
-    static Result stop() {
-        return new Result(Status.STOP, null);
+        return new Result(Status.WAITING_FOR_COMPLETION, stage);
     }
 
     private Result(Status status, @Nullable CompletableFuture<Void> await) {

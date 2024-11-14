@@ -77,6 +77,10 @@ class StreamerBuffer<T> {
     }
 
     synchronized void forEach(Consumer<T> consumer) {
+        if (closed) {
+            return;
+        }
+
         buf.forEach(consumer);
     }
 }

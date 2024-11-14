@@ -22,7 +22,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.jetbrains.annotations.Nullable;
 
 /** Read-only snapshot of a query state. */
@@ -57,9 +57,9 @@ public class QueryInfo {
     }
 
     private static @Nullable UUID deriveTxId(Query query) {
-        InternalTransaction tx = query.usedTransaction;
+        QueryTransactionWrapper tx = query.usedTransaction;
 
-        return tx != null ? tx.id() : null;
+        return tx != null ? tx.unwrap().id() : null;
     }
 
     /** Returns {@code true} if current query is a script, returns {@code false} otherwise. */
