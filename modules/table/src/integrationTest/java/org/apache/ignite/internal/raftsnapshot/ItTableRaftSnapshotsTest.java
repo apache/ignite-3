@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -35,7 +36,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -68,9 +71,11 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -101,10 +106,10 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -118,11 +123,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 @Timeout(90)
 @ExtendWith(WorkDirectoryExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23379")
 class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     private static final int AWAIT_PRIMARY_REPLICA_SECONDS = 10;
+
+    private static final int PARTITION_ID = 0;
 
     /**
      * Nodes bootstrap configuration pattern.
@@ -200,10 +206,30 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         transferLeadershipOnSolePartitionTo(2);
 
         assertThat(getFromNode(2, 1), is("one"));
+        assertThat(estimatedSizeFromNode(2), is(1L));
+
+        MvPartitionStorage partitionAtNode0 = mvPartitionAtNode(0);
+        MvPartitionStorage partitionAtNode2 = mvPartitionAtNode(2);
+
+        assertThat(partitionAtNode2.leaseStartTime(), not(0L));
+        assertEquals(partitionAtNode0.primaryReplicaNodeId(), partitionAtNode2.primaryReplicaNodeId());
+        assertEquals(partitionAtNode0.primaryReplicaNodeName(), partitionAtNode2.primaryReplicaNodeName());
     }
 
     private @Nullable String getFromNode(int clusterNode, int key) {
         return tableViewAt(clusterNode).get(null, key);
+    }
+
+    private long estimatedSizeFromNode(int clusterNode) {
+        return mvPartitionAtNode(clusterNode).estimatedSize();
+    }
+
+    private @NotNull MvPartitionStorage mvPartitionAtNode(int clusterNode) {
+        InternalTable internalTable = unwrapTableImpl(tableAt(clusterNode)).internalTable();
+        MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(PARTITION_ID);
+
+        assertNotNull(mvPartition);
+        return mvPartition;
     }
 
     private void feedNode2WithSnapshotOfOneRow() throws InterruptedException {
@@ -290,8 +316,12 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     private KeyValueView<Integer, String> tableViewAt(int nodeIndex) {
-        Table table = cluster.node(nodeIndex).tables().table("test");
+        Table table = tableAt(nodeIndex);
         return table.keyValueView(Integer.class, String.class);
+    }
+
+    private Table tableAt(int nodeIndex) {
+        return cluster.node(nodeIndex).tables().table("test");
     }
 
     private void knockoutNode(int nodeIndex) {

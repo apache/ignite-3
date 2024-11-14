@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMetaBuilder;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utils to build {@link SnapshotMeta} instances.
@@ -45,6 +47,9 @@ public class SnapshotMetaUtils {
      * @param requiredCatalogVersion Catalog version that a follower/learner must have to have ability to accept this snapshot.
      * @param nextRowIdToBuildByIndexId Row ID for which the index needs to be built per building index ID at the time the snapshot meta was
      *      created.
+     * @param leaseStartTime Lease start time (as {@link HybridTimestamp#longValue()}).
+     * @param primaryReplicaNodeId Primary replica node ID.
+     * @param primaryReplicaNodeName Primary replica node name.
      * @return SnapshotMeta corresponding to the given log index.
      */
     public static PartitionSnapshotMeta snapshotMetaAt(
@@ -52,7 +57,10 @@ public class SnapshotMetaUtils {
             long term,
             RaftGroupConfiguration config,
             int requiredCatalogVersion,
-            Map<Integer, UUID> nextRowIdToBuildByIndexId
+            Map<Integer, UUID> nextRowIdToBuildByIndexId,
+            long leaseStartTime,
+            @Nullable UUID primaryReplicaNodeId,
+            @Nullable String primaryReplicaNodeName
     ) {
         PartitionSnapshotMetaBuilder metaBuilder = new PartitionReplicationMessagesFactory().partitionSnapshotMeta()
                 .lastIncludedIndex(logIndex)
@@ -60,7 +68,10 @@ public class SnapshotMetaUtils {
                 .peersList(config.peers())
                 .learnersList(config.learners())
                 .requiredCatalogVersion(requiredCatalogVersion)
-                .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId);
+                .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId)
+                .leaseStartTime(leaseStartTime)
+                .primaryReplicaNodeId(primaryReplicaNodeId)
+                .primaryReplicaNodeName(primaryReplicaNodeName);
 
         if (!config.isStable()) {
             //noinspection ConstantConditions

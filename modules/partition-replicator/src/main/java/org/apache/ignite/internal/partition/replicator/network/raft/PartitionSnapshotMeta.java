@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.network.raft;
 
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -32,4 +33,13 @@ public interface PartitionSnapshotMeta extends SnapshotMeta {
 
     /** Row ID for which the index needs to be built per building index ID at the time the snapshot meta was created. */
     @Nullable Map<Integer, UUID> nextRowIdToBuildByIndexId();
+
+    /** Lease start time represented as {@link HybridTimestamp#longValue()}. */
+    long leaseStartTime();
+
+    /** ID of primary replica node ({@code null} if there is no primary). */
+    @Nullable UUID primaryReplicaNodeId();
+
+    /** Name of primary replica node ({@code null} if there is no primary). */
+    @Nullable String primaryReplicaNodeName();
 }
