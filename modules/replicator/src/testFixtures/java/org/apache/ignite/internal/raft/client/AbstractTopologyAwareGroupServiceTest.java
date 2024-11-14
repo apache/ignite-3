@@ -312,7 +312,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             // if it occurred to be a leader) leaderRef won't be updated.
             assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
         }
-        assertTrue(waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), WAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> leaderRefNoInitialNotify.get() != null && !leader.equals(leaderRefNoInitialNotify.get()),
+                WAIT_TIMEOUT_MILLIS));
 
         log.info("New Leader: " + leaderRefNoInitialNotify.get());
 
