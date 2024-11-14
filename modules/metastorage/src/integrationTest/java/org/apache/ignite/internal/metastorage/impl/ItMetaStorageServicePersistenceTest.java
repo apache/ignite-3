@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -80,13 +81,11 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) {
         ClusterNode followerNode = getNode(server);
 
-        var clusterTime = new ClusterTimeImpl(followerNode.name(), new IgniteSpinBusyLock(), new HybridClockImpl());
-
         metaStorage = new MetaStorageServiceImpl(
                 followerNode.name(),
                 service,
                 new IgniteSpinBusyLock(),
-                clusterTime,
+                new HybridClockImpl(),
                 followerNode::id
         );
 
@@ -163,7 +162,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        return new MetaStorageListener(storage, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()));
+        HybridClock clock = new HybridClockImpl();
+        return new MetaStorageListener(storage, clock, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock));
     }
 
     @Override

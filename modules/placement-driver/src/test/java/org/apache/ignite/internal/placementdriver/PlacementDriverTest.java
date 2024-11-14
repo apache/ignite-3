@@ -790,7 +790,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishStableAssignments(ASSIGNMENTS_A);
 
         // requestTimestamp >= clusterTime
-        HybridTimestamp requestTimestamp = HybridTimestamp.hybridTimestamp(metastore.clusterTime().nowLong() + 1);
+        HybridTimestamp requestTimestamp = HybridTimestamp.hybridTimestamp(clockService.nowLong() + 1);
 
         // Request assignments for not requestTimestamp >= ms.safeTime.
         CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
@@ -847,7 +847,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishAssignments(ByteArray assignmentsKey, Set<Assignment> assignments) {
-        long timestampBeforeUpdate = metastore.clusterTime().nowLong();
+        long timestampBeforeUpdate = clockService.nowLong();
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
