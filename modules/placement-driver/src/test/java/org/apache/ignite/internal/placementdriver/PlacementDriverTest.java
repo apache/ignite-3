@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -155,7 +156,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private PendingComparableValuesTracker<Long, Void> revisionTracker;
 
-    private final ClockService clockService = new TestClockService(new HybridClockImpl());
+    private final HybridClock clock = new HybridClockImpl();
+    private final ClockService clockService = new TestClockService(clock);
 
     private LeaseTracker leasePlacementDriver;
 
@@ -168,7 +170,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metastore = StandaloneMetaStorageManager.create();
+        metastore = StandaloneMetaStorageManager.create(clock);
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
