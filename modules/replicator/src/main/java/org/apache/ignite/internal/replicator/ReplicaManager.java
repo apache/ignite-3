@@ -88,6 +88,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -344,6 +345,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 replicaStartStopExecutor,
                 clockService,
                 placementDriver,
+                getPendingAssignmentsSupplier,
                 this
         );
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
@@ -1239,15 +1241,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         volatile UUID localNodeId;
 
+        private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
+        private LeaderElectionListener onLeaderElectedFailoverCallback;
+
         ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
                 PlacementDriver placementDriver,
+                Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
                 ReplicaManager replicaManager
         ) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
+            this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
             this.replicaManager = replicaManager;
         }
 
@@ -1268,6 +1276,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
+
+                    CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
+
+                    assert replicaFuture != null : "There no replica grpId=" + replicationGroupId;
+
+                    Replica replica = replicaFuture.join();
+                    onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                            replica,
+                            replicationGroupId,
+                            term
+                    );
+
+                    replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
+
+                    LOG.info("!!! subscribed grpId={}", replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1292,6 +1315,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
+                        CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
+
+                        assert replicaFuture != null : "There no replica grpId=" + parameters.groupId();
+
+                        Replica expiredPrimaryReplica = replicaFuture.join();
+                        expiredPrimaryReplica.raftClient()
+                                .unsubscribeLeader(onLeaderElectedFailoverCallback)
+                                .join();
+
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1307,6 +1339,32 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             return falseCompletedFuture();
+        }
+
+        private void changePeersAndLearnersAsyncIfPendingExists(
+                Replica primaryReplica,
+                TablePartitionId replicationGroupId,
+                long term
+        ) {
+            LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
+
+            byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
+
+            if (pendings == null) {
+                LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
+                return;
+            }
+
+            Assignments newConfiguration = Assignments.fromBytes(pendings);
+
+            PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
+
+            LOG.info(
+                    "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                    replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
+            );
+
+            primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {
