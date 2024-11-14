@@ -128,16 +128,6 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     }
 
     @Override
-    public HybridTimestamp now() {
-        return clock.now();
-    }
-
-    @Override
-    public long nowLong() {
-        return clock.nowLong();
-    }
-
-    @Override
     public HybridTimestamp currentSafeTime() {
         return this.safeTime.current();
     }
@@ -162,7 +152,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      *
      * @param ts Timestamp.
      */
-    public synchronized void adjust(HybridTimestamp ts) {
+    public synchronized void adjustClock(HybridTimestamp ts) {
         this.clock.update(ts);
 
         // Since this method is called when a write command is being processed and safe time is also updated by write commands,
