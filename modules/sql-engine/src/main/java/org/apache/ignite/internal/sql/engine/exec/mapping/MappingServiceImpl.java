@@ -232,7 +232,7 @@ public class MappingServiceImpl implements MappingService {
             Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
             MappingContext context = new MappingContext(
-                    localNodeName, new ArrayList<>(assignments.nodes(nodeExclusionFilter)), template.cluster
+                    localNodeName, assignments.nodes(nodeExclusionFilter), template.cluster
             );
 
             ExecutionTargetFactory targetFactory = context.targetFactory();
@@ -442,14 +442,14 @@ public class MappingServiceImpl implements MappingService {
             this.nodesPerView = nodesPerView;
         }
 
-        Set<String> nodes(@Nullable Predicate<String> nodeExclusionFilter) {
+        List<String> nodes(@Nullable Predicate<String> nodeExclusionFilter) {
             if (nodeExclusionFilter == null) {
-                return nodes;
+                return List.copyOf(nodes);
             }
 
             return nodes.stream()
                     .filter(nodeExclusionFilter.negate())
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
         }
 
         List<TokenizedAssignments> tableAssignments(int tableId) {
