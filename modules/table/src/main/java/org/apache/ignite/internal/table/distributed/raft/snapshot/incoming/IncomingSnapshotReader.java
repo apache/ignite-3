@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import java.util.Set;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -27,14 +28,14 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
  */
 class IncomingSnapshotReader extends SnapshotReader {
     /** Snapshot meta. */
-    private final SnapshotMeta snapshotMeta;
+    private final PartitionSnapshotMeta snapshotMeta;
 
     /**
      * Constructor.
      *
      * @param snapshotMeta Snapshot meta.
      */
-    IncomingSnapshotReader(SnapshotMeta snapshotMeta) {
+    IncomingSnapshotReader(PartitionSnapshotMeta snapshotMeta) {
         this.snapshotMeta = snapshotMeta;
     }
 

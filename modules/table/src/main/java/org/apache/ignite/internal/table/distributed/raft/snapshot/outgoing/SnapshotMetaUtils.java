@@ -24,12 +24,13 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMetaBuilder;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.entity.SnapshotMetaBuilder;
 
 /**
  * Utils to build {@link SnapshotMeta} instances.
@@ -46,14 +47,14 @@ public class SnapshotMetaUtils {
      *      created.
      * @return SnapshotMeta corresponding to the given log index.
      */
-    public static SnapshotMeta snapshotMetaAt(
+    public static PartitionSnapshotMeta snapshotMetaAt(
             long logIndex,
             long term,
             RaftGroupConfiguration config,
             int requiredCatalogVersion,
             Map<Integer, UUID> nextRowIdToBuildByIndexId
     ) {
-        SnapshotMetaBuilder metaBuilder = new RaftMessagesFactory().snapshotMeta()
+        PartitionSnapshotMetaBuilder metaBuilder = new PartitionReplicationMessagesFactory().partitionSnapshotMeta()
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)
                 .peersList(config.peers())

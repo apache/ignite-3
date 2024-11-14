@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -88,15 +89,18 @@ public class MetaStorageWriteHandler {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     private final KeyValueStorage storage;
+    private final HybridClock clock;
     private final ClusterTimeImpl clusterTime;
 
     private final Map<CommandId, CommandResultAndTimestamp> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
+            HybridClock clock,
             ClusterTimeImpl clusterTime
     ) {
         this.storage = storage;
+        this.clock = clock;
         this.clusterTime = clusterTime;
     }
 
@@ -354,9 +358,9 @@ public class MetaStorageWriteHandler {
             // Alter command by setting safe time based on the adjusted clock.
             MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
 
-            clusterTime.adjust(writeCommand.initiatorTime());
+            clusterTime.adjustClock(writeCommand.initiatorTime());
 
-            writeCommand.safeTime(clusterTime.now());
+            writeCommand.safeTime(clock.now());
 
             return true;
         }
@@ -410,7 +414,7 @@ public class MetaStorageWriteHandler {
         LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
                         + " removedEntriesCount={}, cacheSize={}].",
                 evictionTimestamp,
-                clusterTime.now(),
+                clock.now(),
                 evictedCommandIds.size(),
                 idempotentCommandCache.size()
         );
