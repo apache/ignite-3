@@ -35,7 +35,7 @@ import java.util.concurrent.Flow.Subscription;
  * @param <T> The type of the entry this publisher will emit.
  */
 public class IterableToPublisherAdapter<T> implements Publisher<T> {
-    private final CompletableFuture<Iterable<T>> iterableFuture;
+    private final CompletableFuture<? extends Iterable<T>> iterableFuture;
     private final Executor executor;
     private final int batchSize;
 
@@ -48,7 +48,7 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
      *      to provide some reasonable value here in order to give am ability to other publishers which share the same
      *      executor to make progress.
      */
-    public IterableToPublisherAdapter(CompletableFuture<Iterable<T>> iterableFuture, Executor executor, int batchSize) {
+    public IterableToPublisherAdapter(CompletableFuture<? extends Iterable<T>> iterableFuture, Executor executor, int batchSize) {
         this.iterableFuture = iterableFuture;
         this.executor = executor;
         this.batchSize = batchSize;

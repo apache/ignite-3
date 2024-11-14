@@ -25,6 +25,50 @@
 #include <Python.h>
 
 /**
+ * Write row of the param set using provided writer.
+ *
+ * @param writer Writer.
+ * @param params_row Parameter Row.
+ */
+void write_row(ignite::protocol::writer &writer, PyObject *params_row, std::int32_t row_size_expected) {
+    if (!params_row || params_row == Py_None) {
+        throw ignite::ignite_error("Parameter row can not be None");
+    }
+
+    if (!PySequence_Check(params_row)) {
+        throw ignite::ignite_error(std::string("Parameter row does not provide the sequence protocol: ") +
+            py_object_get_typename(params_row));
+    }
+
+    Py_ssize_t seq_size{PySequence_Size(params_row)};
+    if (seq_size < 0) {
+        throw ignite::ignite_error("Internal error while getting size of the parameter list sequence");
+    }
+
+    auto row_size = std::int32_t(seq_size);
+    if (row_size != row_size_expected) {
+        throw ignite::ignite_error("Row size is unexpected: " + std::to_string(row_size) +
+            ", expected row size: " + std::to_string(row_size_expected));
+    }
+
+    ignite::binary_tuple_builder row_builder{row_size * 3};
+    row_builder.start();
+
+    for (std::int32_t idx = 0; idx < row_size; ++idx) {
+        submit_pyobject(row_builder, PySequence_GetItem(params_row, idx), true);
+    }
+
+    row_builder.layout();
+
+    for (std::int32_t idx = 0; idx < row_size; ++idx) {
+        submit_pyobject(row_builder, PySequence_GetItem(params_row, idx), false);
+    }
+
+    auto row_data = row_builder.build();
+    writer.write_binary(row_data);
+}
+
+/**
  * Python parameter set.
  */
 class py_parameter_set : public ignite::parameter_set {
@@ -32,6 +76,7 @@ public:
     /**
      * Constructor.
      *
+     * @param size Size of the row.
      * @param params Python parameters sequence.
      */
     py_parameter_set(Py_ssize_t size, PyObject *params) : m_size(size), m_params(params) {}
@@ -42,28 +87,13 @@ public:
      * @param writer Writer.
      */
     virtual void write(ignite::protocol::writer &writer) const override {
-        auto row_size = std::int32_t(m_size);
-        if (!row_size) {
+        if (!m_size) {
             writer.write_nil();
             return;
         }
 
-        writer.write(row_size);
-        ignite::binary_tuple_builder row_builder{row_size * 3};
-        row_builder.start();
-
-        for (std::int32_t idx = 0; idx < row_size; ++idx) {
-            submit_pyobject(row_builder, PySequence_GetItem(m_params, idx), true);
-        }
-
-        row_builder.layout();
-
-        for (std::int32_t idx = 0; idx < row_size; ++idx) {
-            submit_pyobject(row_builder, PySequence_GetItem(m_params, idx), false);
-        }
-
-        auto row_data = row_builder.build();
-        writer.write_binary(row_data);
+        writer.write(m_size);
+        write_row(writer, m_params, m_size);
     }
 
     /**
@@ -75,7 +105,6 @@ public:
      * @param last Last page flag.
      */
     virtual void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
-        // TODO: IGNITE-22742 Implement execution with a batch of parameters
         throw ignite::ignite_error("Execution with the batch of parameters is not implemented");
     }
 
@@ -85,7 +114,6 @@ public:
      * @return Number of rows in set.
      */
     [[nodiscard]] virtual std::int32_t get_param_set_size() const override {
-        // TODO: IGNITE-22742 Implement execution with a batch of parameters
         return 1;
     }
 
@@ -102,13 +130,106 @@ public:
      * @return Value.
      */
     [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const override {
-        // TODO: IGNITE-22742 Implement execution with a batch of parameters
         return nullptr;
     }
 
 private:
     /** Size. */
     Py_ssize_t m_size{0};
+
+    /** Python sequence of parameters. */
+    PyObject *m_params{nullptr};
+
+    /** Processed params. */
+    SQLULEN m_processed{0};
+};
+
+/**
+ * Python parameter list set.
+ */
+class py_parameter_list_set : public ignite::parameter_set {
+public:
+    /**
+     * Constructor.
+     *
+     * @param size Size number of rows to insert.
+     * @param row_size Number of params in a single row.
+     * @param params Python parameter sequence list.
+     */
+    py_parameter_list_set(Py_ssize_t size, Py_ssize_t row_size, PyObject *params)
+        : m_size(size)
+        , m_row_size(row_size)
+        , m_params(params) {}
+
+    /**
+     * Write only first row of the param set using provided writer.
+     *
+     * @param writer Writer.
+     */
+    virtual void write(ignite::protocol::writer &writer) const override {
+        PyObject *row = PySequence_GetItem(m_params, 0);
+        if (!m_row_size) {
+            writer.write_nil();
+            return;
+        }
+
+        writer.write(m_row_size);
+        write_row(writer, row, m_row_size);
+    }
+
+    /**
+     * Write rows of the param set in interval [begin, end) using provided writer.
+     *
+     * @param writer Writer.
+     * @param begin Beginning of the interval.
+     * @param end End of the interval.
+     * @param last Last page flag.
+     */
+    virtual void write(ignite::protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override {
+        Py_ssize_t interval_end = std::min(m_size, Py_ssize_t(end));
+        std::int32_t rows_num = std::int32_t(interval_end) - std::int32_t(begin);
+
+        writer.write(std::int32_t(m_row_size));
+        writer.write(rows_num);
+        writer.write_bool(last);
+
+        for (Py_ssize_t i = Py_ssize_t(begin); i < interval_end; ++i) {
+            PyObject *row = PySequence_GetItem(m_params, i);
+            write_row(writer, row, m_row_size);
+        }
+    }
+
+    /**
+     * Get parameter set size.
+     *
+     * @return Number of rows in set.
+     */
+    [[nodiscard]] virtual std::int32_t get_param_set_size() const override {
+        return std::int32_t(m_size);
+    }
+
+    /**
+     * Set number of parameters processed in batch.
+     *
+     * @param processed Processed.
+     */
+    virtual void set_params_processed(SQLULEN processed) override { m_processed = processed; }
+
+    /**
+     * Get pointer to array in which to return the status of each set of parameters.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const override {
+        return nullptr;
+    }
+
+private:
+    /** Rows number. */
+    Py_ssize_t m_size{0};
+
+    /** Row size. */
+    Py_ssize_t m_row_size{0};
 
     /** Python sequence of parameters. */
     PyObject *m_params{nullptr};
@@ -201,6 +322,76 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
 
     py_parameter_set py_params(size, params);
     self->m_statement->execute_sql_query(query, py_params);
+    if (!check_errors(*self->m_statement))
+        return nullptr;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_cursor_executemany(py_cursor* self, PyObject* args, PyObject* kwargs)
+{
+    if (!py_cursor_expect_open(self))
+        return nullptr;
+
+    static char *kwlist[] = {
+        "query",
+        "params_list",
+        nullptr
+    };
+
+    const char* query = nullptr;
+    PyObject *params_list = nullptr;
+
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params_list);
+    if (!parsed)
+        return nullptr;
+
+    Py_ssize_t size{0};
+    Py_ssize_t row_size{0};
+    if (params_list && params_list != Py_None) {
+        if (PySequence_Check(params_list)) {
+            size = PySequence_Size(params_list);
+            if (size < 0) {
+                PyErr_SetString(py_get_module_interface_error_class(),
+                    "Internal error while getting size of the parameter list sequence");
+
+                return nullptr;
+            }
+
+            if (size > 0) {
+                PyObject *row0 = PySequence_GetItem(params_list, 0);
+                if (row0 == nullptr) {
+                    PyErr_SetString(py_get_module_interface_error_class(),
+                        "Can not get a first element of the parameter sequence");
+                }
+
+                if (!PySequence_Check(row0)) {
+                    auto msg_str = std::string(
+                        "A first element of the parameter sequence does not provide the sequence protocol: ")
+                        + py_object_get_typename(params_list);
+
+                    PyErr_SetString(py_get_module_interface_error_class(), msg_str.c_str());
+                }
+
+                row_size = PySequence_Size(row0);
+                if (row_size < 0) {
+                    PyErr_SetString(py_get_module_interface_error_class(),
+                        "Internal error while getting size of the first parameter row");
+
+                    return nullptr;
+                }
+            }
+        } else {
+            auto msg_str = std::string("The object does not provide the sequence protocol: ")
+                + py_object_get_typename(params_list);
+
+            PyErr_SetString(py_get_module_interface_error_class(), msg_str.c_str());
+            return nullptr;
+        }
+    }
+
+    py_parameter_list_set py_params_list(size, row_size, params_list);
+    self->m_statement->execute_sql_query(query, py_params_list);
     if (!check_errors(*self->m_statement))
         return nullptr;
 
@@ -427,6 +618,7 @@ static struct PyMethodDef py_cursor_methods[] = {
     // Core methods
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
     {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"executemany", (PyCFunction)py_cursor_executemany, METH_VARARGS | METH_KEYWORDS, nullptr},
     {"rowcount", (PyCFunction)py_cursor_rowcount, METH_NOARGS, nullptr},
     {"fetchone", (PyCFunction)py_cursor_fetchone, METH_NOARGS, nullptr},
     // Column metadata retrieval methods

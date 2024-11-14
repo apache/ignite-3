@@ -25,8 +25,9 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 
-/** Validator for system property values that are expected to be non-negative {@code long} number. */
-public class NonNegativeLongNumberSystemPropertyValueValidator implements Validator<NamedConfigValue, NamedListView<SystemPropertyView>> {
+/** Validator for system property values that are expected to be non-negative {@code int} number. */
+public class NonNegativeIntegerNumberSystemPropertyValueValidator implements
+        Validator<NamedConfigValue, NamedListView<SystemPropertyView>> {
     /** Returns the names of the properties that need to be checked. */
     private final Set<String> propertyNames;
 
@@ -35,7 +36,7 @@ public class NonNegativeLongNumberSystemPropertyValueValidator implements Valida
      *
      * @param propertyNames Names of system properties to check.
      */
-    public NonNegativeLongNumberSystemPropertyValueValidator(String... propertyNames) {
+    public NonNegativeIntegerNumberSystemPropertyValueValidator(String... propertyNames) {
         this.propertyNames = Set.of(propertyNames);
     }
 
@@ -44,7 +45,7 @@ public class NonNegativeLongNumberSystemPropertyValueValidator implements Valida
         for (String propertyName : propertyNames) {
             SystemPropertyView systemPropertyView = ctx.getNewValue().get(propertyName);
 
-            if (systemPropertyView != null && !isNonNegativeLongValue(systemPropertyView.propertyValue())) {
+            if (systemPropertyView != null && !isNonNegativeIntegerValue(systemPropertyView.propertyValue())) {
                 String message = String.format(
                         "'%s' system property value must be a non-negative long number '%s'",
                         ctx.currentKey(), propertyName
@@ -55,9 +56,9 @@ public class NonNegativeLongNumberSystemPropertyValueValidator implements Valida
         }
     }
 
-    private static boolean isNonNegativeLongValue(String propertyValue) {
+    private static boolean isNonNegativeIntegerValue(String propertyValue) {
         try {
-            return Long.parseLong(propertyValue) >= 0;
+            return Integer.parseInt(propertyValue) >= 0;
         } catch (NumberFormatException e) {
             return false;
         }
