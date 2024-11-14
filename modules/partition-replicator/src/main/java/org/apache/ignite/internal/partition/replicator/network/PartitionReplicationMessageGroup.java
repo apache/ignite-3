@@ -198,6 +198,7 @@ public interface PartitionReplicationMessageGroup {
      * Message type for {@link UpdateMinimumActiveTxBeginTimeReplicaRequest}.
      */
     short UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST = 26;
+
     /**
      * Message type for {@link PartitionSnapshotMeta}.
      */
