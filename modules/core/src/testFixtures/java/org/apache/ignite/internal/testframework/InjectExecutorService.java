@@ -55,7 +55,9 @@ public @interface InjectExecutorService {
     /**
      * Prefix of thread names in the executor.
      *
-     * <p>By default the prefix will be in the format "test-field_type-field_name", for example "test-ExecutorService-commonExecutor".</p>
+     * <p>By default the prefix will be in the format "test-class_name-field_name", for example "test-FooTest-commonExecutor" for class
+     * fields and in the format "test-class_name-method_name-param_name", for example "test-FooTest-beforeAll-commonExecutor" for class
+     * methods.</p>
      */
     String threadPrefix() default "";
 

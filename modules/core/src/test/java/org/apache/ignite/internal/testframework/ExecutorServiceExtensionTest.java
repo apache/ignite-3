@@ -28,8 +28,8 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.thread.ThreadOperation.WAIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.platform.testkit.engine.TestExecutionResultConditions.instanceOf;
@@ -41,15 +41,20 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.ThreadOperation;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** For {@link ExecutorServiceExtension} testing. */
 public class ExecutorServiceExtensionTest {
-    private static final int CPU = Runtime.getRuntime().availableProcessors();
+    private static final int CPUS = Runtime.getRuntime().availableProcessors();
 
     @ExtendWith(ExecutorServiceExtension.class)
     static class NormalFieldInjectionTest {
+        private static final String DEFAULT_THREAD_PREFIX_FORMAT = "test-NormalFieldInjectionTest-%s";
+
+        private static final String DEFAULT_THREAD_PREFIX_FOR_METHOD_FORMAT = "test-NormalFieldInjectionTest-%s-%s";
+
         @InjectExecutorService
         private static ExecutorService staticExecutorServiceWithDefaults;
 
@@ -67,80 +72,106 @@ public class ExecutorServiceExtensionTest {
         private static ScheduledExecutorService staticScheduledExecutorService;
 
         @InjectExecutorService
-        private ExecutorService fieldExecutorServiceWithDefaults;
+        private ExecutorService instanceExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 4, threadPrefix = "test-foo-field-executor", allowedOperations = STORAGE_WRITE)
-        private ExecutorService fieldExecutorService;
+        @InjectExecutorService(threadCount = 4, threadPrefix = "test-foo-instance-executor", allowedOperations = STORAGE_WRITE)
+        private ExecutorService instanceExecutorService;
 
         @InjectExecutorService
-        private ScheduledExecutorService fieldScheduledExecutorServiceWithDefaults;
+        private ScheduledExecutorService instanceScheduledExecutorServiceWithDefaults;
 
-        @InjectExecutorService(threadCount = 5, threadPrefix = "test-bar-field-executor", allowedOperations = PROCESS_RAFT_REQ)
-        private ScheduledExecutorService fieldScheduledExecutorService;
+        @InjectExecutorService(threadCount = 5, threadPrefix = "test-bar-instance-executor", allowedOperations = PROCESS_RAFT_REQ)
+        private ScheduledExecutorService instanceScheduledExecutorService;
+
+        @BeforeAll
+        static void beforeAll(
+                @InjectExecutorService
+                ExecutorService staticParameterExecutorServiceWithDefaults,
+                @InjectExecutorService(threadCount = 6, threadPrefix = "test-foo-static-param-executor", allowedOperations = WAIT)
+                ExecutorService staticParameterExecutorService,
+                @InjectExecutorService
+                ScheduledExecutorService staticParameterScheduledExecutorServiceWithDefaults,
+                @InjectExecutorService(threadCount = 7, threadPrefix = "test-bar-static-param-executor", allowedOperations = WAIT)
+                ScheduledExecutorService staticParameterScheduledExecutorService
+        ) {
+            checkExecutorService(
+                    staticParameterExecutorServiceWithDefaults,
+                    CPUS,
+                    String.format(DEFAULT_THREAD_PREFIX_FOR_METHOD_FORMAT, "beforeAll", "arg0")
+            );
+            checkScheduledExecutorService(
+                    staticParameterScheduledExecutorServiceWithDefaults,
+                    1,
+                    String.format(DEFAULT_THREAD_PREFIX_FOR_METHOD_FORMAT, "beforeAll", "arg2")
+            );
+
+            checkExecutorService(staticParameterExecutorService, 6, "test-foo-static-param-executor", WAIT);
+            checkScheduledExecutorService(staticParameterScheduledExecutorService, 7, "test-bar-static-param-executor", WAIT);
+        }
 
         @Test
         void test(
                 @InjectExecutorService
                 ExecutorService parameterExecutorServiceWithDefaults,
-                @InjectExecutorService(threadCount = 6, threadPrefix = "test-foo-param-executor", allowedOperations = WAIT)
+                @InjectExecutorService(threadCount = 8, threadPrefix = "test-foo-param-executor", allowedOperations = WAIT)
                 ExecutorService parameterExecutorService,
                 @InjectExecutorService
                 ScheduledExecutorService parameterScheduledExecutorServiceWithDefaults,
-                @InjectExecutorService(threadCount = 7, threadPrefix = "test-bar-param-executor", allowedOperations = WAIT)
+                @InjectExecutorService(threadCount = 9, threadPrefix = "test-bar-param-executor", allowedOperations = WAIT)
                 ScheduledExecutorService parameterScheduledExecutorService
         ) {
             checkExecutorService(
                     staticExecutorServiceWithDefaults,
-                    CPU,
-                    "test-ExecutorService-staticExecutorServiceWithDefaults"
+                    CPUS,
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "staticExecutorServiceWithDefaults")
             );
             checkScheduledExecutorService(
                     staticScheduledExecutorServiceWithDefaults,
                     1,
-                    "test-ScheduledExecutorService-staticScheduledExecutorServiceWithDefaults"
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "staticScheduledExecutorServiceWithDefaults")
             );
             checkExecutorService(
-                    fieldExecutorServiceWithDefaults,
-                    CPU,
-                    "test-ExecutorService-fieldExecutorServiceWithDefaults"
+                    instanceExecutorServiceWithDefaults,
+                    CPUS,
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "instanceExecutorServiceWithDefaults")
             );
             checkScheduledExecutorService(
-                    fieldScheduledExecutorServiceWithDefaults,
+                    instanceScheduledExecutorServiceWithDefaults,
                     1,
-                    "test-ScheduledExecutorService-fieldScheduledExecutorServiceWithDefaults"
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "instanceScheduledExecutorServiceWithDefaults")
             );
             checkExecutorService(
                     parameterExecutorServiceWithDefaults,
-                    CPU,
-                    "test-ExecutorService-arg"
+                    CPUS,
+                    String.format(DEFAULT_THREAD_PREFIX_FOR_METHOD_FORMAT, "test", "arg0")
             );
             checkScheduledExecutorService(
                     parameterScheduledExecutorServiceWithDefaults,
                     1,
-                    "test-ScheduledExecutorService-arg"
+                    String.format(DEFAULT_THREAD_PREFIX_FOR_METHOD_FORMAT, "test", "arg2")
             );
 
             checkExecutorService(staticExecutorService, 2, "test-foo-static-executor", TX_STATE_STORAGE_ACCESS);
             checkScheduledExecutorService(staticScheduledExecutorService, 3, "test-bar-static-executor", STORAGE_READ, STORAGE_WRITE);
-            checkExecutorService(fieldExecutorService, 4, "test-foo-field-executor", STORAGE_WRITE);
-            checkScheduledExecutorService(fieldScheduledExecutorService, 5, "test-bar-field-executor", PROCESS_RAFT_REQ);
-            checkExecutorService(parameterExecutorService, 6, "test-foo-param-executor", WAIT);
-            checkScheduledExecutorService(parameterScheduledExecutorService, 7, "test-bar-param-executor", WAIT);
+            checkExecutorService(instanceExecutorService, 4, "test-foo-instance-executor", STORAGE_WRITE);
+            checkScheduledExecutorService(instanceScheduledExecutorService, 5, "test-bar-instance-executor", PROCESS_RAFT_REQ);
+            checkExecutorService(parameterExecutorService, 8, "test-foo-param-executor", WAIT);
+            checkScheduledExecutorService(parameterScheduledExecutorService, 9, "test-bar-param-executor", WAIT);
         }
     }
 
     @ExtendWith(ExecutorServiceExtension.class)
     static class ErrorFieldInjectionTest {
         @InjectExecutorService
-        private static Integer staticExecutorService;
+        private static Integer staticWrongType;
 
         @InjectExecutorService
-        private String fieldExecutorService;
+        private String instanceWrongType;
 
         @Test
         public void test(
                 @InjectExecutorService
-                Boolean parameterExecutorService
+                Boolean parameterWrongType
         ) {
             fail("Should not reach here");
         }
@@ -152,7 +183,7 @@ public class ExecutorServiceExtensionTest {
     }
 
     @Test
-    void testErrorStaticFieldInjection() {
+    void testWrongTypeInjection() {
         assertExecutesWithFailure(
                 ErrorFieldInjectionTest.class,
                 instanceOf(IllegalStateException.class),
@@ -198,7 +229,7 @@ public class ExecutorServiceExtensionTest {
 
                     IgniteThread thread1 = (IgniteThread) thread;
 
-                    assertThat(thread1.getName(), containsString(expThreadPrefix));
+                    assertThat(thread1.getName(), startsWith(expThreadPrefix));
                     assertThat(thread1.allowedOperations(), containsInAnyOrder(expThreadOperations));
                 }, executor),
                 willCompleteSuccessfully()

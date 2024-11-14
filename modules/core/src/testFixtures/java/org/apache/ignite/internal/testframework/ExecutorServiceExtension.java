@@ -34,6 +34,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -89,7 +90,7 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
             ExtensionContext extensionContext
     ) throws ParameterResolutionException {
         return parameterContext.isAnnotated(InjectExecutorService.class)
-                && isFieldTypeIsSupported(parameterContext.getParameter().getType());
+                && isFieldTypeSupported(parameterContext.getParameter().getType());
     }
 
     @Override
@@ -101,7 +102,9 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
             throw new ParameterResolutionException("Unknown parameter:" + parameterContext.getParameter());
         }
 
-        List<ExecutorService> executorServices = getOrCreateExecutorServiceListInStore(extensionContext, false);
+        boolean forStatic = isStatic(parameterContext.getParameter().getDeclaringExecutable().getModifiers());
+
+        List<ExecutorService> executorServices = getOrCreateExecutorServiceListInStore(extensionContext, forStatic);
 
         InjectExecutorService injectExecutorService = parameterContext.findAnnotation(InjectExecutorService.class).orElse(null);
 
@@ -111,7 +114,8 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
                 injectExecutorService,
                 parameterContext.getParameter().getName(),
                 parameterContext.getParameter().getType(),
-                extensionContext.getRequiredTestClass()
+                extensionContext.getRequiredTestClass(),
+                parameterContext.getParameter().getDeclaringExecutable().getName()
         );
 
         executorServices.add(executorService);
@@ -142,8 +146,6 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
 
             field.set(forStatic ? null : testInstance, executorService);
         }
-
-        context.getStore(NAMESPACE).put(storeKey(forStatic), executorServices);
     }
 
     private static void shutdownExecutors(ExtensionContext context, boolean forStatic) throws Exception {
@@ -169,14 +171,14 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
     }
 
     private static void checkFieldTypeIsSupported(Field field) {
-        if (!isFieldTypeIsSupported(field.getType())) {
+        if (!isFieldTypeSupported(field.getType())) {
             throw new IllegalStateException(
                     String.format("Unsupported field type: [field=%s, supportedFieldTypes=%s]", field, SUPPORTED_FIELD_TYPES)
             );
         }
     }
 
-    private static boolean isFieldTypeIsSupported(Class<?> fieldType) {
+    private static boolean isFieldTypeSupported(Class<?> fieldType) {
         for (Class<?> supportedFieldType : SUPPORTED_FIELD_TYPES) {
             if (fieldType.equals(supportedFieldType)) {
                 return true;
@@ -191,17 +193,18 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
 
         assert injectExecutorService != null : field;
 
-        return createExecutorService(injectExecutorService, field.getName(), field.getType(), field.getDeclaringClass());
+        return createExecutorService(injectExecutorService, field.getName(), field.getType(), field.getDeclaringClass(), null);
     }
 
     private static ExecutorService createExecutorService(
             InjectExecutorService injectExecutorService,
             String fieldName,
             Class<?> fieldType,
-            Class<?> testClass
+            Class<?> testClass,
+            @Nullable String methodName
     ) {
         int threadCount = injectExecutorService.threadCount();
-        String threadPrefix = threadPrefix(injectExecutorService, fieldName, fieldType);
+        String threadPrefix = threadPrefix(injectExecutorService, testClass, fieldName, methodName);
         ThreadOperation[] allowedOperations = injectExecutorService.allowedOperations();
 
         ThreadFactory threadFactory = IgniteThreadFactory.withPrefix(threadPrefix, Loggers.forClass(testClass), allowedOperations);
@@ -217,14 +220,23 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         );
     }
 
-    private static String threadPrefix(InjectExecutorService injectExecutorService, String fieldName, Class<?> fieldType) {
+    private static String threadPrefix(
+            InjectExecutorService injectExecutorService,
+            Class<?> testClass,
+            String fieldName,
+            @Nullable String methodName
+    ) {
         String threadPrefix = injectExecutorService.threadPrefix();
 
         if (threadPrefix != null && !"".equals(threadPrefix)) {
             return threadPrefix;
         }
 
-        return String.format("test-%s-%s", fieldType.getSimpleName(), fieldName);
+        if (methodName == null) {
+            return String.format("test-%s-%s", testClass.getSimpleName(), fieldName);
+        }
+
+        return String.format("test-%s-%s-%s", testClass.getSimpleName(), methodName, fieldName);
     }
 
     private static Object storeKey(boolean forStatic) {
