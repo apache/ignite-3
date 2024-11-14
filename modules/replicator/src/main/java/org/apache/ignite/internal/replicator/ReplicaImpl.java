@@ -388,6 +388,9 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
                 .thenAccept(v -> raftClient.shutdown());
