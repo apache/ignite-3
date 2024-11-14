@@ -150,43 +150,43 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected(long term) {
-//        if (!busyLock.enterBusy()) {
-//            return;
-//        }
-//
-//        try {
-//            rebalanceScheduler.schedule(() -> {
-//                if (!busyLock.enterBusy()) {
-//                    return;
-//                }
-//
-//                try {
-//                    rebalanceAttempts.set(0);
-//
-//                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
-//
-//                    if (pendingAssignmentsBytes != null) {
-//                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
-//
-//                        PeersAndLearners peersAndLearners = PeersAndLearners.fromAssignments(pendingAssignments);
-//
-//                        LOG.info(
-//                                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-//                                tablePartitionId, peersAndLearners.peers(), peersAndLearners.learners()
-//                        );
-//
-//                        partitionMover.movePartition(peersAndLearners, term).get();
-//                    }
-//                } catch (Exception e) {
-//                    // TODO: IGNITE-14693
-//                    LOG.warn("Unable to start rebalance [tablePartitionId, term={}]", e, tablePartitionId, term);
-//                } finally {
-//                    busyLock.leaveBusy();
-//                }
-//            }, 0, TimeUnit.MILLISECONDS);
-//        } finally {
-//            busyLock.leaveBusy();
-//        }
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            rebalanceScheduler.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    rebalanceAttempts.set(0);
+
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
+
+                    if (pendingAssignmentsBytes != null) {
+                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
+
+                        PeersAndLearners peersAndLearners = PeersAndLearners.fromAssignments(pendingAssignments);
+
+                        LOG.info(
+                                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                                tablePartitionId, peersAndLearners.peers(), peersAndLearners.learners()
+                        );
+
+                        partitionMover.movePartition(peersAndLearners, term).get();
+                    }
+                } catch (Exception e) {
+                    // TODO: IGNITE-14693
+                    LOG.warn("Unable to start rebalance [tablePartitionId, term={}]", e, tablePartitionId, term);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, 0, TimeUnit.MILLISECONDS);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */

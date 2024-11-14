@@ -147,8 +147,8 @@ public class ReplicaImpl implements Replica {
 
         raftClient.subscribeLeader(this::onLeaderElected);
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        //placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        //placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
     @Override
@@ -388,8 +388,8 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        //placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        //placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
