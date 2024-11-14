@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.zip.Checksum;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -41,20 +42,28 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.raft.jraft.util.CRC64;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for RocksDB key-value storage implementation.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage(
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                new ReadOperationForCompactionTracker()
+                new ReadOperationForCompactionTracker(),
+                scheduledExecutorService
         );
     }
 
@@ -82,7 +91,8 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                new ReadOperationForCompactionTracker()
+                new ReadOperationForCompactionTracker(),
+                scheduledExecutorService
         );
 
         storage.start();

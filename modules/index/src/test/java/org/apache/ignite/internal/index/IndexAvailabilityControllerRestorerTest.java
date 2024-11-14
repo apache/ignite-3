@@ -49,6 +49,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -63,6 +64,8 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -73,9 +76,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** For {@link IndexAvailabilityController} testing on node recovery. */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -93,7 +100,13 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void setUp() throws Exception {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        keyValueStorage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
 
@@ -220,7 +233,13 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        keyValueStorage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
 
         metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
 
