@@ -62,6 +62,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -101,7 +102,6 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -305,16 +305,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert cancelHandler != null;
 
-        // This call triggers a timeout exception, if operation has timed out.
+        // This call immediately triggers a cancellation exception if operation has timed out or it has already been cancelled.
         cancelHandler.add(timeout -> {
             QueryCompletionReason reason = timeout ? QueryCompletionReason.TIMEOUT : QueryCompletionReason.CANCEL;
             queryManager.close(reason);
         });
-
-        CompletableFuture<Void> timeoutFut = cancelHandler.timeoutFuture();
-        if (timeoutFut != null) {
-            timeoutFut.thenAcceptAsync((r) -> queryManager.close(QueryCompletionReason.TIMEOUT), taskExecutor);
-        }
 
         QueryTransactionContext txContext = operationContext.txContext();
 
@@ -325,13 +320,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(tx, plan);
 
-        if (txWrapper.implicit()) {
-            RunningQueryInfo queryInfo = operationContext.queryInfo();
-
-            assert queryInfo != null;
-
-            queryInfo.transactionId(tx.id());
-        }
+        operationContext.notifyTxUsed(txWrapper);
 
         PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
 
@@ -429,7 +418,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
-                queryCancel.timeoutFuture()
+                operationContext.cancel()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -474,12 +463,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryCancel queryCancel = operationContext.cancel();
         assert queryCancel != null;
 
-        CompletableFuture<Void> timeoutFut = queryCancel.timeoutFuture();
-        if (timeoutFut != null) {
-            timeoutFut.whenCompleteAsync((r, t) -> {
+        queryCancel.add(timeout -> {
+            if (timeout) {
                 ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
-            }, taskExecutor);
-        }
+            }
+        });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
@@ -785,7 +773,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final @Nullable CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> root;
 
-        private final @Nullable CompletableFuture<Void> timeoutFut;
+        private final @Nullable QueryCancel cancel;
 
         /** Mutex for {@link #remoteFragmentInitCompletion} modifications. */
         private final Object initMux = new Object();
@@ -802,9 +790,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             this.coordinatorNodeName = coordinatorNodeName;
 
             if (coordinator) {
-                QueryCancel queryCancel = ctx.cancel();
-                assert queryCancel != null;
-
                 var root = new CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>>();
 
                 root.exceptionally(t -> {
@@ -820,10 +805,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
                 this.root = root;
-                this.timeoutFut = queryCancel.timeoutFuture();
+                this.cancel = ctx.cancel();
             } else {
                 this.root = null;
-                this.timeoutFut = null;
+                this.cancel = null;
             }
         }
 
@@ -937,7 +922,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
                     ctx.timeZoneId(),
-                    timeoutFut
+                    cancel
             );
         }
 
@@ -989,6 +974,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
+
+            // Query has already been cancelled, return immediately.
+            if (cancelled.get()) {
+                return new AsyncCursor<>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
+                        Throwable t = SqlExceptionMapperUtil.mapToPublicSqlException(new QueryCancelledException());
+                        return CompletableFuture.failedFuture(t);
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        return DistributedQueryManager.this.cancelFut;
+                    }
+                };
+            }
 
             boolean mapOnBackups = tx.isReadOnly();
             MappingParameters mappingParameters = MappingParameters.create(ctx.parameters(), mapOnBackups);

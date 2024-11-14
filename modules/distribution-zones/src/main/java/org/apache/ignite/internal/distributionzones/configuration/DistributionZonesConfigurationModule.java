@@ -24,7 +24,7 @@ import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.validation.NonNegativeLongNumberSystemPropertyValueValidator;
+import org.apache.ignite.internal.configuration.validation.NonNegativeIntegerNumberSystemPropertyValueValidator;
 
 /** {@link ConfigurationModule} for distribution-zones module. */
 @AutoService(ConfigurationModule.class)
@@ -37,7 +37,7 @@ public class DistributionZonesConfigurationModule implements ConfigurationModule
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
-                new NonNegativeLongNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_TIMEOUT)
+                new NonNegativeIntegerNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_TIMEOUT)
         );
     }
 }

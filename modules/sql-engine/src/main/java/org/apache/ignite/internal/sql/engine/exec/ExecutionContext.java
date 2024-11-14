@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -96,7 +96,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
-    private final @Nullable CompletableFuture<Void> timeoutFut;
+    private final @Nullable QueryCancel cancel;
 
     /**
      * Constructor.
@@ -110,7 +110,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
-     * @param timeoutFut Timeout future.
+     * @param cancel Cancellation handle.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -123,7 +123,7 @@ public class ExecutionContext<RowT> implements DataContext {
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
-            @Nullable CompletableFuture<Void> timeoutFut
+            @Nullable QueryCancel cancel
     ) {
         this.executor = executor;
         this.qryId = qryId;
@@ -134,7 +134,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
-        this.timeoutFut = timeoutFut;
+        this.cancel = cancel;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -243,7 +243,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     /** {@inheritDoc} */
     @Override
-    public Object get(String name) {
+    public @Nullable Object get(String name) {
         if (Variable.CANCEL_FLAG.camelName.equals(name)) {
             return cancelFlag;
         }
@@ -263,19 +263,27 @@ public class ExecutionContext<RowT> implements DataContext {
         }
 
         if (name.startsWith("?")) {
-            Object val = params.get(name);
-            return val != null ? TypeUtils.toInternal(val, val.getClass()) : null;
+            return getParameter(name, null);
         } else {
             return params.get(name);
         }
-
     }
 
     /** Gets dynamic parameters by name. */
-    public Object getParameter(String name, Type storageType) {
+    public @Nullable Object getParameter(String name, @Nullable Type storageType) {
         assert name.startsWith("?") : name;
 
-        return TypeUtils.toInternal(params.get(name), storageType);
+        Object param = params.get(name);
+
+        if (param == null) {
+            if (!params.containsKey(name)) {
+                throw new IllegalStateException("Missing dynamic parameter: " + name);
+            }
+
+            return null;
+        }
+
+        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
     }
 
     /**
@@ -394,16 +402,17 @@ public class ExecutionContext<RowT> implements DataContext {
      * if timeout is set of this context.
      */
     public void scheduleTimeout(CompletableFuture<?> fut) {
-        if (timeoutFut == null) {
+        if (cancel == null) {
             return;
         }
 
-        Executor executor = task -> execute(task::run, (err) -> {});
+        cancel.add(timeout -> {
+            if (!timeout) {
+                return;
+            }
 
-        timeoutFut.thenAcceptAsync(
-                (r) -> fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG)),
-                executor
-        );
+            fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+        });
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */

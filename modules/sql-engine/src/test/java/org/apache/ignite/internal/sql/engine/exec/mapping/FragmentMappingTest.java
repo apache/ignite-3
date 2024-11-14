@@ -413,14 +413,15 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             objectId += 1;
         }
 
+        LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
+
         IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 1, dataSources);
-        ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
+        ExecutionDistributionProvider executionDistributionProvider = TestBuilders.executionDistributionProviderBuilder()
                 .useTablePartitions(true)
                 .addTables(table2Assignments)
                 .build();
-        LogicalTopologySnapshot logicalTopologySnapshot = newLogicalTopology();
 
-        return new TestSetup(executionTargetProvider, schema, logicalTopologySnapshot);
+        return new TestSetup(executionDistributionProvider, schema, logicalTopologySnapshot);
     }
 
     private void validateAssignments(String tableName, List<List<String>> assignments) {

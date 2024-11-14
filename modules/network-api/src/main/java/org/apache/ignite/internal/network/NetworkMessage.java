@@ -78,6 +78,6 @@ public interface NetworkMessage extends Cloneable {
      * <p>NOTE: Avoid output sensetive information.</p>
      */
     default String toStringForLightLogging() {
-        return getClass().toString();
+        return getClass().getName();
     }
 }

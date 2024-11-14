@@ -96,7 +96,8 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                         + "distribution_algorithm='test_Distribution', "
                         + "data_nodes_auto_adjust=1, "
                         + "data_nodes_auto_adjust_scale_up=2, "
-                        + "data_nodes_auto_adjust_scale_down=3"
+                        + "data_nodes_auto_adjust_scale_down=3,"
+                        + "consistency_mode='HIGH_AVAILABILITY'"
         );
 
         assertNotNull(createZone.createOptionList());
@@ -108,6 +109,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
 
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH "
                 + "\"REPLICAS\" = 2, "
@@ -116,7 +118,8 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                 + "\"DISTRIBUTION_ALGORITHM\" = 'test_Distribution', "
                 + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3");
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3, "
+                + "\"CONSISTENCY_MODE\" = 'HIGH_AVAILABILITY'");
     }
 
     /**

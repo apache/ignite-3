@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -44,6 +46,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -67,6 +70,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
@@ -98,6 +102,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -157,7 +162,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         zoneId = requireNonNull(zone).id();
         waitForScale(node0, zoneParams.nodes());
 
-        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
+        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s", TABLE_NAME, zoneName));
 
         TableManager tableManager = unwrapTableManager(node0.tables());
         tableId = ((TableViewInternal) tableManager.table(TABLE_NAME)).tableId();
@@ -234,7 +239,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of()
+                Set.of(),
+                true
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -280,7 +286,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(anotherPartId)
+                Set.of(anotherPartId),
+                true
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -319,7 +326,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of()
+                Set.of(),
+                true
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -355,12 +363,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
-        Assignments assignment013 = Assignments.of(timestamp,
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(3).name())
-        );
-
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -379,18 +381,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 0, 1, 3);
 
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013);
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
+        Assignments assignment013 = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        );
 
-            if (oldPredicate == null) {
-                node.dropMessages(newPredicate);
-            } else {
-                node.dropMessages(oldPredicate.or(newPredicate));
-            }
-        });
+        blockRebalanceStableSwitch(partId, assignment013);
 
-        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet());
+        CompletableFuture<Void> resetFuture =
+                node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
@@ -407,7 +407,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet());
+        resetFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
@@ -431,6 +431,166 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             assertThat(fut, willCompleteSuccessfully());
 
             assertNotNull(fut.join());
+        });
+    }
+
+    /**
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
+     * disaster recovery API, but with manual flag set to false. We expect that in this replica factor won't be restored.
+     * In this test, assignments will be (1, 3, 4), according to {@link RendezvousDistributionFunction}.
+     */
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    void testAutomaticRebalanceIfMajorityIsLost() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 1, 3, 4);
+
+        stopNodesInParallel(3, 4);
+
+        waitForScale(node0, 3);
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of(),
+                false
+        );
+
+        assertThat(updateFuture, willSucceedIn(60, SECONDS));
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 1);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        // Check that there is no ongoing or planned rebalance.
+        assertNull(getPendingAssignments(node0, partId));
+
+        assertRealAssignments(node0, partId, 1);
+    }
+
+    /**
+     * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost.
+     * Not manual reset should do nothing in that case, so no new pending or planned is presented.
+     */
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
+    void testAutomaticRebalanceIfPartitionIsLost() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+
+        IgniteImpl node1 = unwrapIgniteImpl(cluster.node(1));
+
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 1);
+
+        stopNodesInParallel(1);
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of(),
+                false
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        // Check that there is no ongoing or planned rebalance.
+        assertNull(getPendingAssignments(node0, partId));
+
+        assertEquals(1, getStableAssignments(node0, partId).nodes().size());
+
+        assertEquals(node1.name(), getStableAssignments(node0, partId).nodes().stream().findFirst().get().consistentId());
+    }
+
+    /**
+     * Tests a scenario where only one node from stable is left, but we have node in pending nodes and perform reset partition operation.
+     * We expect this node from pending being presented after reset, so not manual reset logic take into account pending nodes.
+     *
+     * <p>It goes like this:
+     * <ul>
+     *     <li>We have 6 nodes and a partition on nodes 1, 4 and 5.</li>
+     *     <li>We stop node 5, so rebalance on 1, 3, 4 is triggered, but blocked and cannot be finished.</li>
+     *     <li>Zones scale down is set to infinite value, we stop node 4 and new rebalance is not triggered and majority is lost.</li>
+     *     <li>We execute "resetPartitions" and expect that pending assignments will be 1, 3, so node 3 from pending is presented.</li>
+     * </ul>
+     */
+    @Test
+    @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    public void testIncompleteRebalanceBeforeAutomaticResetPartitions() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+        assertRealAssignments(node0, partId, 1, 4, 5);
+
+        insertValues(table, partId, 0);
+
+        Assignments assignment134 = Assignments.of(timestamp,
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name())
+        );
+
+        blockRebalanceStableSwitch(partId, assignment134);
+
+        stopNode(5);
+
+        waitForScale(node0, 5);
+
+        assertRealAssignments(node0, partId, 1, 3, 4);
+
+        assertPendingAssignments(node0, partId, assignment134);
+
+        assertFalse(getPendingAssignments(node0, partId).force());
+
+        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
+        stopNode(4);
+
+        CompletableFuture<Void> resetFuture =
+                node0.disasterRecoveryManager().resetPartitions(zoneName, QUALIFIED_TABLE_NAME, emptySet(), false);
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        Assignments assignmentForced13 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())), timestamp);
+
+        assertPendingAssignments(node0, partId, assignmentForced13);
+    }
+
+    /**
+     * Block rebalance, so stable won't be switched to specified pending.
+     */
+    private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
+        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
+            BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment);
+            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
+
+            if (oldPredicate == null) {
+                node.dropMessages(newPredicate);
+            } else {
+                node.dropMessages(oldPredicate.or(newPredicate));
+            }
         });
     }
 
@@ -476,7 +636,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             GlobalPartitionState state = map.values().iterator().next();
 
             return state.state == expectedState;
-        }, 500, 20_000));
+        }, 500, 20_000),
+                () -> "Expected state: " + expectedState
+                        + ", actual: " + node0.disasterRecoveryManager().globalPartitionStates(Set.of(zoneName), emptySet()).join()
+        );
     }
 
     private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
@@ -504,7 +667,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
-        assertTrue(waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000));
+        assertTrue(
+                waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000),
+                () -> "Expected: " + List.of(expected) + ", actual: " + getRealAssignments(node0, partId)
+        );
+    }
+
+    private void assertPendingAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> expected.equals(getPendingAssignments(node0, partId)), 2000),
+                () -> "Expected: " + expected + ", actual: " + getPendingAssignments(node0, partId)
+        );
     }
 
     /**
@@ -585,6 +758,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         }, 250, SECONDS.toMillis(60)));
     }
 
+    /**
+     * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes
+     * from stable and pending, for example, when rebalance is in progress.
+     */
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
         CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
                 .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
@@ -597,6 +774,28 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .map(cluster::nodeIndex)
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    private @Nullable Assignments getPendingAssignments(IgniteImpl node0, int partId) {
+        CompletableFuture<Entry> pendingFut = node0.metaStorageManager()
+                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+
+        assertThat(pendingFut, willCompleteSuccessfully());
+
+        Entry pending = pendingFut.join();
+
+        return pending.empty() ? null : Assignments.fromBytes(pending.value());
+    }
+
+    private @Nullable Assignments getStableAssignments(IgniteImpl node0, int partId) {
+        CompletableFuture<Entry> stableFut = node0.metaStorageManager()
+                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)));
+
+        assertThat(stableFut, willCompleteSuccessfully());
+
+        Entry stable = stableFut.join();
+
+        return stable.empty() ? null : Assignments.fromBytes(stable.value());
     }
 
     @Retention(RetentionPolicy.RUNTIME)

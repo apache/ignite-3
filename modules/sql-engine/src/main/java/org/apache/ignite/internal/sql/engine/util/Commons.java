@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
@@ -215,6 +216,12 @@ public final class Commons {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static <T> List<T> cast(List<?> src) {
         return (List) src;
+    }
+
+    /** Returns the given future as typed future. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <T> CompletableFuture<T> cast(CompletableFuture<?> src) {
+        return (CompletableFuture) src;
     }
 
     /**

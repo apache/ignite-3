@@ -36,7 +36,6 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
@@ -175,7 +174,6 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check merge table schema changes.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();

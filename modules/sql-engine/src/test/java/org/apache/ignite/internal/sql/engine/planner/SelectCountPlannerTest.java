@@ -347,7 +347,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            NoOpTransaction tx = NoOpTransaction.readWrite("RW");
+            NoOpTransaction tx = NoOpTransaction.readWrite("RW", false);
             QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
@@ -355,7 +355,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            NoOpTransaction tx = NoOpTransaction.readOnly("RO");
+            NoOpTransaction tx = NoOpTransaction.readOnly("RO", false);
             QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);

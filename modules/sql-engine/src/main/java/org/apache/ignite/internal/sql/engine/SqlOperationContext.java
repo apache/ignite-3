@@ -21,10 +21,11 @@ import static java.util.Objects.requireNonNull;
 
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
-import org.apache.ignite.internal.sql.engine.registry.RunningQueryInfo;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +45,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
-    private final @Nullable RunningQueryInfo queryInfo;
+    private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
 
     /**
      * Private constructor, used by a builder.
@@ -58,7 +59,7 @@ public final class SqlOperationContext {
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable PrefetchCallback prefetchCallback,
-            @Nullable RunningQueryInfo queryInfo
+            @Nullable Consumer<QueryTransactionWrapper> txUsedListener
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -68,7 +69,7 @@ public final class SqlOperationContext {
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
         this.prefetchCallback = prefetchCallback;
-        this.queryInfo = queryInfo;
+        this.txUsedListener = txUsedListener;
     }
 
     public static Builder builder() {
@@ -127,12 +128,12 @@ public final class SqlOperationContext {
     }
 
     /**
-     * Returns info about running query.
-     *
-     * <p>May be null on remote side, but never null on node initiator.
+     * Notifies context that transaction was used for query execution.
      */
-    public @Nullable RunningQueryInfo queryInfo() {
-        return queryInfo;
+    public void notifyTxUsed(QueryTransactionWrapper tx) {
+        if (txUsedListener != null) {
+            txUsedListener.accept(tx);
+        }
     }
 
     /**
@@ -155,8 +156,8 @@ public final class SqlOperationContext {
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private HybridTimestamp operationTime;
         private @Nullable QueryTransactionContext txContext;
-        private @Nullable RunningQueryInfo queryInfo;
 
+        private @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
         private @Nullable PrefetchCallback prefetchCallback;
@@ -201,8 +202,8 @@ public final class SqlOperationContext {
             return this;
         }
 
-        public Builder queryInfo(RunningQueryInfo queryInfo) {
-            this.queryInfo = queryInfo;
+        public Builder txUsedListener(Consumer<QueryTransactionWrapper> txUsedListener) {
+            this.txUsedListener = txUsedListener;
             return this;
         }
 
@@ -217,7 +218,7 @@ public final class SqlOperationContext {
                     cancel,
                     defaultSchemaName,
                     prefetchCallback,
-                    queryInfo
+                    txUsedListener
             );
         }
     }

@@ -27,8 +27,8 @@ set LOG_FILE_PATTERN=%LOG_DIR%\ignite3db-%g.log
 set CONFIG_FILE=%CONF_DIR%\ignite-config.conf
 
 @rem JVM props
-set JVM_MAX_MEM=16384m
-set JVM_MIN_MEM=16384m
+set JVM_MAX_MEM=16g
+set JVM_MIN_MEM=16g
 set JVM_GC=G1GC
 set JVM_G1HeapRegionSize=32M
 set JVM_GC_LOG_NAME=gc.log

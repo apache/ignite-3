@@ -20,6 +20,8 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -32,11 +34,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -89,8 +89,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
-    @InjectConfiguration
-    private SystemDistributedConfiguration systemDistributedConfiguration;
+    @InjectConfiguration("mock.properties = {"
+            + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"" + IMMEDIATE_TIMER_VALUE + "\", "
+            + "}")
+    protected SystemDistributedConfiguration systemDistributedConfiguration;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -101,8 +103,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker));
 
         metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
-
-        components.add(metaStorageManager);
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
         clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
@@ -114,8 +116,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
-        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
-                metaStorageManager.registerRevisionUpdateListener(function::apply);
+        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
         catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
         components.add(catalogManager);
@@ -149,6 +150,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.forEach(component -> toCloseList.add(component::beforeNodeStop));
         toCloseList.add(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()));
+
+        toCloseList.add(() -> metaStorageManager.beforeNodeStop());
+        toCloseList.add(() -> assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
+
         toCloseList.add(keyValueStorage::close);
 
         closeAll(toCloseList);

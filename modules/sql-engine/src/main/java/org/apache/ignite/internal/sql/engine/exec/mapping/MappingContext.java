@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * A context that encloses information necessary during mapping.
@@ -29,23 +28,19 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 class MappingContext {
     private final String localNode;
     private final List<String> nodes;
+    private final RelOptCluster cluster;
 
     private final ExecutionTargetFactory targetFactory;
 
-    private RelOptCluster cluster;
-
-    MappingContext(String localNode, List<String> nodes) {
+    MappingContext(String localNode, List<String> nodes, RelOptCluster cluster) {
         this.localNode = localNode;
         this.nodes = nodes;
+        this.cluster = cluster;
 
         this.targetFactory = nodes.size() > 64 ? new LargeClusterFactory(nodes) : new SmallClusterFactory(nodes);
     }
 
     public RelOptCluster cluster() {
-        if (cluster == null) {
-            cluster = Commons.cluster();
-        }
-
         return cluster;
     }
 

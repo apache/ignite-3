@@ -28,6 +28,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -366,32 +368,25 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void testSuccessfulCreateTableWithZoneIdentifier() {
         sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
-        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
-    }
-
-    @Test
-    public void testSuccessfulCreateTableWithZoneLiteral() {
-        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
-        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE test_zone");
     }
 
     @Test
     public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
         sql("CREATE ZONE \"test_zone\" WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
-        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE \"test_zone\"");
         sql("DROP TABLE test_table");
         sql("DROP ZONE \"test_zone\"");
     }
 
     @Test
     public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
-
         sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         assertThrowsSqlException(
                 SqlException.class,
                 STMT_VALIDATION_ERR,
                 "Failed to validate query. Distribution zone with name 'test_zone' not found",
-                () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'"));
+                () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE \"test_zone\""));
     }
 
     @Test
@@ -414,13 +409,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Zone with name '" + defaultZoneName + "' does not contain table's storage profile",
-                () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='profile1'")
+                () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) STORAGE PROFILE 'profile1'")
         );
     }
 
     @Test
     public void tableStorageProfile() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
@@ -437,7 +432,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfileWithCustomZoneDefaultProfile() {
         sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
 
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) ZONE ZONE1");
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
@@ -454,7 +449,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfileWithCustomZoneExplicitProfile() {
         sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
 
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) ZONE ZONE1 STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
@@ -561,5 +556,16 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
         return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
+    }
+
+    @Test
+    public void creatingTableOnZoneReferencingNonExistingProfile() {
+        String tableName = "test_table";
+
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='no-such-profile'");
+        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE test_zone");
+
+        Table table = CLUSTER.aliveNode().tables().table(tableName);
+        assertThat(table, is(notNullValue()));
     }
 }

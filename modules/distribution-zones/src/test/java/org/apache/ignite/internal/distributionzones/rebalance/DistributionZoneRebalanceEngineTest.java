@@ -80,6 +80,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
@@ -173,7 +174,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return null;
         }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
-        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -181,7 +182,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clock, clusterTime);
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
@@ -239,7 +240,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
                     .iif(iif)
                     .id(commandIdGenerator.newId())
-                    .initiatorTime(clusterTime.now())
+                    .initiatorTime(clock.now())
                     .build();
 
             return metaStorageService.run(multiInvokeCommand);

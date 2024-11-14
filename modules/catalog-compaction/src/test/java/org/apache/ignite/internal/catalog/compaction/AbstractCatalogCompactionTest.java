@@ -55,7 +55,10 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
         CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
 
-        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(new ComponentContext(), clockWaiter, manager), willCompleteSuccessfully());
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
         awaitDefaultZoneCreation(manager);
 

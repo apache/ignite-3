@@ -130,6 +130,30 @@ public class VarIntUtils {
     }
 
     /**
+     * Reads a varint from a byte buffer.
+     *
+     * @param bytes Array from which to read.
+     * @param off Offset to start reading from.
+     * @return Long value that was encoded as a varint.
+     */
+    public static long readVarInt(byte[] bytes, int off) {
+        long res = 0;
+
+        int index = off;
+        for (int shift = 0; ; shift += 7) {
+            byte b = bytes[index++];
+
+            res |= ((long) b & 0x7F) << shift;
+
+            if (b >= 0) {
+                break;
+            }
+        }
+
+        return res - 1;
+    }
+
+    /**
      * Reads a varint from an input.
      *
      * @param in Input from which to read.
