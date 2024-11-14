@@ -170,9 +170,8 @@ class MultiStatementHandler {
                     // Try to rollback script managed transaction, if any.
                     scriptTxContext.rollbackUncommitted();
 
-                    // In normal execution flow (i.e. not exceptional) query should not skip phases,
-                    // therefore before termination let's wait until query enter the EXECUTION phase.
-                    query.onPhaseStarted(ExecutionPhase.EXECUTING)
+                    // Main program is completed, therefore it's safe to schedule termination of a query
+                    query.resultHolder
                             .thenRun(this::scheduleTermination);
                 } else {
                     CompletableFuture<Void> triggerFuture;

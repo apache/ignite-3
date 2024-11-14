@@ -84,6 +84,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     /** Creates standalone MetaStorage manager. */
+    public static StandaloneMetaStorageManager create(HybridClock clock) {
+        return create(TEST_NODE_NAME, clock);
+    }
+
+    /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create(String nodeName) {
         var tracker = new ReadOperationForCompactionTracker();
 

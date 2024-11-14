@@ -135,6 +135,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /** Actual storage for Meta storage. */
     private final KeyValueStorage storage;
 
+    private final HybridClock clock;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -237,6 +239,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         this.cmgMgr = cmgMgr;
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
+        this.clock = clock;
         this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
@@ -475,7 +478,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 clusterService.nodeName(),
                 raftService,
                 busyLock,
-                clusterTime,
+                clock,
                 () -> clusterService.topologyService().localMember().id()
         );
     }
@@ -532,7 +535,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetaStorageInfo metaStorageInfo,
             RaftNodeDisruptorConfiguration disruptorConfig
     ) {
-        MetaStorageListener raftListener = new MetaStorageListener(storage, clusterTime, this::onConfigurationCommitted);
+        MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
 
         try {
             return raftMgr.startRaftGroupNodeAndWaitNodeReady(

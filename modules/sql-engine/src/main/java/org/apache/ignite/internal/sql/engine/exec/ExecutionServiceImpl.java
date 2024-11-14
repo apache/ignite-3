@@ -320,7 +320,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(tx, plan);
 
-        operationContext.notifyTxUsed(tx);
+        operationContext.notifyTxUsed(txWrapper);
 
         PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
 

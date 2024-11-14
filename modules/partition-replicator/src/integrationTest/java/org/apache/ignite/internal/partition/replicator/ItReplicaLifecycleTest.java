@@ -102,6 +102,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -1173,7 +1174,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     List.of(ClusterConfiguration.KEY),
                     List.of(
                             GcExtensionConfigurationSchema.class,
-                            StorageUpdateExtensionConfigurationSchema.class
+                            StorageUpdateExtensionConfigurationSchema.class,
+                            SystemDistributedExtensionConfigurationSchema.class
                     ),
                     List.of()
             );

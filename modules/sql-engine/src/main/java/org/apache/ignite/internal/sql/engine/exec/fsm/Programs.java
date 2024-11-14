@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
+package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.mock;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 
-import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Test;
+/** Enumerates all programs available for execution. */
+class Programs {
+    /** General execution program. Accepts query string as input and returns cursor as result of execution. */
+    static final Program<AsyncSqlCursor<InternalSqlRow>> QUERY_EXECUTION = QueryExecutionProgram.INSTANCE;
 
-class IncomingSnapshotReaderTest extends BaseIgniteAbstractTest {
-    @Test
-    void returnsEmptyPath() {
-        try (var reader = new IncomingSnapshotReader(mock(PartitionSnapshotMeta.class))) {
-            assertThat(reader.getPath(), is(""));
-        }
-    }
+    /** A program to execute child query within a script. As input expects already parsed AST and returns cursor as result. */
+    static final Program<AsyncSqlCursor<InternalSqlRow>> SCRIPT_ITEM_EXECUTION = ScriptItemExecutionProgram.INSTANCE;
 }

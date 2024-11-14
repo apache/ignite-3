@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
+package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.mock;
+/** No-op handler that causes fsm to stop after current phase. */
+class NoOpHandler implements ExecutionPhaseHandler {
+    static final ExecutionPhaseHandler INSTANCE = new NoOpHandler();
 
-import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Test;
+    private NoOpHandler() { }
 
-class IncomingSnapshotReaderTest extends BaseIgniteAbstractTest {
-    @Test
-    void returnsEmptyPath() {
-        try (var reader = new IncomingSnapshotReader(mock(PartitionSnapshotMeta.class))) {
-            assertThat(reader.getPath(), is(""));
-        }
+    @Override
+    public Result handle(Query query) {
+        return Result.completed();
     }
 }
