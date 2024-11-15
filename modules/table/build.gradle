@@ -106,6 +106,7 @@ dependencies {
     testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation project(':ignite-configuration-api')
     testFixturesImplementation project(':ignite-partition-replicator')
+    testFixturesImplementation project(':ignite-system-view-api')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
