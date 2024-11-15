@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
@@ -42,8 +41,6 @@ public class HybridClockImpl implements HybridClock {
             HybridClockImpl.class,
             "latestTime"
     );
-
-    private final boolean clockOptimisationEnable = IgniteSystemProperties.getBoolean("IGNITE_CLOCK_OPTIMISATION_ENABLE");
 
     private volatile long latestTime;
 
@@ -74,7 +71,7 @@ public class HybridClockImpl implements HybridClock {
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
 
-            if (clockOptimisationEnable && oldLatestTime >= now) {
+            if (oldLatestTime >= now) {
                 return LATEST_TIME.incrementAndGet(this);
             }
 
@@ -135,7 +132,7 @@ public class HybridClockImpl implements HybridClock {
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = this.latestTime;
 
-            if (clockOptimisationEnable && oldLatestTime >= requestTimeLong && oldLatestTime >= now) {
+            if (oldLatestTime >= requestTimeLong && oldLatestTime >= now) {
                 return hybridTimestamp(LATEST_TIME.incrementAndGet(this));
             }
 
@@ -151,12 +148,6 @@ public class HybridClockImpl implements HybridClock {
 
     @Override
     public void update(HybridTimestamp requestTime) {
-        if (!clockOptimisationEnable) {
-            updateAndGetNow(requestTime);
-
-            return;
-        }
-
         long requestTimeLong = requestTime.longValue();
 
         while (true) {
