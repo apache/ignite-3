@@ -182,7 +182,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clock, clusterTime);
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
@@ -240,7 +240,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
                     .iif(iif)
                     .id(commandIdGenerator.newId())
-                    .initiatorTime(clusterTime.now())
+                    .initiatorTime(clock.now())
                     .build();
 
             return metaStorageService.run(multiInvokeCommand);

@@ -162,7 +162,7 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
                 notifyError(th);
             }
 
-            if (amount > 0) {
+            if (!it.hasNext()) {
                 // according to javadoc, no need to send onComplete signal if subscription has been cancelled
                 if (CANCELLED_HANDLE.compareAndSet(this, false, true)) {
                     subscriber.onComplete();

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -88,7 +90,16 @@ public class MessageServiceImpl implements MessageService {
 
                 return nullCompletedFuture();
             } else {
-                return messagingSrvc.send(nodeName, ChannelType.DEFAULT, msg);
+                return messagingSrvc.send(nodeName, ChannelType.DEFAULT, msg)
+                        .exceptionally(ex -> {
+                            if (ex instanceof UnresolvableConsistentIdException) {
+                                ex = new UnknownNodeException(nodeName);
+                            }
+
+                            sneakyThrow(ex);
+
+                            throw new AssertionError("Should not get here"); 
+                        });
             }
         } catch (Exception ex) {
             return CompletableFuture.failedFuture(ex);

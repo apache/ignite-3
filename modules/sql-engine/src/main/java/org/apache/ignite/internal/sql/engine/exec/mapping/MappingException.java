@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.mock;
+/** Generic mapping exception. */
+public class MappingException extends RuntimeException {
+    private static final long serialVersionUID = -5428003837694156132L;
 
-import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Test;
-
-class IncomingSnapshotReaderTest extends BaseIgniteAbstractTest {
-    @Test
-    void returnsEmptyPath() {
-        try (var reader = new IncomingSnapshotReader(mock(PartitionSnapshotMeta.class))) {
-            assertThat(reader.getPath(), is(""));
-        }
+    /** Constructs the object. */
+    public MappingException(String message) {
+        super(message, null, true, false);
     }
 }

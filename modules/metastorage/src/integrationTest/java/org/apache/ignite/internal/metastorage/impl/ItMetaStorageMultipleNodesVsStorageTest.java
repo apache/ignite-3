@@ -367,7 +367,7 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         ClusterTime firstNodeTime = firstNode.metaStorageManager.clusterTime();
         ClusterTime secondNodeTime = secondNode.metaStorageManager.clusterTime();
 
-        HybridTimestamp now = firstNodeTime.now();
+        HybridTimestamp now = firstNode.clock.now();
 
         assertThat(firstNodeTime.waitFor(now), willCompleteSuccessfully());
         assertThat(secondNodeTime.waitFor(now), willCompleteSuccessfully());
@@ -398,14 +398,14 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         Node leader = transferLeadership(firstNode, secondNode);
 
-        HybridTimestamp now = leader.metaStorageManager.clusterTime().now();
+        HybridTimestamp now = leader.clock.now();
 
         assertThat(firstNodeTime.waitFor(now), willCompleteSuccessfully());
         assertThat(secondNodeTime.waitFor(now), willCompleteSuccessfully());
 
         leader = transferLeadership(firstNode, secondNode);
 
-        now = leader.metaStorageManager.clusterTime().now();
+        now = leader.clock.now();
 
         assertThat(firstNodeTime.waitFor(now), willCompleteSuccessfully());
         assertThat(secondNodeTime.waitFor(now), willCompleteSuccessfully());

@@ -690,7 +690,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 metastorageWorkDir.dbPath(),
                 failureManager,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                threadPoolsManager.commonScheduler()
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
@@ -957,6 +958,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 lowWatermark
         );
+
+        systemViewManager.register((TxManagerImpl) txManager);
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,

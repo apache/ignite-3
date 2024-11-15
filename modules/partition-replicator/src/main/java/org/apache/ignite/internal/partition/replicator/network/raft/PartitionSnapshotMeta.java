@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.partition.replicator.network.raft;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.jetbrains.annotations.Nullable;
 
-/** Snapshot meta response message. */
-@Transferable(PartitionReplicationMessageGroup.SNAPSHOT_META_RESPONSE)
-public interface SnapshotMetaResponse extends NetworkMessage {
-    /** Snapshot meta. */
-    PartitionSnapshotMeta meta();
+/** Partition Raft snapshot meta. */
+@Transferable(PartitionReplicationMessageGroup.PARTITION_SNAPSHOT_META)
+public interface PartitionSnapshotMeta extends SnapshotMeta {
+    /** Minimum catalog version that is required for the snapshot to be accepted by a follower. */
+    int requiredCatalogVersion();
+
+    /** Row ID for which the index needs to be built per building index ID at the time the snapshot meta was created. */
+    @Nullable Map<Integer, UUID> nextRowIdToBuildByIndexId();
 }

@@ -310,6 +310,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         busyLock.block();
 
+        zonesState.values().forEach(ZoneState::stopTimers);
+
         rebalanceEngine.stop();
 
         logicalTopologyService.removeEventListener(topologyEventListener);

@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
+package org.apache.ignite.internal.sql.engine.message;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.mock;
+/** Thrown by {@link MessageService} when recipient cannot be found in physical topology. */
+public class UnknownNodeException extends RuntimeException {
+    private static final long serialVersionUID = -8242883657846080305L;
 
-import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Test;
+    private final String nodeName;
 
-class IncomingSnapshotReaderTest extends BaseIgniteAbstractTest {
-    @Test
-    void returnsEmptyPath() {
-        try (var reader = new IncomingSnapshotReader(mock(PartitionSnapshotMeta.class))) {
-            assertThat(reader.getPath(), is(""));
-        }
+    /** Constructs the object. */ 
+    UnknownNodeException(String nodeName) {
+        super("Unknown node: " + nodeName, null, true, false);
+
+        this.nodeName = nodeName;
+    }
+
+    /** Returns name of the node that cannot be found in physical topology. */
+    public String nodeName() {
+        return nodeName;
     }
 }
