@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
@@ -30,6 +31,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
@@ -38,11 +40,13 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -55,12 +59,15 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -384,6 +391,171 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeSubmitWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class)
+                .options(executionOptions).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, 100L);
+
+        assertThat(execution.stateAsync(), willBe(anyOf(jobStateWithStatus(EXECUTING), jobStateWithStatus(QUEUED))));
+
+        cancelHandle.cancel();
+
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
+        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
+
+        assertThat(execution.cancelAsync(), willBe(false));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteAsyncWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class)
+                .options(executionOptions).units(units()).build();
+
+        CompletableFuture<Void> execution = entryNode.compute()
+                .executeAsync(JobTarget.node(clusterNode(executeNode)), job, 100L);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class)
+                .options(executionOptions).units(units()).build();
+
+        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute()
+                .execute(JobTarget.node(clusterNode(executeNode)), job, 100L));
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+    }
+
+    @ParameterizedTest(name = "withLocal: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeSubmitBroadcastWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Set<ClusterNode> executeNodes =
+                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().submitBroadcast(
+                executeNodes,
+                JobDescriptor.builder(SilentSleepJob.class.getName()).units(units()).options(executionOptions).build(), 100L);
+
+        cancelHandle.cancel();
+
+        CompletableFuture<Void> all = allOf(executions.values().stream().map(JobExecution::resultAsync).toArray(CompletableFuture[]::new));
+
+        assertThrows(ExecutionException.class, () -> all.get(10, TimeUnit.SECONDS));
+        executions.forEach((n, e) -> assertEquals(CANCELED, Objects.requireNonNull(e.stateAsync().join()).status()));
+    }
+
+    @ParameterizedTest(name = "withLocal: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteBroadcastAsyncWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Set<ClusterNode> executeNodes =
+                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        CompletableFuture<Map<ClusterNode, Void>> executions = entryNode.compute().executeBroadcastAsync(
+                executeNodes,
+                JobDescriptor.builder(SilentSleepJob.class).options(executionOptions).units(units()).build(), 100L
+        );
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> executions.get(10, TimeUnit.SECONDS));
+    }
+
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteBroadcastWithCancelHandle(boolean local) {
+        Ignite entryNode = node(0);
+        Set<ClusterNode> executeNodes =
+                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        CompletableFuture<Map<ClusterNode, Void>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
+                executeNodes,
+                JobDescriptor.builder(SilentSleepJob.class).options(executionOptions).units(units()).build(), 100L
+        ));
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void cancelComputeSubmitMapReduceWithCancelHandle() {
+        Ignite entryNode = node(0);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        TaskExecution<Void> execution = entryNode.compute()
+                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).units(units())
+                        .cancellationToken(cancelHandle.token()).build(), null);
+
+        assertThat(execution.statesAsync(), willBe(contains(
+                anyOf(jobStateWithStatus(EXECUTING), jobStateWithStatus(QUEUED))
+        )));
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
+        Ignite entryNode = node(0);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        CompletableFuture<Void> execution = entryNode.compute()
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).cancellationToken(cancelHandle.token()).build(),
+                        null);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
     }
 
     static void createTestTableWithOneRow() {

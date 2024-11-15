@@ -17,6 +17,9 @@
 
 package org.apache.ignite.compute;
 
+import org.apache.ignite.lang.CancellationToken;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Job execution options.
  */
@@ -31,15 +34,20 @@ public class JobExecutionOptions {
 
     private final int maxRetries;
 
+    @Nullable private final CancellationToken cancellationToken;
+
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
+     * @param cancellationToken Cancellation token or {@code null}.
+     *
      */
-    private JobExecutionOptions(int priority, int maxRetries) {
+    private JobExecutionOptions(int priority, int maxRetries, @Nullable CancellationToken cancellationToken) {
         this.priority = priority;
         this.maxRetries = maxRetries;
+        this.cancellationToken = cancellationToken;
     }
 
     public static Builder builder() {
@@ -54,14 +62,31 @@ public class JobExecutionOptions {
         return maxRetries;
     }
 
+    public @Nullable CancellationToken cancellationToken() {
+        return cancellationToken;
+    }
+
     /** JobExecutionOptions builder. */
     public static class Builder {
         private int priority;
 
         private int maxRetries;
 
+        private CancellationToken cancellationToken;
+
         public Builder priority(int priority) {
             this.priority = priority;
+            return this;
+        }
+
+        /**
+         * Bind {@link CancellationToken} with current job execution.
+         *
+         * @param cancellationToken Cancellation token or {@code null}.
+         * @return {@code this} for chaining.
+         */
+        public Builder cancellationToken(CancellationToken cancellationToken) {
+            this.cancellationToken = cancellationToken;
             return this;
         }
 
@@ -71,7 +96,7 @@ public class JobExecutionOptions {
         }
 
         public JobExecutionOptions build() {
-            return new JobExecutionOptions(priority, maxRetries);
+            return new JobExecutionOptions(priority, maxRetries, cancellationToken);
         }
     }
 }

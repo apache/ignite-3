@@ -64,6 +64,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
@@ -75,6 +78,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
@@ -84,6 +88,8 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.TaskToJobExecutionWrapper;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -130,6 +136,153 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
+    }
+
+    @Test
+    void computeSubmitWithCancelHandle() {
+        IgniteClient entryNode = client();
+        ClusterNode executeNode = node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
+                .options(executionOptions).units(List.of()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(executeNode), job, null);
+
+        cancelHandle.cancel();
+
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
+        assertThat(execution.cancelAsync(), willBe(false));
+    }
+
+    @Test
+    void computeExecuteAsyncWithCancelHandle() {
+        IgniteClient entryNode = client();
+        ClusterNode executeNode = node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
+                .options(executionOptions).units(List.of()).build();
+        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, null);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void computeExecuteWithCancelHandle() {
+        IgniteClient entryNode = client();
+        ClusterNode executeNode = node(1);
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
+                .options(executionOptions).units(List.of()).build();
+        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  entryNode.compute()
+                .execute(JobTarget.node(executeNode), job, null));
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void computeSubmitBroadcastWithCancelHandle() {
+        IgniteClient entryNode = client();
+        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().submitBroadcast(
+                executeNodes,
+                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L);
+
+        cancelHandle.cancel();
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(executions.values().stream()
+                .map(JobExecution::resultAsync).toArray(CompletableFuture[]::new));
+
+        assertThrows(ExecutionException.class, () -> all.get(10, TimeUnit.SECONDS));
+
+        assertThat(executions.get(node(0)).stateAsync(), willBe(jobStateWithStatus(CANCELED)));
+        assertThat(executions.get(node(1)).stateAsync(), willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @Test
+    void computeExecuteBroadcastAsyncWithCancelHandle() {
+        IgniteClient entryNode = client();
+        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        CompletableFuture<Map<ClusterNode, Object>> executions = entryNode.compute().executeBroadcastAsync(
+                executeNodes,
+                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> executions.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void computeExecuteBroadcastWithCancelHandle() {
+        IgniteClient entryNode = client();
+        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        CompletableFuture<Map<ClusterNode, Object>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
+                executeNodes,
+                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L)
+        );
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void cancelComputeSubmitMapReduceWithCancelHandle() {
+        IgniteClient entryNode = client();
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        TaskExecution<Void> execution = entryNode.compute()
+                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class)
+                        .cancellationToken(cancelHandle.token()).build(), null);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
+        IgniteClient entryNode = client();
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        CompletableFuture<Void> execution = entryNode.compute()
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).cancellationToken(cancelHandle.token()).build(),
+                        null);
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
     }
 
     @Test
@@ -955,6 +1108,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+        }
+    }
+
+    private static class InfiniteJob implements ComputeJob<Object, Void> {
+        @Override
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object ignored) {
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
         }
     }
 

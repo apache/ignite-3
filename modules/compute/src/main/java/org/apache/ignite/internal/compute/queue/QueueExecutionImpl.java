@@ -177,11 +177,17 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else {
-                        stateMachine.failJob(jobId);
+                    try {
+                        if (queueEntry.isInterrupted()) {
+                            stateMachine.cancelJob(jobId);
+                        } else {
+                            stateMachine.failJob(jobId);
+                        }
+                    } catch (IllegalJobStatusTransition err) {
+                        throwable.addSuppressed(err);
+                        result.completeExceptionally(throwable);
                     }
+
                     result.completeExceptionally(throwable);
                 }
             } else {

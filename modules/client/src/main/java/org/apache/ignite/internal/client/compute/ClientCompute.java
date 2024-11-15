@@ -59,6 +59,8 @@ import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -95,7 +97,16 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(), descriptor.resultClass());
+        ClientJobExecution<R> execution = new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(),
+                descriptor.resultClass());
+
+        CancellationToken cancellationToken = descriptor.options().cancellationToken();
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+
+        return execution;
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
@@ -177,6 +188,12 @@ public class ClientCompute implements IgniteCompute {
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
+
+            CancellationToken cancellationToken = descriptor.options().cancellationToken();
+
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            }
         }
 
         return map;
@@ -186,11 +203,19 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        return new ClientTaskExecution<>(ch,
+        ClientTaskExecution<R> clientExecution = new ClientTaskExecution<>(ch,
                 doExecuteMapReduceAsync(taskDescriptor, arg),
                 taskDescriptor.reduceJobResultMarshaller(),
                 taskDescriptor.reduceJobResultClass()
         );
+
+        CancellationToken cancellationToken = taskDescriptor.cancellationToken();
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, clientExecution::cancelAsync, clientExecution.resultAsync());
+        }
+
+        return clientExecution;
     }
 
     @Override

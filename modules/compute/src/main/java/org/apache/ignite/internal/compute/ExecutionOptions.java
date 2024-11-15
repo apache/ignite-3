@@ -19,6 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import java.util.Objects;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.lang.CancellationToken;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job execution options.
@@ -70,8 +72,12 @@ public class ExecutionOptions {
         return Objects.hash(priority, maxRetries);
     }
 
+    /** Compose execution options.  */
     public static ExecutionOptions from(JobExecutionOptions jobExecutionOptions) {
-        return builder().priority(jobExecutionOptions.priority()).maxRetries(jobExecutionOptions.maxRetries()).build();
+        return builder()
+                .priority(jobExecutionOptions.priority())
+                .maxRetries(jobExecutionOptions.maxRetries())
+                .build();
     }
 
     /** Builder. */
@@ -79,6 +85,8 @@ public class ExecutionOptions {
         private int priority;
 
         private int maxRetries;
+
+        @Nullable private CancellationToken cancellationToken;
 
         public Builder priority(int priority) {
             this.priority = priority;

@@ -67,6 +67,8 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -109,7 +111,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+    public <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T args
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -227,11 +233,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, arg);
+            return computeComponent.executeLocally(options, units, jobClassName, jobExecutionOptions.cancellationToken(), arg);
         } else {
             return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, arg
-            );
+                    targetNode, nextWorkerSelector, units, jobClassName, options, jobExecutionOptions.cancellationToken(), arg);
         }
     }
 
@@ -343,8 +348,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        return new TaskExecutionWrapper<>(
+        TaskExecutionWrapper<R> execution = new TaskExecutionWrapper<>(
                 computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
+
+        CancellationToken cancellationToken = taskDescriptor.cancellationToken();
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+
+        return execution;
     }
 
     @Override

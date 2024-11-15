@@ -20,11 +20,13 @@ package org.apache.ignite.internal.compute;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -53,6 +55,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -118,7 +122,28 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+    }
+
+    @Test
+    void safeCallCancelHandleAfterJobProcessing() {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
+
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.from(jobExecutionOptions), cancelHandle.token());
+
+        assertThat(
+                compute.executeAsync(
+                        JobTarget.node(localNode),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(jobExecutionOptions).build(),
+                        "a"),
+                willBe("jobResponse")
+        );
+
+        assertFalse(cancelHandle.isCancelled());
+        cancelHandle.cancel();
+        assertThat(cancelHandle.cancelAsync(), willSucceedFast());
     }
 
     @Test
@@ -136,7 +161,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
     }
 
     @Test
@@ -168,7 +193,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a");
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
     }
 
     @Test
@@ -243,19 +268,24 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq("a")))
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(null), eq("a")))
                 .thenReturn(completedExecution("jobResponse"));
+    }
+
+    private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken cancellationToken) {
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME),
+                eq(cancellationToken), eq("a"))).thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq(null), eq("a")
         )).thenReturn(completedExecution("remoteResponse"));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
         verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq(null), eq("a")
         );
     }
 
