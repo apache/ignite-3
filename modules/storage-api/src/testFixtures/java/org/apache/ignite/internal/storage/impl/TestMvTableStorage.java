@@ -254,6 +254,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
             if (partitionMeta.primaryReplicaNodeId() != null) {
                 assert partitionMeta.primaryReplicaNodeId() != null;
+
                 mvPartitionStorage.updateLease(
                         partitionMeta.leaseStartTime(),
                         partitionMeta.primaryReplicaNodeId(),
