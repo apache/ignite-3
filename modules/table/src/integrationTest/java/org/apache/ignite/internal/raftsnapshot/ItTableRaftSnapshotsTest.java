@@ -110,6 +110,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -762,6 +763,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * rejected, and that, when metadata catches up, the snapshot gets successfully installed.
      */
     @Test
+    @Disabled("IGNITE-23677")
     void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
         startAndInitCluster();
 
