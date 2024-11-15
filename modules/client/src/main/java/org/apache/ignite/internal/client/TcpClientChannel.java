@@ -97,7 +97,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final AtomicLong reqId = new AtomicLong(1);
 
     /** Pending requests. */
-    private final ConcurrentMap<Long, TimeoutObject<CompletableFuture<ClientMessageUnpacker>>> pendingReqs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TimeoutObjectImpl> pendingReqs = new ConcurrentHashMap<>();
 
     /** Notification handlers. */
     private final Map<Long, CompletableFuture<PayloadInputChannel>> notificationHandlers = new ConcurrentHashMap<>();
@@ -240,7 +240,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 sock.close();
             }
 
-            for (TimeoutObject<?> pendingReq : pendingReqs.values()) {
+            for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
                 pendingReq.future().completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
             }
@@ -447,7 +447,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        TimeoutObject<CompletableFuture<ClientMessageUnpacker>> pendingReq = pendingReqs.remove(resId);
+        TimeoutObjectImpl pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
@@ -811,7 +811,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     void checkTimeouts(long now) {
-        for (Entry<Long, TimeoutObject<CompletableFuture<ClientMessageUnpacker>>> req : pendingReqs.entrySet()) {
+        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
             TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
 
             if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
