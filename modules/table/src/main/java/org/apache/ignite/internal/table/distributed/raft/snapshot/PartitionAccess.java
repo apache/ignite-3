@@ -145,14 +145,14 @@ public interface PartitionAccess {
     /**
      * Return the node ID of the known lease for this replication group.
      *
-     * @return Primary replica node id or null if there is no information about lease in the storage.
+     * @return Primary replica node id or {@code null} if there is no information about lease in the storage.
      */
     @Nullable UUID primaryReplicaNodeId();
 
     /**
      * Return the node name of the known lease for this replication group.
      *
-     * @return Primary replica node name or null if there is no information about lease in the storage.
+     * @return Primary replica node name or {@code null} if there is no information about lease in the storage.
      */
     @Nullable String primaryReplicaNodeName();
 
