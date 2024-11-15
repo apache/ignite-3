@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
@@ -769,16 +770,16 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         clear0();
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
+    void finishRebalance(MvPartitionMeta partitionMeta) {
         checkStorageClosedForRebalance();
 
         assert rebalance;
 
         rebalance = false;
 
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
-        this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
+        this.lastAppliedIndex = partitionMeta.lastAppliedIndex();
+        this.lastAppliedTerm = partitionMeta.lastAppliedTerm();
+        this.groupConfig = Arrays.copyOf(partitionMeta.groupConfig(), partitionMeta.groupConfig().length);
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {

@@ -246,11 +246,7 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         return mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.finishRebalance(
-                    partitionMeta.lastAppliedIndex(),
-                    partitionMeta.lastAppliedTerm(),
-                    partitionMeta.groupConfig()
-            );
+            mvPartitionStorage.finishRebalance(partitionMeta);
 
             if (partitionMeta.primaryReplicaNodeId() != null) {
                 assert partitionMeta.primaryReplicaNodeId() != null;
