@@ -151,7 +151,7 @@ public class QueryExecutor implements LifecycleAware {
                 properties0,
                 txContext,
                 params,
-                null
+                cancellationToken
         );
 
         if (!busyLock.enterBusy()) {
@@ -202,7 +202,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query, null);
+            trackQuery(query, parent.cancellationToken);
         } finally {
             busyLock.leaveBusy();
         }
@@ -210,6 +210,8 @@ public class QueryExecutor implements LifecycleAware {
         try {
             parent.cancel.attach(query.cancel);
         } catch (QueryCancelledException ex) {
+            query.moveTo(ExecutionPhase.TERMINATED);
+
             return CompletableFuture.failedFuture(ex);
         }
 
@@ -305,7 +307,8 @@ public class QueryExecutor implements LifecycleAware {
                 query,
                 query.txContext,
                 parsedResults,
-                query.params
+                query.params,
+                query.cancellationToken
         );
     }
 

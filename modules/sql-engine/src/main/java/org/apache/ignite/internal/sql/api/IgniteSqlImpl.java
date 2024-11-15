@@ -291,10 +291,16 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
+        executeScript(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         try {
-            executeScriptAsync(query, arguments).join();
+            executeScriptAsync(cancellationToken, query, arguments).join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -560,6 +566,15 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
+        return executeScriptAsync(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(
+            @Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
@@ -573,12 +588,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,
+                    cancellationToken,
                     arguments,
                     properties);
         } finally {
             busyLock.leaveBusy();
         }
     }
+
 
     /**
      * Execute SQL script.
@@ -588,6 +605,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * @param enterBusy Enter busy lock action.
      * @param leaveBusy Leave busy lock action.
      * @param query SQL script.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param arguments Arguments.
      * @param properties Properties.
      * @return Operation future.
@@ -598,6 +616,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,
+            @Nullable CancellationToken cancellationToken,
             @Nullable Object[] arguments,
             SqlProperties properties) {
 
@@ -609,7 +628,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 properties0,
                 observableTimestampTracker,
                 null,
-                null,
+                cancellationToken,
                 query,
                 arguments
         );

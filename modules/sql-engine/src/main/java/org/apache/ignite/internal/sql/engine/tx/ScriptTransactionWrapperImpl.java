@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
@@ -107,7 +108,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             });
         }
 
-        completeTx();
+        completeTx(cause);
 
         return txFinishFuture;
     }
@@ -155,7 +156,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                         }
                     }
 
-                    completeTx();
+                    completeTx(null);
                 });
             }
         });
@@ -174,10 +175,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             }
         }
 
-        completeTx();
+        completeTx(null);
     }
 
-    private void completeTx() {
+    private void completeTx(@Nullable Throwable cause) {
         // Intentional volatile read outside of a synchronized block.
         switch (txState) {
             case COMMIT:
@@ -185,7 +186,17 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                 break;
 
             case ROLLBACK:
-                managedTx.rollbackAsync().whenComplete(this::completeTxFuture);
+                managedTx.rollbackAsync().whenComplete((ignored, ex) -> {
+                    Throwable cause0 = cause;
+
+                    if (cause0 == null) {
+                        cause0 = ex;
+                    } else if (ex != null) {
+                        cause0.addSuppressed(ex);
+                    }
+
+                    completeTxFuture(null, cause0);
+                });
                 break;
 
             default:
@@ -197,7 +208,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         }
     }
 
-    private void completeTxFuture(Void unused, Throwable e) {
+    private void completeTxFuture(@Nullable Void unused, Throwable e) {
         if (e != null) {
             txFinishFuture.completeExceptionally(e);
         } else {

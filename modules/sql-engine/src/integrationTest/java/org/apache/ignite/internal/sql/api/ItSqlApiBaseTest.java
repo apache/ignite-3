@@ -25,6 +25,9 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,6 +39,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -44,7 +48,10 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -65,6 +72,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -930,6 +938,48 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void cancelScript() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY);");
+
+        // DML is used because the cursor will be closed as soon as the first page is ready.
+        String script =
+                "INSERT INTO test SELECT x FROM system_range(0, 10000000000);"
+                + "SELECT 1;";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        // Wait until FIRST script statement is started to execute.
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(1)));
+
+        assertThat(scriptFut.isDone(), is(false));
+
+        String expectedErrMsg = "The query was cancelled while executing.";
+
+        cancelHandle.cancel();
+
+        assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                expectedErrMsg,
+                () -> IgniteTestUtils.await(scriptFut)
+        );
+
+        assertThat(queryProcessor().runningQueries(), is(0));
+
+        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
+        assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                expectedErrMsg,
+                () -> executeScript(sql, token, "SELECT 1; SELECT 2;")
+        );
+        assertThat(queryProcessor().runningQueries(), is(0));
+    }
+
+    @Test
     public void testQueryTimeoutIsPropagatedFromTheServer() throws Exception {
         Statement stmt = igniteSql().statementBuilder()
                 .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
@@ -1040,6 +1090,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     protected abstract void executeScript(IgniteSql sql, String query, Object... args);
+
+    protected abstract void executeScript(IgniteSql sql, CancellationToken token, String query, Object... args);
 
     protected abstract void rollback(Transaction outerTx);
 

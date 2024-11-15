@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 
@@ -68,21 +69,27 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     /** Fully executes multi-statements query without reading cursor data. */
     void executeScript(String query, @Nullable InternalTransaction tx, Object ... params) {
-        iterateThroughResultsAndCloseThem(runScript(query, tx, params));
+        iterateThroughResultsAndCloseThem(runScript(tx, null, query, params));
     }
 
     /** Initiates multi-statements query execution. */
-    AsyncSqlCursor<InternalSqlRow> runScript(String query) {
-        return runScript(query, null);
+    AsyncSqlCursor<InternalSqlRow> runScript(String query, Object... params) {
+        return runScript(null, null, query, params);
     }
 
-    AsyncSqlCursor<InternalSqlRow> runScript(String query, @Nullable InternalTransaction tx, Object ... params) {
+    /** Initiates multi-statements query execution. */
+    AsyncSqlCursor<InternalSqlRow> runScript(CancellationToken cancellationToken, String query, Object... params) {
+        return runScript(null, cancellationToken, query, params);
+    }
+
+    AsyncSqlCursor<InternalSqlRow> runScript(@Nullable InternalTransaction tx, @Nullable CancellationToken cancellationToken, String query,
+            Object... params) {
         SqlProperties properties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build();
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
-                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, null, query, params)
+                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, cancellationToken, query, params)
         );
 
         return Objects.requireNonNull(cursor);

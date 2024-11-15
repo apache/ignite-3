@@ -18,30 +18,29 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Set of test cases for query cancellation. */
-public class ItQueryCancelTest extends BaseSqlIntegrationTest {
+public class ItCancelQueryTest extends BaseSqlIntegrationTest {
+    private static final String QUERY_CANCELED_ERR = "The query was cancelled while executing";
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of a single query. */
     @Test
@@ -72,13 +71,13 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        AsyncSqlCursor<InternalSqlRow> query1 = qryProc.queryAsync(
+        AsyncSqlCursor<InternalSqlRow> query1 = await(qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
-        ).join();
+        ));
 
         assertEquals(1, qryProc.runningQueries());
 
@@ -88,7 +87,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         // Obverse cancellation error
         expectQueryCancelled(new DrainCursor(query1));
 
-        cancelled.join();
+        await(cancelled);
 
         assertEquals(0, qryProc.runningQueries());
     }
@@ -122,21 +121,21 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        AsyncSqlCursor<InternalSqlRow> query1 = qryProc.queryAsync(
+        AsyncSqlCursor<InternalSqlRow> query1 = await(qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
-        ).join();
+        ));
 
-        AsyncSqlCursor<InternalSqlRow> query2 = qryProc.queryAsync(
+        AsyncSqlCursor<InternalSqlRow> query2 = await(qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
-        ).join();
+        ));
 
         assertEquals(2, qryProc.runningQueries());
 
@@ -147,7 +146,7 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(new DrainCursor(query1));
         expectQueryCancelled(new DrainCursor(query2));
 
-        cancelled.join();
+        await(cancelled);
 
         assertEquals(0, qryProc.runningQueries());
     }
@@ -170,15 +169,15 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
 
         cancelHandle.cancel();
 
-        Runnable run = () -> qryProc.queryAsync(
+        Executable run = () -> await(qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
                 null,
                 token,
                 "SELECT 1"
-        ).join();
+        ));
 
-        expectQueryCancelledWithQueryCancelledException(run);
+        expectQueryCancelledInternalException(run);
 
         assertEquals(0, qryProc.runningQueries());
     }
@@ -206,50 +205,22 @@ public class ItQueryCancelTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        Runnable run = () -> qryProc.queryAsync(
+        Executable run = () -> await(qryProc.queryAsync(
                 properties,
                 hybridTimestampTracker,
                 null,
                 token,
                 query
-        ).join();
+        ));
 
         // Request cancellation
         CompletableFuture<Void> f = cancelHandle.cancelAsync();
 
         // Obverse cancellation error
-        expectQueryCancelledWithQueryCancelledException(run);
+        expectQueryCancelledInternalException(run);
 
-        f.join();
+        await(f);
 
         assertEquals(0, qryProc.runningQueries());
-    }
-
-    private static void expectQueryCancelled(Runnable action) {
-        CompletionException err = assertThrows(CompletionException.class, action::run);
-        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
-        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), sqlErr.toString());
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-23637 remove this method and use expectQueryCancelled instead.
-    private static void expectQueryCancelledWithQueryCancelledException(Runnable action) {
-        CompletionException err = assertThrows(CompletionException.class, action::run);
-        assertInstanceOf(QueryCancelledException.class, err.getCause());
-    }
-
-    private static class DrainCursor implements Runnable {
-        final AsyncSqlCursor<?> cursor;
-
-        DrainCursor(AsyncSqlCursor<?> cursor) {
-            this.cursor = cursor;
-        }
-
-        @Override
-        public void run() {
-            BatchedResult<?> batch;
-            do {
-                batch = cursor.requestNextAsync(1).join();
-            } while (!batch.items().isEmpty());
-        }
     }
 }

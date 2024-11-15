@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,6 +54,7 @@ class Query {
     final QueryExecutor executor;
     final SqlProperties properties;
     final QueryTransactionContext txContext;
+    final @Nullable CancellationToken cancellationToken;
     final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
 
     // Below is volatile state populated during processing of particular stage for single statement execution
@@ -70,6 +72,7 @@ class Query {
 
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
 
+    /** Constructs the query. */
     Query(
             Instant createdAt,
             QueryExecutor executor,
@@ -78,7 +81,7 @@ class Query {
             SqlProperties properties,
             QueryTransactionContext txContext,
             Object[] params,
-            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
+            @Nullable CancellationToken cancellationToken
     ) {
         this.createdAt = createdAt;
         this.executor = executor;
@@ -87,12 +90,14 @@ class Query {
         this.properties = properties;
         this.txContext = txContext;
         this.params = params;
-        this.nextCursorFuture = nextCursorFuture;
+        this.cancellationToken = cancellationToken;
 
         this.parentId = null;
         this.statementNum = -1;
+        this.nextCursorFuture = null;
     }
 
+    /** Constructs the child query. */
     Query(
             Instant createdAt,
             Query parent,
@@ -113,8 +118,9 @@ class Query {
         this.txContext = txContext;
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
-
         this.parsedResult = parsedResult;
+
+        this.cancellationToken = null;
     }
 
     CompletableFuture<Void> onPhaseStarted(ExecutionPhase phase) {
