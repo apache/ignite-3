@@ -17,24 +17,57 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.jetbrains.annotations.Nullable;
 
 final class ClientTimeoutWorker {
     static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
 
+    private static final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
+
+    private @Nullable ScheduledExecutorService executor = null;
+
     private final Set<TcpClientChannel> channels = new ConcurrentHashMap<TcpClientChannel, Object>().keySet();
 
-    void registerClientChannel(TcpClientChannel ch) {
-        // TODO: Stop thread when idle.
+    private ClientTimeoutWorker() {
+        // No-op.
+    }
+
+    synchronized void registerClientChannel(TcpClientChannel ch) {
         channels.add(ch);
+
+        if (executor == null) {
+            executor = createExecutor();
+
+            executor.scheduleAtFixedRate(this::checkTimeouts, sleepInterval, sleepInterval, MILLISECONDS);
+        }
+    }
+
+    private synchronized void shutdownIfEmpty() {
+        if (executor != null && channels.isEmpty()) {
+            executor.shutdown();
+        }
+    }
+
+    private static ScheduledExecutorService createExecutor() {
+        return Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory(
+                        "TcpClientChannel-timeout-worker",
+                        Loggers.voidLogger()));
     }
 
     private void checkTimeouts() {
@@ -56,5 +89,7 @@ final class ClientTimeoutWorker {
                 }
             }
         }
+
+        shutdownIfEmpty();
     }
 }
