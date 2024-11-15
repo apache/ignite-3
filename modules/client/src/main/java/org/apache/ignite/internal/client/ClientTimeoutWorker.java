@@ -18,21 +18,19 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 final class ClientTimeoutWorker {
     static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
-
-    private static final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
 
     private static final int emptyCountThreshold = 10;
 
@@ -53,6 +51,7 @@ final class ClientTimeoutWorker {
             executor = createExecutor();
             emptyCount = 0;
 
+            long sleepInterval = TimeoutWorker.getSleepInterval();
             executor.scheduleAtFixedRate(this::checkTimeouts, sleepInterval, sleepInterval, MILLISECONDS);
         }
     }

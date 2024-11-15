@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TimeoutWorker extends IgniteWorker {
     /** Worker sleep interval. */
-    private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
+    private final long sleepInterval = getSleepInterval();
 
     /** Active operations. */
     public final ConcurrentMap<Long, TimeoutObject<?>> requestsMap;
@@ -118,5 +118,9 @@ public class TimeoutWorker extends IgniteWorker {
                 log.error("Timeout worker failed and can't process the timeouts any longer [worker={}].", t, name());
             }
         }
+    }
+
+    public static long getSleepInterval() {
+        return getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
     }
 }
