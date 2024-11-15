@@ -146,11 +146,12 @@ public final class CollectionUtils {
     }
 
     /**
-     * Logical union on two probably {@code null} or empty sets.
+     * Logical union operation on two probably {@code null} or empty sets.
      *
      * @param firstSet First operand.
      * @param secondSet Second operand.
-     * @return Result of the union.
+     * @return Result of the union on two sets that equals to all unique elements from the first and the second set or empty set if both
+     *      given sets are empty.
      */
     public static <T> Set<T> union(@Nullable Set<T> firstSet, @Nullable Set<T> secondSet) {
         boolean isFirstSetEmptyOrNull = nullOrEmpty(firstSet);

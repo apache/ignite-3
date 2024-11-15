@@ -293,11 +293,14 @@ public class LeaseUpdater {
     }
 
     /**
-     * Finds a node that can be the leaseholder.
+     * Finds a node that can be the leaseholder. Stable assignments nodes set is the top priority for searching. If there no any candidate
+     * among stable assignments set (e.g. all nodes from stable assignments aren't alive), then the method would search among pending
+     * assignments nodes set. If even pending assignments we couldn't find a candidate, then the method returns {@code null}.
      *
-     * @param stableAssignments Replication group assignment. // TODO
-     * @param pendingAssignments // TODO
-     * @param grpId Group id.
+     * @param stableAssignments Replication group stable assignments set that is the top priority for a candidate selection.
+     * @param pendingAssignments Replication group pending assignments set that is used in case if the method didn't find any candidate
+     *      among stable assignments nodes set.
+     * @param grpId Replication group's identifier of a group for which one the method tries to find a lease candidate.
      * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
@@ -410,30 +413,39 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap = assignmentsTracker.stableAssignments();
-            Set<ReplicationGroupId> stableAssignmentsReplicationGroupIds = tokenizedStableAssignmentsMap.keySet();
-
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap = assignmentsTracker.stableAssignments();
-            Set<ReplicationGroupId> pendingAssignmentsReplicationGroupIds = tokenizedPendingAssignmentsMap.keySet();
 
+            Set<ReplicationGroupId> groupsAmongCurrentStableAndPendingAssignments = union(
+                    tokenizedPendingAssignmentsMap.keySet(),
+                    tokenizedStableAssignmentsMap.keySet()
+            );
 
             // Remove all expired leases that are no longer present in assignments.
             renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
-                    && !stableAssignmentsReplicationGroupIds.contains(e.getKey())
-                    && !pendingAssignmentsReplicationGroupIds.contains(e.getKey())
-            );
+                    && !groupsAmongCurrentStableAndPendingAssignments.contains(e.getKey()));
 
+            //
+            Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> aggregatedStableAndPendingAssignmentsByGroups = new HashMap<>();
+
+            for (ReplicationGroupId grpId : groupsAmongCurrentStableAndPendingAssignments) {
+                Set<Assignment> stables = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedStableAssignmentsMap);
+                Set<Assignment> pendings = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedPendingAssignmentsMap);
+
+                aggregatedStableAndPendingAssignmentsByGroups.put(grpId, new Pair<>(stables, pendings));
+            }
+
+            // Numbers for statistics logging
             int currentStableAssignmentsSize = tokenizedStableAssignmentsMap.size();
+            int currentPendingAssignmentsSize = tokenizedPendingAssignmentsMap.size();
             int activeLeasesCount = 0;
 
-            for (Map.Entry<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> entry :
-                    unionPendingAndStableTokenizedAssignments(
-                            tokenizedPendingAssignmentsMap,
-                            tokenizedStableAssignmentsMap
-                    ).entrySet()) {
+            for (Map.Entry<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> entry
+                    : aggregatedStableAndPendingAssignmentsByGroups.entrySet()
+            ) {
                 ReplicationGroupId grpId = entry.getKey();
 
-                Set<Assignment> pendingAssignments = entry.getValue().getFirst();
-                Set<Assignment> stableAssignments = entry.getValue().getSecond();
+                Set<Assignment> stableAssignments = entry.getValue().getFirst();
+                Set<Assignment> pendingAssignments = entry.getValue().getSecond();
 
                 Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
 
@@ -516,11 +528,12 @@ public class LeaseUpdater {
             if (shouldLogLeaseStatistics()) {
                 LOG.info(
                         "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
-                                + "currentStableAssignmentsSize={}].",
+                                + "currentStableAssignmentsSize={}, currentPendingAssignmentsSize={}].",
                         LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
                         leaseUpdateStatistics,
                         activeLeasesCount,
-                        currentStableAssignmentsSize
+                        currentStableAssignmentsSize,
+                        currentPendingAssignmentsSize
                 );
             }
 
@@ -702,22 +715,6 @@ public class LeaseUpdater {
             }
 
             return result;
-        }
-
-        // TODO!!
-        private Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> unionPendingAndStableTokenizedAssignments(
-                Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap,
-                Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap
-        ) {
-            Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> union = new HashMap<>();
-            for (ReplicationGroupId grpId : union(tokenizedPendingAssignmentsMap.keySet(), tokenizedStableAssignmentsMap.keySet())) {
-                Set<Assignment> pendings = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedPendingAssignmentsMap);
-                Set<Assignment> stables = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedStableAssignmentsMap);
-
-                union.put(grpId, new Pair<>(pendings, stables));
-            }
-
-            return union;
         }
 
         private Set<Assignment> getAssignmentsFromTokenizedAssignmentsMap(
