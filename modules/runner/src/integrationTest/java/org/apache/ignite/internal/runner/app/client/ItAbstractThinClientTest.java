@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -32,10 +33,18 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -227,6 +236,31 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         public String getVal() {
             return val;
+        }
+    }
+
+    static class InfiniteMapReduceTask implements MapReduceTask<Void, Void, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Void, Void>>> splitAsync(TaskExecutionContext taskContext, Void input) {
+            return completedFuture(List.of(
+                    MapReduceJob.<Void, Void>builder()
+                            .jobDescriptor(
+                                    JobDescriptor.builder(InfiniteMapReduceJob.class).build())
+                            .nodes(taskContext.ignite().clusterNodes())
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
+            return completedFuture(null);
+        }
+
+        private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {
+            @Override
+            public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
+                return new CompletableFuture<>();
+            }
         }
     }
 }
