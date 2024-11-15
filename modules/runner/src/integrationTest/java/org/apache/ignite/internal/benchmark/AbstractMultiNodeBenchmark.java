@@ -77,7 +77,7 @@ public class AbstractMultiNodeBenchmark {
 
     @Nullable
     protected String clusterConfiguration() {
-        return null;
+        return "";
     }
 
     /**

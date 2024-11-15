@@ -261,6 +261,16 @@ tasks.register("runUpsertBenchmark", JavaExec) {
     enableAssertions = true
 }
 
+tasks.register("runSelectBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.benchmark.SelectBenchmark"
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
 jar {
     manifest {
         attributes(

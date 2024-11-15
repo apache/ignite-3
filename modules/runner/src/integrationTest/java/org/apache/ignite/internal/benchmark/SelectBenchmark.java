@@ -67,11 +67,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.SECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 30_000;
@@ -81,8 +80,21 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
     private KeyValueView<Tuple, Tuple> keyValueView;
 
-    @Param({"1", "2", "3"})
+    @Param({"1"/*, "2", "3"*/})
     private int clusterSize;
+
+    @Param({"false"/*, "true"*/})
+    private boolean fsync;
+
+    @Param({"false", "true"})
+    private boolean clockOptimisationEnable;
+
+    @Override
+    public void nodeSetUp() throws Exception {
+        System.setProperty("IGNITE_CLOCK_OPTIMISATION_ENABLE", Boolean.toString(clockOptimisationEnable));
+
+        super.nodeSetUp();
+    }
 
     /**
      * Fills the table with data.
@@ -106,7 +118,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for SQL select via embedded client.
      */
-    @Benchmark
+    // @Benchmark
     public void sqlGet(SqlState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             bh.consume(rs.next());
@@ -116,7 +128,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for SQL select via embedded client using internal API.
      */
-    @Benchmark
+    // @Benchmark
     public void sqlGetInternal(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
         Iterator<InternalSqlRow> res = sqlInternalApiState.query(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
 
@@ -126,7 +138,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for SQL script select via embedded client using internal API.
      */
-    @Benchmark
+    // @Benchmark
     public void sqlGetInternalScript(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
         Iterator<InternalSqlRow> res = sqlInternalApiState.script(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
 
@@ -136,7 +148,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for SQL select via thin client.
      */
-    @Benchmark
+    // @Benchmark
     public void sqlThinGet(SqlThinState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             bh.consume(rs.next());
@@ -146,7 +158,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for JDBC get.
      */
-    @Benchmark
+    // @Benchmark
     public void jdbcGet(JdbcState state, Blackhole bh) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         try (ResultSet r = state.stmt.executeQuery()) {
@@ -157,7 +169,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark for JDBC script get.
      */
-    @Benchmark
+    // @Benchmark
     public void jdbcGetScript(JdbcState state, Blackhole bh) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         state.stmt.execute();
@@ -171,7 +183,38 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    public void kvGet(Blackhole bh) {
+    @Threads(2)
+    public void kvGet2(Blackhole bh) {
+        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via embedded client.
+     */
+    @Benchmark
+    @Threads(8)
+    public void kvGet8(Blackhole bh) {
+        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via embedded client.
+     */
+    @Benchmark
+    @Threads(16)
+    public void kvGet16(Blackhole bh) {
+        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via embedded client.
+     */
+    @Benchmark
+    @Threads(32)
+    public void kvGet32(Blackhole bh) {
         Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
         bh.consume(val);
     }
@@ -180,7 +223,38 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via thin client.
      */
     @Benchmark
-    public void kvThinGet(KvThinState kvState, Blackhole bh) {
+    @Threads(2)
+    public void kvThinGet2(KvThinState kvState, Blackhole bh) {
+        Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via thin client.
+     */
+    @Benchmark
+    @Threads(8)
+    public void kvThinGet8(KvThinState kvState, Blackhole bh) {
+        Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via thin client.
+     */
+    @Benchmark
+    @Threads(16)
+    public void kvThinGet16(KvThinState kvState, Blackhole bh) {
+        Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
+    }
+
+    /**
+     * Benchmark for KV get via thin client.
+     */
+    @Benchmark
+    @Threads(32)
+    public void kvThinGet32(KvThinState kvState, Blackhole bh) {
         Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
         bh.consume(val);
     }
