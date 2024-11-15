@@ -155,7 +155,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * @return Map replication group id to its pending assignments.
      */
     Map<ReplicationGroupId, TokenizedAssignments> pendingAssignments() {
-        return groupStableAssignments;
+        return groupPendingAssignments;
     }
 
     private WatchListener createStableAssignmentsListener() {

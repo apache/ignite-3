@@ -413,7 +413,7 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap = assignmentsTracker.stableAssignments();
-            Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap = assignmentsTracker.stableAssignments();
+            Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap = assignmentsTracker.pendingAssignments();
 
             Set<ReplicationGroupId> groupsAmongCurrentStableAndPendingAssignments = union(
                     tokenizedPendingAssignmentsMap.keySet(),
