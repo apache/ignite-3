@@ -399,24 +399,26 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
         var localStatesFut = node0.disasterRecoveryManager().localPartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
         assertThat(localStatesFut, willCompleteSuccessfully());
 
         Map<TablePartitionId, LocalPartitionStateByNode> localStates = localStatesFut.join();
         assertThat(localStates, is(not(anEmptyMap())));
-        assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localStates.values().iterator().next().values().iterator().next().state);
+        LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
+
+        assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
 
         stopNode(1);
         waitForScale(node0, 3);
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.DEGRADED);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
         resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
         awaitPrimaryReplica(node0, partId);
         assertRealAssignments(node0, partId, 0, 2, 3);
@@ -566,7 +568,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertFalse(getPendingAssignments(node0, partId).force());
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
 
@@ -671,7 +673,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 3);
 
         // One of them has the most up to date data, the others fall behind.
-        waitForPartitionState(node0, GlobalPartitionStateEnum.READ_ONLY);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
 
         // Collect nodes that will be the part of the planned assignments.
         // These are the leader and two blocked nodes.
@@ -704,7 +706,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Wait for the new stable assignments to take effect.
         executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
         // Make sure the data is present.
         IntStream.range(0, ENTRIES).forEach(i -> {
@@ -793,7 +795,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 3);
 
         // One of them has the most up to date data, the others fall behind.
-        waitForPartitionState(node0, GlobalPartitionStateEnum.READ_ONLY);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
 
         // Collect nodes that will be the part of the planned assignments.
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(clusterNodeNames);
@@ -827,7 +829,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Wait for the new stable assignments to take effect.
         executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
 
-        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
         // Make sure the data is present.
         IntStream.range(0, ENTRIES).forEach(i -> {
@@ -838,7 +840,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
-    private String getPendingNodeName(List<String> aliveNodes, String blockedNode) {
+    private static String getPendingNodeName(List<String> aliveNodes, String blockedNode) {
         List<String> candidates = new ArrayList<>(aliveNodes);
         candidates.remove(blockedNode);
 
@@ -913,7 +915,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return false;
     }
 
-    private void waitForPartitionState(IgniteImpl node0, GlobalPartitionStateEnum expectedState) throws InterruptedException {
+    private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> statesFuture = node0.disasterRecoveryManager()
                     .globalPartitionStates(Set.of(zoneName), emptySet());
@@ -922,9 +924,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             Map<TablePartitionId, GlobalPartitionState> map = statesFuture.join();
 
-            GlobalPartitionState state = map.values().iterator().next();
+            GlobalPartitionState state = map.get(new TablePartitionId(tableId, partId));
 
-            return state.state == expectedState;
+            return state != null && state.state == expectedState;
         }, 500, 20_000),
                 () -> "Expected state: " + expectedState
                         + ", actual: " + node0.disasterRecoveryManager().globalPartitionStates(Set.of(zoneName), emptySet()).join()
