@@ -179,7 +179,7 @@ public interface PartitionAccess {
      * <p>This method must be called before every rebalance and ends with a call to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalance(AccessPartitionMeta)} - in case of successful completion of rebalance.</li>
+     *     <li>{@link #finishRebalance(RaftSnapshotPartitionMeta)} - in case of successful completion of rebalance.</li>
      * </ul>
      *
      * @return Future of the operation.
@@ -216,7 +216,7 @@ public interface PartitionAccess {
      * @return Future of the operation.
      * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
      */
-    CompletableFuture<Void> finishRebalance(AccessPartitionMeta partitionMeta);
+    CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta);
 
     /**
      * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.

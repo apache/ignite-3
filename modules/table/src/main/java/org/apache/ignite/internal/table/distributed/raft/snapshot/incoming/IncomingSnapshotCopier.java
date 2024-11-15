@@ -60,9 +60,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.AccessPartitionMeta;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -487,7 +487,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     raftGroupConfig
             );
 
-            return partitionSnapshotStorage.partition().finishRebalance(AccessPartitionMeta.fromSnapshotMeta(meta, raftGroupConfig));
+            return partitionSnapshotStorage.partition().finishRebalance(RaftSnapshotPartitionMeta.fromSnapshotMeta(meta, raftGroupConfig));
         } finally {
             busyLock.leaveBusy();
         }

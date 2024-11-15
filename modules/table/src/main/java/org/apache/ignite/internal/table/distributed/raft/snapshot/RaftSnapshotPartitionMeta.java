@@ -27,12 +27,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition metadata for {@link PartitionAccess}.
  */
-public class AccessPartitionMeta extends PrimitivePartitionMeta {
+public class RaftSnapshotPartitionMeta extends PrimitivePartitionMeta {
     private final RaftGroupConfiguration raftGroupConfig;
 
-    /** Constructs an {@link AccessPartitionMeta} from a {@link PartitionSnapshotMeta} . */
-    public static AccessPartitionMeta fromSnapshotMeta(PartitionSnapshotMeta meta, RaftGroupConfiguration raftGroupConfig) {
-        return new AccessPartitionMeta(
+    /** Constructs an {@link RaftSnapshotPartitionMeta} from a {@link PartitionSnapshotMeta} . */
+    public static RaftSnapshotPartitionMeta fromSnapshotMeta(PartitionSnapshotMeta meta, RaftGroupConfiguration raftGroupConfig) {
+        return new RaftSnapshotPartitionMeta(
                 meta.lastIncludedIndex(),
                 meta.lastIncludedTerm(),
                 raftGroupConfig,
@@ -43,7 +43,7 @@ public class AccessPartitionMeta extends PrimitivePartitionMeta {
     }
 
     /** Constructor. */
-    private AccessPartitionMeta(
+    private RaftSnapshotPartitionMeta(
             long lastAppliedIndex,
             long lastAppliedTerm,
             RaftGroupConfiguration raftGroupConfig,

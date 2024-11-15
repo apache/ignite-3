@@ -273,7 +273,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(AccessPartitionMeta partitionMeta) {
+    public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
         TxStateStorage txStateStorage = getTxStateStorage();
 
         byte[] configBytes = raftGroupConfigurationConverter.toBytes(partitionMeta.raftGroupConfig());
