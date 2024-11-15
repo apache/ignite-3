@@ -21,8 +21,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -41,14 +41,14 @@ final class ClientTimeoutWorker {
 
     private @Nullable ScheduledExecutorService executor = null;
 
-    private final Set<TcpClientChannel> channels = new ConcurrentHashMap<TcpClientChannel, Object>().keySet();
+    private final Map<TcpClientChannel, TcpClientChannel> channels = new ConcurrentHashMap<>();
 
     private ClientTimeoutWorker() {
         // No-op.
     }
 
     synchronized void registerClientChannel(TcpClientChannel ch) {
-        channels.add(ch);
+        channels.put(ch, ch);
 
         if (executor == null) {
             executor = createExecutor();
@@ -73,7 +73,7 @@ final class ClientTimeoutWorker {
     private void checkTimeouts() {
         long now = coarseCurrentTimeMillis();
 
-        for (TcpClientChannel ch : channels) {
+        for (TcpClientChannel ch : channels.keySet()) {
             if (ch.closed()) {
                 channels.remove(ch);
             }
