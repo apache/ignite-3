@@ -34,9 +34,13 @@ final class ClientTimeoutWorker {
 
     private static final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
 
+    private static final int emptyCountThreshold = 10;
+
     private @Nullable ScheduledExecutorService executor = null;
 
     private final Map<TcpClientChannel, TcpClientChannel> channels = new ConcurrentHashMap<>();
+
+    private int emptyCount;
 
     private ClientTimeoutWorker() {
         // No-op.
@@ -47,6 +51,7 @@ final class ClientTimeoutWorker {
 
         if (executor == null) {
             executor = createExecutor();
+            emptyCount = 0;
 
             executor.scheduleAtFixedRate(this::checkTimeouts, sleepInterval, sleepInterval, MILLISECONDS);
         }
@@ -54,7 +59,12 @@ final class ClientTimeoutWorker {
 
     private synchronized void shutdownIfEmpty() {
         if (executor != null && channels.isEmpty()) {
-            executor.shutdown();
+            emptyCount++;
+
+            if (emptyCount >= emptyCountThreshold) {
+                executor.shutdown();
+                executor = null;
+            }
         }
     }
 
