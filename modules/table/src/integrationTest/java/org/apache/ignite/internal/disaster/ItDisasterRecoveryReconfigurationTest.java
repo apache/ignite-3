@@ -603,7 +603,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
-    void testThoPhaseReset() throws Exception {
+    void testThoPhaseResetMaxLogIndex() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
@@ -684,7 +684,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                true
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -713,6 +713,140 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             assertEquals(Tuple.create(of("val", i + 20)), fut.join());
         });
+    }
+
+    /**
+     * The test creates a group of 7 nodes, and performs writes in two steps:
+     * <ol>
+     * <li>Write data to all nodes.</li>
+     * <li>Block raft updates on one of the nodes. Write second portion of data to the group.</li>
+     * </ol>
+     *
+     * <p>As a result, we'll have one node having only data(1) and the other 6 nodes having
+     * data(2).
+     * Then we stop 4 nodes with data(2) - effectively the majority of 7 nodes, and call resetPartitions.
+     * The two phase reset should pick the node with the highest raft log index as the single node for the pending assignments.
+     */
+    @Test
+    @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
+    void testThoPhaseResetEqualLogIndex() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        Set<String> clusterNodeNames = Set.of(
+                node(0).name(),
+                node(1).name(),
+                node(2).name(),
+                node(3).name(),
+                node(4).name(),
+                node(5).name(),
+                node(6).name());
+        assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
+
+        // Write data(1) to all seven nodes.
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+
+        // We filter out the leader to be able to reliably block raft state transfer on the other nodes.
+        String leaderName = findLeader(1, partId);
+        logger().info("Raft group leader is [id={}]", leaderName);
+
+        // All the nodes except the leader - 6 nodes.
+        List<String> followerNodes = new ArrayList<>(clusterNodeNames);
+        followerNodes.remove(leaderName);
+
+        // The nodes that we block AppendEntriesRequest to.
+        Set<String> blockedNodes = new HashSet<>();
+
+        // Exclude one of the nodes from data(2).
+        int node0IndexInFollowers = followerNodes.indexOf(node0.name());
+        // Make sure node 0 is not stopped. If node0IndexInFollowers==-1, then node0 is the leader.
+        String blockedNode = followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers);
+        blockedNodes.add(blockedNode);
+        logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
+
+        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, tablePartitionId, blockedNodes));
+
+        // Write data(2) to 6 nodes.
+        errors = insertValues(table, partId, 10);
+        assertThat(errors, is(empty()));
+
+        List<String> nodeNamesToStop = new ArrayList<>(followerNodes);
+        // Make sure there are 4 elements in this list.
+        nodeNamesToStop.remove(0);
+        // Stop them all.
+        int[] nodesToStop = nodeNamesToStop.stream()
+                .mapToInt(this::nodeIndex)
+                .toArray();
+        logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
+        stopNodesInParallel(nodesToStop);
+
+        // Only 3 nodes left.
+        waitForScale(node0, 3);
+
+        // One of them has the most up to date data, the others fall behind.
+        waitForPartitionState(node0, GlobalPartitionStateEnum.READ_ONLY);
+
+        // Collect nodes that will be the part of the planned assignments.
+        List<String> nodesNamesForFinalAssignments = new ArrayList<>(clusterNodeNames);
+        nodesNamesForFinalAssignments.removeAll(nodeNamesToStop);
+
+        // Unblock raft.
+        blockedNodes.clear();
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                false
+        );
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
+
+        // Pending is the one with the most up to date log index.
+        Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
+
+        assertPendingAssignments(node0, partId, assignmentPending);
+
+        Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
+                .map(Assignment::forPeer)
+                .collect(Collectors.toSet());
+
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+
+        assertPlannedAssignments(node0, partId, assignmentsPlanned);
+
+        // Wait for the new stable assignments to take effect.
+        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+
+        waitForPartitionState(node0, GlobalPartitionStateEnum.AVAILABLE);
+
+        // Make sure the data is present.
+        IntStream.range(0, ENTRIES).forEach(i -> {
+            CompletableFuture<Tuple> fut = table.keyValueView().getAsync(null, Tuple.create(of("id", i)));
+            assertThat(fut, willCompleteSuccessfully());
+
+            assertEquals(Tuple.create(of("val", i + 10)), fut.join());
+        });
+    }
+
+    private String getPendingNodeName(List<String> aliveNodes, String blockedNode){
+        List<String> candidates = new ArrayList<>(aliveNodes);
+        candidates.remove(blockedNode);
+
+        // Without the blocking node, the other two should have the same raft log index.
+        // Pick the one with the name
+        candidates.sort(String::compareTo);
+
+        return candidates.get(0);
     }
 
     private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
