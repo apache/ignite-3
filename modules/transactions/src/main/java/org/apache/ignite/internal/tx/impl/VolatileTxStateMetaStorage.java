@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -234,6 +235,11 @@ public class VolatileTxStateMetaStorage {
                             skippedForFurtherProcessingUnfinishedTxnsCount
                     );
                 });
+    }
+
+    /** Returns a mapping of all stored transaction IDs to their state. */
+    Map<UUID, TxStateMeta> statesMap() {
+        return Collections.unmodifiableMap(txStateMap);
     }
 
     private static TxStateMeta markInitialVacuumObservationTimestamp(TxStateMeta meta, long vacuumObservationTimestamp) {

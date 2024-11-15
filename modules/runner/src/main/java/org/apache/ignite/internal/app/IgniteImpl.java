@@ -959,6 +959,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark
         );
 
+        systemViewManager.register((TxManagerImpl) txManager);
+
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
                 resourcesRegistry,
