@@ -143,7 +143,7 @@ public interface PartitionAccess {
     long leaseStartTime();
 
     /**
-     * Return the node id of the known lease for this replication group.
+     * Return the node ID of the known lease for this replication group.
      *
      * @return Primary replica node id or null if there is no information about lease in the storage.
      */
