@@ -171,6 +171,33 @@ public final class CollectionUtils {
         return unmodifiableSet(res);
     }
 
+
+    /**
+     * Logical union on two probably {@code null} or empty sets.
+     *
+     * @param firstSet First operand.
+     * @param secondSet Second operand.
+     * @return Result of the union.
+     */
+    public static <T> Set<T> union(@Nullable Set<T> firstSet, @Nullable Set<T> secondSet) {
+        boolean isFirstSetEmptyOrNull = nullOrEmpty(firstSet);
+        boolean isSecondSetEmptyOrNull = nullOrEmpty(secondSet);
+
+        if (isFirstSetEmptyOrNull && isSecondSetEmptyOrNull) {
+            return new HashSet<>();
+        } else if (isFirstSetEmptyOrNull) {
+            return new HashSet<>(secondSet);
+        } else if (isSecondSetEmptyOrNull) {
+            return new HashSet<>(firstSet);
+        } else {
+            var union = new HashSet<>(firstSet);
+
+            union.addAll(secondSet);
+
+            return union;
+        }
+    }
+
     /**
      * Concatenates collections.
      *

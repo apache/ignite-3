@@ -29,12 +29,14 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
+import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -292,12 +295,29 @@ public class LeaseUpdater {
     /**
      * Finds a node that can be the leaseholder.
      *
-     * @param assignments Replication group assignment.
+     * @param stableAssignments Replication group assignment. // TODO
+     * @param pendingAssignments // TODO
      * @param grpId Group id.
      * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
     private @Nullable ClusterNode nextLeaseHolder(
+            Set<Assignment> stableAssignments,
+            Set<Assignment> pendingAssignments,
+            ReplicationGroupId grpId,
+            @Nullable String proposedConsistentId
+    ) {
+        ClusterNode primaryCandidate =  tryToFindCandidateAmongAssignments(stableAssignments, grpId, proposedConsistentId);
+
+        // If there wasn't a candidate among stable assignments set then make attempt to select a candidate among pending set
+        if (primaryCandidate == null) {
+            primaryCandidate = tryToFindCandidateAmongAssignments(pendingAssignments, grpId, proposedConsistentId);
+        }
+
+        return primaryCandidate;
+    }
+
+    private @Nullable ClusterNode tryToFindCandidateAmongAssignments(
             Set<Assignment> assignments,
             ReplicationGroupId grpId,
             @Nullable String proposedConsistentId
@@ -389,19 +409,31 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            Map<ReplicationGroupId, TokenizedAssignments> currentStableAssignments = assignmentsTracker.stableAssignments();
-            Set<ReplicationGroupId> currentStableAssignmentsReplicationGroupIds = currentStableAssignments.keySet();
+            Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap = assignmentsTracker.stableAssignments();
+            Set<ReplicationGroupId> stableAssignmentsReplicationGroupIds = tokenizedStableAssignmentsMap.keySet();
+
+            Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap = assignmentsTracker.stableAssignments();
+            Set<ReplicationGroupId> pendingAssignmentsReplicationGroupIds = tokenizedPendingAssignmentsMap.keySet();
+
 
             // Remove all expired leases that are no longer present in assignments.
             renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
-                    && !currentStableAssignmentsReplicationGroupIds.contains(e.getKey()));
+                    && !stableAssignmentsReplicationGroupIds.contains(e.getKey())
+                    && !pendingAssignmentsReplicationGroupIds.contains(e.getKey())
+            );
 
-            int currentStableAssignmentsSize = currentStableAssignments.size();
+            int currentStableAssignmentsSize = tokenizedStableAssignmentsMap.size();
             int activeLeasesCount = 0;
 
-            for (Map.Entry<ReplicationGroupId, TokenizedAssignments> entry : currentStableAssignments.entrySet()) {
+            for (Map.Entry<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> entry :
+                    unionPendingAndStableTokenizedAssignments(
+                            tokenizedPendingAssignmentsMap,
+                            tokenizedStableAssignmentsMap
+                    ).entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
-                Set<Assignment> stableAssignments = entry.getValue().nodes();
+
+                Set<Assignment> pendingAssignments = entry.getValue().getFirst();
+                Set<Assignment> stableAssignments = entry.getValue().getSecond();
 
                 Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
 
@@ -412,7 +444,7 @@ public class LeaseUpdater {
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
 
-                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), stableAssignments);
+                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), union(stableAssignments, pendingAssignments));
 
                     if (lease.isProlongable() && agreement.isAccepted()) {
                         Lease negotiatedLease = agreement.getLease();
@@ -431,7 +463,15 @@ public class LeaseUpdater {
                     } else if (!lease.isProlongable() || agreement.isDeclined()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
                         // Also, if the lease was denied, we create the new one.
-                        chooseCandidateAndCreateNewLease(grpId, lease, agreement, stableAssignments, renewedLeases, toBeNegotiated);
+                        chooseCandidateAndCreateNewLease(
+                                grpId,
+                                lease,
+                                agreement,
+                                stableAssignments,
+                                pendingAssignments,
+                                renewedLeases,
+                                toBeNegotiated
+                        );
 
                         continue;
                     }
@@ -443,17 +483,7 @@ public class LeaseUpdater {
                             ? lease.getLeaseholder()
                             : lease.proposedCandidate();
 
-                    ClusterNode candidate = nextLeaseHolder(stableAssignments, grpId, proposedLeaseholder);
-
-                    // If there wasn't a candidate among stable assignments set then make attempt to select a candidate among pending set
-                    if (candidate == null) {
-                        Map<ReplicationGroupId, TokenizedAssignments> pendingMap = assignmentsTracker.pendingAssignments();
-
-                        if (pendingMap.containsKey(grpId)) {
-                            Set<Assignment> pendingAssignments = pendingMap.get(grpId).nodes();
-                            candidate = nextLeaseHolder(pendingAssignments, grpId, proposedLeaseholder);
-                        }
-                    }
+                    ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
 
                     // If we couldn't find a candidate neither stable nor pending assignments set, so update stats and skip iteration
                     if (candidate == null) {
@@ -533,7 +563,8 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId,
                 Lease lease,
                 LeaseAgreement agreement,
-                Set<Assignment> assignments,
+                Set<Assignment> stableAssignments,
+                Set<Assignment> pendingAssignments,
                 Map<ReplicationGroupId, Lease> renewedLeases,
                 Map<ReplicationGroupId, Boolean> toBeNegotiated
         ) {
@@ -547,7 +578,7 @@ public class LeaseUpdater {
                 proposedCandidate = lease.isProlongable() ? lease.getLeaseholder() : lease.proposedCandidate();
             }
 
-            ClusterNode candidate = nextLeaseHolder(assignments, grpId, proposedCandidate);
+            ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
 
             if (candidate == null) {
                 leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -671,6 +702,33 @@ public class LeaseUpdater {
             }
 
             return result;
+        }
+
+        // TODO!!
+        private Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> unionPendingAndStableTokenizedAssignments(
+                Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap,
+                Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap
+        ) {
+            Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> union = new HashMap<>();
+            for (ReplicationGroupId grpId : union(tokenizedPendingAssignmentsMap.keySet(), tokenizedStableAssignmentsMap.keySet())) {
+                Set<Assignment> pendings = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedPendingAssignmentsMap);
+                Set<Assignment> stables = getAssignmentsFromTokenizedAssignmentsMap(grpId, tokenizedStableAssignmentsMap);
+
+                union.put(grpId, new Pair<>(pendings, stables));
+            }
+
+            return union;
+        }
+
+        private Set<Assignment> getAssignmentsFromTokenizedAssignmentsMap(
+                ReplicationGroupId grpId,
+                Map<ReplicationGroupId, TokenizedAssignments> tokenizedAssignmentsMap
+        ) {
+            TokenizedAssignments pendingTokenizedAssignments = tokenizedAssignmentsMap.get(grpId);
+
+            return pendingTokenizedAssignments == null
+                    ? new HashSet<>()
+                    : pendingTokenizedAssignments.nodes();
         }
     }
 
