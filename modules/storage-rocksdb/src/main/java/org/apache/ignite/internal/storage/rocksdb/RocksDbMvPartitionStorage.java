@@ -1125,6 +1125,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void saveLease(AbstractWriteBatch writeBatch, long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        // TODO: IGNITE-23683 - switch to VersionedSerialization.
         try {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             outputStream.write(longToBytes(leaseStartTime));
