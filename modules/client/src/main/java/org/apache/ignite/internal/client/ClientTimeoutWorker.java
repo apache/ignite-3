@@ -17,37 +17,43 @@
 
 package org.apache.ignite.internal.client;
 
-import java.util.ArrayList;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.internal.client.TcpClientChannel.TimeoutObjectImpl;
+import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
-import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 
 final class ClientTimeoutWorker {
-    public static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
+    static final ClientTimeoutWorker INSTANCE = new ClientTimeoutWorker();
 
     private final Set<TcpClientChannel> channels = new ConcurrentHashMap<TcpClientChannel, Object>().keySet();
 
     void registerClientChannel(TcpClientChannel ch) {
-        // TODO: Register channels
-        // Loop in worker body, remove closed channels
+        // TODO: Stop thread when idle.
         channels.add(ch);
     }
 
-    private void body() {
+    private void checkTimeouts() {
+        long now = coarseCurrentTimeMillis();
+
         for (TcpClientChannel ch : channels) {
             if (ch.closed()) {
                 channels.remove(ch);
             }
 
-            for (Entry<Long, TimeoutObject> req : ch.pendingReqs.entrySet()) {
-                // Check timeout.
-                req.getValue().endTime();
+            for (Entry<Long, TimeoutObject<CompletableFuture<ClientMessageUnpacker>>> req : ch.pendingReqs.entrySet()) {
+                TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+
+                if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
+                    // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+                    // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+                    CompletableFuture<?> fut = timeoutObject.future();
+                    fut.completeExceptionally(new TimeoutException());
+                }
             }
         }
     }
