@@ -21,10 +21,9 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
@@ -38,15 +37,10 @@ public class HybridClockImpl implements HybridClock {
     /**
      * Var handle for {@link #latestTime}.
      */
-    private static final VarHandle LATEST_TIME;
-
-    static {
-        try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", long.class);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
+    private static final AtomicLongFieldUpdater<HybridClockImpl> LATEST_TIME = AtomicLongFieldUpdater.newUpdater(
+            HybridClockImpl.class,
+            "latestTime"
+    );
 
     private volatile long latestTime;
 
@@ -76,6 +70,10 @@ public class HybridClockImpl implements HybridClock {
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
+
+            if (oldLatestTime >= now) {
+                return LATEST_TIME.incrementAndGet(this);
+            }
 
             long newLatestTime = max(oldLatestTime + 1, now);
 
@@ -126,13 +124,19 @@ public class HybridClockImpl implements HybridClock {
      */
     @Override
     public HybridTimestamp updateAndGetNow(HybridTimestamp requestTime) {
+        long requestTimeLong = requestTime.longValue();
+
         while (true) {
             long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = this.latestTime;
 
-            long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
+            if (oldLatestTime >= requestTimeLong && oldLatestTime >= now) {
+                return hybridTimestamp(LATEST_TIME.incrementAndGet(this));
+            }
+
+            long newLatestTime = max(requestTimeLong + 1, max(now, oldLatestTime + 1));
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
                 notifyUpdateListeners(newLatestTime);
