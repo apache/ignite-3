@@ -92,7 +92,7 @@ public class DistributionZoneRebalanceEngine {
     public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
 
     /** Special flag to skip rebalance on node recovery for tests. */
-    // TODO: IGNITE-23466 Remove it
+    // TODO: IGNITE-23561 Remove it
     @TestOnly
     public static final String SKIP_REBALANCE_TRIGGERS_RECOVERY = "IGNITE_SKIP_REBALANCE_TRIGGERS_RECOVERY";
 
