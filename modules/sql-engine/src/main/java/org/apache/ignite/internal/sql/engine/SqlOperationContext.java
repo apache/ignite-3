@@ -20,8 +20,11 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.Objects.requireNonNull;
 
 import java.time.ZoneId;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -36,6 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * kick-starting of the statement execution.
  */
 public final class SqlOperationContext {
+    private final Set<String> excludedNodes = ConcurrentHashMap.newKeySet();
+
     private final UUID queryId;
     private final ZoneId timeZoneId;
     private final Object[] parameters;
@@ -144,6 +149,18 @@ public final class SqlOperationContext {
      */
     public HybridTimestamp operationTime() {
         return operationTime;
+    }
+
+    /** Updates the {@link #nodeExclusionFilter()} with given node. */
+    public void excludeNode(String nodeName) {
+        excludedNodes.add(nodeName);
+    }
+
+    /** Returns the predicate to exclude nodes from mapping, or {@code null} if all nodes must be used. */
+    public @Nullable Predicate<String> nodeExclusionFilter() {
+        Set<String> excludedNodes = Set.copyOf(this.excludedNodes);
+
+        return excludedNodes.isEmpty() ? null : excludedNodes::contains;
     }
 
     /**

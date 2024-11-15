@@ -191,7 +191,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Executor for storage operations. */
     private final ExecutorService executor;
 
-    /** Scheduled executor for storage operations. */
+    /**
+     * Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking, long or IO operations.
+     */
     private final ScheduledExecutorService scheduledExecutor;
 
     /** Path to the rocksdb database. */
@@ -285,12 +287,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param dbPath RocksDB path.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
+     *      long or IO operations.
      */
     public RocksDbKeyValueStorage(
             String nodeName,
             Path dbPath,
             FailureManager failureManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            ScheduledExecutorService scheduledExecutor
     ) {
         super(
                 nodeName,
@@ -299,15 +304,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         );
 
         this.dbPath = dbPath;
+        this.scheduledExecutor = scheduledExecutor;
 
         executor = Executors.newFixedThreadPool(
                 2,
                 NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
-        );
-
-        // TODO: IGNITE-23615 Use a common pool, e.g. ThreadPoolsManager#commonScheduler
-        scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-scheduler", log)
         );
     }
 
@@ -497,7 +498,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         flusher.stop();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
         rwLock.writeLock().lock();
         try {

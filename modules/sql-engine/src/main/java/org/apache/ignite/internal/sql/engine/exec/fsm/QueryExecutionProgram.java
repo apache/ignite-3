@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 
 /**
  * Generic execution program, which accepts query string and initialization parameters as input, and returns cursor as result.
@@ -58,11 +60,43 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 TRANSITIONS,
                 phase -> phase == ExecutionPhase.EXECUTING,
                 query -> query.cursor,
-                (query, throwable) -> {
-                    query.onError(throwable);
-
-                    return false;
-                }
+                QueryExecutionProgram::errorHandler
         );
+    }
+
+    static boolean errorHandler(Query query, Throwable th) {
+        if (canRecover(query, th)) {
+            SqlOperationContext context = query.operationContext;
+
+            assert context != null;
+
+            // ensured by canRecover() method
+            assert th instanceof UnknownNodeException : th;
+
+            UnknownNodeException exception = (UnknownNodeException) th;
+
+            context.excludeNode(exception.nodeName());
+
+            return true;
+        }
+
+        query.onError(th);
+
+        return false;
+    }
+
+    @SuppressWarnings("SimplifiableIfStatement")
+    private static boolean canRecover(Query query, Throwable th) {
+        if (query.currentPhase() != ExecutionPhase.CURSOR_INITIALIZATION) {
+            return false;
+        }
+
+        // DataCursor unconditionally rolls back transaction in case of error, therefore it's not possible
+        // to recover any explicit transaction at the moment
+        if (query.txContext.explicitTx() != null) {
+            return false;
+        }
+
+        return th instanceof UnknownNodeException;
     }
 }

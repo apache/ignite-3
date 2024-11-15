@@ -284,7 +284,7 @@ public class QueryExecutor implements LifecycleAware {
         return clockService.now();
     }
 
-    AsyncDataCursor<InternalSqlRow> executePlan(
+    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
             SqlOperationContext ctx,
             QueryPlan plan
     ) {
