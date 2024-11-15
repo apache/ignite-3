@@ -123,15 +123,10 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         assertThreadAllowsToWrite();
 
-        return tableStorage.finishRebalancePartition(partitionId, lastAppliedIndex, lastAppliedTerm, groupConfig);
+        return tableStorage.finishRebalancePartition(partitionId, partitionMeta);
     }
 
     @Override

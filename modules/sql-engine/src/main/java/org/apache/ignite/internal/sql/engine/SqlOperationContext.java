@@ -20,12 +20,15 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.Objects.requireNonNull;
 
 import java.time.ZoneId;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * kick-starting of the statement execution.
  */
 public final class SqlOperationContext {
+    private final Set<String> excludedNodes = ConcurrentHashMap.newKeySet();
+
     private final UUID queryId;
     private final ZoneId timeZoneId;
     private final Object[] parameters;
@@ -45,7 +50,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable PrefetchCallback prefetchCallback;
-    private final @Nullable Consumer<InternalTransaction> txUsedListener;
+    private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
 
     /**
      * Private constructor, used by a builder.
@@ -59,7 +64,7 @@ public final class SqlOperationContext {
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable PrefetchCallback prefetchCallback,
-            @Nullable Consumer<InternalTransaction> txUsedListener
+            @Nullable Consumer<QueryTransactionWrapper> txUsedListener
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -130,7 +135,7 @@ public final class SqlOperationContext {
     /**
      * Notifies context that transaction was used for query execution.
      */
-    public void notifyTxUsed(InternalTransaction tx) {
+    public void notifyTxUsed(QueryTransactionWrapper tx) {
         if (txUsedListener != null) {
             txUsedListener.accept(tx);
         }
@@ -146,6 +151,18 @@ public final class SqlOperationContext {
         return operationTime;
     }
 
+    /** Updates the {@link #nodeExclusionFilter()} with given node. */
+    public void excludeNode(String nodeName) {
+        excludedNodes.add(nodeName);
+    }
+
+    /** Returns the predicate to exclude nodes from mapping, or {@code null} if all nodes must be used. */
+    public @Nullable Predicate<String> nodeExclusionFilter() {
+        Set<String> excludedNodes = Set.copyOf(this.excludedNodes);
+
+        return excludedNodes.isEmpty() ? null : excludedNodes::contains;
+    }
+
     /**
      * Query context builder.
      */
@@ -157,7 +174,7 @@ public final class SqlOperationContext {
         private HybridTimestamp operationTime;
         private @Nullable QueryTransactionContext txContext;
 
-        private @Nullable Consumer<InternalTransaction> txUsedListener;
+        private @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
         private @Nullable PrefetchCallback prefetchCallback;
@@ -202,7 +219,7 @@ public final class SqlOperationContext {
             return this;
         }
 
-        public Builder txUsedListener(Consumer<InternalTransaction> txUsedListener) {
+        public Builder txUsedListener(Consumer<QueryTransactionWrapper> txUsedListener) {
             this.txUsedListener = txUsedListener;
             return this;
         }

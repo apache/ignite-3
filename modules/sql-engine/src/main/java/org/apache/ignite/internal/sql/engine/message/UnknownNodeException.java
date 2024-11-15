@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.fsm;
+package org.apache.ignite.internal.sql.engine.message;
 
-/** No-op handler that causes fsm to stop after current phase. */
-class StopHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new StopHandler();
+/** Thrown by {@link MessageService} when recipient cannot be found in physical topology. */
+public class UnknownNodeException extends RuntimeException {
+    private static final long serialVersionUID = -8242883657846080305L;
 
-    private StopHandler() { }
+    private final String nodeName;
 
-    @Override
-    public Result handle(Query query) {
-        return Result.stop();
+    /** Constructs the object. */ 
+    UnknownNodeException(String nodeName) {
+        super("Unknown node: " + nodeName, null, true, false);
+
+        this.nodeName = nodeName;
+    }
+
+    /** Returns name of the node that cannot be found in physical topology. */
+    public String nodeName() {
+        return nodeName;
     }
 }

@@ -22,13 +22,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -38,7 +41,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -225,7 +227,11 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                 .addColumn("C1", typePair.first())
                 .addColumn("C2", typePair.second())
                 .end()
-                .dataProvider("N1", "T", TestBuilders.tableScan(dataProvider))
+                .defaultAssignmentsProvider(tableName -> (partNum, includeBackups) -> IntStream.range(0, partNum)
+                        .mapToObj(part -> List.of("N1"))
+                        .collect(Collectors.toList())
+                )
+                .defaultDataProvider(tableName -> TestBuilders.tableScan(dataProvider))
                 .build();
 
         return new ClusterWrapper(cluster);
@@ -242,11 +248,11 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
 
         void process(String sql, Matcher<Object> resultMatcher) {
             TestNode gatewayNode = cluster.node("N1");
-            QueryPlan plan = gatewayNode.prepare(sql);
-            ResultSetMetadata resultMeta = plan.metadata();
-            ColumnMetadata colMeta = resultMeta.columns().get(0);
 
-            for (InternalSqlRow row : CursorUtils.getAllFromCursor(gatewayNode.executePlan(plan))) {
+            AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(sql);
+            ColumnMetadata colMeta = cursor.metadata().columns().get(0);
+
+            for (InternalSqlRow row : CursorUtils.getAllFromCursor(cursor)) {
                 assertNotNull(row);
                 assertNotNull(row.get(0), "Await not null object");
                 assertThat(new Pair<>(row.get(0), colMeta), resultMatcher);

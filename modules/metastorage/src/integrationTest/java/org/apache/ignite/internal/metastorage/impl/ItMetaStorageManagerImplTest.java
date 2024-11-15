@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -93,7 +94,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
@@ -113,6 +116,7 @@ import org.mockito.ArgumentCaptor;
  * Integration tests for {@link MetaStorageManagerImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private static final ByteArray FOO_KEY = new ByteArray("foo");
 
@@ -132,6 +136,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -185,7 +192,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 clusterService.nodeName(),
                 metastorageWorkDir.dbPath(),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                scheduledExecutorService
         );
 
         metaStorageManager = new MetaStorageManagerImpl(

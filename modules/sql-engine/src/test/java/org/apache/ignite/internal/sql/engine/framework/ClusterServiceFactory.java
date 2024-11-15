@@ -39,7 +39,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -120,6 +122,22 @@ public class ClusterServiceFactory {
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
+
+            @Override
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                ClusterNode node = nodeByName.remove(nodeName);
+
+                if (node != null) {
+                    messagingServicesByNode.remove(nodeName);
+                    topologyServicesByNode.remove(nodeName);
+
+                    topologyServicesByNode.values().stream()
+                            .flatMap(topSrvc -> topSrvc.getEventHandlers().stream())
+                            .forEach(eventHandler -> eventHandler.onDisappeared(node));
+                }
+
+                return nullCompletedFuture();
+            }
         };
     }
 
@@ -148,6 +166,11 @@ public class ClusterServiceFactory {
 
         private static ClusterNode nodeFromName(String name) {
             return new ClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+        }
+
+        @Override
+        public Collection<TopologyEventHandler> getEventHandlers() {
+            return super.getEventHandlers();
         }
 
         /** {@inheritDoc} */
@@ -205,7 +228,13 @@ public class ClusterServiceFactory {
 
         @Override
         public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
-            for (var handler : messagingServicesByNode.get(recipientConsistentId).messageHandlers(msg.groupType())) {
+            LocalMessagingService recipient = messagingServicesByNode.get(recipientConsistentId);
+
+            if (recipient == null) {
+                return CompletableFuture.failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
+            }
+
+            for (NetworkMessageHandler handler : recipient.messageHandlers(msg.groupType())) {
                 handler.onReceived(msg, localNode, null);
             }
 

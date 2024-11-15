@@ -88,7 +88,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
-import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -312,7 +311,7 @@ public class IgniteImpl implements Ignite {
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
-    private final ComputeComponent computeComponent;
+    private final ComputeComponentImpl computeComponent;
 
     private final CriticalWorkerWatchdog criticalWorkerRegistry;
 
@@ -691,7 +690,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 metastorageWorkDir.dbPath(),
                 failureManager,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                threadPoolsManager.commonScheduler()
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
@@ -959,6 +959,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark
         );
 
+        systemViewManager.register((TxManagerImpl) txManager);
+
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
                 resourcesRegistry,
@@ -1093,6 +1095,8 @@ public class IgniteImpl implements Ignite {
                 new ComputeExecutorImpl(this, stateMachine, computeCfg),
                 computeCfg
         );
+
+        systemViewManager.register(computeComponent);
 
         compute = new IgniteComputeImpl(
                 placementDriverMgr.placementDriver(),
@@ -1272,7 +1276,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             // TODO https://issues.apache.org/jira/browse/IGNITE-22570
-            return lifecycleManager.startComponentsAsync(
+            CompletableFuture<Void> componentsStartFuture = lifecycleManager.startComponentsAsync(
                     componentContext,
                     longJvmPauseDetector,
                     vaultMgr,
@@ -1293,19 +1297,26 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     cmgMgr,
                     lowWatermark
-            ).thenRun(() -> {
-                try {
-                    vaultMgr.putName(name);
+            );
 
-                    clusterSvc.updateMetadata(
-                            new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
-                } catch (Throwable e) {
-                    startupExecutor.shutdownNow();
+            return componentsStartFuture
+                    .thenRunAsync(() -> {
+                        vaultMgr.putName(name);
 
-                    throw handleStartException(e);
-                }
-                LOG.info("Components started");
-            });
+                        clusterSvc.updateMetadata(
+                                new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
+
+                        LOG.info("Components started");
+                    }, startupExecutor)
+                    .handleAsync((v, e) -> {
+                        if (e != null) {
+                            throw handleStartException(e);
+                        }
+
+                        return v;
+                    }, startupExecutor)
+                    // Moving to the common pool on purpose to close the join pool and proceed with user's code in the common pool.
+                    .whenCompleteAsync((res, ex) -> startupExecutor.shutdownNow());
         } catch (Throwable e) {
             startupExecutor.shutdownNow();
 
@@ -1425,7 +1436,7 @@ public class IgniteImpl implements Ignite {
 
                     return (Ignite) this;
                 }, joinExecutor)
-                // Moving to the common pool on purpose to close the join pool and proceed user's code in the common pool.
+                // Moving to the common pool on purpose to close the join pool and proceed with user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> joinExecutor.shutdownNow());
     }
 

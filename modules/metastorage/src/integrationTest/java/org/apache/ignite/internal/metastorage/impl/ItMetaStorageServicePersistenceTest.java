@@ -26,8 +26,10 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -46,15 +48,19 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Persistent (rocksdb-based) meta storage raft group snapshots tests.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnapshotTest<MetaStorageListener> {
     private static final ByteArray FIRST_KEY = ByteArray.fromString("first");
 
@@ -63,6 +69,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     private static final ByteArray SECOND_KEY = ByteArray.fromString("second");
 
     private static final byte[] SECOND_VALUE = "secondValue".getBytes(StandardCharsets.UTF_8);
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private MetaStorageServiceImpl metaStorage;
 
@@ -80,13 +89,11 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) {
         ClusterNode followerNode = getNode(server);
 
-        var clusterTime = new ClusterTimeImpl(followerNode.name(), new IgniteSpinBusyLock(), new HybridClockImpl());
-
         metaStorage = new MetaStorageServiceImpl(
                 followerNode.name(),
                 service,
                 new IgniteSpinBusyLock(),
-                clusterTime,
+                new HybridClockImpl(),
                 followerNode::id
         );
 
@@ -155,7 +162,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
                     name,
                     listenerPersistencePath,
                     new NoOpFailureManager(),
-                    new ReadOperationForCompactionTracker()
+                    new ReadOperationForCompactionTracker(),
+                    scheduledExecutorService
             );
 
             s.start();
@@ -163,7 +171,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        return new MetaStorageListener(storage, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()));
+        HybridClock clock = new HybridClockImpl();
+        return new MetaStorageListener(storage, clock, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock));
     }
 
     @Override

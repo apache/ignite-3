@@ -36,11 +36,7 @@ class ScriptInitializationPhaseHandler implements ExecutionPhaseHandler {
 
         CompletableFuture<Void> awaitFuture = query.executor.createScriptHandler(query)
                 .processNext()
-                .thenAccept(cursor -> {
-                    query.cursor = cursor;
-
-                    query.moveTo(ExecutionPhase.EXECUTING);
-                });
+                .thenAccept(cursor -> query.cursor = cursor);
 
         return Result.proceedAfter(awaitFuture);
     }

@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
@@ -92,7 +93,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -108,6 +111,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for Meta Storage Watches.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
@@ -118,6 +122,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectExecutorService
+    private static ScheduledExecutorService scheduledExecutorService;
 
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
@@ -229,7 +236,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     name(),
                     metastorageWorkDir.dbPath(),
                     new NoOpFailureManager(),
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    scheduledExecutorService
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(

@@ -25,8 +25,6 @@ class RegisteredPhaseHandler implements ExecutionPhaseHandler {
 
     @Override
     public Result handle(Query query) {
-        query.moveTo(ExecutionPhase.PARSING);
-
-        return Result.proceedImmediately();
+        return Result.completed();
     }
 }

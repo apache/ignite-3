@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -53,17 +55,24 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     /**
      * Locks the low watermark at the provided timestamp (prevents it from being updated to a value higher than the provided one).
      *
-     * @param lockId Lock id.
+     * @param lockId ID of the transaction for which the low watermark should be locked.
      * @param ts Timestamp to lock.
      * @return True if the lock was acquired,
      *     false if the lock was not acquired due to the low watermark being higher than the provided timestamp.
      */
-    boolean tryLock(Object lockId, HybridTimestamp ts);
+    boolean tryLock(UUID lockId, HybridTimestamp ts);
 
     /**
-     * Releases the lock created by {@link #tryLock(Object, HybridTimestamp)}.
+     * Releases the lock created by {@link #tryLock(UUID, HybridTimestamp)}.
      *
-     * @param lockId Lock id.
+     * @param lockId ID of the transaction that locks the low watermark.
      */
-    void unlock(Object lockId);
+    void unlock(UUID lockId);
+
+    /**
+     * Returns a set of all transaction IDs that lock the low watermark.
+     *
+     * @return Set of all transaction IDs that lock the low watermark.
+     */
+    Set<UUID> lockIds();
 }
