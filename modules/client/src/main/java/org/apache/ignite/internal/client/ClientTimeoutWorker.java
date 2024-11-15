@@ -22,14 +22,9 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
@@ -78,16 +73,7 @@ final class ClientTimeoutWorker {
                 channels.remove(ch);
             }
 
-            for (Entry<Long, TimeoutObject<CompletableFuture<ClientMessageUnpacker>>> req : ch.pendingReqs.entrySet()) {
-                TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
-
-                if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
-                    // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
-                    // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                    CompletableFuture<?> fut = timeoutObject.future();
-                    fut.completeExceptionally(new TimeoutException());
-                }
-            }
+            ch.checkTimeouts(now);
         }
 
         shutdownIfEmpty();
