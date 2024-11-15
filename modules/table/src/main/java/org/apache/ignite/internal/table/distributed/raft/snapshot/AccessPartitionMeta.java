@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.UUID;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.PrimitivePartitionMeta;
@@ -29,8 +30,20 @@ import org.jetbrains.annotations.Nullable;
 public class AccessPartitionMeta extends PrimitivePartitionMeta {
     private final RaftGroupConfiguration raftGroupConfig;
 
+    /** Constructs an {@link AccessPartitionMeta} from a {@link PartitionSnapshotMeta} . */
+    public static AccessPartitionMeta fromSnapshotMeta(PartitionSnapshotMeta meta, RaftGroupConfiguration raftGroupConfig) {
+        return new AccessPartitionMeta(
+                meta.lastIncludedIndex(),
+                meta.lastIncludedTerm(),
+                raftGroupConfig,
+                meta.leaseStartTime(),
+                meta.primaryReplicaNodeId(),
+                meta.primaryReplicaNodeName()
+        );
+    }
+
     /** Constructor. */
-    public AccessPartitionMeta(
+    private AccessPartitionMeta(
             long lastAppliedIndex,
             long lastAppliedTerm,
             RaftGroupConfiguration raftGroupConfig,

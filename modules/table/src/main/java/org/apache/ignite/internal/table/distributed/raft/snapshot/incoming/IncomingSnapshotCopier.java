@@ -487,16 +487,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     raftGroupConfig
             );
 
-            return partitionSnapshotStorage.partition().finishRebalance(
-                    new AccessPartitionMeta(
-                            meta.lastIncludedIndex(),
-                            meta.lastIncludedTerm(),
-                            raftGroupConfig,
-                            meta.leaseStartTime(),
-                            meta.primaryReplicaNodeId(),
-                            meta.primaryReplicaNodeName()
-                    )
-            );
+            return partitionSnapshotStorage.partition().finishRebalance(AccessPartitionMeta.fromSnapshotMeta(meta, raftGroupConfig));
         } finally {
             busyLock.leaveBusy();
         }
