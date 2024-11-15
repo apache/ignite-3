@@ -838,7 +838,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
-    private String getPendingNodeName(List<String> aliveNodes, String blockedNode){
+    private String getPendingNodeName(List<String> aliveNodes, String blockedNode) {
         List<String> candidates = new ArrayList<>(aliveNodes);
         candidates.remove(blockedNode);
 
