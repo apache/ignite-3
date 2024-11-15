@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import static java.util.Collections.addAll;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
@@ -145,32 +144,6 @@ public final class CollectionUtils {
 
         return it.next();
     }
-
-    /**
-     * Union set and items.
-     *
-     * @param set Set.
-     * @param ts Items.
-     * @param <T> Type of the elements of set and items..
-     * @return Immutable union of set and items.
-     */
-    @SafeVarargs
-    public static <T> Set<T> union(@Nullable Set<T> set, @Nullable T... ts) {
-        if (nullOrEmpty(set)) {
-            return ts == null || ts.length == 0 ? Set.of() : Set.of(ts);
-        }
-
-        if (ts == null || ts.length == 0) {
-            return unmodifiableSet(set);
-        }
-
-        Set<T> res = new HashSet<>(set);
-
-        addAll(res, ts);
-
-        return unmodifiableSet(res);
-    }
-
 
     /**
      * Logical union on two probably {@code null} or empty sets.
