@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
@@ -105,7 +106,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      * @see SnapshotMetaRequest
      */
     @Nullable
-    private volatile SnapshotMeta snapshotMeta;
+    private volatile PartitionSnapshotMeta snapshotMeta;
 
     @Nullable
     private volatile CompletableFuture<Boolean> metadataSufficiencyFuture;
@@ -302,7 +303,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete() {
-        SnapshotMeta meta = snapshotMeta;
+        PartitionSnapshotMeta meta = snapshotMeta;
         assert meta != null;
 
         return isMetadataAvailableFor(meta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());

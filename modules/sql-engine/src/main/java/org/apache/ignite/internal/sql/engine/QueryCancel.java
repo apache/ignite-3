@@ -43,11 +43,7 @@ public class QueryCancel {
 
         state.thenAccept(reason -> clo.cancel(reason == Reason.TIMEOUT));
 
-        if (state.isDone()) {
-            Reason reason = state.join();
-
-            throwException(reason);
-        }
+        throwIfCancelled();
     }
 
     /**
@@ -62,11 +58,7 @@ public class QueryCancel {
     public void attach(QueryCancel another) throws QueryCancelledException {
         state.thenAccept(another.state::complete);
 
-        if (state.isDone()) {
-            Reason reason = state.join();
-
-            throwException(reason);
-        }
+        throwIfCancelled();
     }
 
     /**
@@ -92,7 +84,14 @@ public class QueryCancel {
         return state.isDone();
     }
 
-    private static void throwException(Reason reason) {
+    /** Throws {@link QueryCancelledException} If operation has been already cancelled.*/
+    public void throwIfCancelled() throws QueryCancelledException {
+        if (!state.isDone()) {
+            return;
+        }
+
+        Reason reason = state.join();
+
         throw new QueryCancelledException(
                 reason == Reason.TIMEOUT
                         ? QueryCancelledException.TIMEOUT_MSG

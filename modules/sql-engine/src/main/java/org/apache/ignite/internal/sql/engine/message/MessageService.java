@@ -31,6 +31,9 @@ public interface MessageService extends LifecycleAware {
      *
      * @param nodeName Node consistent ID.
      * @param msg Message.
+     * @return Future which will be completed successfully when message is sent. The future returned may be completed exceptionally with
+     *         {@link UnknownNodeException} when recipient cannot be found by given name, or any other error in case something went
+     *         wrong during sending.
      */
     CompletableFuture<Void> send(String nodeName, NetworkMessage msg);
 

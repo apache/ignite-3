@@ -20,6 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.in;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,7 +109,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         try {
             PLAN = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM t1");
-            PLAN_WITH_SYSTEM_VIEW = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM system.test_view, t1");
+            PLAN_WITH_SYSTEM_VIEW = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM system.test_view");
         } finally {
             try {
                 cluster.stop();
@@ -157,6 +160,36 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void mappingWithNodeFilter() {
+        String localNodeName = "NODE";
+        List<String> nodeNames = List.of("NODE1", "NODE2");
+
+        MappingService service = createMappingService(localNodeName, nodeNames, 100);
+
+        List<MappedFragment> defaultMapping = await(service.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
+
+        assertThat(defaultMapping, hasSize(2));
+
+        MappedFragment leafFragment = defaultMapping.stream()
+                .filter(fragment -> !fragment.fragment().rootFragment())
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(leafFragment.nodes(), hasSize(1));
+
+        String nodeToExclude = leafFragment.nodes().get(0);
+
+        MappingParameters params = MappingParameters.create(new Object[0], false, nodeToExclude::equals);
+        List<MappedFragment> mappingWithExclusion = await(service.map(PLAN_WITH_SYSTEM_VIEW, params));
+
+        assertNotSame(defaultMapping, mappingWithExclusion);
+
+        for (MappedFragment fragment : mappingWithExclusion) {
+            assertThat(nodeToExclude, not(in(fragment.nodes())));
+        }
+    }
+
+    @Test
     public void testCacheInvalidationOnTopologyChange() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -177,7 +210,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
         List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
 
-        verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
+        verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
         verify(execProvider, times(1)).forSystemView(any());
 
         verify(mappingService, times(2)).composeDistributions(anySet(), anySet(), anyBoolean());
@@ -195,7 +228,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // Plan with tables only must not be invalidated on topology change.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
 
-        verify(execProvider, times(3)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
+        verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
         verify(execProvider, times(2)).forSystemView(any());
     }
 
@@ -233,21 +266,19 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 execProvider
         ));
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS));
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
         verify(execProvider, times(1)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
-        verify(execProvider, times(1)).forSystemView(any());
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2")));
-        assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
+        assertSame(mappedFragments, await(mappingService.map(PLAN, PARAMS)));
 
         verify(mappingService, times(1)).composeDistributions(anySet(), anySet(), anyBoolean());
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
         await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
-        assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN, PARAMS)));
         verify(execProvider, times(2)).forTable(any(HybridTimestamp.class), any(IgniteTable.class), anyBoolean());
-        verify(execProvider, times(2)).forSystemView(any());
     }
 
     private MappingServiceImpl createMappingServiceNoCache(String localNodeName, List<String> nodeNames) {

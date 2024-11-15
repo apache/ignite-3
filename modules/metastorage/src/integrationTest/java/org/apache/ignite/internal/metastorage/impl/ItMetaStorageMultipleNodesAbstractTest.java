@@ -120,6 +120,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
         final ClusterService clusterService;
 
+        final HybridClock clock = new HybridClockImpl();
+
         private final Loza raftManager;
 
         private final LogStorageFactory partitionsLogStorageFactory;
@@ -145,8 +147,6 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             this.vaultManager = new VaultManager(new InMemoryVaultService());
 
             Path basePath = dataPath.resolve(name());
-
-            HybridClock clock = new HybridClockImpl();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 

@@ -37,9 +37,7 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
         if (parsedResult != null) {
             query.parsedResult = parsedResult;
 
-            query.moveTo(ExecutionPhase.OPTIMIZING);
-
-            return Result.proceedImmediately();
+            return Result.completed();
         }
 
         CompletableFuture<Void> awaitFuture = new CompletableFuture<>();
@@ -53,7 +51,6 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
                         // the query is script indeed, need different execution path
                         query.parsedScript = results;
 
-                        query.moveTo(ExecutionPhase.SCRIPT_INITIALIZATION);
                         awaitFuture.complete(null);
 
                         return;
@@ -70,7 +67,6 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
 
                 query.parsedResult = result;
 
-                query.moveTo(ExecutionPhase.OPTIMIZING);
                 awaitFuture.complete(null);
             } catch (Throwable th) {
                 awaitFuture.completeExceptionally(th);
