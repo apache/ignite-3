@@ -231,10 +231,12 @@ artifacts {
 
 def updateVersion = tasks.register('updateVersion', Task) {
     description = 'Updates the version of the platforms artifacts'
-    def version = project.projectVersion.toString()
-    updateCMakeVersion(version)
-    updateDotnetVersion(version)
-    updatePythonVersion(version)
+    doLast {
+        def version = project.projectVersion.toString()
+        updateCMakeVersion(version)
+        updateDotnetVersion(version)
+        updatePythonVersion(version)
+    }
 }
 
 private void updateCMakeVersion(String version) {
